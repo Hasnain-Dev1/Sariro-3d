@@ -1,0 +1,168 @@
+'use client';
+
+import { motion, useScroll, useTransform } from 'framer-motion';
+import { useRef } from 'react';
+import { Check, Star, ArrowRight, Sparkles } from 'lucide-react';
+import { PRICING_TIERS } from '@/lib/sariro-data';
+import { SplitText3D, MagneticButton, TiltCard3D } from './scroll-effects';
+
+const ACCENT_MAP: Record<string, { text: string; bg: string; soft: string; border: string; gradient: string }> = {
+  blue:   { text: 'text-blue-700',   bg: 'bg-blue-600',   soft: 'bg-blue-50',   border: 'border-blue-200',   gradient: 'from-blue-600 to-blue-800' },
+  green:  { text: 'text-green-700',  bg: 'bg-green-600',  soft: 'bg-green-50',  border: 'border-green-200',  gradient: 'from-green-600 to-green-800' },
+  violet: { text: 'text-violet-700', bg: 'bg-violet-600', soft: 'bg-violet-50', border: 'border-violet-200', gradient: 'from-violet-600 to-violet-800' },
+};
+
+export default function Pricing3D() {
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ['start end', 'end start'],
+  });
+  const headerY = useTransform(scrollYProgress, [0, 1], [50, -50]);
+  // Parallax background orbs
+  const orb1Y = useTransform(scrollYProgress, [0, 1], [120, -120]);
+  const orb2Y = useTransform(scrollYProgress, [0, 1], [-80, 80]);
+
+  return (
+    <section id="pricing" ref={sectionRef} data-chapter="pricing" data-chapter-label="Pricing" className="relative py-24 sm:py-32 overflow-hidden bg-gradient-to-b from-white to-slate-50">
+      {/* Parallax decorative orbs */}
+      <motion.div
+        style={{ y: orb1Y }}
+        className="absolute top-20 left-10 w-80 h-80 rounded-full bg-blue-400/10 blur-3xl pointer-events-none"
+      />
+      <motion.div
+        style={{ y: orb2Y }}
+        className="absolute bottom-20 right-10 w-96 h-96 rounded-full bg-violet-400/10 blur-3xl pointer-events-none"
+      />
+
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <motion.div
+          style={{ y: headerY }}
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="text-center max-w-3xl mx-auto mb-14"
+        >
+          <span className="text-xs font-bold uppercase tracking-[0.2em] text-blue-600 mb-4 block" style={{ fontFamily: 'var(--font-grotesk)' }}>
+            — Simple, honest pricing —
+          </span>
+          <h2 className="text-4xl sm:text-5xl font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
+            <SplitText3D text="One price." highlight="price." highlightClassName="gradient-text" />
+            <br />
+            <SplitText3D text="No surprises." highlight="surprises." highlightClassName="gradient-text" delay={0.3} />
+          </h2>
+          <p className="mt-5 text-lg text-slate-600">
+            Every tier includes lifetime access to course recordings, the Sariro community, and a real portfolio project reviewed by a senior builder. 14-day money-back guarantee, no questions asked.
+          </p>
+        </motion.div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-stretch">
+          {PRICING_TIERS.map((tier, i) => {
+            const a = ACCENT_MAP[tier.accent] ?? ACCENT_MAP.blue;
+            return (
+              <motion.div
+                key={tier.id}
+                initial={{ opacity: 0, y: 50, rotateY: -8 }}
+                whileInView={{ opacity: 1, y: 0, rotateY: 0 }}
+                viewport={{ once: true, margin: '-60px' }}
+                transition={{ duration: 0.7, delay: i * 0.12 }}
+                className={`relative ${tier.popular ? 'lg:-mt-6 lg:mb-6' : ''}`}
+                style={{
+                  transformStyle: 'preserve-3d',
+                  perspective: '1000px',
+                  transform: tier.popular ? 'translateZ(30px) scale(1.05)' : 'translateZ(0px)',
+                }}
+              >
+                {tier.popular && (
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
+                    <div className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-gradient-to-r from-blue-600 to-violet-600 text-white text-xs font-bold shadow-lg shadow-blue-500/40" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                      <Star className="w-3.5 h-3.5 fill-current" />
+                      Most popular
+                    </div>
+                  </div>
+                )}
+
+                <TiltCard3D
+                  className={`card-3d h-full ${tier.popular ? 'ring-2 ring-blue-500 shadow-2xl shadow-blue-500/20' : ''}`}
+                  maxTilt={tier.popular ? 6 : 10}
+                >
+                  <div className="p-8 h-full flex flex-col">
+                    {/* Tier name */}
+                    <div className="mb-2" style={{ transform: 'translateZ(30px)' }}>
+                      <h3 className={`text-2xl font-extrabold ${a.text}`} style={{ fontFamily: 'var(--font-jakarta)' }}>
+                        {tier.name}
+                      </h3>
+                      <p className="text-sm text-slate-600 mt-1">{tier.tagline}</p>
+                    </div>
+
+                    {/* Price */}
+                    <div className="my-6 py-4 border-y border-slate-100" style={{ transform: 'translateZ(20px)' }}>
+                      {tier.price === null ? (
+                        <div className="text-4xl font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
+                          Custom
+                        </div>
+                      ) : (
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-5xl font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
+                            ${tier.price}
+                          </span>
+                          <span className="text-sm font-semibold text-slate-500">/ {tier.period}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Features */}
+                    <ul className="space-y-3 mb-8 flex-1" style={{ transform: 'translateZ(15px)' }}>
+                      {tier.features.map((f) => (
+                        <li key={f} className="flex items-start gap-2.5 text-sm text-slate-700">
+                          <span className={`flex-shrink-0 mt-0.5 w-5 h-5 rounded-md ${a.bg} flex items-center justify-center`}>
+                            <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
+                          </span>
+                          <span className="font-medium">{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    {/* CTA */}
+                    <MagneticButton
+                      strength={0.15}
+                      className={`btn-tactile w-full justify-center px-5 py-3.5 text-sm ${
+                        tier.popular ? 'btn-tactile-primary' :
+                        tier.id === 'school-pro' ? 'btn-tactile-deep' :
+                        'btn-tactile-light'
+                      }`}
+                    >
+                      {tier.cta}
+                      <ArrowRight className="w-4 h-4" />
+                    </MagneticButton>
+                  </div>
+                </TiltCard3D>
+              </motion.div>
+            );
+          })}
+        </div>
+
+        {/* Trust footer */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="mt-12 flex flex-wrap items-center justify-center gap-6 text-sm text-slate-600"
+        >
+          <span className="inline-flex items-center gap-2 font-semibold">
+            <Sparkles className="w-4 h-4 text-blue-600" />
+            14-day money-back guarantee
+          </span>
+          <span className="inline-flex items-center gap-2 font-semibold">
+            <Check className="w-4 h-4 text-green-600" />
+            No hidden fees
+          </span>
+          <span className="inline-flex items-center gap-2 font-semibold">
+            <Check className="w-4 h-4 text-violet-600" />
+            Lifetime community access
+          </span>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
