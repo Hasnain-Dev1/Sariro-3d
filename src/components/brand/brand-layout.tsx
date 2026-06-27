@@ -32,6 +32,8 @@ const NAV_ITEMS = [
   { href: '/events', label: 'Events' },
   { href: '/pricing', label: 'Pricing' },
   { href: '/about', label: 'About' },
+  { href: '/story', label: 'Story' },
+  { href: '/faq', label: 'FAQ' },
   { href: '/resources', label: 'Resources' },
   { href: '/contact', label: 'Contact' },
 ];
@@ -334,8 +336,12 @@ function BrandFooter() {
             <h4 className="text-sm font-bold uppercase tracking-wider text-white mb-4" style={{ fontFamily: 'var(--font-grotesk)' }}>
               Connect
             </h4>
-            <p className="text-sm text-slate-400 mb-2">{BRAND.email}</p>
-            <p className="text-sm text-slate-400">{BRAND.location}</p>
+            <a href={`mailto:${BRAND.emails.contact}`} className="block text-sm text-slate-400 hover:text-white transition-colors mb-1">contact@sariro.com</a>
+            <a href={`mailto:${BRAND.emails.support}`} className="block text-sm text-slate-400 hover:text-white transition-colors mb-1">support@sariro.com</a>
+            <a href={`mailto:${BRAND.emails.hr}`} className="block text-sm text-slate-400 hover:text-white transition-colors mb-1">hr@sariro.com</a>
+            <a href={`mailto:${BRAND.emails.founder}`} className="block text-sm text-slate-400 hover:text-white transition-colors mb-1">founder@sariro.com</a>
+            <a href={`mailto:${BRAND.emails.dev}`} className="block text-sm text-slate-400 hover:text-white transition-colors mb-1">dev@sariro.com</a>
+            <p className="text-sm text-slate-400 mt-2">{BRAND.location}</p>
           </div>
         </div>
 

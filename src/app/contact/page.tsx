@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
@@ -15,6 +15,9 @@ import {
   CheckCircle2,
   ArrowRight,
   Globe,
+  LifeBuoy,
+  UserPlus,
+  Code2,
 } from 'lucide-react';
 import BrandLayout from '@/components/brand/brand-layout';
 import PageHero from '@/components/brand/page-hero';
@@ -45,46 +48,67 @@ import {
 } from '@/components/brand/effects-kit';
 import { BRAND } from '@/lib/sariro-data';
 
-/* Contact info cards (right column) */
+/* Contact info cards (right column) — all 5 email channels */
 const INFO_CARDS = [
   {
     icon: Mail,
-    title: 'Email us',
-    value: BRAND.email,
-    sub: 'Best for course & partnership questions.',
+    title: 'General',
+    value: BRAND.emails.contact,
+    sub: 'Course & partnership questions.',
     accent: '#16A34A',
-    href: `mailto:${BRAND.email}`,
+    href: `mailto:${BRAND.emails.contact}`,
   },
   {
-    icon: Clock,
-    title: 'Response time',
-    value: 'Within 24 hours',
-    sub: 'Mon–Fri. Weekends are for building.',
+    icon: LifeBuoy,
+    title: 'Support',
+    value: BRAND.emails.support,
+    sub: 'Technical help, access issues, refunds.',
     accent: '#2563EB',
+    href: `mailto:${BRAND.emails.support}`,
+  },
+  {
+    icon: UserPlus,
+    title: 'Careers / HR',
+    value: BRAND.emails.hr,
+    sub: 'Join the team, partnerships, hiring.',
+    accent: '#7C3AED',
+    href: `mailto:${BRAND.emails.hr}`,
+  },
+  {
+    icon: Sparkles,
+    title: 'Talk to Mimo',
+    value: BRAND.emails.founder,
+    sub: 'Direct line to the founder.',
+    accent: '#F59E0B',
+    href: `mailto:${BRAND.emails.founder}`,
+  },
+  {
+    icon: Code2,
+    title: 'Dev / Tech',
+    value: BRAND.emails.dev,
+    sub: 'Platform bugs, integrations, API.',
+    accent: '#06B6D4',
+    href: `mailto:${BRAND.emails.dev}`,
   },
   {
     icon: CalendarClock,
     title: 'Office hours',
-    value: '9am – 6pm PT',
-    sub: 'Async-friendly. We reply across timezones.',
-    accent: '#7C3AED',
-  },
-  {
-    icon: MapPin,
-    title: 'Where we are',
-    value: 'San Francisco · Remote-first',
-    sub: 'Worldwide. We\'ve taught in 65 countries.',
-    accent: '#F59E0B',
+    value: '9am – 6pm UTC',
+    sub: 'India-friendly. We reply within 24 hours.',
+    accent: '#EC4899',
   },
 ];
 
 const SUBJECTS = [
-  { value: 'general', label: 'General question' },
-  { value: 'course', label: 'Course enrollment' },
-  { value: 'school', label: 'School / district partnership' },
-  { value: 'scholarship', label: 'Scholarship request' },
-  { value: 'press', label: 'Press / media' },
-  { value: 'other', label: 'Something else' },
+  { value: 'general', label: 'General question', email: BRAND.emails.contact },
+  { value: 'course', label: 'Course enrollment', email: BRAND.emails.contact },
+  { value: 'school', label: 'School / district partnership', email: BRAND.emails.contact },
+  { value: 'support', label: 'Technical support', email: BRAND.emails.support },
+  { value: 'scholarship', label: 'Scholarship request', email: BRAND.emails.contact },
+  { value: 'careers', label: 'Careers / hiring', email: BRAND.emails.hr },
+  { value: 'dev', label: 'Developer / API', email: BRAND.emails.dev },
+  { value: 'founder', label: 'Direct to Mimo', email: BRAND.emails.founder },
+  { value: 'other', label: 'Something else', email: BRAND.emails.contact },
 ];
 
 export default function ContactPage() {
@@ -97,6 +121,11 @@ export default function ContactPage() {
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
 
+  // SEO: set document title client-side (since this is a client component)
+  useEffect(() => {
+    document.title = 'Contact — Sariro | Get in Touch';
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.email || !form.subject || !form.message) {
@@ -108,13 +137,19 @@ export default function ContactPage() {
       return;
     }
     setSubmitting(true);
-    // Simulate async send (no backend required for this demo)
+    // Find the correct email based on subject
+    const subjectData = SUBJECTS.find((s) => s.value === form.subject);
+    const targetEmail = subjectData?.email || BRAND.emails.contact;
+    // Simulate async send
     await new Promise((r) => setTimeout(r, 900));
     setSubmitting(false);
     setSent(true);
     toast.success('Message sent!', {
-      description: `Thanks ${form.name.split(' ')[0]} — we'll reply within 24 hours.`,
+      description: `Thanks ${form.name.split(' ')[0]} — we'll reply within 24 hours to ${targetEmail}.`,
     });
+    // Also open mailto as a fallback so the query actually reaches the right inbox
+    const mailtoUrl = `mailto:${targetEmail}?subject=${encodeURIComponent(`[Sariro] ${subjectData?.label || form.subject}`)}&body=${encodeURIComponent(`Name: ${form.name}\nEmail: ${form.email}\n\n${form.message}`)}`;
+    window.open(mailtoUrl, '_blank');
     setForm({ name: '', email: '', subject: '', message: '' });
   };
 

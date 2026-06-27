@@ -9,9 +9,17 @@ export const BRAND = {
   tagline: "Teaching the future. We teach thinking, not just coding.",
   mission:
     "We don't just teach you to write code. We teach you to think — to break problems apart, to reason about systems, and to build the future with confidence.",
-  email: "hello@sariro.ai",
+  email: "contact@sariro.com",
+  emails: {
+    contact: "contact@sariro.com",
+    support: "support@sariro.com",
+    hr: "hr@sariro.com",
+    founder: "founder@sariro.com",
+    dev: "dev@sariro.com",
+  },
   phone: "+1 (415) 555-0142",
-  location: "San Francisco · Remote-first · Worldwide",
+  location: "Remote-first · Worldwide",
+  timezone: "UTC (India-friendly)",
 };
 
 export const NAV_LINKS = [

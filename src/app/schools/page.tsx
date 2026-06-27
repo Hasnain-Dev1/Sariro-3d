@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import {
   ArrowRight,
@@ -142,6 +143,11 @@ const SCHOOL_OUTCOMES = [
 ];
 
 export default function SchoolsPage() {
+  // SEO: set document title client-side (since this is a client component)
+  useEffect(() => {
+    document.title = 'Schools — Sariro | Bring AI to Your Campus';
+  }, []);
+
   return (
     <BrandLayout>
       <PageHero

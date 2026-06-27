@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
@@ -76,6 +77,11 @@ const COMPARISON: { label: string; values: (boolean | string)[] }[] = [
 ];
 
 export default function PricingPage() {
+  // SEO: set document title client-side (since this is a client component)
+  useEffect(() => {
+    document.title = 'Pricing — Sariro | Simple, Honest, No Surprises';
+  }, []);
+
   return (
     <BrandLayout>
       <PageHero
@@ -457,7 +463,7 @@ export default function PricingPage() {
             {[
               {
                 q: 'Do you offer scholarships?',
-                a: 'Yes. We reserve 15% of every cohort for needs-based scholarships. Email hello@sariro.ai with a one-paragraph note about your situation.',
+                a: 'Yes. We reserve 15% of every cohort for needs-based scholarships. Email contact@sariro.com with a one-paragraph note about your situation.',
               },
               {
                 q: 'Can my employer pay for this?',

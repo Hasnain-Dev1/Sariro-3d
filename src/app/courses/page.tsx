@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
@@ -47,6 +47,11 @@ const FILTERS: { key: FilterKey; label: string; count: number }[] = [
 
 export default function CoursesPage() {
   const [filter, setFilter] = useState<FilterKey>('All');
+
+  // SEO: set document title client-side (since this is a client component)
+  useEffect(() => {
+    document.title = 'Courses — Sariro | AI Cohort-Based Learning';
+  }, []);
 
   const visible =
     filter === 'All' ? COURSES : COURSES.filter((c) => c.audience === filter);
@@ -150,12 +155,18 @@ export default function CoursesPage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
                 >
-                  <FlipCard3D
-                    height="420px"
-                    className="h-[420px]"
-                    front={<CourseFront course={course} accent={accent} />}
-                    back={<CourseBack course={course} accent={accent} />}
-                  />
+                  <Link
+                    href={`/courses/${course.id}`}
+                    className="block group/card focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50 rounded-[1.25rem]"
+                    aria-label={`View details for ${course.title}`}
+                  >
+                    <FlipCard3D
+                      height="420px"
+                      className="h-[420px]"
+                      front={<CourseFront course={course} accent={accent} />}
+                      back={<CourseBack course={course} accent={accent} />}
+                    />
+                  </Link>
                 </motion.div>
               );
             })}
@@ -435,14 +446,13 @@ function CourseBack({
                 ${course.price}
               </div>
             </div>
-            <Link
-              href="/contact"
-              className="px-4 py-2 rounded-xl bg-white text-slate-900 text-xs font-bold flex items-center gap-1.5 hover:bg-white/90 transition-colors"
+            <span
+              className="px-4 py-2 rounded-xl bg-white text-slate-900 text-xs font-bold flex items-center gap-1.5 group-hover/card:bg-white/90 transition-colors"
               style={{ fontFamily: 'var(--font-grotesk)' }}
             >
-              Enroll
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
+              View details
+              <ArrowRight className="w-3.5 h-3.5 group-hover/card:translate-x-0.5 transition-transform" />
+            </span>
           </div>
         </div>
       </div>

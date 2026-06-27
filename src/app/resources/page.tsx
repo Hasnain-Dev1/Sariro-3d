@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -162,6 +162,11 @@ export default function ResourcesPage() {
   const [filter, setFilter] = useState<FilterKey>('All');
   const [email, setEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
+
+  // SEO: set document title client-side (since this is a client component)
+  useEffect(() => {
+    document.title = 'Resources — Sariro | Free AI Learning Materials';
+  }, []);
 
   const visible =
     filter === 'All' ? RESOURCES : RESOURCES.filter((r) => r.type === filter);

@@ -19,7 +19,7 @@ export type PageHeroProps = {
   subtitle: string;
   accentColor?: string;
   breadcrumb: string;
-  variant?: 'courses' | 'schools' | 'events' | 'pricing' | 'about' | 'resources' | 'contact';
+  variant?: 'courses' | 'schools' | 'events' | 'pricing' | 'about' | 'resources' | 'contact' | 'story';
   children?: ReactNode;
 };
 
