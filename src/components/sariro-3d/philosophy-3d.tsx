@@ -42,7 +42,7 @@ export default function Philosophy3D() {
                   {/* Portrait */}
                   <div className="relative w-full aspect-square rounded-2xl overflow-hidden shadow-2xl ring-4 ring-white">
                     <Image
-                      src="/images/mimo-portrait.webp"
+                      src="/images/mimo-portrait.png"
                       alt={`${MIMO.name} — ${MIMO.title}`}
                       fill
                       className="object-cover"
