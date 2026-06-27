@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { Brain, Hammer, Heart, Users } from 'lucide-react';
 import { MIMO } from '@/lib/sariro-data';
 import { SplitText3D } from './scroll-effects';
-import { RotatingCube3D } from './kit-3d';
+import { FloatingStatsCluster } from '@/components/brand/floating-stats-cluster';
 
 const ICON_MAP = [Brain, Hammer, Heart, Users];
 const ACCENT_STYLES = [
@@ -23,7 +23,7 @@ export default function Philosophy3D() {
     offset: ['start end', 'end start'],
   });
   const portraitY = useTransform(scrollYProgress, [0, 1], [50, -50]);
-  const portraitRotate = useTransform(scrollYProgress, [0, 1], [4, -4]);
+  // Removed rotate — was causing the text to look tilted. Keep it straight.
 
   return (
     <section ref={ref} data-chapter="philosophy" data-chapter-label="Mimo" className="relative py-24 sm:py-32 overflow-hidden bg-white">
@@ -32,7 +32,7 @@ export default function Philosophy3D() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-start">
           {/* Left: Portrait + 3D Cube */}
           <motion.div
-            style={{ y: portraitY, rotate: portraitRotate }}
+            style={{ y: portraitY }}
             className="lg:col-span-5 lg:sticky lg:top-28"
           >
             <div className="card-3d p-8" style={{ transformStyle: 'preserve-3d', perspective: '1000px' }}>
@@ -75,61 +75,19 @@ export default function Philosophy3D() {
                   <div className="absolute -top-2 -left-2 w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 shadow-lg" />
                 </div>
 
-                {/* 3D Rotating Cube — stats explorer */}
+                {/* Floating Stats Cluster — replaces old cube */}
                 <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-slate-400 mb-4 text-center" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                  ✦ Drag the cube to explore ✦
+                  ✦ Hover to explore the stats ✦
                 </p>
 
-                <RotatingCube3D
-                  size={180}
-                  autoRotate
-                  rotateSpeed={10}
-                  faces={[
-                    // Face 1: MP initials
-                    <div key="face1" className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-600 to-violet-700 text-white">
-                      <div className="text-center">
-                        <div className="text-5xl font-extrabold" style={{ fontFamily: 'var(--font-jakarta)' }}>MP</div>
-                        <div className="text-[9px] font-bold uppercase tracking-[0.25em] mt-2 opacity-90" style={{ fontFamily: 'var(--font-grotesk)' }}>Founder</div>
-                      </div>
-                    </div>,
-                    // Face 2: 12+ years
-                    <div key="face2" className="w-full h-full flex items-center justify-center bg-gradient-to-br from-green-600 to-emerald-700 text-white">
-                      <div className="text-center">
-                        <div className="text-5xl font-extrabold" style={{ fontFamily: 'var(--font-jakarta)' }}>12+</div>
-                        <div className="text-[9px] font-bold uppercase tracking-wider mt-2 opacity-90" style={{ fontFamily: 'var(--font-grotesk)' }}>Years teaching</div>
-                      </div>
-                    </div>,
-                    // Face 3: 5K+ students
-                    <div key="face3" className="w-full h-full flex items-center justify-center bg-gradient-to-br from-violet-600 to-purple-700 text-white">
-                      <div className="text-center">
-                        <div className="text-5xl font-extrabold" style={{ fontFamily: 'var(--font-jakarta)' }}>5K+</div>
-                        <div className="text-[9px] font-bold uppercase tracking-wider mt-2 opacity-90" style={{ fontFamily: 'var(--font-grotesk)' }}>Students mentored</div>
-                      </div>
-                    </div>,
-                    // Face 4: 36 papers
-                    <div key="face4" className="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-600 to-orange-700 text-white">
-                      <div className="text-center">
-                        <div className="text-5xl font-extrabold" style={{ fontFamily: 'var(--font-jakarta)' }}>36</div>
-                        <div className="text-[9px] font-bold uppercase tracking-wider mt-2 opacity-90" style={{ fontFamily: 'var(--font-grotesk)' }}>Papers published</div>
-                      </div>
-                    </div>,
-                    // Face 5: 7 patents
-                    <div key="face5" className="w-full h-full flex items-center justify-center bg-gradient-to-br from-cyan-600 to-blue-700 text-white">
-                      <div className="text-center">
-                        <div className="text-5xl font-extrabold" style={{ fontFamily: 'var(--font-jakarta)' }}>7</div>
-                        <div className="text-[9px] font-bold uppercase tracking-wider mt-2 opacity-90" style={{ fontFamily: 'var(--font-grotesk)' }}>Patents filed</div>
-                      </div>
-                    </div>,
-                    // Face 6: Sariro logo
-                    <div key="face6" className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900 text-white p-4">
-                      <Image
-                        src="/images/sariro-logo.svg"
-                        alt="Sariro"
-                        width={80}
-                        height={80}
-                        className="object-contain opacity-90"
-                      />
-                    </div>,
+                <FloatingStatsCluster
+                  size={200}
+                  stats={[
+                    { value: '12+', label: 'Years', color: '#16A34A' },
+                    { value: '5K+', label: 'Students', color: '#7C3AED' },
+                    { value: '36', label: 'Papers', color: '#F59E0B' },
+                    { value: '7', label: 'Patents', color: '#06B6D4' },
+                    { value: '65+', label: 'Countries', color: '#2563EB' },
                   ]}
                 />
 

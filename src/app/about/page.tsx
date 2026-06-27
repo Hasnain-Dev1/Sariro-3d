@@ -14,13 +14,11 @@ import {
   Quote,
   Linkedin,
   Twitter,
-  GraduationCap,
-  Award,
-  FileText,
 } from 'lucide-react';
 import BrandLayout from '@/components/brand/brand-layout';
 import PageHero from '@/components/brand/page-hero';
-import { RotatingCube3D, WaveDivider3D } from '@/components/sariro-3d/kit-3d';
+import { WaveDivider3D } from '@/components/sariro-3d/kit-3d';
+import { FloatingStatsCluster } from '@/components/brand/floating-stats-cluster';
 import {
   Reveal,
   StaggerGroup,
@@ -36,17 +34,6 @@ import { MIMO, BRAND } from '@/lib/sariro-data';
 
 /* Principle icon map */
 const PRINCIPLE_ICONS = [Brain, Target, Lightbulb, Heart];
-
-/* Cube faces — exactly 6 faces for the RotatingCube3D component.
-   Each shows one of Mimo's stats (4) plus 2 brand-identity faces. */
-const CUBE_FACES = [
-  { value: 12, suffix: '+', label: 'Years teaching', icon: GraduationCap, accent: '#F59E0B', isCount: true },
-  { value: 5000, suffix: '+', label: 'Students mentored', icon: Heart, accent: '#2563EB', isCount: true },
-  { value: 36, suffix: '', label: 'Papers published', icon: FileText, accent: '#7C3AED', isCount: true },
-  { value: 7, suffix: '', label: 'Patents filed', icon: Award, accent: '#16A34A', isCount: true },
-  { value: 'SARIRO', label: 'Founder & Lead Educator', icon: Sparkles, accent: '#0F172A', isLogo: true },
-  { value: '∞', label: 'Curiosity required', icon: Brain, accent: '#06B6D4' },
-];
 
 /* Stat strip values (numbers for CountUp) */
 const MIMO_NUMBERS = MIMO.numbers.map((n) => {
@@ -210,7 +197,7 @@ export default function AboutPage() {
                 ))}
               </div>
 
-              {/* The cube */}
+              {/* Floating Stats Cluster — replaces old cube */}
               <div className="flex flex-col items-center pt-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Sparkles className="w-4 h-4 text-amber-500" />
@@ -218,16 +205,18 @@ export default function AboutPage() {
                     className="text-xs font-bold uppercase tracking-wider text-slate-500"
                     style={{ fontFamily: 'var(--font-grotesk)' }}
                   >
-                    Drag the cube · 6 faces of Mimo
+                    Hover to explore the stats
                   </span>
                 </div>
-                <RotatingCube3D
-                  faces={CUBE_FACES.map((face, idx) => (
-                    <CubeFace key={idx} face={face} />
-                  ))}
+                <FloatingStatsCluster
                   size={220}
-                  autoRotate
-                  rotateSpeed={12}
+                  stats={[
+                    { value: '12+', label: 'Years', color: '#16A34A' },
+                    { value: '5K+', label: 'Students', color: '#7C3AED' },
+                    { value: '36', label: 'Papers', color: '#F59E0B' },
+                    { value: '7', label: 'Patents', color: '#06B6D4' },
+                    { value: '65+', label: 'Countries', color: '#2563EB' },
+                  ]}
                 />
               </div>
             </Reveal>
@@ -313,24 +302,6 @@ export default function AboutPage() {
 
       <WaveDivider3D fromColor="#F8FAFC" toColor="#FFFFFF" />
 
-      {/* ====== Sticky quote ====== */}
-      <StickyScrollSection pinHeight="150vh">
-        <div className="text-center max-w-3xl px-4">
-          <Quote className="w-12 h-12 text-amber-400 mx-auto mb-6" />
-          <h2
-            className="text-2xl sm:text-3xl font-bold text-white leading-snug max-w-3xl mx-auto"
-            style={{ fontFamily: 'var(--font-jakarta)' }}
-          >
-            <SplitText text="Anyone can copy a tutorial. We teach you to think — to break problems apart, to ask the right questions. The typing comes naturally after." />
-          </h2>
-          <Reveal delay={0.3}>
-            <div className="mt-6 text-amber-300 text-sm font-bold uppercase tracking-wider" style={{ fontFamily: 'var(--font-grotesk)' }}>
-              — {MIMO.name}
-            </div>
-          </Reveal>
-        </div>
-      </StickyScrollSection>
-
       {/* ====== Quote pull (dark card) ====== */}
       <section className="relative py-16 sm:py-20 overflow-hidden">
         <ParallaxOrb color="rgba(245, 158, 11, 0.12)" size={400} speed={100} position="top-10 left-10" />
@@ -396,54 +367,4 @@ export default function AboutPage() {
   );
 }
 
-/* --------------------------------------------------------------- */
-/* Cube face — one stat panel                                       */
-/* --------------------------------------------------------------- */
-function CubeFace({
-  face,
-}: {
-  face: (typeof CUBE_FACES)[number];
-}) {
-  if ('isLogo' in face && face.isLogo) {
-    return (
-      <div
-        className="w-full h-full flex flex-col items-center justify-center rounded-xl text-white"
-        style={{
-          background: `linear-gradient(135deg, ${face.accent} 0%, #2563EB 100%)`,
-        }}
-      >
-        <face.icon className="w-10 h-10 mb-2" strokeWidth={2.4} />
-        <div
-          className="text-2xl font-extrabold tracking-tight"
-          style={{ fontFamily: 'var(--font-jakarta)' }}
-        >
-          {face.value}
-        </div>
-        <div className="text-[9px] uppercase tracking-wider opacity-80 mt-1" style={{ fontFamily: 'var(--font-grotesk)' }}>
-          {face.label}
-        </div>
-      </div>
-    );
-  }
 
-  return (
-    <div
-      className="w-full h-full flex flex-col items-center justify-center rounded-xl bg-white"
-      style={{ border: `2px solid ${face.accent}30` }}
-    >
-      <face.icon className="w-8 h-8 mb-1" style={{ color: face.accent }} strokeWidth={2.4} />
-      <div
-        className="text-4xl font-extrabold"
-        style={{ color: face.accent, fontFamily: 'var(--font-jakarta)' }}
-      >
-        {face.value}
-      </div>
-      <div
-        className="text-[9px] uppercase tracking-wider text-slate-500 mt-1 text-center px-2"
-        style={{ fontFamily: 'var(--font-grotesk)' }}
-      >
-        {face.label}
-      </div>
-    </div>
-  );
-}

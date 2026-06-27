@@ -148,25 +148,40 @@ function PricingScene({ color }: { color: string }) {
   );
 }
 
-/* ---------- ABOUT variant: rotating cube wireframe ---------- */
+/* ---------- ABOUT variant: glowing AI orb with orbiting ring + nodes ---------- */
 function AboutScene({ color }: { color: string }) {
-  const cubeRef = useRef<THREE.Mesh>(null);
+  const orbRef = useRef<THREE.Mesh>(null);
+  const ringRef = useRef<THREE.Mesh>(null);
   useFrame((state, delta) => {
-    if (!cubeRef.current) return;
-    cubeRef.current.rotation.x += delta * 0.3;
-    cubeRef.current.rotation.y += delta * 0.4;
+    if (!orbRef.current) return;
+    orbRef.current.rotation.y += delta * 0.3;
+    if (ringRef.current) {
+      ringRef.current.rotation.z += delta * 0.4;
+      ringRef.current.rotation.x = Math.PI / 3;
+    }
   });
   return (
     <group>
-      <mesh ref={cubeRef}>
-        <boxGeometry args={[1.5, 1.5, 1.5]} />
-        <meshStandardMaterial color={color} wireframe transparent opacity={0.6} />
+      {/* Central glowing orb */}
+      <mesh ref={orbRef}>
+        <icosahedronGeometry args={[0.6, 3]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.4} metalness={0.7} roughness={0.2} />
       </mesh>
-      {/* Inner solid cube */}
-      <mesh>
-        <boxGeometry args={[0.6, 0.6, 0.6]} />
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.3} metalness={0.5} roughness={0.3} />
+      {/* Orbiting ring */}
+      <mesh ref={ringRef}>
+        <torusGeometry args={[1.2, 0.03, 8, 64]} />
+        <meshBasicMaterial color={color} transparent opacity={0.5} />
       </mesh>
+      {/* Small orbiting nodes */}
+      {[0, 1, 2, 3, 4].map((i) => {
+        const angle = (i / 5) * Math.PI * 2;
+        return (
+          <mesh key={i} position={[Math.cos(angle) * 1.5, Math.sin(angle * 2) * 0.4, Math.sin(angle) * 1.5]}>
+            <sphereGeometry args={[0.08, 12, 12]} />
+            <meshStandardMaterial color={i % 2 === 0 ? color : '#7C3AED'} emissive={i % 2 === 0 ? color : '#7C3AED'} emissiveIntensity={0.5} />
+          </mesh>
+        );
+      })}
     </group>
   );
 }

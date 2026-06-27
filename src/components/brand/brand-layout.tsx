@@ -11,6 +11,7 @@ import { CompanionOrb3D, BackgroundParticles3D } from '@/components/sariro-3d/pe
 import ChapterNav, { ScrollHueShift } from '@/components/sariro-3d/chapter-nav';
 import SmoothScrollProvider from '@/components/sariro-3d/smooth-scroll-provider';
 import CinematicIntro from '@/components/brand/cinematic-intro';
+import MobileScrollTop from '@/components/brand/mobile-scroll-top';
 
 /* ===============================================================
    BRAND LAYOUT — Used on EVERY page for consistent brand identity.
@@ -80,11 +81,11 @@ function BrandNavbar() {
         <div
           className={`mx-auto max-w-7xl mt-3 transition-all duration-300 ${
             scrolled
-              ? 'glass-panel rounded-2xl px-3 sm:px-6 py-3 shadow-xl'
-              : 'bg-transparent px-1 sm:px-2 py-4'
+              ? 'glass-panel rounded-2xl px-5 sm:px-6 py-3 shadow-xl'
+              : 'bg-transparent px-3 sm:px-2 py-4'
           }`}
         >
-          <div className="flex items-center justify-between gap-3 sm:gap-6">
+          <div className="flex items-center justify-between gap-2 sm:gap-6 pr-1">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2 sm:gap-2.5 group flex-shrink-0">
               <div className="relative">
@@ -127,14 +128,29 @@ function BrandNavbar() {
               })}
             </nav>
 
-            {/* Desktop CTA */}
-            <Link
-              href="/courses"
-              className="hidden lg:inline-flex btn-tactile btn-tactile-primary px-5 py-2.5 text-sm"
-            >
-              <Sparkles className="w-4 h-4" />
-              Start Learning
-            </Link>
+            {/* Desktop CTA — full button on md+ */}
+            <div className="hidden md:block">
+              <Link
+                href="/courses"
+                className="btn-tactile btn-tactile-primary px-5 py-2.5 text-sm"
+              >
+                <Sparkles className="w-4 h-4" />
+                Start Learning
+              </Link>
+            </div>
+
+            {/* Mobile CTA — compact pill with icon + "Start" text */}
+            <div className="md:hidden">
+              <Link
+                href="/courses"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-br from-blue-600 to-violet-600 text-white text-xs font-bold shadow-lg shadow-blue-500/30 active:scale-95 transition-transform cursor-pointer flex-shrink-0"
+                style={{ minHeight: '40px', fontFamily: 'var(--font-grotesk)' }}
+                aria-label="Start Learning"
+              >
+                <Sparkles className="w-4 h-4 flex-shrink-0" />
+                Start
+              </Link>
+            </div>
 
             {/* Mobile toggle — properly sized touch target, fully visible */}
             <button
@@ -361,6 +377,7 @@ export default function BrandLayout({ children }: { children: ReactNode }) {
       <ScrollHueShift />
       <ChapterNav />
       <CompanionOrb3D />
+      <MobileScrollTop />
       <ScrollProgressBar />
       <NeuralMotifBg />
       <BrandNavbar />

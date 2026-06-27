@@ -24,7 +24,6 @@ import {
   TiltCard,
   MagneticButton,
   SplitText,
-  CountUp,
   ParallaxOrb,
   StickyScrollSection,
 } from '@/components/brand/effects-kit';
@@ -103,9 +102,9 @@ export default function CoursesPage() {
               </Reveal>
             </div>
 
-            {/* Filter pills */}
+            {/* Filter pills — wraps on mobile, inline on desktop */}
             <div
-              className="inline-flex p-1.5 rounded-2xl glass-panel gap-1 self-start md:self-auto"
+              className="flex flex-wrap p-1.5 rounded-2xl glass-panel gap-1 self-start md:self-auto"
               role="tablist"
               aria-label="Filter courses by audience"
             >
@@ -117,20 +116,15 @@ export default function CoursesPage() {
                     onClick={() => setFilter(f.key)}
                     role="tab"
                     aria-selected={active}
-                    className={`relative px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                      active ? 'text-white' : 'text-slate-700 hover:text-blue-600'
+                    className={`relative px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-colors duration-200 flex-1 sm:flex-initial justify-center ${
+                      active
+                        ? 'text-white bg-gradient-to-r from-blue-600 to-violet-600 shadow-lg shadow-blue-500/30'
+                        : 'text-slate-700 hover:text-blue-600'
                     }`}
                     style={{ fontFamily: 'var(--font-grotesk)' }}
                   >
-                    {active && (
-                      <motion.span
-                        layoutId="course-filter-pill"
-                        className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 shadow-lg shadow-blue-500/30"
-                        transition={{ type: 'spring', stiffness: 320, damping: 28 }}
-                      />
-                    )}
-                    <span className="relative flex items-center gap-2">
-                      {f.label}
+                    <span className="relative flex items-center gap-1.5 sm:gap-2 justify-center">
+                      <span className="whitespace-nowrap">{f.label}</span>
                       <span
                         className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
                           active ? 'bg-white/20' : 'bg-slate-100 text-slate-500'
@@ -145,25 +139,27 @@ export default function CoursesPage() {
             </div>
           </div>
 
-          {/* Catalog grid */}
-          <StaggerGroup
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-            stagger={0.1}
-          >
-            {visible.map((course) => {
+          {/* Catalog grid — simple grid, no remount on filter change */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {visible.map((course, i) => {
               const accent = ACCENT_HEX[course.accent] ?? '#2563EB';
               return (
-                <StaggerItem key={course.id}>
+                <motion.div
+                  key={course.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
+                >
                   <FlipCard3D
                     height="420px"
                     className="h-[420px]"
                     front={<CourseFront course={course} accent={accent} />}
                     back={<CourseBack course={course} accent={accent} />}
                   />
-                </StaggerItem>
+                </motion.div>
               );
             })}
-          </StaggerGroup>
+          </div>
 
           {/* Empty state (shouldn't happen, but be safe) */}
           {visible.length === 0 && (
@@ -353,7 +349,7 @@ function CourseFront({
                 className="text-2xl font-extrabold"
                 style={{ color: accent, fontFamily: 'var(--font-jakarta)' }}
               >
-                $<CountUp value={course.price} duration={1.5} />
+                ${course.price}
               </span>
               <span className="text-xs text-slate-500">USD</span>
             </div>
@@ -436,7 +432,7 @@ function CourseBack({
                 Investment
               </div>
               <div className="text-2xl font-extrabold" style={{ fontFamily: 'var(--font-jakarta)' }}>
-                $<CountUp value={course.price} duration={1.5} />
+                ${course.price}
               </div>
             </div>
             <Link

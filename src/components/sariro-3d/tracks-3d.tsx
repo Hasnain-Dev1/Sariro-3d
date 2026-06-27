@@ -90,7 +90,7 @@ export default function Tracks3D() {
     offset: ['start end', 'end start'],
   });
   const headerY = useTransform(scrollYProgress, [0, 1], [60, -60]);
-  const headerRotate = useTransform(scrollYProgress, [0, 1], [3, -3]);
+  // Removed headerRotate — was causing the "Three paths" text to tilt. Keep it straight.
 
   return (
     <section id="tracks" ref={sectionRef} data-chapter="tracks" data-chapter-label="Tracks" className="relative py-24 sm:py-32 overflow-hidden">
@@ -108,7 +108,7 @@ export default function Tracks3D() {
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <motion.div
-          style={{ y: headerY, rotate: headerRotate }}
+          style={{ y: headerY }}
           className="text-center max-w-3xl mx-auto mb-16"
         >
           <motion.span

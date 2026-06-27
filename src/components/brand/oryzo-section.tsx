@@ -186,12 +186,17 @@ function PinnedTextBlock({
       style={{ opacity, y, scale, filter }}
       className="absolute inset-0 flex items-center justify-center px-4"
     >
-      <div className="max-w-2xl text-center">
+      {/* Backdrop for readability — subtle dark gradient behind text */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{ background: 'radial-gradient(ellipse 60% 50% at center, rgba(0,0,0,0.5) 0%, transparent 70%)' }}
+      />
+      <div className="relative max-w-2xl text-center">
         {/* Number + Icon */}
         <div className="flex items-center justify-center gap-3 mb-6">
           <span
-            className="text-7xl sm:text-8xl font-extrabold leading-none opacity-20"
-            style={{ fontFamily: 'var(--font-jakarta)', color: data.color }}
+            className="text-7xl sm:text-8xl font-extrabold leading-none opacity-30"
+            style={{ fontFamily: 'var(--font-jakarta)', color: data.color, textShadow: `0 0 40px ${data.color}80` }}
           >
             {data.num}
           </span>
@@ -203,13 +208,19 @@ function PinnedTextBlock({
           </div>
         </div>
 
-        {/* Title */}
-        <h3 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white mb-5" style={{ fontFamily: 'var(--font-jakarta)' }}>
+        {/* Title — with text shadow for readability over 3D */}
+        <h3
+          className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white mb-5"
+          style={{ fontFamily: 'var(--font-jakarta)', textShadow: '0 2px 20px rgba(0,0,0,0.8), 0 0 40px rgba(0,0,0,0.5)' }}
+        >
           {data.title}
         </h3>
 
-        {/* Body */}
-        <p className="text-lg sm:text-xl text-slate-300 leading-relaxed max-w-xl mx-auto">
+        {/* Body — brighter + text shadow for readability */}
+        <p
+          className="text-lg sm:text-xl text-white leading-relaxed max-w-xl mx-auto"
+          style={{ textShadow: '0 1px 12px rgba(0,0,0,0.8)' }}
+        >
           {data.body}
         </p>
       </div>
