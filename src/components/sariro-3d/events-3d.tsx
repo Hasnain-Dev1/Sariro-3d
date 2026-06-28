@@ -1,203 +1,112 @@
 'use client';
 
 import { motion, useScroll, useTransform, useSpring, MotionValue } from 'framer-motion';
-import { useRef } from 'react';
-import { Calendar, MapPin, ArrowRight, Sparkles } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Calendar, MapPin, ArrowRight, Sparkles, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { EVENTS } from '@/lib/sariro-data';
 import { SplitText3D, MagneticButton } from './scroll-effects';
 
-const ACCENT_MAP: Record<string, { text: string; bg: string; soft: string; border: string; glow: string }> = {
-  blue:   { text: 'text-blue-400',   bg: 'bg-blue-600',   soft: 'bg-blue-500/15',   border: 'border-blue-400/30',   glow: 'rgba(37, 99, 235, 0.5)' },
-  green:  { text: 'text-green-400',  bg: 'bg-green-600',  soft: 'bg-green-500/15',  border: 'border-green-400/30',  glow: 'rgba(22, 163, 74, 0.5)' },
-  violet: { text: 'text-violet-400', bg: 'bg-violet-600', soft: 'bg-violet-500/15', border: 'border-violet-400/30', glow: 'rgba(124, 58, 237, 0.5)' },
+const ACCENT_MAP: Record<string, { text: string; bg: string; soft: string; border: string; glow: string; gradient: string }> = {
+  blue:   { text: 'text-blue-400',   bg: 'bg-blue-600',   soft: 'bg-blue-500/15',   border: 'border-blue-400/30',   glow: 'rgba(37, 99, 235, 0.5)',   gradient: 'from-blue-600 to-blue-800' },
+  green:  { text: 'text-green-400',  bg: 'bg-green-600',  soft: 'bg-green-500/15',  border: 'border-green-400/30',  glow: 'rgba(22, 163, 74, 0.5)',  gradient: 'from-green-600 to-green-800' },
+  violet: { text: 'text-violet-400', bg: 'bg-violet-600', soft: 'bg-violet-500/15', border: 'border-violet-400/30', glow: 'rgba(124, 58, 237, 0.5)', gradient: 'from-violet-600 to-violet-800' },
 };
 
-/* Single stacking card — extracted so hooks stay at top level */
-function EventStackCard({
-  event,
-  index,
-  count,
-  progress,
-}: {
-  event: typeof EVENTS[number];
-  index: number;
-  count: number;
-  progress: MotionValue<number>;
-}) {
+/* ---------- Event Card (used in both desktop + mobile) ---------- */
+function EventCard({ event, index }: { event: typeof EVENTS[number]; index: number }) {
   const a = ACCENT_MAP[event.accent] ?? ACCENT_MAP.blue;
-  const isLast = index === count - 1;
-  const isStart = index === 0;
-
-  // Each card occupies a slice of the scroll progress
-  // Card 0: 0 → 1/3, Card 1: 1/3 → 2/3, Card 2: 2/3 → 1
-  const sliceStart = index / count;
-  const sliceEnd = (index + 1) / count;
-  const mid = (sliceStart + sliceEnd) / 2;
-
-  // SMOOTH swap: card enters from below, holds in middle, exits up
-  // Using wider transitions for smoother, slower feel
-  const y = useTransform(
-    progress,
-    [sliceStart - 0.05, sliceStart, mid, sliceEnd, sliceEnd + 0.05],
-    ['90vh', '0vh', '0vh', '0vh', isLast ? '0vh' : '-90vh']
-  );
-  const opacity = useTransform(
-    progress,
-    [sliceStart - 0.05, sliceStart, mid, sliceEnd, sliceEnd + 0.05],
-    [0, 1, 1, 1, isLast ? 1 : 0]
-  );
-  const scale = useTransform(
-    progress,
-    [sliceStart, mid, sliceEnd],
-    [0.95, 1, isLast ? 1 : 0.95]
-  );
-  const rotateZ = useTransform(
-    progress,
-    [sliceStart, mid, sliceEnd],
-    [index % 2 === 0 ? -1.5 : 1.5, 0, isLast ? 0 : index % 2 === 0 ? 1.5 : -1.5]
-  );
 
   return (
     <motion.div
-      style={{ y, scale, opacity, rotateZ, zIndex: index + 1, position: 'absolute', width: '100%', maxWidth: '48rem' }}
-      className="px-4"
+      initial={{ opacity: 0, y: 30, rotateX: -8 }}
+      animate={{ opacity: 1, y: 0, rotateX: 0 }}
+      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      whileTap={{ scale: 0.97 }}
+      className="w-full"
     >
-      <div
-        className="relative glass-dark rounded-3xl p-8 sm:p-12 border border-white/10 overflow-hidden"
-        style={{ transformStyle: 'preserve-3d' }}
-      >
-        <div
-          className="absolute -top-20 -right-20 w-72 h-72 rounded-full blur-3xl opacity-40 pointer-events-none"
+      <div className="relative glass-dark rounded-3xl p-6 sm:p-8 border border-white/10 overflow-hidden group">
+        {/* Glow */}
+        <motion.div
+          animate={{ opacity: [0.3, 0.6, 0.3], scale: [1, 1.1, 1] }}
+          transition={{ duration: 3, repeat: Infinity, delay: index * 0.5 }}
+          className="absolute -top-16 -right-16 w-48 h-48 rounded-full blur-3xl pointer-events-none"
           style={{ background: a.glow }}
         />
+        {/* Number */}
+        <div className="absolute top-4 right-4 text-5xl font-extrabold opacity-10 select-none" style={{ fontFamily: 'var(--font-jakarta)', color: a.glow }}>
+          {String(index + 1).padStart(2, '0')}
+        </div>
 
-        <div className="relative grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-          {/* Left: meta */}
-          <div>
-            <div className="flex items-center gap-3 mb-5">
-              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${a.soft} ${a.text} border ${a.border}`} style={{ fontFamily: 'var(--font-grotesk)' }}>
-                {event.type}
-              </span>
-              <span className="text-xs font-bold text-slate-300">{event.price}</span>
-            </div>
-
-            <h3 className="text-3xl sm:text-4xl font-extrabold text-white mb-3 leading-tight" style={{ fontFamily: 'var(--font-jakarta)' }}>
-              {event.title}
-            </h3>
-            <p className="text-base text-slate-300 mb-6 leading-relaxed">{event.description}</p>
-
-            <div className="space-y-2.5 mb-7">
-              <div className="flex items-center gap-2 text-sm text-slate-300">
-                <Calendar className="w-4 h-4 text-blue-400" />
-                {event.date}
-              </div>
-              <div className="flex items-center gap-2 text-sm text-slate-300">
-                <MapPin className="w-4 h-4 text-green-400" />
-                {event.location} · {event.format}
-              </div>
-            </div>
-
-            <MagneticButton
-              strength={0.2}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white"
-            >
-              <span className={`flex-shrink-0 w-2 h-2 rounded-full ${a.bg}`} />
-              Reserve spot
-              <ArrowRight className="w-4 h-4" />
-            </MagneticButton>
+        <div className="relative">
+          {/* Type + Price */}
+          <div className="flex items-center justify-between mb-5">
+            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold ${a.soft} ${a.text} border ${a.border}`} style={{ fontFamily: 'var(--font-grotesk)' }}>
+              {event.type}
+            </span>
+            <span className="text-sm font-bold text-slate-300">{event.price}</span>
           </div>
 
-          {/* Right: big number + ghost icon */}
-          <div className="relative h-48 md:h-64 flex items-center justify-center">
-            <div
-              className="absolute text-[14rem] sm:text-[18rem] font-extrabold leading-none opacity-10 select-none"
-              style={{ fontFamily: 'var(--font-jakarta)', color: a.glow }}
-            >
-              {String(index + 1).padStart(2, '0')}
+          {/* Title */}
+          <h3 className="text-xl sm:text-2xl font-extrabold text-white mb-2 leading-tight" style={{ fontFamily: 'var(--font-jakarta)' }}>
+            {event.title}
+          </h3>
+          <p className="text-sm text-slate-300 mb-5 leading-relaxed">{event.description}</p>
+
+          {/* Meta */}
+          <div className="space-y-2 mb-5 pt-4 border-t border-white/10">
+            <div className="flex items-center gap-2 text-xs text-slate-300">
+              <Calendar className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+              {event.date}
             </div>
-            <div
-              className={`relative w-24 h-24 rounded-3xl ${a.bg} flex items-center justify-center shadow-2xl`}
-              style={{ boxShadow: `0 25px 60px -20px ${a.glow}` }}
-            >
-              <Sparkles className="w-12 h-12 text-white" strokeWidth={2} />
+            <div className="flex items-center gap-2 text-xs text-slate-300">
+              <MapPin className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
+              {event.location} · {event.format}
             </div>
           </div>
+
+          {/* CTA */}
+          <button className={`inline-flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r ${a.gradient} shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all cursor-pointer`}>
+            Reserve spot
+            <ArrowRight className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </motion.div>
   );
 }
 
-/* Progress indicator — extracted to respect hooks rules */
-function EventProgressDot({
-  index,
-  count,
-  progress,
-}: {
-  index: number;
-  count: number;
-  progress: MotionValue<number>;
-}) {
-  const sliceStart = index / count;
-  const sliceEnd = (index + 1) / count;
-  const mid = (sliceStart + sliceEnd) / 2;
-  const scale = useTransform(progress, [sliceStart, mid, sliceEnd], [0.5, 1, 0.5]);
-  const opacity = useTransform(progress, [sliceStart, mid, sliceEnd], [0.4, 1, 0.4]);
-
-  return (
-    <motion.div
-      style={{ scale, opacity }}
-      className="w-2 h-2 rounded-full bg-white"
-    />
-  );
-}
-
 export default function Events3D() {
-  const sectionRef = useRef<HTMLDivElement>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
   const headerRef = useRef<HTMLDivElement>(null);
 
-  // Header parallax
-  const { scrollYProgress: headerProgress } = useScroll({
-    target: headerRef,
-    offset: ['start end', 'end start'],
-  });
+  const { scrollYProgress: headerProgress } = useScroll({ target: headerRef, offset: ['start end', 'end start'] });
   const headerY = useTransform(headerProgress, [0, 1], [40, -40]);
-
-  // Pinned stack progress
-  const { scrollYProgress } = useScroll({
-    target: sectionRef,
-    offset: ['start start', 'end end'],
-  });
-
-  // SMOOTH INERTIA — heavier spring for slower, more deliberate motion
-  // This makes the cards GLIDE instead of snap
-  const stackProgress = useSpring(scrollYProgress, {
-    stiffness: 60,      // lower = slower response
-    damping: 20,        // lower = more glide/overshoot
-    mass: 0.8,          // higher = heavier feel
-    restDelta: 0.0005,
-  });
 
   const count = EVENTS.length;
 
+  const next = () => setActiveIndex((v) => (v + 1) % count);
+  const prev = () => setActiveIndex((v) => (v - 1 + count) % count);
+  const goTo = (i: number) => setActiveIndex(i);
+
+  // Touch / swipe
+  const touchStartX = useRef(0);
+  const handleTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; };
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    if (Math.abs(dx) > 50) { if (dx > 0) prev(); else next(); }
+  };
+
   return (
-    <section id="events" data-chapter="events" data-chapter-label="Events" className="relative bg-slate-950/95 text-white">
+    <section id="events" data-chapter="events" data-chapter-label="Events" className="relative bg-slate-950/95 text-white overflow-hidden">
       {/* Background */}
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-950 via-slate-900 to-violet-950" />
-        <div className="absolute inset-0 opacity-30" style={{
-          backgroundImage: 'radial-gradient(circle at 20% 30%, rgba(37, 99, 235, 0.4) 0%, transparent 50%), radial-gradient(circle at 80% 70%, rgba(124, 58, 237, 0.4) 0%, transparent 50%)'
-        }} />
-        <div className="absolute inset-0" style={{
-          backgroundImage: 'linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)',
-          backgroundSize: '48px 48px',
-          maskImage: 'radial-gradient(ellipse at center, black 30%, transparent 80%)',
-          WebkitMaskImage: 'radial-gradient(ellipse at center, black 30%, transparent 80%)'
-        }} />
+        <div className="absolute inset-0 opacity-30" style={{ backgroundImage: 'radial-gradient(circle at 20% 30%, rgba(37, 99, 235, 0.4) 0%, transparent 50%), radial-gradient(circle at 80% 70%, rgba(124, 58, 237, 0.4) 0%, transparent 50%)' }} />
+        <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)', backgroundSize: '48px 48px', maskImage: 'radial-gradient(ellipse at center, black 30%, transparent 80%)', WebkitMaskImage: 'radial-gradient(ellipse at center, black 30%, transparent 80%)' }} />
       </div>
 
       {/* Header */}
-      <div ref={headerRef} className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 sm:pt-32 pb-12">
+      <div ref={headerRef} className="relative max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 pt-24 sm:pt-32 pb-8">
         <motion.div style={{ y: headerY }} className="max-w-3xl">
           <span className="text-xs font-bold uppercase tracking-[0.2em] text-blue-400 mb-4 block" style={{ fontFamily: 'var(--font-grotesk)' }}>
             — Upcoming events —
@@ -207,56 +116,84 @@ export default function Events3D() {
             <br />
             <SplitText3D text="Meet your people." highlight="people." highlightClassName="bg-gradient-to-r from-violet-400 to-green-400 bg-clip-text text-transparent" delay={0.3} />
           </h2>
-          <p className="mt-5 text-lg text-slate-300">
-            Cohorts, hackathons, and live workshops. Scroll to step through each one — every event is designed to leave you with something real.
+          <p className="mt-5 text-base sm:text-lg text-slate-300">
+            Cohorts, hackathons, and live workshops. Use the arrows or swipe to browse — every event is designed to leave you with something real.
           </p>
         </motion.div>
       </div>
 
-      {/* Pinned stacking section — taller = slower scroll */}
+      {/* Event carousel — arrow + swipe driven, NO scroll-pin */}
       <div
-        ref={sectionRef}
-        className="relative"
-        style={{ height: `${count * 120}vh` }}
+        className="relative pb-20"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
       >
-        <div className="sticky top-0 h-screen flex items-center justify-center overflow-hidden">
+        <div className="relative max-w-3xl mx-auto px-5 sm:px-6 min-h-[400px] flex items-center">
           {EVENTS.map((event, i) => (
-            <EventStackCard
+            <div
               key={event.id}
-              event={event}
-              index={i}
-              count={count}
-              progress={stackProgress}
-            />
+              className="absolute inset-0 flex items-center justify-center transition-opacity duration-300"
+              style={{ opacity: i === activeIndex ? 1 : 0, pointerEvents: i === activeIndex ? 'auto' : 'none' }}
+            >
+              <div className="w-full max-w-xl">
+                <EventCard event={event} index={i} />
+              </div>
+            </div>
           ))}
+        </div>
+
+        {/* Arrow navigation — same style as Oryzo */}
+        <div className="flex items-center justify-center gap-4 mt-8">
+          <button
+            onClick={prev}
+            className="w-12 h-12 rounded-full bg-white/5 backdrop-blur-md border border-white/10 flex items-center justify-center text-white hover:bg-white/10 active:scale-90 transition-all cursor-pointer"
+            aria-label="Previous event"
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </button>
 
           {/* Progress dots */}
-          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-3 z-20">
+          <div className="flex items-center gap-2">
             {EVENTS.map((_, i) => (
-              <EventProgressDot
+              <button
                 key={i}
-                index={i}
-                count={count}
-                progress={stackProgress}
+                onClick={() => goTo(i)}
+                className={`rounded-full transition-all duration-300 cursor-pointer ${i === activeIndex ? 'w-8 h-2.5 bg-white' : 'w-2.5 h-2.5 bg-white/30 hover:bg-white/50'}`}
+                aria-label={`Go to event ${i + 1}`}
               />
             ))}
           </div>
 
-          {/* Stage counter */}
-          <div className="absolute top-10 right-10 text-right z-20">
-            <span className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400 block" style={{ fontFamily: 'var(--font-grotesk)' }}>
-              Event
-            </span>
-            <motion.span
-              className="text-2xl font-extrabold text-white"
-              style={{ fontFamily: 'var(--font-jakarta)' }}
-            >
-              {stackProgress.get() >= 0.66 ? '03' : stackProgress.get() >= 0.33 ? '02' : '01'}
-              <span className="text-slate-500 text-base"> / 0{count}</span>
-            </motion.span>
-          </div>
+          <button
+            onClick={next}
+            className="w-12 h-12 rounded-full bg-white/5 backdrop-blur-md border border-white/10 flex items-center justify-center text-white hover:bg-white/10 active:scale-90 transition-all cursor-pointer"
+            aria-label="Next event"
+          >
+            <ChevronRight className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* Swipe hint (mobile) */}
+        <div className="sm:hidden text-center mt-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500" style={{ fontFamily: 'var(--font-grotesk)' }}>
+            ← Swipe →
+          </p>
+        </div>
+
+        {/* End CTA */}
+        <div className="text-center mt-8 px-5">
+          <MagneticButton
+            strength={0.2}
+            as="a"
+            href="/contact"
+            className="btn-tactile btn-tactile-primary px-6 py-3.5 text-sm"
+          >
+            <Clock className="w-4 h-4" />
+            Notify me when new events drop
+          </MagneticButton>
         </div>
       </div>
     </section>
   );
 }
+

@@ -741,6 +741,28 @@ function FaqScene({ color }: { color: string }) {
   );
 }
 
+/* ---------- Scroll-driven camera that reacts to page scroll ---------- */
+function ScrollCamera() {
+  useFrame((state) => {
+    // Read scrollY as a 0..1 progress based on window scroll
+    const scrollY = typeof window !== 'undefined' ? window.scrollY : 0;
+    const maxScroll = typeof window !== 'undefined' ? document.documentElement.scrollHeight - window.innerHeight : 1;
+    const progress = maxScroll > 0 ? Math.min(scrollY / maxScroll, 1) : 0;
+
+    // Camera dollies forward + orbits slightly as you scroll
+    const cam = state.camera;
+    const targetZ = 5 - progress * 1.5;
+    const targetX = Math.sin(progress * Math.PI) * 0.8;
+    const targetY = progress * 0.5;
+
+    cam.position.x += (targetX - cam.position.x) * 0.05;
+    cam.position.y += (targetY - cam.position.y) * 0.05;
+    cam.position.z += (targetZ - cam.position.z) * 0.05;
+    cam.lookAt(0, 0, 0);
+  });
+  return null;
+}
+
 /* ---------- Main component ---------- */
 export default function PageHero3D({
   variant,
@@ -777,6 +799,7 @@ export default function PageHero3D({
       <directionalLight position={[-3, -2, -3]} intensity={0.5} color="#7C3AED" />
       <pointLight position={[0, 0, 2]} color={accentColor} intensity={1.5} distance={4} />
       <Suspense fallback={null}>
+        <ScrollCamera />
         {scene}
         <Sparkles count={25} scale={8} size={2} speed={0.3} opacity={0.4} color={accentColor} />
         <Environment preset="city" />

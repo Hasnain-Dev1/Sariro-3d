@@ -12,7 +12,7 @@ function seededValue(i: number, min: number, max: number): number {
 
 export default function CinematicIntro() {
   const [show, setShow] = useState(false);
-  const [phase, setPhase] = useState<'particles' | 'network' | 'logo' | 'done'>('particles');
+  const [phase, setPhase] = useState<'particles' | 'logo' | 'done'>('particles');
 
   const particles = useMemo(() => {
     return Array.from({ length: 40 }, (_, i) => {
@@ -38,17 +38,16 @@ export default function CinematicIntro() {
 
     const showFrame = requestAnimationFrame(() => setShow(true));
 
-    const t1 = setTimeout(() => setPhase('network'), 800);
-    const t2 = setTimeout(() => setPhase('logo'), 1600);
-    const t3 = setTimeout(() => {
+    const t1 = setTimeout(() => setPhase('logo'), 800);
+    const t2 = setTimeout(() => {
       setPhase('done');
       sessionStorage.setItem('sariro-intro-seen', '1');
-    }, 2800);
-    const t4 = setTimeout(() => setShow(false), 3000);
+    }, 2200);
+    const t3 = setTimeout(() => setShow(false), 2400);
 
     return () => {
       cancelAnimationFrame(showFrame);
-      clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4);
+      clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
     };
   }, []);
 
@@ -64,14 +63,15 @@ export default function CinematicIntro() {
         >
           <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-blue-950/30 to-violet-950/30" />
 
+          {/* Particles flying in → assembling → dispersing */}
           {particles.map((p) => (
             <motion.div
               key={p.id}
               initial={{ x: p.startX, y: p.startY, opacity: 0, scale: 0 }}
               animate={{
-                x: phase === 'particles' ? p.startX * 0.5 : 0,
-                y: phase === 'particles' ? p.startY * 0.5 : 0,
-                opacity: phase === 'particles' ? [0, 1] : phase === 'logo' ? 0 : 1,
+                x: phase === 'particles' ? p.startX * 0.4 : 0,
+                y: phase === 'particles' ? p.startY * 0.4 : 0,
+                opacity: phase === 'particles' ? [0, 1] : 0,
                 scale: phase === 'particles' ? 1 : 0,
               }}
               transition={{ duration: phase === 'particles' ? 0.6 : 0.4, delay: p.delay, ease: [0.22, 1, 0.36, 1] }}
@@ -80,26 +80,34 @@ export default function CinematicIntro() {
             />
           ))}
 
+          {/* Logo */}
           <motion.div
-            initial={{ scale: 0, opacity: 0 }}
+            initial={{ scale: 0, opacity: 0, rotate: -90 }}
             animate={{
               scale: phase === 'logo' ? 1 : 0,
               opacity: phase === 'logo' ? 1 : 0,
+              rotate: 0,
             }}
             transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
             className="relative z-10"
           >
-            <div className="absolute inset-0 rounded-3xl blur-2xl" style={{ background: 'radial-gradient(circle, #2563EB, transparent 70%)', opacity: 0.4 }} />
+            <motion.div
+              animate={{ scale: [1, 1.15, 1], opacity: [0.5, 1, 0.5] }}
+              transition={{ duration: 0.8, repeat: phase === 'logo' ? 2 : 0 }}
+              className="absolute inset-0 rounded-2xl blur-2xl"
+              style={{ background: 'radial-gradient(circle, #2563EB, transparent 70%)' }}
+            />
             <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-600 to-violet-600 flex items-center justify-center shadow-2xl">
               <GraduationCap className="w-10 h-10 text-white" strokeWidth={2.5} />
             </div>
           </motion.div>
 
+          {/* Brand name */}
           {phase === 'logo' && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
+              transition={{ delay: 0.2 }}
               className="absolute bottom-1/4 left-1/2 -translate-x-1/2 text-center"
             >
               <div className="text-3xl font-extrabold text-white tracking-tight" style={{ fontFamily: 'var(--font-jakarta)' }}>SARIRO</div>
@@ -107,10 +115,11 @@ export default function CinematicIntro() {
             </motion.div>
           )}
 
+          {/* Progress bar */}
           <motion.div
             initial={{ scaleX: 0 }}
             animate={{ scaleX: 1 }}
-            transition={{ duration: 2.8, ease: 'linear' }}
+            transition={{ duration: 2.2, ease: 'linear' }}
             className="absolute bottom-16 left-1/2 -translate-x-1/2 w-32 h-0.5 bg-gradient-to-r from-blue-500 to-violet-500 origin-left rounded-full"
           />
         </motion.div>

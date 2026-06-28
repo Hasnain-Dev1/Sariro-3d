@@ -33,6 +33,8 @@ function TrackCard({ track, index, scrollYProgress }: { track: typeof TRACKS[num
       whileInView={{ opacity: 1, y: 0, rotateX: 0 }}
       viewport={{ once: true, margin: '-80px' }}
       transition={{ duration: 0.7, delay: index * 0.12, ease: [0.22, 1, 0.36, 1] }}
+      whileHover={{ y: -8 }}
+      whileTap={{ scale: 0.98 }}
       className="perspective-1000"
     >
       <TiltCard3D className="card-3d p-7 h-full" maxTilt={10}>

@@ -43,7 +43,7 @@ const CHAPTERS: Chapter[] = [
     num: '01',
     title: 'The Question',
     body:
-      'It started with a question that wouldn\u2019t go away: why do smart students graduate unable to build anything real? They pass exams. They can recite definitions. But ship a working AI feature? Freeze. The question sat in the back of Mimo\u2019s mind for twelve years.',
+      'It started with a question that wouldn\'t go away: why do smart students graduate unable to build anything real? They pass exams. They can recite definitions. But ship a working AI feature? Freeze. The question sat in the back of Mimo\'s mind for twelve years.',
     accent: '#7C3AED',
     icon: HelpCircle,
   },
@@ -51,7 +51,7 @@ const CHAPTERS: Chapter[] = [
     num: '02',
     title: 'The Refusal',
     body:
-      'Mimo spent 12 years watching this \u2014 in classrooms, in bootcamps, in corporate training rooms. Watching smart people leave with certificates and zero confidence. The industry kept saying \u201cmore tutorials, more videos, more bootcamps.\u201d Mimo refused. Tutorials teach typing. They don\u2019t teach thinking.',
+      'Mimo spent 12 years watching this — in classrooms, in bootcamps, in corporate training rooms. Watching smart people leave with certificates and zero confidence. The industry kept saying \u201cmore tutorials, more videos, more bootcamps.\u201d Mimo refused. Tutorials teach typing. They don\'t teach thinking.',
     accent: '#06B6D4',
     icon: Ban,
   },
@@ -67,7 +67,7 @@ const CHAPTERS: Chapter[] = [
     num: '04',
     title: 'The Proof',
     body:
-      'The bet paid off. 5,000+ students. 65 countries. 200+ cohorts. 1,000+ portfolio projects shipped. A history teacher became an AI engineer. A 16-year-old built her first neural net. A principal started an AI ethics club. The proof wasn\u2019t in the numbers \u2014 it was in the builders those numbers represented.',
+      'The bet paid off. 5,000+ students. 65 countries. 200+ cohorts. 1,000+ portfolio projects shipped. A history teacher became an AI engineer. A 16-year-old built her first neural net. A principal started an AI ethics club. The proof wasn\'t in the numbers — it was in the builders those numbers represented.',
     accent: '#16A34A',
     icon: Hammer,
   },
@@ -75,7 +75,7 @@ const CHAPTERS: Chapter[] = [
     num: '05',
     title: 'The Future',
     body:
-      'The next chapter isn\u2019t ours to write. It\u2019s yours. If you\u2019re curious \u2014 really curious, the kind of curious that keeps you up at night \u2014 you belong here. Sariro isn\u2019t a course. It isn\u2019t a platform. It\u2019s a movement of people who refuse to watch the future happen to them.',
+      'The next chapter isn\'t ours to write. It\'s yours. If you\'re curious — really curious, the kind of curious that keeps you up at night — you belong here. Sariro isn\'t a course. It isn\'t a platform. It\'s a movement of people who refuse to watch the future happen to them.',
     accent: '#EC4899',
     icon: Globe2,
   },
@@ -85,25 +85,25 @@ const CHAPTERS: Chapter[] = [
 const VALUES = [
   {
     title: 'Thinking over typing',
-    body: 'Anyone can copy a tutorial. We teach you to think \u2014 to break problems apart, to ask the right questions, to reason about systems.',
+    body: "Anyone can copy a tutorial. We teach you to think — to break problems apart, to ask the right questions, to reason about systems.",
     accent: '#7C3AED',
     icon: Brain,
   },
   {
     title: 'Build real things',
-    body: 'Every Sariro course ends with something you can show an employer, a client, or a school. Not a \u201chello world\u201d \u2014 a real, working AI artifact.',
+    body: "Every Sariro course ends with something you can show an employer, a client, or a school. Not a \u201chello world\u201d — a real, working AI artifact.",
     accent: '#F59E0B',
     icon: Hammer,
   },
   {
     title: 'Accessible by design',
-    body: 'AI education shouldn\u2019t be gatekept by jargon. We teach in plain language. An 8-year-old and a grandpa should both be able to follow along.',
+    body: "AI education shouldn\'t be gatekept by jargon. We teach in plain language. An 8-year-old and a grandpa should both be able to follow along.",
     accent: '#16A34A',
     icon: Heart,
   },
   {
     title: 'Community, not customers',
-    body: 'Once you\u2019re in, you\u2019re in. Lifetime community access, mentorship opportunities, and a network that shows up when you ship \u2014 and when you stumble.',
+    body: "Once you\'re in, you\'re in. Lifetime community access, mentorship opportunities, and a network that shows up when you ship — and when you stumble.",
     accent: '#06B6D4',
     icon: Users,
   },
@@ -119,7 +119,7 @@ const IMPACT = [
 
 export default function StoryPage() {
   useEffect(() => {
-    document.title = 'Story \u2014 Sariro | How a Question Became a Movement';
+    document.title = "Story — Sariro | How a Question Became a Movement";
   }, []);
 
   return (
@@ -135,7 +135,7 @@ export default function StoryPage() {
             <span className="gradient-text">wouldn&rsquo;t go away.</span>
           </>
         }
-        subtitle="Five chapters. One stubborn belief. The story of how Sariro went from a question Mimo couldn\u2019t shake to a movement of 5,000+ builders across 65 countries."
+        subtitle="Five chapters. One stubborn belief. The story of how Sariro went from a question Mimo could not shake to a movement of 5,000+ builders across 65 countries."
       >
         <a
           href="#chapter-01"
@@ -268,8 +268,8 @@ export default function StoryPage() {
                 style={{ fontFamily: 'var(--font-jakarta)' }}
               >
                 <SplitText
-                  text="Four values we don't compromise on."
-                  highlight="don't compromise"
+                  text="Four values we don\'t compromise on."
+                  highlight="don\'t compromise"
                   highlightClassName="gradient-text"
                 />
               </h2>
@@ -381,9 +381,7 @@ export default function StoryPage() {
               className="text-2xl sm:text-3xl font-bold text-white leading-snug"
               style={{ fontFamily: 'var(--font-jakarta)' }}
             >
-              <SplitText
-                text="\u201CEvery number on this page started with one student. One question. One refusal to settle for a tutorial that didn\u2019t teach them anything. We don\u2019t count enrollments. We count builders.\u201D"
-              />
+              "Every number on this page started with one student. One question. One refusal to settle for a tutorial that didn't teach them anything. We don\'t count enrollments. We count builders."
             </p>
             <Reveal delay={0.2}>
               <div className="mt-8 inline-flex items-center gap-3">
@@ -440,21 +438,18 @@ export default function StoryPage() {
               <MagneticButton
                 as="a"
                 href="/courses"
-                strength={0.25}
-                className="btn-tactile px-6 py-3.5 text-white"
-                style={{
-                  background: '#7C3AED',
-                  boxShadow: '0 10px 0 -1px #5B21B6, 0 18px 30px -12px rgba(124,58,237,0.55)',
-                }}
+                strength={0.2}
+                className="btn-tactile btn-tactile-primary px-6 py-3.5 text-sm"
               >
+                <Sparkles className="w-4 h-4" />
                 Browse cohorts
                 <ArrowRight className="w-4 h-4" />
               </MagneticButton>
               <MagneticButton
                 as="a"
                 href="/about"
-                strength={0.25}
-                className="btn-tactile btn-tactile-light px-6 py-3.5"
+                strength={0.2}
+                className="btn-tactile btn-tactile-light px-6 py-3.5 text-sm"
               >
                 Meet the team
               </MagneticButton>

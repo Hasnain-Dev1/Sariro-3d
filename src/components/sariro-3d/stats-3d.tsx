@@ -46,7 +46,8 @@ function Counter({ value, suffix, index }: { value: number; suffix: string; inde
       whileInView={{ opacity: 1, y: 0, rotateX: 0 }}
       viewport={{ once: true, margin: '-50px' }}
       transition={{ duration: 0.7, delay: index * 0.12 }}
-      whileHover={{ y: -8, rotateX: 5 }}
+      whileHover={{ y: -12, rotateX: 8, scale: 1.03 }}
+      whileTap={{ scale: 0.97 }}
       className="relative perspective-1000"
       style={{ transformStyle: 'preserve-3d' }}
     >

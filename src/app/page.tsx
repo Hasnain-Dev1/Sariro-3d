@@ -121,8 +121,21 @@ export default function Home() {
                 transition={{ duration: 0.7, delay: 0.4 }}
                 className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-2xl"
               >
-                {HERO_STATS.map((s) => (
-                  <div key={s.label} className="glass-panel rounded-2xl px-4 py-4 text-center">
+                {HERO_STATS.map((s, i) => (
+                  <motion.div
+                    key={s.label}
+                    whileHover={{ y: -6, scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    animate={{
+                      boxShadow: [
+                        '0 0 0 0 rgba(37, 99, 235, 0)',
+                        '0 0 20px 2px rgba(37, 99, 235, 0.15)',
+                        '0 0 0 0 rgba(37, 99, 235, 0)',
+                      ],
+                    }}
+                    transition={{ duration: 3, repeat: Infinity, delay: i * 0.5 }}
+                    className="glass-panel rounded-2xl px-4 py-4 text-center cursor-pointer"
+                  >
                     <div
                       className={`text-2xl sm:text-3xl font-extrabold ${
                         s.accent === 'blue' ? 'text-blue-600' :
@@ -137,7 +150,7 @@ export default function Home() {
                     <div className="text-xs font-semibold text-slate-500 mt-1 uppercase tracking-wide" style={{ fontFamily: 'var(--font-grotesk)' }}>
                       {s.label}
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
               </motion.div>
             </motion.div>
