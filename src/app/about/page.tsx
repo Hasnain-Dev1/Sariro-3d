@@ -50,8 +50,8 @@ const TEAM = [
     avatar: 'M',
   },
   {
-    name: 'Aarav Mehta',
-    role: 'Lead Curriculum Engineer',
+    name: 'Hasnain Ali',
+    role: 'Lead Director  · Development',
     bio: 'Ex-ML engineer turned educator. Designs every Sariro course to ship real projects, not toy demos.',
     accent: '#2563EB',
     avatar: 'A',
