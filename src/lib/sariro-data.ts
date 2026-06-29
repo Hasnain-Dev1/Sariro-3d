@@ -130,6 +130,7 @@ export const TEAM = [
     bio: "Former principal turned curriculum designer. Lena runs our school partnerships and trains teachers on the Sariro method.",
     avatar: "L",
     accent: "#16A34A",
+    isFounder: false,
   },
   {
     name: "Marco Rossi",
@@ -137,6 +138,7 @@ export const TEAM = [
     bio: "Senior PM at a fintech by day, Sariro mentor by night. Marco has shipped 4 RAG apps to production and reviews every Builder project.",
     avatar: "M",
     accent: "#2563EB",
+    isFounder: false,
   },
   {
     name: "Priya Nair",
@@ -144,6 +146,7 @@ export const TEAM = [
     bio: "ML engineer at a stealth startup. Priya wrote our evals framework and mentors the CV and Agents cohorts.",
     avatar: "P",
     accent: "#7C3AED",
+    isFounder: false,
   },
   {
     name: "James Chen",
@@ -151,6 +154,7 @@ export const TEAM = [
     bio: "History teacher → AI engineer. James runs our career sessions and the alumni Slack. He has reviewed 1,000+ portfolios.",
     avatar: "J",
     accent: "#06B6D4",
+    isFounder: false,
   },
   {
     name: "Sofia Alvarez",
@@ -158,6 +162,7 @@ export const TEAM = [
     bio: "Built her first neural net at 16 with Sariro. Now runs our mentor program and the student-led AI ethics club.",
     avatar: "S",
     accent: "#EC4899",
+    isFounder: false,
   },
 ] as const;
 
