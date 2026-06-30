@@ -125,6 +125,14 @@ export const TEAM = [
     isFounder: true,
   },
   {
+    name: "Hasnain Ali",
+    role: "Lead Developer & Co-Founder",
+    bio: "We brought Sariro into real life. True power isn't adding until there is nothing left to give, but stripping away until there is nothing left to break.",
+    avatar: "H",
+    accent: "#06B6D4",
+    isFounder: true,
+  },
+  {
     name: "Dr. Lena Okafor",
     role: "Head of School Partnerships",
     bio: "Former principal turned curriculum designer. Lena runs our school partnerships and trains teachers on the Sariro method.",

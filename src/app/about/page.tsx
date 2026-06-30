@@ -224,7 +224,7 @@ export default function AboutPage() {
                 />
                 <div className="relative rounded-3xl overflow-hidden card-3d">
                   <Image
-                    src="/images/mimo-portrait.webp"
+                    src="/images/mimo-portrait.png"
                     alt={`${MIMO.name} — ${MIMO.title}`}
                     width={640}
                     height={720}
@@ -400,7 +400,7 @@ export default function AboutPage() {
                       >
                         {member.avatar}
                       </div>
-                      {member.isFounder && (
+                      {'isFounder' in member && member.isFounder && (
                         <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-amber-400 flex items-center justify-center ring-2 ring-white">
                           <Sparkles className="w-3 h-3 text-white" />
                         </div>

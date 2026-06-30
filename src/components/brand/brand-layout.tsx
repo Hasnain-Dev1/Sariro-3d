@@ -17,7 +17,7 @@ import { AuthProvider, useAuth } from '@/components/auth/auth-provider';
 import ProfileCompletionModal from '@/components/auth/profile-completion-modal';
 
 /* Map the icon name string from EMAILS data to a real icon component. */
-const EMAIL_ICONS: Record<string, React.ComponentType<{ className?: string; strokeWidth?: number }>> = {
+const EMAIL_ICONS: Record<string, React.ComponentType<{ className?: string; strokeWidth?: number; style?: React.CSSProperties }>> = {
   Mail,
   LifeBuoy,
   School: GraduationCap,
@@ -84,6 +84,40 @@ function BrandNavbar() {
     const id = requestAnimationFrame(() => setMobileOpen(false));
     return () => cancelAnimationFrame(id);
   }, [pathname]);
+
+  // Body scroll lock when mobile sidebar is open (same pattern as chat/modal)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (mobileOpen) {
+      const scrollY = window.scrollY;
+      const scrollX = window.scrollX;
+      const o = {
+        overflow: document.body.style.overflow,
+        position: document.body.style.position,
+        top: document.body.style.top,
+        left: document.body.style.left,
+        width: document.body.style.width,
+      };
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.left = `-${scrollX}px`;
+      document.body.style.width = '100%';
+      document.documentElement.setAttribute('data-scroll-locked', 'true');
+      window.dispatchEvent(new CustomEvent('sariro:scroll-lock', { detail: { locked: true } }));
+
+      return () => {
+        document.body.style.overflow = o.overflow;
+        document.body.style.position = o.position;
+        document.body.style.top = o.top;
+        document.body.style.left = o.left;
+        document.body.style.width = o.width;
+        document.documentElement.removeAttribute('data-scroll-locked');
+        window.dispatchEvent(new CustomEvent('sariro:scroll-lock', { detail: { locked: false } }));
+        window.scrollTo(scrollX, scrollY);
+      };
+    }
+  }, [mobileOpen]);
 
   return (
     <>
@@ -182,9 +216,9 @@ function BrandNavbar() {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-              className="absolute top-0 right-0 bottom-0 w-[82%] max-w-sm bg-white shadow-2xl p-6 pt-24 flex flex-col"
+              className="absolute top-0 right-0 bottom-0 w-[82%] max-w-sm bg-white shadow-2xl p-6 pt-24 pb-6 flex flex-col overflow-hidden"
             >
-              <nav className="flex flex-col gap-1">
+                            <nav className="flex flex-col gap-1 flex-1 overflow-y-auto -mx-2 px-2" style={{ overscrollBehavior: 'contain' }} data-lenis-prevent>
                 {NAV_ITEMS.map((item, i) => {
                   const active = pathname === item.href;
                   return (
@@ -209,7 +243,7 @@ function BrandNavbar() {
                   );
                 })}
               </nav>
-              <div className="mt-auto pt-6">
+              <div className="shrink-0 pt-4 pb-6 border-t border-slate-100 mt-4">
                 <AuthNavButton mobile />
               </div>
             </motion.div>

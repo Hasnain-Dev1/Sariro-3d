@@ -18,7 +18,7 @@ import {
 import { BRAND, FOOTER_LINKS, NAV_LINKS, EMAILS } from '@/lib/sariro-data';
 
 /* Map the icon name string from EMAILS data to a real icon component. */
-const EMAIL_ICONS: Record<string, React.ComponentType<{ className?: string; strokeWidth?: number }>> = {
+const EMAIL_ICONS: Record<string, React.ComponentType<{ className?: string; strokeWidth?: number; style?: React.CSSProperties }>> = {
   Mail,
   LifeBuoy,
   School: GraduationCap,
