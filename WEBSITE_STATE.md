@@ -135,3 +135,94 @@ hello@sariro.ai, support@sariro.ai, schools@sariro.ai, partnerships@sariro.ai, c
 - `src/components/sariro-3d/events-3d.tsx` — rewrote: arrow+swipe (was pinned scroll)
 - `src/app/about/page.tsx` — removed RotatingCube3D + CUBE_FACES + CubeFace + sticky quote; added principle highlights grid
 - `src/app/story/page.tsx` — added hover/tap glow to 5 chapter cards
+
+## Session 5+ Changes (all sessions after session 4)
+
+### Hero button change
+- Removed "Meet Mimo" button (was linking to /about)
+- Added "Sign up!" button → links to `/auth/sign-up`
+
+### Legal pages created
+- `/terms` — Terms of Service (10 sections: acceptance, eligibility, enrollment, account, acceptable use, IP, disclaimers, liability, changes, contact)
+- `/refunds` — Refund Policy (14-day money-back guarantee, pro-rata after 14 days, transfer policy, non-refundable items)
+- `/privacy` — Privacy Policy (10 sections: data collection, usage, cookies, sharing, GDPR/CCPA rights, retention, security, children, changes, contact)
+- All 3 linked from footer Company section + bottom bar
+
+### Course tracks restructured (6 tracks, 16 courses)
+**File: `src/lib/sariro-data.ts`** → `TRACKS` array + `COURSES` array
+
+| Track | Beginner ($199) | Intermediate ($299) | Advanced ($699) |
+|---|---|---|---|
+| AI Engineer | Python with AI Foundations | Beyond Python: AI & Agents | Beyond Agents: Build SLMs & LLMs |
+| Web Developer | Build Your First Website | Beyond Frontend: Node/SQL/APIs/React | Production Web: Docker/AWS/K8s/Security |
+| Prompt Engineering | Prompt Engineering Mastery | — | — |
+| GTM Engineering | AI-Powered Outbound | RevOps & Pipeline Engineering | AI GTM Platform Engineering |
+| AI Security | Security Fundamentals | AI-Powered Security Tools | AI Red Team & Advanced SecOps |
+| Data Intelligence | Data Thinking & Python Basics | AI Analytics & Machine Learning | Data Platform Engineering |
+
+- Each track is a **continuous path** — no topic repeats across levels
+- Beginner: 5 modules, 30 lessons (6 per module)
+- Intermediate: 7 modules, 42 lessons (6 per module)
+- Advanced: 16 modules, 96 lessons (6 per module)
+- Filter buttons on home + courses page show 6 tracks (no "All" pill)
+
+### Stat pills (Mimo portrait)
+- Replaced 3D rotating cube on Mimo portrait with floating pill-shaped stat badges
+- 4 pills: 12+ Years teaching (orange), 7 Patents filed (green), 5,000+ Students mentored (blue), 36 Papers published (violet)
+- Mobile: pills stack in 2-col grid below portrait
+
+### About page restructured
+- Section 1: About Sariro (company narrative + stats + principles)
+- Section 2: Meet Mimo Patra (portrait + stat pills + bio + principles)
+- Section 3: The Team (6 members including Hasnain Ali as Lead Developer & Co-Founder)
+
+### Pricing
+- 3 tiers: Beginner ($199/$398), Intermediate ($299/$854), Expert ($699/$2330)
+- 1:4 vs 1:1 dropdown: switches price AND Razorpay payment link
+- 1:4 links: sarirobeginner, sarirointermediate, sariroadvanced
+- 1:1 links: sarirobeginner1on1, sarirointermediate1on1, sariroadvanced1on1 (placeholder — swap with real links)
+
+### Email directory (5 mailboxes @sariro.com)
+- contact@sariro.com (General), support@sariro.com (Support), dev@sariro.com (Development), hr@sariro.com (Careers), founder@sariro.com (Founder)
+- Shown on Contact page + footer Connect section
+
+### Razorpay payment links
+- `getRazorpayLink(level, ratio)` function in sariro-data.ts
+- Home + Courses page "Join cohort" → links to `/courses/{level}` tier page
+- Tier page "Reserve a seat" → opens Razorpay in new tab
+- Pricing page CTA buttons → open Razorpay based on dropdown ratio
+
+### Auth (Supabase)
+- Google One Tap, GitHub OAuth, Email/Password
+- Profile completion modal (asks for missing name/phone/email based on provider)
+- AuthNavButton in navbar (Sign in / avatar dropdown)
+- Sign-in page: blue theme, "Welcome back"
+- Sign-up page: violet+amber theme, "Become a Sariro builder" + benefit cards
+
+### Chat bubble (SLM)
+- Floating bubble bottom-right with flying entrance animation
+- Keyword-based FAQ matching (28 FAQ entries)
+- Body scroll lock when open
+- `/api/chat` endpoint
+
+### Mobile fixes
+- Chat panel close button: 44px touch target
+- Syllabus modal close button: 44px touch target
+- Syllabus modal: items-start on mobile (top not clipped)
+- Cookie consent: z-index lowered to 45 (was 9998)
+- Chat bubble + companion orb + cookie banner hidden when any modal open
+- Mobile sidebar: body scroll lock when open
+- Mobile sidebar: "Start Learning" button removed (hero "Explore Courses" is enough)
+- Mobile sidebar: nav scrollable, auth button pinned to bottom
+
+### Sound fix (cinematic intro)
+- AudioContext starts suspended on browser reload (autoplay policy)
+- Sound queues on intro start, replays on first user gesture (click/tap/keypress)
+- `soundHasPlayed` flag prevents double-play
+- `pointerdown` listener added for broader coverage
+
+### 3D scene changes
+- ContactScene: replaced cartoon child+plane with glass envelope + orbiting bubbles + light trail
+- EventsScene: replaced rooster with floating glass event ticket + confetti
+- StoryScene + FaqScene: new 3D variants added
+- PricingScene + AboutScene: UNTOUCHED

@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect } from 'react';
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { GraduationCap, ArrowRight, UserPlus, CheckCircle2, Sparkles } from 'lucide-react';
@@ -8,11 +8,11 @@ import SignInButtons from '@/components/auth/sign-in-buttons';
 import { useAuth } from '@/components/auth/auth-provider';
 import { BRAND } from '@/lib/sariro-data';
 
-function SignUpContent() {
+export default function SignUpPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading } = useAuth();
-  const next = searchParams.get('next') || '/dashboard';
+  const next = searchParams.get('next') || '/';
 
   useEffect(() => {
     if (!loading && user) {
@@ -111,13 +111,5 @@ function SignUpContent() {
         </p>
       </div>
     </div>
-  );
-}
-
-export default function SignUpPage() {
-  return (
-    <Suspense>
-      <SignUpContent />
-    </Suspense>
   );
 }

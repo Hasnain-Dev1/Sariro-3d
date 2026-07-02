@@ -73,6 +73,16 @@ export default function AboutPage() {
     principlesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
+  const team = TEAM as ReadonlyArray<{
+    name: string;
+    role: string;
+    bio: string;
+    avatar: string;
+    image?: string;
+    accent: string;
+    isFounder?: boolean;
+  }>;
+
   return (
     <BrandLayout>
       <PageHero
@@ -384,7 +394,7 @@ export default function AboutPage() {
           </div>
 
           <StaggerGroup className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" stagger={0.08}>
-            {TEAM.map((member) => (
+            {team.map((member: { name: string; role: string; bio: string; avatar: string; image?: string; accent: string; isFounder?: boolean }) => (
               <StaggerItem key={member.name}>
                 <TiltCard className="card-3d p-6 h-full group" maxTilt={5}>
                   <div className="flex items-start gap-4">
@@ -395,10 +405,20 @@ export default function AboutPage() {
                         style={{ background: member.accent }}
                       />
                       <div
-                        className="relative w-14 h-14 rounded-2xl flex items-center justify-center text-white font-extrabold text-xl"
+                        className="relative w-14 h-14 rounded-2xl overflow-hidden flex items-center justify-center text-white font-extrabold text-xl"
                         style={{ background: member.accent, fontFamily: 'var(--font-jakarta)' }}
                       >
-                        {member.avatar}
+                        {member.image ? (
+                          <Image
+                            src={member.image}
+                            alt={member.name}
+                            fill
+                            className="object-cover"
+                            sizes="56px"
+                          />
+                        ) : (
+                          member.avatar
+                        )}
                       </div>
                       {'isFounder' in member && member.isFounder && (
                         <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-amber-400 flex items-center justify-center ring-2 ring-white">

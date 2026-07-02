@@ -4,7 +4,7 @@ import { motion, useScroll, useTransform } from 'framer-motion';
 import { useRef, useState } from 'react';
 import { ArrowRight, Clock, Layers, Calendar, Star, RotateCw, Check } from 'lucide-react';
 import Link from 'next/link';
-import { COURSES, COURSE_TRACKS } from '@/lib/sariro-data';
+import { COURSES, TRACKS } from '@/lib/sariro-data';
 import { SplitText3D, TiltCard3D } from './scroll-effects';
 import { FlipCard3D } from './kit-3d';
 
@@ -17,7 +17,7 @@ const ACCENT_MAP: Record<string, { text: string; bg: string; soft: string; borde
 };
 
 type Filter = string; // trackId
-const FILTERS: { key: Filter; label: string }[] = COURSE_TRACKS.map((t) => ({
+const FILTERS: { key: Filter; label: string }[] = TRACKS.map((t) => ({
   key: t.id as Filter,
   label: t.short,
 }));
@@ -103,7 +103,7 @@ function CourseCard({ course, index }: { course: typeof COURSES[number]; index: 
           ))}
         </ul>
         <Link
-          href={`/courses/${course.level.toLowerCase()}`}
+          href={`/course-path/${course.trackId}`}
           className={`group/btn inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-sm font-bold text-white ${a.bg} shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all cursor-pointer`}
           style={{ fontFamily: 'var(--font-grotesk)' }}
         >
@@ -127,7 +127,7 @@ function CourseCard({ course, index }: { course: typeof COURSES[number]; index: 
 }
 
 export default function Courses3D() {
-  const [filter, setFilter] = useState<Filter>(COURSE_TRACKS[0]?.id ?? 'ai-engineer');
+  const [filter, setFilter] = useState<Filter>(TRACKS[0]?.id ?? 'web');
   const sectionRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     target: sectionRef,

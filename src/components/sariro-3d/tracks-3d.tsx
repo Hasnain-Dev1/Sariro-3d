@@ -2,8 +2,9 @@
 
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { useRef } from 'react';
+import Link from 'next/link';
 import { GraduationCap, School, Briefcase, ArrowRight, Check } from 'lucide-react';
-import { TRACKS } from '@/lib/sariro-data';
+import { AUDIENCE_TRACKS as TRACKS } from '@/lib/sariro-data';
 import { SplitText3D, TiltCard3D } from './scroll-effects';
 
 const ICON_MAP: Record<string, typeof GraduationCap> = {
@@ -70,14 +71,15 @@ function TrackCard({ track, index, scrollYProgress }: { track: typeof TRACKS[num
           ))}
         </ul>
 
-        {/* CTA */}
-        <button
+        {/* CTA — routes to the right page based on track.id */}
+        <Link
+          href={track.id === 'schools' ? '/schools' : '/courses'}
           className={`group/btn inline-flex items-center gap-2 text-sm font-bold ${a.text} hover:gap-3 transition-all cursor-pointer`}
           style={{ fontFamily: 'var(--font-grotesk)', transform: 'translateZ(35px)' }}
         >
           {track.cta}
           <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
-        </button>
+        </Link>
       </TiltCard3D>
     </motion.div>
   );

@@ -115,11 +115,11 @@ function SchoolsScene({ color }: { color: string }) {
   // Brand palette for the 5 math shapes — rainbow of accents used across the site
   // (NO cube — user explicitly said no cubes anywhere. Torus replaces it.)
   const SOLIDS = [
-    { geo: <tetrahedronGeometry args={[0.5]} />, color: '#DC2626', pos: [0, 0.15, 0] as const },           // red — tetrahedron (4 faces)
-    { geo: <torusGeometry args={[0.28, 0.12, 16, 32]} />, color: '#2563EB', pos: [1.2, 0.5, -0.2] as const }, // blue — torus (donut)
-    { geo: <octahedronGeometry args={[0.5]} />, color: '#16A34A', pos: [-1.2, 0.4, -0.1] as const },       // green — octahedron (8 faces)
-    { geo: <dodecahedronGeometry args={[0.45]} />, color: '#F59E0B', pos: [0.7, -0.8, 0.1] as const },     // amber — dodecahedron (12 faces)
-    { geo: <icosahedronGeometry args={[0.45]} />, color: '#7C3AED', pos: [-0.7, -0.7, 0.2] as const },     // violet — icosahedron (20 faces)
+    { geo: <tetrahedronGeometry args={[0.5]} />, color: '#DC2626', pos: [0, 0.15, 0] },           // red — tetrahedron (4 faces)
+    { geo: <torusGeometry args={[0.28, 0.12, 16, 32]} />, color: '#2563EB', pos: [1.2, 0.5, -0.2] }, // blue — torus (donut)
+    { geo: <octahedronGeometry args={[0.5]} />, color: '#16A34A', pos: [-1.2, 0.4, -0.1] },       // green — octahedron (8 faces)
+    { geo: <dodecahedronGeometry args={[0.45]} />, color: '#F59E0B', pos: [0.7, -0.8, 0.1] },     // amber — dodecahedron (12 faces)
+    { geo: <icosahedronGeometry args={[0.45]} />, color: '#7C3AED', pos: [-0.7, -0.7, 0.2] },     // violet — icosahedron (20 faces)
   ];
 
   // Math symbols arranged in a ring at radius ~2.0
@@ -781,7 +781,7 @@ function StoryScene({ color }: { color: string }) {
 function FaqScene({ color }: { color: string }) {
   const group = useScrollRotation();
   const cardRef = useRef<THREE.Group>(null);
-  const qRefs = useRef<(THREE.Group | null)[]>([]);
+  const qRefs = useRef<THREE.Group>([]);
 
   useFrame((state) => {
     const t = state.clock.elapsedTime;

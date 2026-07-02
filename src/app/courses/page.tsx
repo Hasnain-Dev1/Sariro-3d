@@ -33,11 +33,11 @@ import {
   ParallaxOrb,
   StickyScrollSection,
 } from '@/components/brand/effects-kit';
-import { COURSES, COURSE_TRACKS, discountPercent, DISCOUNT_LABEL } from '@/lib/sariro-data';
+import { COURSES, TRACKS, discountPercent, DISCOUNT_LABEL } from '@/lib/sariro-data';
 
 // Filters are now track-based (no 'All' — user separates by track)
 type FilterKey = string; // trackId
-const FILTERS: { key: FilterKey; label: string }[] = COURSE_TRACKS.map((t) => ({
+const FILTERS: { key: FilterKey; label: string }[] = TRACKS.map((t) => ({
   key: t.id,
   label: t.short,
 }));
@@ -53,7 +53,7 @@ const ACCENT_HEX: Record<string, string> = {
 };
 
 export default function CoursesPage() {
-  const [filter, setFilter] = useState<FilterKey>(COURSE_TRACKS[0]?.id ?? 'ai-engineer');
+  const [filter, setFilter] = useState<FilterKey>(TRACKS[0]?.id ?? 'web');
   const [syllabusCourse, setSyllabusCourse] = useState<Course | null>(null);
 
   const visible = COURSES.filter((c) => c.trackId === filter);
@@ -614,7 +614,7 @@ function CourseBack({
               Syllabus
             </button>
             <Link
-              href={`/courses/${course.level.toLowerCase()}`}
+              href={`/course-path/${course.trackId}`}
               className="px-3 py-2 rounded-xl bg-white text-slate-900 text-xs font-bold flex items-center gap-1.5 hover:bg-white/90 transition-colors"
               style={{ fontFamily: 'var(--font-grotesk)' }}
             >
@@ -676,7 +676,7 @@ function SyllabusModal({ course, onClose }: { course: Course | null; onClose: ()
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="fixed inset-0 z-[60] bg-slate-950/80 backdrop-blur-md flex items-start sm:items-center justify-center p-0 sm:p-4"
+          className="fixed inset-0 z-[60] bg-slate-950/80 backdrop-blur-md flex items-start sm:items-center justify-center p-0 sm:p-4 pt-20 sm:pt-4"
           style={{ overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}
           data-lenis-prevent
         >
@@ -690,7 +690,7 @@ function SyllabusModal({ course, onClose }: { course: Course | null; onClose: ()
           >
             {/* Header */}
             <div
-              className="relative p-6 sm:p-8 text-white overflow-hidden shrink-0"
+              className="relative p-5 sm:p-8 text-white overflow-hidden shrink-0"
               style={{
                 background: `linear-gradient(135deg, ${ACCENT_HEX[course.accent] ?? '#2563EB'} 0%, #0F172A 100%)`,
               }}
@@ -706,7 +706,7 @@ function SyllabusModal({ course, onClose }: { course: Course | null; onClose: ()
               <button
                 onClick={onClose}
                 aria-label="Close syllabus"
-                className="absolute top-3 right-3 sm:top-4 sm:right-4 w-11 h-11 sm:w-9 sm:h-9 rounded-xl sm:rounded-lg bg-white/15 hover:bg-white/25 active:bg-white/35 flex items-center justify-center text-white transition-colors z-10 touch-manipulation"
+                className="absolute top-2 right-2 sm:top-4 sm:right-4 w-11 h-11 sm:w-9 sm:h-9 rounded-xl sm:rounded-lg bg-white/15 hover:bg-white/25 active:bg-white/35 flex items-center justify-center text-white transition-colors z-20 touch-manipulation"
                 style={{ minHeight: '44px', minWidth: '44px' }}
               >
                 <X className="w-5 h-5 sm:w-4 sm:h-4" />
@@ -831,7 +831,7 @@ function SyllabusModal({ course, onClose }: { course: Course | null; onClose: ()
                 </div>
               </div>
               <Link
-                href={`/courses/${course.level.toLowerCase()}`}
+                href={`/course-path/${course.trackId}`}
                 onClick={onClose}
                 className="btn-tactile btn-tactile-primary px-5 py-3 text-sm"
                 style={{ background: ACCENT_HEX[course.accent] ?? '#2563EB' }}

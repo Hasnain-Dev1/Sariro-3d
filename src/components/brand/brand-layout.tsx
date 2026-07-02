@@ -13,11 +13,11 @@ import SmoothScrollProvider from '@/components/sariro-3d/smooth-scroll-provider'
 import CinematicIntro from '@/components/brand/cinematic-intro';
 import CookieConsent from '@/components/brand/cookie-consent';
 import ChatBubble from '@/components/sariro-3d/chat-bubble';
-import { useAuth, getRole, type UserRole } from '@/components/auth/auth-provider';
+import { AuthProvider, useAuth } from '@/components/auth/auth-provider';
 import ProfileCompletionModal from '@/components/auth/profile-completion-modal';
 
 /* Map the icon name string from EMAILS data to a real icon component. */
-const EMAIL_ICONS: Record<string, React.ComponentType<{ className?: string; strokeWidth?: number; style?: React.CSSProperties }>> = {
+const EMAIL_ICONS: Record<string, React.ComponentType<{ className?: string; strokeWidth?: number }>> = {
   Mail,
   LifeBuoy,
   School: GraduationCap,
@@ -180,8 +180,13 @@ function BrandNavbar() {
             {/* Desktop CTA */}
             <div className="hidden lg:flex items-center gap-2">
               <AuthNavButton />
-              {/* "Start Learning" only shows when NOT logged in */}
-              <StartLearningButton />
+              <Link
+                href="/courses"
+                className="btn-tactile btn-tactile-primary px-5 py-2.5 text-sm"
+              >
+                <Sparkles className="w-4 h-4" />
+                Start Learning
+              </Link>
             </div>
 
             {/* Mobile toggle */}
@@ -436,76 +441,35 @@ function PageTransition({ children }: { children: ReactNode }) {
 
 export default function BrandLayout({ children }: { children: ReactNode }) {
   return (
-    <SmoothScrollProvider>
-      <CinematicIntro />
-      <CustomCursor />
-      <BackgroundParticles3D />
-      <ScrollHueShift />
-      <ChapterNav />
-      <CompanionOrb3D />
-      <ScrollProgressBar />
-      <NeuralMotifBg />
-      <BrandNavbar />
-      <PageTransition>
-        <div className="relative min-h-screen flex flex-col bg-white text-slate-900" style={{ zIndex: 1 }}>
-          <main className="flex-1 relative" style={{ zIndex: 2 }}>
-            {children}
-          </main>
-          <BrandFooter />
-        </div>
-      </PageTransition>
-      <ChatBubble />
-      <ProfileCompletionModal />
-      <CookieConsent />
-    </SmoothScrollProvider>
+    <AuthProvider>
+      <SmoothScrollProvider>
+        <CinematicIntro />
+        <CustomCursor />
+        <BackgroundParticles3D />
+        <ScrollHueShift />
+        <ChapterNav />
+        <CompanionOrb3D />
+        <ScrollProgressBar />
+        <NeuralMotifBg />
+        <BrandNavbar />
+        <PageTransition>
+          <div className="relative min-h-screen flex flex-col bg-white text-slate-900" style={{ zIndex: 1 }}>
+            <main className="flex-1 relative" style={{ zIndex: 2 }}>
+              {children}
+            </main>
+            <BrandFooter />
+          </div>
+        </PageTransition>
+        <ChatBubble />
+        <ProfileCompletionModal />
+        <CookieConsent />
+      </SmoothScrollProvider>
+    </AuthProvider>
   );
 }
 
 /* --------------------------------------------------------------- */
-/* StartLearningButton — only shows when NOT logged in */
-/* --------------------------------------------------------------- */
-function StartLearningButton() {
-  const { user, loading } = useAuth();
-  if (loading || user) return null;
-  return (
-    <Link href="/courses" className="btn-tactile btn-tactile-primary px-5 py-2.5 text-sm">
-      <Sparkles className="w-4 h-4" />
-      Start Learning
-    </Link>
-  );
-}
-
-/* --------------------------------------------------------------- */
-/* RoleBadge — shows Student/Teacher/Admin/Super Admin */
-/* --------------------------------------------------------------- */
-const ROLE_STYLES: Record<UserRole, { label: string; bg: string; text: string }> = {
-  student: { label: 'Student', bg: 'bg-blue-100', text: 'text-blue-700' },
-  teacher: { label: 'Teacher', bg: 'bg-green-100', text: 'text-green-700' },
-  admin: { label: 'Admin', bg: 'bg-amber-100', text: 'text-amber-700' },
-  super_admin: { label: 'Super Admin', bg: 'bg-violet-100', text: 'text-violet-700' },
-};
-
-function RoleBadge({ role, mobile = false }: { role: UserRole; mobile?: boolean }) {
-  const s = ROLE_STYLES[role];
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider ${s.bg} ${s.text} ${mobile ? 'mt-1' : ''}`} style={{ fontFamily: 'var(--font-grotesk)' }}>
-      {s.label}
-    </span>
-  );
-}
-
-/* --------------------------------------------------------------- */
-/* DashboardLink — role-based button text + URL */
-/* --------------------------------------------------------------- */
-const DASHBOARD_LINKS: Record<UserRole, { label: string; href: string }> = {
-  student: { label: 'My Courses', href: '/dashboard/student' },
-  teacher: { label: 'My Schedule', href: '/dashboard/teacher' },
-  admin: { label: 'Admin Panel', href: '/dashboard/admin' },
-  super_admin: { label: 'Admin Panel', href: '/dashboard/super-admin' },
-};
-
-/* --------------------------------------------------------------- */
-/* AuthNavButton — shows Sign in OR avatar+role+dashboard link */
+/* AuthNavButton — shows Sign in OR user avatar menu based on auth state */
 /* --------------------------------------------------------------- */
 function AuthNavButton({ mobile = false }: { mobile?: boolean }) {
   const { user, profile, loading, signOut } = useAuth();
@@ -528,8 +492,7 @@ function AuthNavButton({ mobile = false }: { mobile?: boolean }) {
     );
   }
 
-  const role = getRole(profile);
-  const dashLink = DASHBOARD_LINKS[role];
+  // Logged in — show avatar with dropdown
   const initial = (profile?.full_name || user.email || '?').charAt(0).toUpperCase();
   const displayName = profile?.full_name || user.email?.split('@')[0] || 'there';
 
@@ -540,29 +503,21 @@ function AuthNavButton({ mobile = false }: { mobile?: boolean }) {
         style={mobile ? { justifyContent: 'space-between', padding: '0.5rem 0' } : {}}
       >
         <div className="flex items-center gap-2">
-          {profile?.avatar_url ? (
-            <img src={profile.avatar_url} alt={displayName} className="w-9 h-9 rounded-lg object-cover shadow-md" />
-          ) : (
-            <div
-              className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white font-extrabold text-sm shadow-md"
-              style={{ fontFamily: 'var(--font-jakarta)' }}
-            >
-              {initial}
-            </div>
-          )}
+          <div
+            className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white font-extrabold text-sm shadow-md"
+            style={{ fontFamily: 'var(--font-jakarta)' }}
+          >
+            {initial}
+          </div>
           {!mobile && (
-            <div className="flex flex-col leading-tight">
-              <span className="text-xs font-bold text-slate-700 hidden xl:inline" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                {displayName}
-              </span>
-              <RoleBadge role={role} />
-            </div>
+            <span className="text-xs font-bold text-slate-700 hidden xl:inline" style={{ fontFamily: 'var(--font-grotesk)' }}>
+              {displayName}
+            </span>
           )}
-          {mobile && <RoleBadge role={role} mobile />}
         </div>
       </summary>
       <div
-        className={`${mobile ? 'mt-2' : 'absolute right-0 top-full mt-2 w-60'} rounded-xl shadow-xl border border-slate-200 bg-white p-2 z-50`}
+        className={`${mobile ? 'mt-2' : 'absolute right-0 top-full mt-2 w-56'} rounded-xl shadow-xl border border-slate-200 bg-white p-2 z-50`}
         style={mobile ? { position: 'relative' } : {}}
       >
         <div className="px-3 py-2 border-b border-slate-100 mb-1">
@@ -573,25 +528,22 @@ function AuthNavButton({ mobile = false }: { mobile?: boolean }) {
           {user.email && (
             <div className="text-[10px] text-slate-500 truncate mt-0.5">{user.email}</div>
           )}
-          <div className="mt-1.5"><RoleBadge role={role} /></div>
         </div>
-        {/* Dashboard link — changes based on role */}
         <Link
-          href={dashLink.href}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold text-slate-700 hover:bg-slate-50"
+          href="/courses"
+          className="block px-3 py-2 rounded-lg text-sm text-slate-700 hover:bg-slate-50"
         >
-          {dashLink.label}
+          My courses
         </Link>
-        {/* Settings — goes to /settings, NOT /contact */}
         <Link
-          href="/settings"
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-700 hover:bg-slate-50"
+          href="/contact"
+          className="block px-3 py-2 rounded-lg text-sm text-slate-700 hover:bg-slate-50"
         >
           Account settings
         </Link>
         <button
           onClick={() => signOut()}
-          className="flex items-center gap-2 w-full text-left px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50"
+          className="block w-full text-left px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50"
         >
           Sign out
         </button>

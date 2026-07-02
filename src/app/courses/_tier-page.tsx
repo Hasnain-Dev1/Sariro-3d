@@ -257,7 +257,7 @@ export default function TierPage({ tier }: { tier: Tier }) {
                   <div className="space-y-2 text-sm text-white/90 mb-6">
                     <div className="flex items-center gap-2">
                       <Users className="w-4 h-4 shrink-0" />
-                      <span>Live cohorts of 30-40 students</span>
+                      <span>3-4 live cohorts + special 1:1 cohort</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <CalendarDays className="w-4 h-4 shrink-0" />
@@ -507,16 +507,14 @@ function CourseDetailCard({
                   <span>Next: {course.nextCohort}</span>
                 </div>
               </div>
-              <a
-                href={getRazorpayLink(course.level)}
-                target="_blank"
-                rel="noopener noreferrer"
+              <Link
+                href={`/checkout?course=${course.id}`}
                 className="block w-full text-center mt-4 px-4 py-2.5 rounded-xl bg-white text-slate-900 text-xs font-bold hover:bg-white/90 transition-colors"
                 style={{ fontFamily: 'var(--font-grotesk)' }}
               >
                 Reserve a seat
                 <ArrowRight className="w-3.5 h-3.5 inline ml-1" />
-              </a>
+              </Link>
             </div>
           </div>
         </div>

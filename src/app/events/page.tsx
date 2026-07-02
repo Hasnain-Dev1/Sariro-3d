@@ -322,7 +322,7 @@ export default function EventsPage() {
                 title: 'Cohorts',
                 accent: '#2563EB',
                 body: '8–12 week live programs. Small groups, real mentorship, a portfolio at the end. The flagship Sariro experience.',
-                meta: '8–12 weeks · 30–40 students',
+                meta: '8–12 weeks · 3-4 live cohorts',
               },
               {
                 icon: Trophy,

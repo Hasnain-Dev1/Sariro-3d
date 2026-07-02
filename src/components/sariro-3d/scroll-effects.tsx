@@ -302,7 +302,7 @@ export function CustomCursor() {
     let ringY = mouseY;
     let rafId = 0;
 
-    const onMove = (e: globalThis.MouseEvent) => {
+    const onMove = (e: MouseEvent) => {
       mouseX = e.clientX;
       mouseY = e.clientY;
       dot.style.transform = `translate(${mouseX}px, ${mouseY}px) translate(-50%, -50%)`;
@@ -349,15 +349,15 @@ export function CustomCursor() {
     }
     rafId = requestAnimationFrame(tick);
 
-    window.addEventListener('mousemove', onMove as EventListener);
-    window.addEventListener('mousedown', onDown as EventListener);
-    window.addEventListener('mouseup', onUp as EventListener);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mousedown', onDown);
+    window.addEventListener('mouseup', onUp);
 
     return () => {
       cancelAnimationFrame(rafId);
-      window.removeEventListener('mousemove', onMove as EventListener);
-      window.removeEventListener('mousedown', onDown as EventListener);
-      window.removeEventListener('mouseup', onUp as EventListener);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mousedown', onDown);
+      window.removeEventListener('mouseup', onUp);
       dot.remove();
       ring.remove();
       styleEl.remove();

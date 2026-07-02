@@ -415,7 +415,7 @@ export default function SchoolsPage() {
                     L
                   </div>
                   <div>
-                    <div className="font-bold text-slate-900">Sumita Patra Co-Founder and CFO</div>
+                    <div className="font-bold text-slate-900">Dr. Lena Okafor</div>
                     <div className="text-sm text-slate-500">Principal · Lakeside Academy</div>
                   </div>
                 </div>
