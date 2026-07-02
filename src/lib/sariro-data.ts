@@ -24,9 +24,13 @@ export const RAZORPAY_LINKS: Record<string, string> = {
   Advanced: "https://pages.razorpay.com/sariroadvanced",
 };
 
+export type LearningRatio = '1:4' | '1:1';
+
 /** Returns the Razorpay payment link for a given course level.
- *  Falls back to the Beginner link if the level is unknown. */
-export function getRazorpayLink(level: string): string {
+ *  Falls back to the Beginner link if the level is unknown.
+ *  The ratio is accepted for compatibility with checkout components.
+ */
+export function getRazorpayLink(level: string, ratio?: LearningRatio): string {
   return RAZORPAY_LINKS[level] ?? RAZORPAY_LINKS.Beginner;
 }
 
