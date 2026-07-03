@@ -451,7 +451,13 @@ html[data-scroll-locked="true"] .sariro-cookie-consent {
   opacity: 0 !important;
   pointer-events: none !important;
 }
-
+/* Hide navbar when syllabus modal is open */
+html[data-syllabus-open="true"] header {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateY(-100%);
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
 /* Ensure touch targets meet iOS 44px minimum on interactive buttons
    inside modals/chat panels on mobile */
 @media (max-width: 640px) {

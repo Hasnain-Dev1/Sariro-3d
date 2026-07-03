@@ -641,33 +641,36 @@ function SyllabusModal({ course, onClose }: { course: Course | null; onClose: ()
   /* ---------- Body scroll lock when modal is open ----------
      Same pattern as ChatBubble: lock body in place + pause Lenis
      so only the modal's content area scrolls. Restored on close. */
-  useEffect(() => {
+    useEffect(() => {
     if (typeof window === 'undefined') return;
 
     if (course) {
       const scrollY = window.scrollY;
       const scrollX = window.scrollX;
-      const originalOverflow = document.body.style.overflow;
-      const originalPosition = document.body.style.position;
-      const originalTop = document.body.style.top;
-      const originalLeft = document.body.style.left;
-      const originalWidth = document.body.style.width;
-
+      const o = {
+        overflow: document.body.style.overflow,
+        position: document.body.style.position,
+        top: document.body.style.top,
+        left: document.body.style.left,
+        width: document.body.style.width,
+      };
       document.body.style.overflow = 'hidden';
       document.body.style.position = 'fixed';
       document.body.style.top = `-${scrollY}px`;
       document.body.style.left = `-${scrollX}px`;
       document.body.style.width = '100%';
       document.documentElement.setAttribute('data-scroll-locked', 'true');
+      document.documentElement.setAttribute('data-syllabus-open', 'true');  // ← ADD THIS
       window.dispatchEvent(new CustomEvent('sariro:scroll-lock', { detail: { locked: true } }));
 
       return () => {
-        document.body.style.overflow = originalOverflow;
-        document.body.style.position = originalPosition;
-        document.body.style.top = originalTop;
-        document.body.style.left = originalLeft;
-        document.body.style.width = originalWidth;
+        document.body.style.overflow = o.overflow;
+        document.body.style.position = o.position;
+        document.body.style.top = o.top;
+        document.body.style.left = o.left;
+        document.body.style.width = o.width;
         document.documentElement.removeAttribute('data-scroll-locked');
+        document.documentElement.removeAttribute('data-syllabus-open');  // ← ADD THIS
         window.dispatchEvent(new CustomEvent('sariro:scroll-lock', { detail: { locked: false } }));
         window.scrollTo(scrollX, scrollY);
       };
