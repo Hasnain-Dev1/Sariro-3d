@@ -155,7 +155,7 @@ export const TEAM: TeamMember[] = [
     role: "Co-Founder and CFO",
     bio: "The financial backbone of Sariro. Sumita ensures every cohort runs sustainably and every student gets the resources they need to succeed.",
     avatar: "S",
-    image: "/images/team/sumita-patra.webp",
+    image: "/images/team/sumitra-patra.webp",
     accent: "#EC4899",
     isFounder: true,
   },
