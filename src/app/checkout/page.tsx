@@ -19,7 +19,6 @@ import {
 } from 'lucide-react';
 import BrandLayout from '@/components/brand/brand-layout';
 import { WaveDivider3D } from '@/components/sariro-3d/kit-3d';
-import { ReserveSeatButton } from '@/components/auth/reserve-seat-button';
 import {
   Reveal,
   CountUp,
@@ -340,15 +339,18 @@ function CheckoutPageInner() {
                     </div>
                   </div>
 
-                  {/* CTA → login-gated, creates purchase_intent, opens Razorpay */}
-                  <ReserveSeatButton
-                    track={course.trackId}
-                    level={course.level}
-                    ratio={ratio}
-                    paymentLink={paymentLink}
-                    courseName={course.title}
-                    accentColor={accent}
-                  />
+                  {/* CTA → Razorpay */}
+                  <a
+                    href={paymentLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-tactile btn-tactile-primary w-full px-6 py-4 text-base"
+                    style={{ background: accent }}
+                  >
+                    <ShieldCheck className="w-5 h-5" />
+                    Reserve your seat
+                    <ArrowRight className="w-5 h-5" />
+                  </a>
 
                   {/* Trust badges */}
                   <div className="mt-4 flex items-center justify-center gap-4 text-[10px] text-slate-400" style={{ fontFamily: 'var(--font-grotesk)' }}>

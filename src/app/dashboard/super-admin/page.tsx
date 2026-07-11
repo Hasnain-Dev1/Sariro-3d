@@ -6,14 +6,10 @@ import {
   Crown, Users, BookOpen, Clock, GraduationCap, ScrollText,
   DollarSign, Loader2, AlertCircle, CheckCircle2, XCircle, Plus,
   Lock, Trophy, ArrowRight, X, Video, Copy, ShieldCheck, Link as LinkIcon,
-  Save, Edit3,
 } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import { useAuth } from '@/components/auth/auth-provider';
 import { TRACKS, COURSES, RAZORPAY_LINKS, RAZORPAY_LINKS_PREMIUM } from '@/lib/sariro-data';
-import {
-  fetchRazorpayLinks, fetchPrices, updateSettings,
-} from '@/lib/dashboard/settings-data';
 import {
   fetchAdminStats, fetchPendingPurchaseIntents, fetchCohorts,
   confirmPurchaseIntent, rejectPurchaseIntent, transitionCohortStatus, createCohort,
@@ -440,62 +436,6 @@ function CreateCohortModal({ open, onClose, onCreated }: { open: boolean; onClos
   );
 }
 
-/* ───── Editable price field (for super-admin pricing editor) ───── */
-function EditablePriceField({ label, value, onChange }: {
-  label: string; value: string; onChange: (v: string) => void;
-}) {
-  return (
-    <div>
-      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
-        {label}
-      </label>
-      <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">$</span>
-        <input
-          type="number"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-full h-11 pl-7 pr-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50"
-          style={{ fontFamily: 'var(--font-inter)' }}
-        />
-      </div>
-    </div>
-  );
-}
-
-/* ───── Editable link field ───── */
-function EditableLinkField({ label, value, onChange }: {
-  label: string; value: string; onChange: (v: string) => void;
-}) {
-  return (
-    <div>
-      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
-        {label}
-      </label>
-      <input
-        type="url"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full h-11 px-3 rounded-xl border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-amber-500/50"
-      />
-    </div>
-  );
-}
-
-/* ───── Read-only price card ───── */
-function PriceCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="card-3d p-4">
-      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1" style={{ fontFamily: 'var(--font-grotesk)' }}>
-        {label}
-      </div>
-      <div className="text-xl font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
 /* ───── Main super-admin dashboard ───── */
 function SuperAdminDashboardInner() {
   const { profile } = useAuth();
@@ -515,21 +455,6 @@ function SuperAdminDashboardInner() {
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  // Pricing + Razorpay links state (editable from UI)
-  const [editingPricing, setEditingPricing] = useState(false);
-  const [pricingLoading, setPricingLoading] = useState(true);
-  const [savingPricing, setSavingPricing] = useState(false);
-  const [priceBeginner, setPriceBeginner] = useState('199');
-  const [priceIntermediate, setPriceIntermediate] = useState('299');
-  const [priceAdvanced, setPriceAdvanced] = useState('699');
-  const [pricePremiumAddon, setPricePremiumAddon] = useState('100');
-  const [stdBeginner, setStdBeginner] = useState(RAZORPAY_LINKS.Beginner);
-  const [stdIntermediate, setStdIntermediate] = useState(RAZORPAY_LINKS.Intermediate);
-  const [stdAdvanced, setStdAdvanced] = useState(RAZORPAY_LINKS.Advanced);
-  const [premBeginner, setPremBeginner] = useState(RAZORPAY_LINKS_PREMIUM.Beginner);
-  const [premIntermediate, setPremIntermediate] = useState(RAZORPAY_LINKS_PREMIUM.Intermediate);
-  const [premAdvanced, setPremAdvanced] = useState(RAZORPAY_LINKS_PREMIUM.Advanced);
-
   const loadAll = useCallback(async () => {
     const [s, intents, c, logs, actions] = await Promise.all([
       fetchAdminStats(),
@@ -548,53 +473,6 @@ function SuperAdminDashboardInner() {
   useEffect(() => {
     Promise.resolve().then(() => loadAll());
   }, [loadAll]);
-
-  // Load pricing + Razorpay links from DB (with code fallback)
-  useEffect(() => {
-    const loadPricing = async () => {
-      const [links, prices] = await Promise.all([
-        fetchRazorpayLinks(),
-        fetchPrices(),
-      ]);
-      setStdBeginner(links.standard.Beginner);
-      setStdIntermediate(links.standard.Intermediate);
-      setStdAdvanced(links.standard.Advanced);
-      setPremBeginner(links.premium.Beginner);
-      setPremIntermediate(links.premium.Intermediate);
-      setPremAdvanced(links.premium.Advanced);
-      setPriceBeginner(String(prices.beginner));
-      setPriceIntermediate(String(prices.intermediate));
-      setPriceAdvanced(String(prices.advanced));
-      setPricePremiumAddon(String(prices.premiumAddon));
-      setPricingLoading(false);
-    };
-    loadPricing();
-  }, []);
-
-  // Save all pricing changes to DB
-  const handleSavePricing = async () => {
-    setSavingPricing(true);
-    const updates: Record<string, string> = {
-      'razorpay.beginner.1:4': stdBeginner,
-      'razorpay.intermediate.1:4': stdIntermediate,
-      'razorpay.advanced.1:4': stdAdvanced,
-      'razorpay.beginner.1:1': premBeginner,
-      'razorpay.intermediate.1:1': premIntermediate,
-      'razorpay.advanced.1:1': premAdvanced,
-      'price.beginner': priceBeginner,
-      'price.intermediate': priceIntermediate,
-      'price.advanced': priceAdvanced,
-      'price.1:1_premium_addon': pricePremiumAddon,
-    };
-    const result = await updateSettings(updates);
-    setSavingPricing(false);
-    if (result.success) {
-      setToast({ type: 'success', message: 'Pricing & links updated' });
-      setEditingPricing(false);
-    } else {
-      setToast({ type: 'error', message: result.error || 'Failed to save' });
-    }
-  };
 
   useEffect(() => {
     if (!toast) return;
@@ -636,8 +514,9 @@ function SuperAdminDashboardInner() {
     }
   };
 
-  // Pricing + Razorpay links are now loaded from DB (with code fallback)
-  // via fetchRazorpayLinks() in the useEffect below.
+  // Build Razorpay links list — 3 tiers × 2 ratios = 6 links total
+  const standardEntries = Object.entries(RAZORPAY_LINKS);
+  const premiumEntries = Object.entries(RAZORPAY_LINKS_PREMIUM);
 
   return (
     <section className="relative pt-6 sm:pt-10 pb-16 px-4 sm:px-6 lg:px-10">
@@ -738,124 +617,46 @@ function SuperAdminDashboardInner() {
           )}
         </div>
 
-        {/* Razorpay payment links + pricing (editable) */}
+        {/* Razorpay payment links */}
         <div className="mb-10" id="pricing">
-          <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-            <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2" style={{ fontFamily: 'var(--font-jakarta)' }}>
-              <DollarSign className="w-5 h-5 text-amber-600" /> Pricing & Payment Links
-            </h2>
-            <button
-              onClick={() => setEditingPricing(!editingPricing)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${
-                editingPricing ? 'bg-amber-600 text-white hover:bg-amber-700' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-              }`}
-              style={{ fontFamily: 'var(--font-grotesk)' }}
-            >
-              {editingPricing ? <Save className="w-3.5 h-3.5" /> : <Edit3 className="w-3.5 h-3.5" />}
-              {editingPricing ? 'Save changes' : 'Edit'}
-            </button>
-          </div>
-
+          <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-jakarta)' }}>
+            <DollarSign className="w-5 h-5 text-amber-600" /> Razorpay Payment Links
+          </h2>
           <div className="card-3d p-5 mb-4">
             <div className="flex items-start gap-3">
               <ShieldCheck className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
               <div className="text-sm text-slate-600">
-                6 Razorpay URLs (3 tiers × 2 ratios) + 4 prices. Changes here update the database instantly — students see new prices/links on their next page load.
+                6 live Razorpay payment page URLs — 3 tiers × 2 ratios. Students get routed to the matching link when they click "Reserve your seat".
                 <strong className="text-slate-900"> 1:4 (standard)</strong> uses the base link.
-                <strong className="text-slate-900"> 1:1 (premium)</strong> uses the premium link.
+                <strong className="text-slate-900"> 1:1 (premium)</strong> uses the same link with "premium" appended.
+                To change these URLs, edit <code className="px-1.5 py-0.5 rounded bg-slate-100 text-xs">RAZORPAY_LINKS</code> in <code className="px-1.5 py-0.5 rounded bg-slate-100 text-xs">src/lib/sariro-data.ts</code>.
               </div>
             </div>
           </div>
 
-          {pricingLoading ? (
-            <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-amber-600" /></div>
-          ) : editingPricing ? (
-            <div className="space-y-6">
-              {/* Editable prices */}
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500 mb-3" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                  Prices (USD)
-                </h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <EditablePriceField label="Beginner" value={priceBeginner} onChange={setPriceBeginner} />
-                  <EditablePriceField label="Intermediate" value={priceIntermediate} onChange={setPriceIntermediate} />
-                  <EditablePriceField label="Advanced" value={priceAdvanced} onChange={setPriceAdvanced} />
-                  <EditablePriceField label="1:1 Premium add-on" value={pricePremiumAddon} onChange={setPricePremiumAddon} />
-                </div>
-              </div>
-
-              {/* Editable standard links */}
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500 mb-3" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                  1:4 Standard (Group) Links
-                </h3>
-                <div className="space-y-3">
-                  <EditableLinkField label="Beginner 1:4" value={stdBeginner} onChange={setStdBeginner} />
-                  <EditableLinkField label="Intermediate 1:4" value={stdIntermediate} onChange={setStdIntermediate} />
-                  <EditableLinkField label="Advanced 1:4" value={stdAdvanced} onChange={setStdAdvanced} />
-                </div>
-              </div>
-
-              {/* Editable premium links */}
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-[0.15em] text-amber-600 mb-3" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                  1:1 Premium (Private) Links
-                </h3>
-                <div className="space-y-3">
-                  <EditableLinkField label="Beginner 1:1" value={premBeginner} onChange={setPremBeginner} />
-                  <EditableLinkField label="Intermediate 1:1" value={premIntermediate} onChange={setPremIntermediate} />
-                  <EditableLinkField label="Advanced 1:1" value={premAdvanced} onChange={setPremAdvanced} />
-                </div>
-              </div>
-
-              <button
-                onClick={handleSavePricing}
-                disabled={savingPricing}
-                className="w-full min-h-[48px] px-4 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
-                style={{ fontFamily: 'var(--font-grotesk)' }}
-              >
-                {savingPricing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                Save all changes
-              </button>
+          {/* 1:4 Standard links */}
+          <div className="mb-4">
+            <h3 className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500 mb-3" style={{ fontFamily: 'var(--font-grotesk)' }}>
+              1:4 Standard (Group)
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {standardEntries.map(([tier, url]) => (
+                <RazorpayLinkCard key={`std-${tier}`} tier={tier} ratio="1:4" url={url} />
+              ))}
             </div>
-          ) : (
-            <>
-              {/* Read-only view */}
-              <div className="mb-4">
-                <h3 className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500 mb-3" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                  Current prices
-                </h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <PriceCard label="Beginner" value={`$${priceBeginner}`} />
-                  <PriceCard label="Intermediate" value={`$${priceIntermediate}`} />
-                  <PriceCard label="Advanced" value={`$${priceAdvanced}`} />
-                  <PriceCard label="1:1 add-on" value={`+$${pricePremiumAddon}`} />
-                </div>
-              </div>
+          </div>
 
-              <div className="mb-4">
-                <h3 className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500 mb-3" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                  1:4 Standard (Group)
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <RazorpayLinkCard tier="Beginner" ratio="1:4" url={stdBeginner} />
-                  <RazorpayLinkCard tier="Intermediate" ratio="1:4" url={stdIntermediate} />
-                  <RazorpayLinkCard tier="Advanced" ratio="1:4" url={stdAdvanced} />
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-[0.15em] text-amber-600 mb-3" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                  1:1 Premium (Private)
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <RazorpayLinkCard tier="Beginner" ratio="1:1" url={premBeginner} />
-                  <RazorpayLinkCard tier="Intermediate" ratio="1:1" url={premIntermediate} />
-                  <RazorpayLinkCard tier="Advanced" ratio="1:1" url={premAdvanced} />
-                </div>
-              </div>
-            </>
-          )}
+          {/* 1:1 Premium links */}
+          <div>
+            <h3 className="text-xs font-bold uppercase tracking-[0.15em] text-amber-600 mb-3" style={{ fontFamily: 'var(--font-grotesk)' }}>
+              1:1 Premium (Private)
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {premiumEntries.map(([tier, url]) => (
+                <RazorpayLinkCard key={`prem-${tier}`} tier={tier} ratio="1:1" url={url} />
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Audit logs */}

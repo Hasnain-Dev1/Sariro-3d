@@ -162,7 +162,7 @@ export const TEAM = [
     avatar: "L",
     image: "",
     accent: "#16A34A",
-    isFounder: false,
+    isFounder : false,
   },
   {
     name: "Marco Rossi",
@@ -171,7 +171,7 @@ export const TEAM = [
     avatar: "M",
     image: "",
     accent: "#2563EB",
-    isFounder: false,
+    isFounder : false,
   },
   {
     name: "Priya Nair",
@@ -180,7 +180,7 @@ export const TEAM = [
     avatar: "P",
     image: "",
     accent: "#7C3AED",
-    isFounder: false,
+    isFounder : false,
   },
   {
     name: "James Chen",
@@ -189,7 +189,7 @@ export const TEAM = [
     avatar: "J",
     image: "",
     accent: "#06B6D4",
-    isFounder: false,
+    isFounder : false,
   },
   {
     name: "Sofia Alvarez",
@@ -198,7 +198,7 @@ export const TEAM = [
     avatar: "S",
     image: "",
     accent: "#EC4899",
-    isFounder: false,
+    isFounder : false,
   },
 ] as const;
 

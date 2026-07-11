@@ -482,32 +482,3 @@ html[data-syllabus-open="true"] header {
   transition: transform 0.3s ease, opacity 0.3s ease;
 }
 
-
-/* ═══ Print styles for certificate page ═══ */
-@media print {
-  /* Hide everything that's not the certificate */
-  header, footer, nav, [data-lenis-prevent], .print\:hidden {
-    display: none !important;
-  }
-
-  /* Remove background patterns and effects */
-  .mesh-bg, [class*="parallax"], [class*="orb"] {
-    display: none !important;
-  }
-
-  /* Make the certificate fill the page */
-  body {
-    background: white !important;
-  }
-
-  /* Ensure the certificate container has no shadow */
-  .shadow-2xl {
-    box-shadow: none !important;
-  }
-
-  /* Force colors to print */
-  * {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-}

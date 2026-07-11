@@ -16,13 +16,11 @@ const ACCENT_MAP: Record<string, { text: string; bg: string; soft: string; borde
   cyan:   { text: 'text-cyan-700',   bg: 'bg-cyan-600',   soft: 'bg-cyan-50',   border: 'border-cyan-200',   ring: 'ring-cyan-300' },
 };
 
-type Filter = 'all' | 'Beginner' | 'Intermediate' | 'Advanced';
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'Beginner', label: 'Beginner' },
-  { key: 'Intermediate', label: 'Intermediate' },
-  { key: 'Advanced', label: 'Advanced' },
-];
+type Filter = string; // trackId
+const FILTERS: { key: Filter; label: string }[] = TRACKS.map((t) => ({
+  key: t.id as Filter,
+  label: t.short,
+}));
 
 function CourseCard({ course, index }: { course: typeof COURSES[number]; index: number }) {
   const a = ACCENT_MAP[course.accent] ?? ACCENT_MAP.blue;
@@ -129,7 +127,7 @@ function CourseCard({ course, index }: { course: typeof COURSES[number]; index: 
 }
 
 export default function Courses3D() {
-  const [filter, setFilter] = useState<Filter>('all');
+  const [filter, setFilter] = useState<Filter>(TRACKS[0]?.id ?? 'web');
   const sectionRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     target: sectionRef,
@@ -137,7 +135,7 @@ export default function Courses3D() {
   });
   const headerY = useTransform(scrollYProgress, [0, 1], [50, -50]);
 
-  const filtered = filter === 'all' ? COURSES : COURSES.filter((c) => c.level === filter);
+  const filtered = COURSES.filter((c) => c.trackId === filter);
 
   return (
     <section id="courses" ref={sectionRef} data-chapter="courses" data-chapter-label="Courses" className="relative py-24 sm:py-32 overflow-hidden bg-gradient-to-b from-white to-slate-50">
@@ -167,7 +165,7 @@ export default function Courses3D() {
           </div>
 
           {/* Filters */}
-          <div className="flex gap-1.5 p-1.5 rounded-2xl glass-panel self-start lg:self-end flex-wrap justify-center">
+          <div className="flex gap-1.5 p-1.5 rounded-2xl glass-panel self-start lg:self-end">
             {FILTERS.map((f) => (
               <button
                 key={f.key}

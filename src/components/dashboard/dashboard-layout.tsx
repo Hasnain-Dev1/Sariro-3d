@@ -7,14 +7,10 @@ import { useEffect, useState, type ReactNode } from 'react';
 import {
   Menu, X, LayoutDashboard, BookOpen, Calendar, Settings,
   LogOut, ChevronRight, Bell, Home as HomeIcon, GraduationCap,
-  Users, ShieldCheck, DollarSign, ScrollText, ArrowLeft, Loader2,
+  Users, ShieldCheck, DollarSign, ScrollText, ArrowLeft,
 } from 'lucide-react';
 import { useAuth, getRole, type UserRole } from '@/components/auth/auth-provider';
 import { BRAND } from '@/lib/sariro-data';
-import {
-  fetchNotifications, fetchUnreadCount, markAsRead, markAllAsRead,
-  formatRelativeTime, type NotificationRow,
-} from '@/lib/dashboard/notifications-data';
 
 /* ════════════════════════════════════════════════════════════════
    DashboardLayout
@@ -160,150 +156,19 @@ function AvatarMenu() {
   );
 }
 
-/* ───── Notification bell (functional) ───── */
+/* ───── Notification bell (placeholder, non-functional for now) ───── */
 function NotificationBell() {
-  const [open, setOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationRow[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(false);
-
-  // Fetch unread count on mount + when dropdown opens
-  useEffect(() => {
-    const loadCount = async () => {
-      const count = await fetchUnreadCount();
-      setUnreadCount(count);
-    };
-    loadCount();
-    // Refresh every 30 seconds
-    const interval = setInterval(loadCount, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Fetch notifications when dropdown opens
-  useEffect(() => {
-    if (!open) return;
-    const loadNotifs = async () => {
-      setLoading(true);
-      const notifs = await fetchNotifications();
-      setNotifications(notifs);
-      setLoading(false);
-    };
-    loadNotifs();
-  }, [open]);
-
-  // Close on outside click
-  useEffect(() => {
-    if (!open) return;
-    const onClick = () => setOpen(false);
-    window.addEventListener('click', onClick);
-    return () => window.removeEventListener('click', onClick);
-  }, [open]);
-
-  const handleMarkAllRead = async () => {
-    await markAllAsRead();
-    setUnreadCount(0);
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-  };
-
-  const handleClickNotif = async (notif: NotificationRow) => {
-    if (!notif.is_read) {
-      await markAsRead(notif.id);
-      setUnreadCount(prev => Math.max(0, prev - 1));
-      setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, is_read: true } : n));
-    }
-    if (notif.link) {
-      setOpen(false);
-      window.open(notif.link, '_self');
-    }
-  };
-
+  const [hasUnread] = useState(false);
   return (
-    <div className="relative" onClick={(e) => e.stopPropagation()}>
-      <button
-        onClick={() => setOpen(!open)}
-        className="relative w-11 h-11 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-600 transition-colors"
-        aria-label="Notifications"
-      >
-        <Bell className="w-5 h-5" />
-        {unreadCount > 0 && (
-          <span className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-            {unreadCount > 9 ? '9+' : unreadCount}
-          </span>
-        )}
-      </button>
-
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: 8, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.97 }}
-            transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-2xl shadow-xl border border-slate-200 bg-white z-50 overflow-hidden"
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between p-3 border-b border-slate-100">
-              <span className="text-sm font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
-                Notifications
-              </span>
-              {unreadCount > 0 && (
-                <button
-                  onClick={handleMarkAllRead}
-                  className="text-[10px] font-bold text-blue-600 hover:text-blue-700"
-                  style={{ fontFamily: 'var(--font-grotesk)' }}
-                >
-                  Mark all read
-                </button>
-              )}
-            </div>
-
-            {/* List */}
-            <div className="max-h-80 overflow-y-auto">
-              {loading ? (
-                <div className="p-6 text-center">
-                  <Loader2 className="w-5 h-5 animate-spin text-slate-400 mx-auto" />
-                </div>
-              ) : notifications.length === 0 ? (
-                <div className="p-6 text-center">
-                  <Bell className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                  <p className="text-xs text-slate-500">No notifications yet</p>
-                </div>
-              ) : (
-                notifications.map(n => (
-                  <button
-                    key={n.id}
-                    onClick={() => handleClickNotif(n)}
-                    className={`w-full text-left p-3 border-b border-slate-50 hover:bg-slate-50 transition-colors flex items-start gap-2.5 ${
-                      !n.is_read ? 'bg-blue-50/50' : ''
-                    }`}
-                  >
-                    {/* Unread dot */}
-                    <div className="shrink-0 mt-1.5">
-                      {!n.is_read ? (
-                        <span className="block w-2 h-2 rounded-full bg-blue-500" />
-                      ) : (
-                        <span className="block w-2 h-2 rounded-full bg-transparent" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-bold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
-                        {n.title}
-                      </div>
-                      <div className="text-[11px] text-slate-600 mt-0.5 line-clamp-2">
-                        {n.message}
-                      </div>
-                      <div className="text-[10px] text-slate-400 mt-1">
-                        {formatRelativeTime(n.created_at)}
-                      </div>
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+    <button
+      className="relative w-11 h-11 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-600 transition-colors"
+      aria-label="Notifications"
+    >
+      <Bell className="w-5 h-5" />
+      {hasUnread && (
+        <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500" />
+      )}
+    </button>
   );
 }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -10,7 +10,6 @@ import {
   TrendingUp, Star,
 } from 'lucide-react';
 import BrandLayout from '@/components/brand/brand-layout';
-import { ReserveSeatButton } from '@/components/auth/reserve-seat-button';
 import {
   Reveal,
   StaggerGroup,
@@ -36,21 +35,9 @@ export default function CoursePathPage() {
   const trackId = params.id as string;
   const [ratio, setRatio] = useState<LearningRatio>('1:4');
   const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
-  const detailsRef = useRef<HTMLDivElement>(null);
 
   const track = useMemo(() => TRACKS.find((t) => t.id === trackId), [trackId]);
   const courses = useMemo(() => COURSES.filter((c) => c.trackId === trackId), [trackId]);
-
-  // Auto-scroll to details section when a level is selected
-  useEffect(() => {
-    if (selectedLevel && detailsRef.current) {
-      // Slight delay so the section has time to render before scrolling
-      const timer = setTimeout(() => {
-        detailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [selectedLevel]);
 
   if (!track || courses.length === 0) {
     return (
@@ -167,11 +154,9 @@ export default function CoursePathPage() {
 
             return (
               <motion.div
-                ref={detailsRef}
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="scroll-mt-24"
               >
                 {/* Divider */}
                 <div className="flex items-center gap-3 mb-8">
@@ -275,15 +260,10 @@ export default function CoursePathPage() {
                           </div>
                         </div>
 
-                        {/* CTA — login-gated, creates purchase_intent, then opens Razorpay */}
-                        <ReserveSeatButton
-                          track={trackId}
-                          level={selectedCourse.level}
-                          ratio={ratio}
-                          paymentLink={paymentLink}
-                          courseName={`${track.name} — ${selectedCourse.level}`}
-                          accentColor={ls.color}
-                        />
+                        {/* CTA */}
+                        <a href={paymentLink} target="_blank" rel="noopener noreferrer" className="btn-tactile btn-tactile-primary w-full px-6 py-4 text-base" style={{ background: ls.color }}>
+                          <ShieldCheck className="w-5 h-5" />Reserve your seat<ArrowRight className="w-5 h-5" />
+                        </a>
 
                         <div className="mt-4 flex items-center justify-center gap-4 text-[10px] text-slate-400" style={{ fontFamily: 'var(--font-grotesk)' }}>
                           <span className="flex items-center gap-1"><ShieldCheck className="w-3 h-3" />14-day refund</span>

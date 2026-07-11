@@ -6,8 +6,6 @@ import { motion } from 'framer-motion';
 import {
   BookOpen, Clock, Calendar, ArrowRight, Sparkles, Rocket,
   TrendingUp, Video, Loader2, AlertCircle, ChevronRight,
-  ChevronDown, ChevronUp, CheckCircle2, Circle, Download,
-  FolderOpen, Trash2, X, Award, Users, CalendarPlus,
 } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import { useAuth } from '@/components/auth/auth-provider';
@@ -18,11 +16,6 @@ import {
   getTrackName,
   type UpsellRecommendation,
 } from '@/lib/dashboard/upsell-engine';
-import {
-  fetchLessonProgress, markLessonComplete, unmarkLesson,
-  calculateProgress, getCourseSyllabus, dropCourse, fetchCohortMaterials,
-  type LessonProgressRow,
-} from '@/lib/dashboard/student-data';
 
 /* ───── Types ───── */
 interface Enrollment {
@@ -100,74 +93,14 @@ function EmptyCoursesState() {
   );
 }
 
-/* ───── Course card v2 (progress + lessons + materials + drop + cert) ───── */
-function CourseCard({ enrollment, onChanged }: {
-  enrollment: Enrollment;
-  onChanged: () => Promise<void>;
-}) {
+/* ───── Course card ───── */
+function CourseCard({ enrollment }: { enrollment: Enrollment }) {
   const trackName = getTrackName(enrollment.track);
   const isActive = enrollment.status === 'active';
   const isCompleted = enrollment.status === 'completed';
-  const isDropped = enrollment.status === 'dropped';
-
-  const [expanded, setExpanded] = useState(false);
-  const [progress, setProgress] = useState<LessonProgressRow[]>([]);
-  const [materialsUrl, setMaterialsUrl] = useState<string | null>(null);
-  const [showDropModal, setShowDropModal] = useState(false);
-  const [dropping, setDropping] = useState(false);
-
-  // Fetch progress + materials when card mounts or when expanded
-  useEffect(() => {
-    const loadData = async () => {
-      const [p, m] = await Promise.all([
-        fetchLessonProgress(enrollment.id),
-        fetchCohortMaterials(enrollment.cohort_id),
-      ]);
-      setProgress(p);
-      setMaterialsUrl(m);
-    };
-    loadData();
-  }, [enrollment.id, enrollment.cohort_id]);
-
-  const syllabus = getCourseSyllabus(enrollment.track, enrollment.level);
-  const courseProgress = calculateProgress(enrollment.track, enrollment.level, progress);
-
-  const handleToggleLesson = async (moduleNum: string, lessonName: string) => {
-    const isDone = progress.some(
-      p => p.module_num === moduleNum && p.lesson_name === lessonName
-    );
-
-    if (isDone) {
-      // Unmark
-      await unmarkLesson(enrollment.id, moduleNum, lessonName);
-      setProgress(prev => prev.filter(
-        p => !(p.module_num === moduleNum && p.lesson_name === lessonName)
-      ));
-    } else {
-      // Mark complete
-      await markLessonComplete(enrollment.id, moduleNum, lessonName);
-      setProgress(prev => [...prev, {
-        id: `${moduleNum}-${lessonName}`,
-        module_num: moduleNum,
-        lesson_name: lessonName,
-        completed_at: new Date().toISOString(),
-      }]);
-    }
-  };
-
-  const handleDrop = async () => {
-    setDropping(true);
-    const result = await dropCourse(enrollment.id);
-    setDropping(false);
-    setShowDropModal(false);
-    if (result.success) {
-      await onChanged();
-    }
-  };
 
   return (
     <div className="card-3d p-5">
-      {/* Header */}
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="min-w-0 flex-1">
           <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-blue-600 mb-1" style={{ fontFamily: 'var(--font-grotesk)' }}>
@@ -180,192 +113,28 @@ function CourseCard({ enrollment, onChanged }: {
         <span className={`shrink-0 px-2 py-0.5 rounded-md text-[10px] font-bold ${
           isActive ? 'bg-green-100 text-green-700'
           : isCompleted ? 'bg-violet-100 text-violet-700'
-          : isDropped ? 'bg-red-100 text-red-700'
           : 'bg-amber-100 text-amber-700'
         }`}>
           {enrollment.status.toUpperCase()}
         </span>
       </div>
-
-      {/* Dates */}
       {enrollment.started_at && (
-        <div className="text-xs text-slate-500 mb-2">
+        <div className="text-xs text-slate-500 mb-3">
           Started {new Date(enrollment.started_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
         </div>
       )}
       {isCompleted && enrollment.completed_at && (
-        <div className="text-xs text-violet-600 font-bold mb-2">
+        <div className="text-xs text-violet-600 font-bold mb-3">
           Completed {new Date(enrollment.completed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
         </div>
       )}
-
-      {/* Progress bar (only for active or completed) */}
-      {(isActive || isCompleted) && courseProgress.totalLessons > 0 && (
-        <div className="mb-3">
-          <div className="flex items-center justify-between text-xs mb-1.5">
-            <span className="font-bold text-slate-700" style={{ fontFamily: 'var(--font-grotesk)' }}>
-              Progress
-            </span>
-            <span className="text-slate-500">
-              {courseProgress.completedLessons} / {courseProgress.totalLessons} lessons · {courseProgress.percentage}%
-            </span>
-          </div>
-          <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${courseProgress.percentage}%` }}
-              transition={{ duration: 0.5, ease: 'easeOut' }}
-              className={`h-full rounded-full ${
-                isCompleted ? 'bg-violet-500' : 'bg-gradient-to-r from-blue-500 to-violet-500'
-              }`}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Action buttons */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <Link
-          href={`/course-path/${enrollment.track}`}
-          className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700"
-          style={{ fontFamily: 'var(--font-grotesk)' }}
-        >
-          View course details <ChevronRight className="w-3 h-3" />
-        </Link>
-
-        {/* Expand lessons (only if syllabus exists and course is active/completed) */}
-        {(isActive || isCompleted) && syllabus.length > 0 && (
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 hover:text-slate-900"
-            style={{ fontFamily: 'var(--font-grotesk)' }}
-          >
-            {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            Lessons
-          </button>
-        )}
-
-        {/* Materials link */}
-        {materialsUrl && (
-          <a
-            href={materialsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs font-bold text-green-600 hover:text-green-700"
-            style={{ fontFamily: 'var(--font-grotesk)' }}
-          >
-            <FolderOpen className="w-3 h-3" /> Materials
-          </a>
-        )}
-
-        {/* Certificate (only for completed) */}
-        {isCompleted && (
-          <Link
-            href={`/certificate/${enrollment.id}`}
-            className="inline-flex items-center gap-1 text-xs font-bold text-violet-600 hover:text-violet-700"
-            style={{ fontFamily: 'var(--font-grotesk)' }}
-          >
-            <Award className="w-3 h-3" /> Certificate
-          </Link>
-        )}
-
-        {/* Drop course (only for active) */}
-        {isActive && (
-          <button
-            onClick={() => setShowDropModal(true)}
-            className="inline-flex items-center gap-1 text-xs font-bold text-red-500 hover:text-red-700 ml-auto"
-            style={{ fontFamily: 'var(--font-grotesk)' }}
-          >
-            <Trash2 className="w-3 h-3" /> Drop
-          </button>
-        )}
-      </div>
-
-      {/* Expandable lesson checklist */}
-      {expanded && syllabus.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          className="mt-4 pt-4 border-t border-slate-100 space-y-3"
-        >
-          {syllabus.map(mod => (
-            <div key={mod.num}>
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="w-6 h-6 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-extrabold">
-                  {mod.num}
-                </span>
-                <span className="text-xs font-bold text-slate-700">{mod.name}</span>
-              </div>
-              <div className="ml-8 space-y-1">
-                {mod.lessons.map((lesson, li) => {
-                  const isDone = progress.some(
-                    p => p.module_num === mod.num && p.lesson_name === lesson
-                  );
-                  return (
-                    <button
-                      key={li}
-                      onClick={() => handleToggleLesson(mod.num, lesson)}
-                      className="flex items-start gap-2 w-full text-left text-xs text-slate-600 hover:text-slate-900 py-1"
-                    >
-                      {isDone ? (
-                        <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
-                      ) : (
-                        <Circle className="w-4 h-4 text-slate-300 shrink-0 mt-0.5" />
-                      )}
-                      <span className={isDone ? 'line-through text-slate-400' : ''}>
-                        {lesson}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </motion.div>
-      )}
-
-      {/* Drop confirmation modal */}
-      {showDropModal && (
-        <div
-          className="fixed inset-0 z-[80] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => !dropping && setShowDropModal(false)}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center">
-                <Trash2 className="w-5 h-5 text-red-600" />
-              </div>
-              <h3 className="text-lg font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
-                Drop this course?
-              </h3>
-            </div>
-            <p className="text-sm text-slate-600 mb-4">
-              You'll lose access to the schedule and materials. This can't be undone. You'll need to re-enroll to continue.
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={handleDrop}
-                disabled={dropping}
-                className="flex-1 min-h-[44px] px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
-                style={{ fontFamily: 'var(--font-grotesk)' }}
-              >
-                {dropping ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                Drop course
-              </button>
-              <button
-                onClick={() => !dropping && setShowDropModal(false)}
-                className="min-h-[44px] px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold"
-                style={{ fontFamily: 'var(--font-grotesk)' }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Link
+        href={`/course-path/${enrollment.track}`}
+        className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700"
+        style={{ fontFamily: 'var(--font-grotesk)' }}
+      >
+        View course details <ChevronRight className="w-3 h-3" />
+      </Link>
     </div>
   );
 }
@@ -374,39 +143,6 @@ function CourseCard({ enrollment, onChanged }: {
 function ScheduleCard({ booking, cohort, timezone }: { booking: Booking; cohort?: Cohort; timezone: string | null }) {
   const meetUrl = booking.google_meet_url || cohort?.google_meet_url;
   const trackName = cohort ? getTrackName(cohort.track) : 'Your session';
-
-  const handleAddToCalendar = () => {
-    const start = new Date(booking.slot_start);
-    const end = new Date(booking.slot_end);
-    const toICS = (d: Date) =>
-      d.getUTCFullYear().toString() +
-      String(d.getUTCMonth() + 1).padStart(2, '0') +
-      String(d.getUTCDate()).padStart(2, '0') + 'T' +
-      String(d.getUTCHours()).padStart(2, '0') +
-      String(d.getUTCMinutes()).padStart(2, '0') +
-      String(d.getUTCSeconds()).padStart(2, '0') + 'Z';
-
-    const ics = [
-      'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Sariro//Schedule//EN',
-      'BEGIN:VEVENT',
-      `UID:${booking.id}@sariro.com`,
-      `DTSTAMP:${toICS(new Date())}`,
-      `DTSTART:${toICS(start)}`, `DTEND:${toICS(end)}`,
-      `SUMMARY:${trackName} — Sariro Session`,
-      `DESCRIPTION:Sariro live session. Join via Google Meet: ${meetUrl || 'Link available in dashboard'}`,
-      meetUrl ? `LOCATION:${meetUrl}` : '',
-      'END:VEVENT', 'END:VCALENDAR',
-    ].filter(Boolean).join('\r\n');
-
-    const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'sariro-session.ics';
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
   return (
     <div className="card-3d p-5">
       <div className="flex items-start justify-between gap-3 mb-2">
@@ -423,16 +159,17 @@ function ScheduleCard({ booking, cohort, timezone }: { booking: Booking; cohort?
       <div className="text-sm text-slate-700 mb-3">
         {formatSessionTime(booking.slot_start, timezone)}
       </div>
-      <div className="flex items-center gap-2 flex-wrap">
-        {meetUrl && (
-          <a href={meetUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-green-50 text-green-700 text-xs font-bold hover:bg-green-100 transition-colors min-h-[40px]" style={{ fontFamily: 'var(--font-grotesk)' }}>
-            <Video className="w-4 h-4" /> Join Meet
-          </a>
-        )}
-        <button onClick={handleAddToCalendar} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 text-blue-700 text-xs font-bold hover:bg-blue-100 transition-colors min-h-[40px]" style={{ fontFamily: 'var(--font-grotesk)' }}>
-          <CalendarPlus className="w-4 h-4" /> Add to Calendar
-        </button>
-      </div>
+      {meetUrl && (
+        <a
+          href={meetUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-green-50 text-green-700 text-xs font-bold hover:bg-green-100 transition-colors min-h-[40px]"
+          style={{ fontFamily: 'var(--font-grotesk)' }}
+        >
+          <Video className="w-4 h-4" /> Join Google Meet
+        </a>
+      )}
     </div>
   );
 }
@@ -490,7 +227,6 @@ function StudentDashboardInner() {
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [cohorts, setCohorts] = useState<Record<string, Cohort>>({});
-  const [classmates, setClassmates] = useState<Array<{ name: string | null; email: string | null; track: string; level: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [recommendation, setRecommendation] = useState<{
@@ -542,32 +278,6 @@ function StudentDashboardInner() {
             return acc;
           }, {} as Record<string, Cohort>);
           setCohorts(cohortMap);
-        }
-
-        // 2b. Fetch classmates (other students in same cohorts)
-        if (cohortIds.length > 0) {
-          const { data: classmateEnrollments } = await supabase
-            .from('enrollments')
-            .select('user_id, track, level')
-            .in('cohort_id', cohortIds)
-            .neq('status', 'dropped')
-            .neq('user_id', user.id);
-
-          if (classmateEnrollments && classmateEnrollments.length > 0) {
-            const classmateIds = [...new Set(classmateEnrollments.map(e => e.user_id))];
-            const { data: classmateProfiles } = await supabase
-              .from('profiles')
-              .select('id, full_name, email')
-              .in('id', classmateIds);
-            const profileMap = new Map((classmateProfiles || []).map(p => [p.id, p]));
-            const classmatesList = classmateEnrollments.map(e => ({
-              name: profileMap.get(e.user_id)?.full_name ?? null,
-              email: profileMap.get(e.user_id)?.email ?? null,
-              track: e.track,
-              level: e.level,
-            }));
-            if (!cancelled) setClassmates(classmatesList);
-          }
         }
 
         // 3. Fetch upcoming bookings for those cohorts
@@ -678,7 +388,7 @@ function StudentDashboardInner() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {enrollments.map((e) => (
-                    <CourseCard key={e.id} enrollment={e} onChanged={loadAll} />
+                    <CourseCard key={e.id} enrollment={e} />
                   ))}
                 </div>
               )}
@@ -709,39 +419,6 @@ function StudentDashboardInner() {
                 </div>
               )}
             </div>
-
-            {/* Classmates */}
-            {classmates.length > 0 && (
-              <div className="mb-10">
-                <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-jakarta)' }}>
-                  <Users className="w-5 h-5 text-violet-600" /> Your Classmates
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-violet-100 text-violet-700">
-                    {classmates.length}
-                  </span>
-                </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {classmates.slice(0, 9).map((c, i) => {
-                    const displayName = c.name || c.email || 'Unknown';
-                    return (
-                      <div key={i} className="card-3d p-4 flex items-center gap-3">
-                        <div
-                          className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-blue-600 flex items-center justify-center text-white font-extrabold text-sm shrink-0"
-                          style={{ fontFamily: 'var(--font-jakarta)' }}
-                        >
-                          {displayName.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-bold text-slate-900 truncate">{displayName}</div>
-                          <div className="text-[10px] text-slate-500 truncate">
-                            {getTrackName(c.track)} · {levelDisplay(c.level)}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
 
             {/* Browse all tracks (always shown for discoverability) */}
             <div>

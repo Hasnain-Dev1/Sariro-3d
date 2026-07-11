@@ -6,16 +6,12 @@ import Link from 'next/link';
 import {
   Calendar, Clock, Users, Video, Loader2, AlertCircle,
   CheckCircle2, XCircle, UserX, ChevronRight, GraduationCap, Sparkles,
-  Plus, Edit3, Save, StickyNote, X,
 } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import { useAuth } from '@/components/auth/auth-provider';
 import {
   fetchTeacherStats, fetchTeacherBookings, fetchTeacherStudents, updateBookingStatus,
-  fetchSessionStudents, markAttendance, saveSessionNote,
-  rescheduleBooking, createBooking, fetchTeacherCohorts,
   type TeacherStats, type TeacherBookingRow, type TeacherStudentRow,
-  type SessionStudentRow, type TeacherCohortRow,
 } from '@/lib/dashboard/teacher-data';
 import { getTrackName } from '@/lib/dashboard/upsell-engine';
 
@@ -89,13 +85,11 @@ function StatCard({ icon: Icon, color, value, label, loading }: {
 
 /* ───── Booking card (schedule) ───── */
 function BookingCard({
-  booking, timezone, onStatusChange, onManage, onReschedule,
+  booking, timezone, onStatusChange,
 }: {
   booking: TeacherBookingRow;
   timezone: string | null;
   onStatusChange: (id: string, status: 'scheduled' | 'completed' | 'cancelled' | 'no_show') => Promise<void>;
-  onManage: (booking: TeacherBookingRow) => void;
-  onReschedule: (booking: TeacherBookingRow) => void;
 }) {
   const [processing, setProcessing] = useState(false);
   const meetUrl = booking.google_meet_url || booking.cohort_meet_url;
@@ -142,26 +136,6 @@ function BookingCard({
           </a>
         )}
 
-        {/* Manage students (attendance + notes) — for any session */}
-        <button
-          onClick={() => onManage(booking)}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition-colors min-h-[40px]"
-          style={{ fontFamily: 'var(--font-grotesk)' }}
-        >
-          <Users className="w-3.5 h-3.5" /> Students
-        </button>
-
-        {/* Reschedule — for scheduled sessions */}
-        {booking.status === 'scheduled' && (
-          <button
-            onClick={() => onReschedule(booking)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors min-h-[40px]"
-            style={{ fontFamily: 'var(--font-grotesk)' }}
-          >
-            <Edit3 className="w-3.5 h-3.5" /> Reschedule
-          </button>
-        )}
-
         {/* Action buttons — only show for past scheduled sessions */}
         {booking.status === 'scheduled' && isPast && (
           <>
@@ -172,7 +146,7 @@ function BookingCard({
               style={{ fontFamily: 'var(--font-grotesk)' }}
             >
               {processing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-              Complete
+              Mark Complete
             </button>
             <button
               onClick={() => handleStatus('no_show')}
@@ -244,510 +218,6 @@ function StudentCard({ student }: { student: TeacherStudentRow }) {
   );
 }
 
-/* ───── Session details modal (per-student attendance + notes) ───── */
-function SessionDetailsModal({
-  booking, onClose, onChanged, onToast,
-}: {
-  booking: TeacherBookingRow | null;
-  onClose: () => void;
-  onChanged: () => Promise<void>;
-  onToast: (t: { type: 'success' | 'error'; message: string }) => void;
-}) {
-  const [students, setStudents] = useState<SessionStudentRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [notes, setNotes] = useState<Record<string, string>>({});
-  const [savingNote, setSavingNote] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!booking) return;
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      const s = await fetchSessionStudents(booking.id);
-      if (cancelled) return;
-      setStudents(s);
-      const notesMap: Record<string, string> = {};
-      s.forEach(st => { if (st.note) notesMap[st.user_id] = st.note; });
-      setNotes(notesMap);
-      setLoading(false);
-    };
-    load();
-    return () => { cancelled = true; };
-  }, [booking]);
-
-  if (!booking) return null;
-
-  const trackName = getTrackName(booking.cohort_track);
-
-  const handleAttendance = async (studentId: string, status: 'present' | 'absent' | 'late' | 'excused') => {
-    const result = await markAttendance(booking.id, studentId, status);
-    if (result.success) {
-      setStudents(prev => prev.map(s =>
-        s.user_id === studentId ? { ...s, attendance_status: status } : s
-      ));
-      onToast({ type: 'success', message: 'Attendance marked' });
-    } else {
-      onToast({ type: 'error', message: result.error || 'Failed' });
-    }
-  };
-
-  const handleSaveNote = async (studentId: string) => {
-    setSavingNote(studentId);
-    const result = await saveSessionNote(booking.id, studentId, notes[studentId] || '');
-    setSavingNote(null);
-    if (result.success) {
-      onToast({ type: 'success', message: 'Note saved' });
-    } else {
-      onToast({ type: 'error', message: result.error || 'Failed' });
-    }
-  };
-
-  return (
-    <AnimatePresence>
-      {booking && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[80] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={onClose}
-        >
-          <motion.div
-            initial={{ scale: 0.95, y: 20 }}
-            animate={{ scale: 1, y: 0 }}
-            exit={{ scale: 0.95, y: 20 }}
-            className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="sticky top-0 bg-white border-b border-slate-100 p-5 flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
-                  Session details
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {trackName} · {formatSessionTime(booking.slot_start, null)}
-                </p>
-              </div>
-              <button onClick={onClose} className="w-9 h-9 rounded-full hover:bg-slate-100 flex items-center justify-center" aria-label="Close">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-5">
-              {loading ? (
-                <div className="py-12 text-center"><Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto" /></div>
-              ) : students.length === 0 ? (
-                <div className="rounded-xl bg-slate-50 p-8 text-center">
-                  <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                  <p className="text-sm text-slate-500">No students enrolled in this cohort yet.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {students.map(s => (
-                    <div key={s.user_id} className="rounded-xl border border-slate-200 p-4">
-                      <div className="flex items-start justify-between gap-3 mb-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-bold text-slate-900 truncate" style={{ fontFamily: 'var(--font-jakarta)' }}>
-                            {s.student_name || s.student_email || 'Unknown student'}
-                          </div>
-                          <div className="text-xs text-slate-500 mt-0.5">
-                            Progress: {s.lessons_completed} / {s.total_lessons} lessons
-                            {s.total_lessons > 0 && (
-                              <span className="ml-1">({Math.round((s.lessons_completed / s.total_lessons) * 100)}%)</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Attendance buttons */}
-                      <div className="flex gap-1.5 mb-3 flex-wrap">
-                        {(['present', 'late', 'absent', 'excused'] as const).map(st => {
-                          const isActive = s.attendance_status === st;
-                          const colors = {
-                            present: 'bg-green-600 text-white',
-                            late: 'bg-amber-500 text-white',
-                            absent: 'bg-red-500 text-white',
-                            excused: 'bg-slate-500 text-white',
-                          };
-                          return (
-                            <button
-                              key={st}
-                              onClick={() => handleAttendance(s.user_id, st)}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all min-h-[36px] ${
-                                isActive ? colors[st] : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                              }`}
-                              style={{ fontFamily: 'var(--font-grotesk)' }}
-                            >
-                              {st.charAt(0).toUpperCase() + st.slice(1)}
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {/* Note */}
-                      <div>
-                        <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                          <StickyNote className="w-3 h-3 inline mr-1" />Session note
-                        </label>
-                        <div className="flex gap-2">
-                          <textarea
-                            value={notes[s.user_id] || ''}
-                            onChange={(e) => setNotes(prev => ({ ...prev, [s.user_id]: e.target.value }))}
-                            placeholder="How did the student do? What should they work on?"
-                            rows={2}
-                            className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
-                            style={{ fontFamily: 'var(--font-inter)' }}
-                          />
-                          <button
-                            onClick={() => handleSaveNote(s.user_id)}
-                            disabled={savingNote === s.user_id}
-                            className="shrink-0 w-10 h-10 rounded-lg bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center disabled:opacity-50"
-                            aria-label="Save note"
-                          >
-                            {savingNote === s.user_id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
-
-/* ───── Reschedule modal ───── */
-function RescheduleModal({
-  booking, timezone, onClose, onChanged, onToast,
-}: {
-  booking: TeacherBookingRow | null;
-  timezone: string | null;
-  onClose: () => void;
-  onChanged: () => Promise<void>;
-  onToast: (t: { type: 'success' | 'error'; message: string }) => void;
-}) {
-  const [slotDate, setSlotDate] = useState('');
-  const [slotTime, setSlotTime] = useState('16:00');
-  const [duration, setDuration] = useState(60);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!booking) return;
-    // Pre-fill with current values (deferred to satisfy react-hooks/set-state-in-effect)
-    const start = new Date(booking.slot_start);
-    const end = new Date(booking.slot_end);
-    Promise.resolve().then(() => {
-      setSlotDate(start.toISOString().split('T')[0]);
-      setSlotTime(start.toTimeString().slice(0, 5));
-      setDuration(Math.round((end.getTime() - start.getTime()) / (1000 * 60)));
-    });
-  }, [booking]);
-
-  if (!booking) return null;
-
-  const handleReschedule = async () => {
-    if (!slotDate || !slotTime) {
-      setError('Please pick a date and time.');
-      return;
-    }
-    setError(null);
-    setSubmitting(true);
-
-    const startIso = new Date(`${slotDate}T${slotTime}:00`).toISOString();
-    const endMs = new Date(startIso).getTime() + duration * 60 * 1000;
-    const endIso = new Date(endMs).toISOString();
-
-    const result = await rescheduleBooking(booking.id, startIso, endIso);
-    setSubmitting(false);
-
-    if (result.success) {
-      onToast({ type: 'success', message: 'Session rescheduled' });
-      await onChanged();
-      onClose();
-    } else {
-      setError(result.error || 'Failed to reschedule');
-    }
-  };
-
-  return (
-    <AnimatePresence>
-      {booking && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[80] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={onClose}
-        >
-          <motion.div
-            initial={{ scale: 0.95, y: 20 }}
-            animate={{ scale: 1, y: 0 }}
-            exit={{ scale: 0.95, y: 20 }}
-            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-lg font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
-                  Reschedule session
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {getTrackName(booking.cohort_track)}
-                </p>
-              </div>
-              <button onClick={onClose} className="w-9 h-9 rounded-full hover:bg-slate-100 flex items-center justify-center" aria-label="Close">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                    New date
-                  </label>
-                  <input
-                    type="date"
-                    value={slotDate}
-                    onChange={(e) => setSlotDate(e.target.value)}
-                    className="w-full h-11 px-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/50"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                    New time
-                  </label>
-                  <input
-                    type="time"
-                    value={slotTime}
-                    onChange={(e) => setSlotTime(e.target.value)}
-                    className="w-full h-11 px-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/50"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                  Duration
-                </label>
-                <div className="grid grid-cols-4 gap-2">
-                  {[60, 90, 120, 180].map(d => (
-                    <button
-                      key={d}
-                      onClick={() => setDuration(d)}
-                      className={`h-10 rounded-lg text-xs font-bold border-2 transition-colors ${
-                        duration === d ? 'border-green-500 bg-green-50 text-green-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'
-                      }`}
-                      style={{ fontFamily: 'var(--font-grotesk)' }}
-                    >
-                      {d}m
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {error && (
-                <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">{error}</div>
-              )}
-
-              <button
-                onClick={handleReschedule}
-                disabled={submitting}
-                className="w-full min-h-[44px] px-4 py-2 rounded-xl bg-green-600 hover:bg-green-700 text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
-                style={{ fontFamily: 'var(--font-grotesk)' }}
-              >
-                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Edit3 className="w-4 h-4" />}
-                Reschedule
-              </button>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
-
-/* ───── Add session modal ───── */
-function AddSessionModal({
-  open, onClose, onChanged, onToast,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onChanged: () => Promise<void>;
-  onToast: (t: { type: 'success' | 'error'; message: string }) => void;
-}) {
-  const [cohorts, setCohorts] = useState<TeacherCohortRow[]>([]);
-  const [selectedCohort, setSelectedCohort] = useState('');
-  const [slotDate, setSlotDate] = useState('');
-  const [slotTime, setSlotTime] = useState('16:00');
-  const [duration, setDuration] = useState(60);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!open) return;
-    const load = async () => {
-      setLoading(true);
-      const c = await fetchTeacherCohorts();
-      setCohorts(c);
-      if (c.length > 0 && !selectedCohort) setSelectedCohort(c[0].id);
-      setLoading(false);
-    };
-    load();
-  }, [open, selectedCohort]);
-
-  const handleAdd = async () => {
-    if (!selectedCohort || !slotDate || !slotTime) {
-      setError('Please pick a cohort, date, and time.');
-      return;
-    }
-    setError(null);
-    setSubmitting(true);
-
-    const startIso = new Date(`${slotDate}T${slotTime}:00`).toISOString();
-    const endMs = new Date(startIso).getTime() + duration * 60 * 1000;
-    const endIso = new Date(endMs).toISOString();
-
-    const result = await createBooking({
-      cohortId: selectedCohort,
-      slotStart: startIso,
-      slotEnd: endIso,
-    });
-    setSubmitting(false);
-
-    if (result.success) {
-      onToast({ type: 'success', message: 'Session added' });
-      await onChanged();
-      onClose();
-    } else {
-      setError(result.error || 'Failed to add session');
-    }
-  };
-
-  return (
-    <AnimatePresence>
-      {open && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[80] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={onClose}
-        >
-          <motion.div
-            initial={{ scale: 0.95, y: 20 }}
-            animate={{ scale: 1, y: 0 }}
-            exit={{ scale: 0.95, y: 20 }}
-            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
-                Add new session
-              </h3>
-              <button onClick={onClose} className="w-9 h-9 rounded-full hover:bg-slate-100 flex items-center justify-center" aria-label="Close">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {loading ? (
-              <div className="py-8 text-center"><Loader2 className="w-6 h-6 animate-spin text-green-600 mx-auto" /></div>
-            ) : cohorts.length === 0 ? (
-              <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-700">
-                You need to be assigned to a cohort first. Ask an admin to assign you.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                    Course
-                  </label>
-                  <select
-                    value={selectedCohort}
-                    onChange={(e) => setSelectedCohort(e.target.value)}
-                    className="w-full h-11 px-3 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-500/50"
-                  >
-                    {cohorts.map(c => (
-                      <option key={c.id} value={c.id}>
-                        {getTrackName(c.track)} · {levelDisplay(c.level)} · {c.ratio}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                      Date
-                    </label>
-                    <input
-                      type="date"
-                      value={slotDate}
-                      onChange={(e) => setSlotDate(e.target.value)}
-                      className="w-full h-11 px-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/50"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                      Start time
-                    </label>
-                    <input
-                      type="time"
-                      value={slotTime}
-                      onChange={(e) => setSlotTime(e.target.value)}
-                      className="w-full h-11 px-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/50"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                    Duration
-                  </label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {[60, 90, 120, 180].map(d => (
-                      <button
-                        key={d}
-                        onClick={() => setDuration(d)}
-                        className={`h-10 rounded-lg text-xs font-bold border-2 transition-colors ${
-                          duration === d ? 'border-green-500 bg-green-50 text-green-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'
-                        }`}
-                        style={{ fontFamily: 'var(--font-grotesk)' }}
-                      >
-                        {d}m
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {error && (
-                  <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">{error}</div>
-                )}
-
-                <button
-                  onClick={handleAdd}
-                  disabled={submitting}
-                  className="w-full min-h-[44px] px-4 py-2 rounded-xl bg-green-600 hover:bg-green-700 text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
-                  style={{ fontFamily: 'var(--font-grotesk)' }}
-                >
-                  {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                  Add session
-                </button>
-              </div>
-            )}
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
-
 /* ───── Main page ───── */
 function TeacherDashboardInner() {
   const { user, profile } = useAuth();
@@ -762,9 +232,6 @@ function TeacherDashboardInner() {
   const [students, setStudents] = useState<TeacherStudentRow[]>([]);
   const [studentsLoading, setStudentsLoading] = useState(true);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [manageBooking, setManageBooking] = useState<TeacherBookingRow | null>(null);
-  const [rescheduleBooking, setRescheduleBooking] = useState<TeacherBookingRow | null>(null);
-  const [showAddSession, setShowAddSession] = useState(false);
 
   const loadAll = useCallback(async () => {
     const [s, b, st] = await Promise.all([
@@ -836,28 +303,19 @@ function TeacherDashboardInner() {
               <Calendar className="w-5 h-5 text-green-600" />
               My Schedule
             </h2>
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                onClick={() => setShowAddSession(true)}
-                className="px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-bold flex items-center gap-1.5 transition-colors min-h-[36px]"
-                style={{ fontFamily: 'var(--font-grotesk)' }}
-              >
-                <Plus className="w-3.5 h-3.5" /> Add session
-              </button>
-              <div className="inline-flex p-1 rounded-xl bg-slate-100 gap-1">
-                {(['upcoming', 'past', 'all'] as const).map(f => (
-                  <button
-                    key={f}
-                    onClick={() => setBookingFilter(f)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                      bookingFilter === f ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'
-                    }`}
-                    style={{ fontFamily: 'var(--font-grotesk)' }}
+            <div className="inline-flex p-1 rounded-xl bg-slate-100 gap-1">
+              {(['upcoming', 'past', 'all'] as const).map(f => (
+                <button
+                  key={f}
+                  onClick={() => setBookingFilter(f)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                    bookingFilter === f ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                  style={{ fontFamily: 'var(--font-grotesk)' }}
                 >
                   {f.charAt(0).toUpperCase() + f.slice(1)}
                 </button>
               ))}
-              </div>
             </div>
           </div>
 
@@ -883,8 +341,6 @@ function TeacherDashboardInner() {
                   booking={b}
                   timezone={userTimezone}
                   onStatusChange={handleStatusChange}
-                  onManage={(booking) => setManageBooking(booking)}
-                  onReschedule={(booking) => setRescheduleBooking(booking)}
                 />
               ))}
             </div>
@@ -947,27 +403,6 @@ function TeacherDashboardInner() {
           </div>
         </div>
       </div>
-
-      {/* Modals */}
-      <SessionDetailsModal
-        booking={manageBooking}
-        onClose={() => setManageBooking(null)}
-        onChanged={loadAll}
-        onToast={setToast}
-      />
-      <RescheduleModal
-        booking={rescheduleBooking}
-        timezone={userTimezone}
-        onClose={() => setRescheduleBooking(null)}
-        onChanged={loadAll}
-        onToast={setToast}
-      />
-      <AddSessionModal
-        open={showAddSession}
-        onClose={() => setShowAddSession(false)}
-        onChanged={loadAll}
-        onToast={setToast}
-      />
 
       {/* Toast */}
       <AnimatePresence>
