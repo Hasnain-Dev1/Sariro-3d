@@ -17,6 +17,7 @@ import {
   type AdminStats, type PurchaseIntentRow, type CohortRow, type AuditLogRow,
 } from '@/lib/dashboard/super-admin-data';
 import { getTrackName } from '@/lib/dashboard/upsell-engine';
+import { TeacherManagementModal } from '@/components/dashboard/teacher-management';
 
 /* ───── Helpers (shared with admin) ───── */
 function levelDisplay(level: string): string {
@@ -454,6 +455,7 @@ function SuperAdminDashboardInner() {
   const [auditActions, setAuditActions] = useState<string[]>([]);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showTeacherModal, setShowTeacherModal] = useState(false);
 
   const loadAll = useCallback(async () => {
     const [s, intents, c, logs, actions] = await Promise.all([
@@ -538,10 +540,18 @@ function SuperAdminDashboardInner() {
                 Full control — manage courses, view audit logs, and oversee payments.
               </p>
             </div>
-            <button onClick={() => setShowCreateModal(true)}
-              className="btn-tactile btn-tactile-primary px-5 py-2.5 text-sm flex items-center gap-2">
-              <Plus className="w-4 h-4" /> New Course
-            </button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => setShowTeacherModal(true)}
+                className="btn-tactile btn-tactile-light px-4 py-2.5 text-sm flex items-center gap-2"
+              >
+                <Users className="w-4 h-4" /> Teachers
+              </button>
+              <button onClick={() => setShowCreateModal(true)}
+                className="btn-tactile btn-tactile-primary px-5 py-2.5 text-sm flex items-center gap-2">
+                <Plus className="w-4 h-4" /> New Course
+              </button>
+            </div>
           </div>
         </motion.div>
 
@@ -714,6 +724,12 @@ function SuperAdminDashboardInner() {
       </div>
 
       <CreateCohortModal open={showCreateModal} onClose={() => setShowCreateModal(false)} onCreated={() => { setToast({ type: 'success', message: 'Course created' }); loadAll(); }} />
+
+      <TeacherManagementModal
+        open={showTeacherModal}
+        onClose={() => setShowTeacherModal(false)}
+        onToast={(msg, kind) => setToast({ type: kind || 'success', message: msg })}
+      />
 
       <AnimatePresence>
         {toast && (

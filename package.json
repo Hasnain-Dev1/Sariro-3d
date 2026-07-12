@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000 > dev.log 2>&1",
-    "build": "next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
-    "start": "NODE_ENV=production bun .next/standalone/server.js > server.log 2>&1",
+    "build": "next build && xcopy .next\\static .next\\standalone\\.next\\static\\ /E /I /Y && xcopy public .next\\standalone\\public\\ /E /I /Y",
+    "start": "set NODE_ENV=production&& bun .next/standalone/server.js > server.log 2>&1",
     "lint": "eslint .",
     "db:push": "prisma db push",
     "db:generate": "prisma generate",

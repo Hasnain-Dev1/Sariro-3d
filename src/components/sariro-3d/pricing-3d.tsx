@@ -188,8 +188,10 @@ export default function Pricing3D() {
                       ))}
                     </ul>
 
-                    {/* CTA */}
+                    {/* CTA → courses page with level pre-selected */}
                     <MagneticButton
+                      as="a"
+                      href={`/courses?level=${tier.id === 'expert' ? 'Advanced' : (tier.id.charAt(0).toUpperCase() + tier.id.slice(1))}`}
                       strength={0.15}
                       className={`btn-tactile w-full justify-center px-5 py-3.5 text-sm ${
                         tier.popular ? 'btn-tactile-primary' :

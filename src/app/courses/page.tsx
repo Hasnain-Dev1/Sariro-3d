@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -56,8 +57,28 @@ const ACCENT_HEX: Record<string, string> = {
 };
 
 export default function CoursesPage() {
-  const [filter, setFilter] = useState<FilterKey>('all');
+  return (
+    <Suspense>
+      <CoursesPageInner />
+    </Suspense>
+  );
+}
+
+function CoursesPageInner() {
+  const searchParams = useSearchParams();
+  const initialFilter = (searchParams.get('level') as FilterKey) || 'all';
+  const [filter, setFilter] = useState<FilterKey>(initialFilter);
   const [syllabusCourse, setSyllabusCourse] = useState<Course | null>(null);
+
+  // Auto-scroll to catalog when arriving with ?level= param (from pricing page)
+  useEffect(() => {
+    if (searchParams.get('level')) {
+      const timer = setTimeout(() => {
+        document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams]);
 
   const visible = filter === 'all'
     ? COURSES
@@ -88,7 +109,7 @@ export default function CoursesPage() {
       </PageHero>
 
       {/* ====== Filter + Catalog ====== */}
-      <section id="catalog" className="relative py-16 sm:py-20 overflow-hidden">
+      <section id="catalog" className="relative py-16 sm:py-20 overflow-hidden scroll-mt-20">
         <ParallaxOrb color="rgba(37, 99, 235, 0.10)" size={420} speed={120} position="top-10 -left-20" />
         <ParallaxOrb color="rgba(124, 58, 237, 0.08)" size={360} speed={-90} position="bottom-10 -right-20" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

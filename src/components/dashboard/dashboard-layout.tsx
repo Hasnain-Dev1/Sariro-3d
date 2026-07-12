@@ -8,9 +8,14 @@ import {
   Menu, X, LayoutDashboard, BookOpen, Calendar, Settings,
   LogOut, ChevronRight, Bell, Home as HomeIcon, GraduationCap,
   Users, ShieldCheck, DollarSign, ScrollText, ArrowLeft,
+  Loader2, AlertTriangle,
 } from 'lucide-react';
 import { useAuth, getRole, type UserRole } from '@/components/auth/auth-provider';
 import { BRAND } from '@/lib/sariro-data';
+import {
+  fetchNotifications, fetchUnreadCount, markAsRead, markAllAsRead,
+  formatRelativeTime, type NotificationRow,
+} from '@/lib/dashboard/notifications-data';
 
 /* ════════════════════════════════════════════════════════════════
    DashboardLayout
@@ -156,19 +161,200 @@ function AvatarMenu() {
   );
 }
 
-/* ───── Notification bell (placeholder, non-functional for now) ───── */
+/* ───── Notification bell ───── */
 function NotificationBell() {
-  const [hasUnread] = useState(false);
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationRow[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [markingAll, setMarkingAll] = useState(false);
+
+  /* Fetch unread count on mount + every 30s */
+  useEffect(() => {
+    let active = true;
+    const loadCount = async () => {
+      const c = await fetchUnreadCount();
+      if (active) setUnreadCount(c);
+    };
+    loadCount();
+    const interval = setInterval(loadCount, 30000);
+    return () => { active = false; clearInterval(interval); };
+  }, []);
+
+  /* Fetch full list whenever the dropdown opens */
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    const load = async () => {
+      setLoading(true);
+      const list = await fetchNotifications(false);
+      if (active) {
+        setNotifications(list);
+        setLoading(false);
+      }
+    };
+    load();
+    return () => { active = false; };
+  }, [open]);
+
+  /* Outside click closes the dropdown */
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      const target = e.target as Node | null;
+      const root = document.getElementById('notification-bell-root');
+      if (root && target && !root.contains(target)) setOpen(false);
+    };
+    window.addEventListener('click', onClick);
+    return () => window.removeEventListener('click', onClick);
+  }, [open]);
+
+  const handleMarkAllRead = async () => {
+    if (markingAll) return;
+    setMarkingAll(true);
+    const res = await markAllAsRead();
+    setMarkingAll(false);
+    if (res.success) {
+      setUnreadCount(0);
+      const nowIso = new Date().toISOString();
+      setNotifications(prev => prev.map(n => ({ ...n, read_at: n.read_at || nowIso })));
+    }
+  };
+
+  const handleClickNotification = async (n: NotificationRow) => {
+    if (!n.read_at) {
+      const res = await markAsRead(n.id);
+      if (res.success) {
+        const nowIso = new Date().toISOString();
+        setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, read_at: nowIso } : x));
+        setUnreadCount(c => Math.max(0, c - 1));
+      }
+    }
+    setOpen(false);
+    if (n.link) router.push(n.link);
+  };
+
+  const displayCount = unreadCount > 9 ? '9+' : String(unreadCount);
+
   return (
-    <button
-      className="relative w-11 h-11 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-600 transition-colors"
-      aria-label="Notifications"
-    >
-      <Bell className="w-5 h-5" />
-      {hasUnread && (
-        <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500" />
-      )}
-    </button>
+    <div id="notification-bell-root" className="relative" onClick={(e) => e.stopPropagation()}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="relative w-11 h-11 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-600 transition-colors"
+        aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
+      >
+        <Bell className="w-5 h-5" />
+        {unreadCount > 0 && (
+          <span
+            className="absolute top-1.5 right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none"
+            style={{ fontFamily: 'var(--font-grotesk)' }}
+          >
+            {displayCount}
+          </span>
+        )}
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 8, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.97 }}
+            transition={{ duration: 0.15 }}
+            className="absolute right-0 top-full mt-2 w-80 sm:w-96 rounded-2xl shadow-xl border border-slate-200 bg-white z-50 overflow-hidden"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+              <div
+                className="text-sm font-bold text-slate-900 flex items-center gap-2"
+                style={{ fontFamily: 'var(--font-jakarta)' }}
+              >
+                Notifications
+                {unreadCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-red-100 text-red-700">
+                    {unreadCount} new
+                  </span>
+                )}
+              </div>
+              {unreadCount > 0 && (
+                <button
+                  onClick={handleMarkAllRead}
+                  disabled={markingAll}
+                  className="text-[11px] font-bold text-blue-600 hover:text-blue-700 disabled:opacity-50 flex items-center gap-1"
+                  style={{ fontFamily: 'var(--font-grotesk)' }}
+                >
+                  {markingAll && <Loader2 className="w-3 h-3 animate-spin" />}
+                  Mark all read
+                </button>
+              )}
+            </div>
+
+            {/* List */}
+            <div className="max-h-96 overflow-y-auto">
+              {loading ? (
+                <div className="flex items-center justify-center py-10">
+                  <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
+                </div>
+              ) : notifications.length === 0 ? (
+                <div className="px-4 py-10 text-center">
+                  <Bell className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                  <p className="text-sm text-slate-500">You&apos;re all caught up</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">No notifications right now.</p>
+                </div>
+              ) : (
+                notifications.map(n => {
+                  const isUnread = !n.read_at;
+                  return (
+                    <button
+                      key={n.id}
+                      onClick={() => handleClickNotification(n)}
+                      className={`w-full text-left px-4 py-3 border-b border-slate-50 hover:bg-slate-50 transition-colors flex gap-3 ${
+                        isUnread ? 'bg-blue-50/50' : ''
+                      }`}
+                    >
+                      <div className="pt-1.5 shrink-0">
+                        {isUnread ? (
+                          <span className="block w-2 h-2 rounded-full bg-red-500" />
+                        ) : (
+                          <span className="block w-2 h-2 rounded-full bg-transparent" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div
+                          className="text-sm font-bold text-slate-900 truncate"
+                          style={{ fontFamily: 'var(--font-jakarta)' }}
+                        >
+                          {n.title}
+                        </div>
+                        {n.message && (
+                          <div className="text-xs text-slate-600 mt-0.5 line-clamp-2 break-words">
+                            {n.message}
+                          </div>
+                        )}
+                        <div className="text-[10px] text-slate-400 mt-1">
+                          {formatRelativeTime(n.created_at)}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer (only shown when there are notifications) */}
+            {notifications.length > 0 && (
+              <div className="px-4 py-2 border-t border-slate-100 bg-slate-50/60">
+                <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
+                  <AlertTriangle className="w-3 h-3" />
+                  <span>Click a notification to open it.</span>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 
