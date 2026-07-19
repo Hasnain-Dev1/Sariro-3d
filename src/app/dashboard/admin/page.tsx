@@ -1270,7 +1270,7 @@ function ManualEnrollModal({
 
 /* ───── Main admin dashboard ───── */
 function AdminDashboardInner() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const displayName = profile?.full_name || 'Admin';
 
   const [stats, setStats] = useState<AdminStats | null>(null);

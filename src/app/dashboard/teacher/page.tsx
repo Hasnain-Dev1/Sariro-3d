@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   Calendar, Clock, Users, Video, Loader2, AlertCircle,
   CheckCircle2, XCircle, UserX, ChevronRight, GraduationCap, Sparkles,
-  Plus, Edit3, Save, StickyNote, X,
+  Plus, Edit3, Save, StickyNote, X, CalendarPlus,
 } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import { useAuth } from '@/components/auth/auth-provider';
@@ -18,6 +18,7 @@ import {
 } from '@/lib/dashboard/teacher-data';
 import { getTrackName } from '@/lib/dashboard/upsell-engine';
 import { useRealtime } from '@/lib/dashboard/use-realtime';
+import { TeacherCalendar } from '@/components/dashboard/teacher-calendar';
 
 /* ───── Helpers ───── */
 function levelDisplay(level: string): string {
@@ -85,6 +86,55 @@ function StatCard({ icon: Icon, color, value, label, loading }: {
       <div className="text-xs text-slate-500">{label}</div>
     </div>
   );
+}
+
+/* ───── ICS calendar export (mirrors student dashboard) ─────
+   Builds an RFC 5545 .ics file for a booking so teachers can add
+   sessions to Google Calendar / Outlook / Apple Calendar with one click. */
+function buildTeacherICS(booking: TeacherBookingRow): string {
+  const trackName = getTrackName(booking.cohort_track);
+  const meetUrl = booking.google_meet_url || booking.cohort_meet_url || '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const fmtDate = (iso: string) => {
+    const d = new Date(iso);
+    return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
+  };
+  const escapeICS = (s: string) => s.replace(/([,;\\])/g, '\\$1').replace(/\n/g, '\\n');
+  const summary = `Sariro — ${trackName} (${levelDisplay(booking.cohort_level)} · ${booking.cohort_ratio})`;
+  const description = meetUrl
+    ? `Sariro live session. Join: ${meetUrl}`
+    : 'Sariro live session.';
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Sariro//Teacher Session//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    `UID:${booking.id}@sariro-teacher`,
+    `DTSTAMP:${fmtDate(new Date().toISOString())}`,
+    `DTSTART:${fmtDate(booking.slot_start)}`,
+    `DTEND:${fmtDate(booking.slot_end)}`,
+    `SUMMARY:${escapeICS(summary)}`,
+    `DESCRIPTION:${escapeICS(description)}`,
+    `LOCATION:${escapeICS(meetUrl || 'Online')}`,
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ];
+  return lines.join('\r\n');
+}
+
+function downloadTeacherICS(booking: TeacherBookingRow) {
+  const ics = buildTeacherICS(booking);
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `sariro-teacher-session-${booking.id.slice(0, 8)}.ics`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 /* ───── Booking card (schedule) ───── */
@@ -161,6 +211,17 @@ function BookingCard({
             <Edit3 className="w-3.5 h-3.5" /> Reschedule
           </button>
         )}
+
+        {/* Add to Calendar — exports .ics file for Google/Outlook/Apple Calendar */}
+        <button
+          type="button"
+          onClick={() => downloadTeacherICS(booking)}
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-700 text-xs font-bold transition-colors min-h-[40px]"
+          style={{ fontFamily: 'var(--font-grotesk)' }}
+          aria-label="Add to calendar"
+        >
+          <CalendarPlus className="w-3.5 h-3.5" /> Add to Calendar
+        </button>
 
         {/* Action buttons — only show for past scheduled sessions */}
         {booking.status === 'scheduled' && isPast && (
@@ -876,6 +937,8 @@ function TeacherDashboardInner() {
   const [bookings, setBookings] = useState<TeacherBookingRow[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(true);
   const [bookingFilter, setBookingFilter] = useState<'upcoming' | 'past' | 'all'>('upcoming');
+  // All bookings (unfiltered) — used by the calendar so it always shows the full picture
+  const [allBookings, setAllBookings] = useState<TeacherBookingRow[]>([]);
   const [students, setStudents] = useState<TeacherStudentRow[]>([]);
   const [studentsLoading, setStudentsLoading] = useState(true);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -892,15 +955,17 @@ function TeacherDashboardInner() {
   }, []);
 
   const loadAll = useCallback(async () => {
-    const [s, b, st] = await Promise.all([
+    const [s, b, st, allB] = await Promise.all([
       fetchTeacherStats(),
       fetchTeacherBookings(bookingFilter),
       fetchTeacherStudents(),
+      fetchTeacherBookings('all'),
     ]);
     setStats(s);
     setStatsLoading(false);
     setBookings(b);
     setBookingsLoading(false);
+    setAllBookings(allB);
     setStudents(st);
     setStudentsLoading(false);
   }, [bookingFilter]);
@@ -994,6 +1059,17 @@ function TeacherDashboardInner() {
             </div>
           </div>
 
+          {/* Visual month calendar — shows ALL bookings (not filtered) */}
+          {allBookings.length > 0 && (
+            <div className="mb-6">
+              <TeacherCalendar bookings={allBookings} timezone={userTimezone} />
+            </div>
+          )}
+
+          {/* Filtered bookings list (upcoming / past / all) */}
+          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3" style={{ fontFamily: 'var(--font-grotesk)' }}>
+            {bookingFilter === 'upcoming' ? 'Upcoming sessions' : bookingFilter === 'past' ? 'Past sessions' : 'All sessions'} ({bookings.length})
+          </h3>
           {bookingsLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-8 h-8 animate-spin text-green-600" />

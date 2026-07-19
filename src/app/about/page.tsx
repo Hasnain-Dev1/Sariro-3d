@@ -224,7 +224,7 @@ export default function AboutPage() {
                 />
                 <div className="relative rounded-3xl overflow-hidden card-3d">
                   <Image
-                    src="/images/mimo-portrait.png"
+                    src="/images/mimo-portrait.webp"
                     alt={`${MIMO.name} — ${MIMO.title}`}
                     width={640}
                     height={720}

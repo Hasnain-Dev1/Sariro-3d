@@ -591,7 +591,7 @@ function CreateCohortModal({ open, onClose, onCreated }: { open: boolean; onClos
 
 /* ───── Main super-admin dashboard ───── */
 function SuperAdminDashboardInner() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const displayName = profile?.full_name || 'Super Admin';
 
   const [stats, setStats] = useState<AdminStats | null>(null);
