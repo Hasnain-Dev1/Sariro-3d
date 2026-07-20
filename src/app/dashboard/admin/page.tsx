@@ -6,7 +6,7 @@ import {
   Shield, Users, BookOpen, DollarSign, GraduationCap, Clock,
   CheckCircle2, XCircle, Loader2, AlertCircle, Plus, Video,
   Lock, PlayCircle, Trophy, ArrowRight, X, FolderOpen,
-  Search, Download, UserCheck, TrendingUp, Phone,
+  Search, Download, UserCheck, TrendingUp, Phone, LogIn,
 } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import { useAuth } from '@/components/auth/auth-provider';
@@ -797,6 +797,32 @@ function UserManagementModal({
     }
   };
 
+  const handleImpersonate = async (userId: string, userName: string) => {
+    if (!confirm(`Sign in as ${userName}? You'll see their dashboard exactly as they do. Click "Exit impersonation" in the banner to return to your admin account.`)) {
+      return;
+    }
+    setBusyUserId(userId);
+    try {
+      const res = await fetch('/api/admin/impersonate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetUserId: userId }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        onToast('success', `Now signed in as ${userName}`);
+        // Hard navigate to dashboard so the role-based router sends us to the right place
+        window.location.href = data.redirectTo || '/dashboard';
+      } else {
+        onToast('error', data.error || 'Failed to impersonate user');
+      }
+    } catch (err) {
+      onToast('error', 'Network error during impersonation');
+    } finally {
+      setBusyUserId(null);
+    }
+  };
+
   return (
     <AnimatePresence>
       {open && (
@@ -928,6 +954,21 @@ function UserManagementModal({
                         <option value="admin">Admin</option>
                         <option value="super_admin">Super Admin</option>
                       </select>
+                      {/* Sign in as user (impersonation) — admin/super-admin only */}
+                      <button
+                        onClick={() => handleImpersonate(u.id, displayName)}
+                        disabled={busyUserId === u.id}
+                        title={`Sign in as ${displayName}`}
+                        className="h-9 px-2 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-700 text-xs font-bold flex items-center gap-1 transition-colors disabled:opacity-50"
+                        style={{ fontFamily: 'var(--font-grotesk)' }}
+                      >
+                        {busyUserId === u.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <LogIn className="w-3 h-3" />
+                        )}
+                        <span className="hidden sm:inline">Sign in as</span>
+                      </button>
                     </div>
                   );
                 })

@@ -5,7 +5,7 @@ import {
   RAZORPAY_CONFIGURED,
   getSupabaseAdmin,
 } from '@/lib/razorpay/server';
-import { rateLimit, rateLimitedResponse } from '@/lib/rate-limit';
+import { rateLimit, rateLimitedResponse, getClientIp, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
 
 /**
@@ -90,6 +90,15 @@ export async function POST(req: NextRequest) {
   const csrfFail = assertSameOrigin(req);
   if (csrfFail) return csrfFail;
 
+  // ── IP blocklist — instantly 403 known abusers ─────────────────────
+  const ip = getClientIp(req);
+  if (isIpBlocked(ip)) {
+    return new Response(JSON.stringify({ ok: false, error: 'forbidden' }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   if (!RAZORPAY_CONFIGURED) {
     return NextResponse.json(
       { ok: false, error: 'razorpay_not_configured' },
@@ -117,6 +126,7 @@ export async function POST(req: NextRequest) {
     key: `verify:${userId}`,
     limit: 20,
     windowMs: 60_000,
+    ip,
   });
   if (!rl.ok) {
     return rateLimitedResponse(rl.retryAfterMs, 'Too many verify attempts — please slow down.');

@@ -6,6 +6,7 @@ import { AuthProvider } from "@/components/auth/auth-provider";
 import { GlobalUpsellPopup } from "@/components/dashboard/global-upsell-popup";
 import ProfileCompletionModal from "@/components/auth/profile-completion-modal";
 import { ErrorTracker } from "@/components/observability/error-tracker";
+import { ImpersonationBanner } from "@/components/security/impersonation-banner";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -83,6 +84,8 @@ export default function RootLayout({
           {/* Global upsell popup — shows on ANY page when a logged-in user
               has a completed enrollment whose completion_shown_at is NULL. */}
           <GlobalUpsellPopup />
+          {/* Impersonation banner — shows when admin is signed in as another user */}
+          <ImpersonationBanner />
           {/* Client-side error tracker — captures window.onerror +
               unhandledrejection, forwards to /api/errors. */}
           <ErrorTracker />

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClientHelper } from '@/lib/supabase/server';
 import { getSupabaseAdmin } from '@/lib/razorpay/server';
 import { getCourseSyllabus } from '@/lib/dashboard/student-data';
-import { rateLimit, getClientIp, rateLimitedResponse } from '@/lib/rate-limit';
+import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
 
 /**
@@ -84,6 +84,15 @@ export async function POST(req: NextRequest) {
   const csrfFail = assertSameOrigin(req);
   if (csrfFail) return csrfFail;
 
+  // ── IP blocklist — instantly 403 known abusers ─────────────────────
+  const requestIp = getClientIp(req);
+  if (isIpBlocked(requestIp)) {
+    return new Response(JSON.stringify({ ok: false, error: 'forbidden' }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   // ── Auth gate ───────────────────────────────────────────────────────
   let teacherId: string | null = null;
   try {
@@ -104,6 +113,7 @@ export async function POST(req: NextRequest) {
     key: `attendance:${teacherId}`,
     limit: 60,
     windowMs: 60_000,
+    ip: requestIp,
   });
   if (!rl.ok) {
     return rateLimitedResponse(rl.retryAfterMs, 'Too many attendance marks — slow down.');

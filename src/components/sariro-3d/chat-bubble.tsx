@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageCircle, X, Send, Sparkles } from 'lucide-react';
 import { QUICK_REPLIES } from '@/lib/faq-data';
+import { HoneypotField } from '@/components/security/honeypot';
 
 /* ===============================================================
    ChatBubble — Sariro's floating assistant.
@@ -154,7 +155,7 @@ export default function ChatBubble() {
 
   /* ---------- Send a message ---------- */
   const sendMessage = useCallback(
-    async (text: string) => {
+    async (text: string, honeypot?: string | null) => {
       const trimmed = text.trim();
       if (!trimmed || isTyping) return;
 
@@ -174,7 +175,7 @@ export default function ChatBubble() {
         const res = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: trimmed }),
+          body: JSON.stringify({ message: trimmed, website: honeypot ?? '' }),
         });
         const data = await res.json();
         const reply = data.reply ?? "Hmm, I couldn't process that. Try again?";
@@ -479,10 +480,15 @@ export default function ChatBubble() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                sendMessage(input);
+                // Pull honeypot value from the form so bots that auto-fill
+                // hidden fields get caught server-side.
+                const fd = new FormData(e.currentTarget);
+                const honeypot = fd.get('website') as string | null;
+                sendMessage(input, honeypot);
               }}
               className="relative p-3 border-t border-white/10 flex items-center gap-2"
             >
+              <HoneypotField name="website" />
               <input
                 ref={inputRef}
                 type="text"

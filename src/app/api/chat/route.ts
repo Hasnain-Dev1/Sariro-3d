@@ -7,8 +7,9 @@ import {
   thanksResponse,
   fallbackResponse,
 } from '@/lib/faq-data';
-import { rateLimit, getClientIp, rateLimitedResponse } from '@/lib/rate-limit';
+import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked, recordHoneypotTrip } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
+import { isHoneypotTripped } from '@/lib/security/honeypot';
 
 /**
  * SARIRO Chat API — SLM Preview (keyword-based FAQ matching)
@@ -28,20 +29,38 @@ export async function POST(req: NextRequest) {
     const csrfFail = assertSameOrigin(req);
     if (csrfFail) return csrfFail;
 
+    // ── IP blocklist — instantly 403 known abusers ─────────────────────
+    const ip = getClientIp(req);
+    if (isIpBlocked(ip)) {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     // ── Rate limit: 30 messages / minute per IP ────────────────────────
     // Public endpoint — no auth. Generous enough for normal use, blocks
-    // spam / scraping.
-    const ip = getClientIp(req);
+    // spam / scraping. Passes `ip` so repeated violations escalate to
+    // a 1-hour auto-block.
     const rl = rateLimit({
       key: `chat:${ip}`,
       limit: 30,
       windowMs: 60_000,
+      ip,
     });
     if (!rl.ok) {
       return rateLimitedResponse(rl.retryAfterMs, 'Slow down — too many messages.');
     }
 
     const body = await req.json();
+
+    // ── Honeypot check — if `website` field has any value, it's a bot ──
+    // Silently return a fake success so the bot doesn't know it was caught.
+    if (isHoneypotTripped(body as Record<string, unknown>)) {
+      recordHoneypotTrip(ip);
+      return NextResponse.json({ reply: fallbackResponse(), kind: 'faq_match' });
+    }
+
     const message: string = (body?.message ?? '').toString().trim();
 
     if (!message) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { rateLimit, getClientIp, rateLimitedResponse } from '@/lib/rate-limit';
+import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/rate-limit';
 
 /**
  * SARIRO — POST /api/errors
@@ -42,10 +42,20 @@ interface ErrorReport {
 export async function POST(req: NextRequest) {
   // Rate limit per IP
   const ip = getClientIp(req);
+
+  // ── IP blocklist — instantly 403 known abusers ─────────────────────
+  if (isIpBlocked(ip)) {
+    return new Response(JSON.stringify({ error: 'Forbidden' }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   const rl = rateLimit({
     key: `errors:${ip}`,
     limit: 10,
     windowMs: 60_000,
+    ip,
   });
   if (!rl.ok) {
     return rateLimitedResponse(rl.retryAfterMs, 'Too many error reports.');

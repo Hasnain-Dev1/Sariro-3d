@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Github, Mail, Loader2 } from 'lucide-react';
 import GoogleOneTap from './google-one-tap';
+import { HoneypotField } from '@/components/security/honeypot';
 
 /* ===============================================================
    SignInButtons — three sign-in options:
@@ -49,10 +50,30 @@ export default function SignInButtons({
     }
   };
 
-  const handleEmail = async (e: React.FormEvent) => {
+  const handleEmail = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
     setInfo(null);
+
+    // ── Honeypot check — if the hidden `website` field has any value,
+    //    this is a bot auto-filling the form. Silently fake success so
+    //    the bot doesn't know it was caught, but don't actually sign in.
+    const fd = new FormData(e.currentTarget);
+    const honeypot = (fd.get('website') as string | null)?.trim();
+    if (honeypot) {
+      // Fake delay so it feels real to the bot
+      setSubmitting(true);
+      await new Promise((r) => setTimeout(r, 800));
+      setSubmitting(false);
+      // Show "success" message but don't actually authenticate
+      if (mode === 'signup') {
+        setInfo('Check your email — we sent you a confirmation link. Click it to verify your account.');
+      } else {
+        onSuccess?.();
+      }
+      return;
+    }
+
     setSubmitting(true);
     try {
       if (mode === 'signup') {
@@ -122,6 +143,7 @@ export default function SignInButtons({
 
       {/* Email form */}
       <form onSubmit={handleEmail} className="space-y-3">
+        <HoneypotField name="website" />
         <div>
           <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
             Email

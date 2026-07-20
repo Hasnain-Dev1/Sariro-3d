@@ -8,7 +8,7 @@ import {
   getSupabaseAdmin,
 } from '@/lib/razorpay/server';
 import { SETTING_KEYS } from '@/lib/dashboard/settings-data';
-import { rateLimit, rateLimitedResponse } from '@/lib/rate-limit';
+import { rateLimit, rateLimitedResponse, getClientIp, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -83,6 +83,15 @@ export async function POST(req: NextRequest) {
   const csrfFail = assertSameOrigin(req);
   if (csrfFail) return csrfFail;
 
+  // ── IP blocklist — instantly 403 known abusers ─────────────────────
+  const ip = getClientIp(req);
+  if (isIpBlocked(ip)) {
+    return new Response(JSON.stringify({ ok: false, error: 'forbidden' }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   if (!RAZORPAY_CONFIGURED) {
     return NextResponse.json(
       { ok: false, error: 'razorpay_not_configured', message: 'Razorpay keys missing on server.' },
@@ -113,6 +122,7 @@ export async function POST(req: NextRequest) {
     key: `create-order:${userId}`,
     limit: 10,
     windowMs: 60_000,
+    ip,
   });
   if (!rl.ok) {
     return rateLimitedResponse(rl.retryAfterMs, 'Too many checkout attempts — please slow down.');
