@@ -162,7 +162,7 @@ export const TEAM = [
     avatar: "L",
     image: "",
     accent: "#16A34A",
-    isFounder : false,
+    isFounder: false,
   },
   {
     name: "Marco Rossi",
@@ -189,7 +189,7 @@ export const TEAM = [
     avatar: "J",
     image: "",
     accent: "#06B6D4",
-    isFounder:false,
+    isFounder: false,
   },
   {
     name: "Sofia Alvarez",
@@ -212,11 +212,12 @@ export const NAV_LINKS = [
 ];
 
 export const TRUSTED_BY = [
-  "Google",
-  "Microsoft",
-  "Apple",
-  "IIT - Delhi",
-  "IIT - Bombay",
+  "McGraw-Hill",
+  "Google Student Club",
+  "Codingal",
+  "Stanford Online",
+  "MIT Bootcamps",
+  "Khan Academy",
 ];
 
 export const HERO_STATS = [
