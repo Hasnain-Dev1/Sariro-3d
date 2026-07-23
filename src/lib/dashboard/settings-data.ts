@@ -66,15 +66,15 @@ export const DEFAULT_RAZORPAY_LINKS: Record<string, string> = { ...RAZORPAY_LINK
 export const DEFAULT_RAZORPAY_LINKS_PREMIUM: Record<string, string> = { ...RAZORPAY_LINKS_PREMIUM };
 
 const DEFAULT_PRICES: Record<string, number> = {
-  [SETTING_KEYS.elementaryPrice]: 248,
+  [SETTING_KEYS.elementaryPrice]: 249,
   [SETTING_KEYS.beginnerPrice]: 199,
   [SETTING_KEYS.intermediatePrice]: 299,
   [SETTING_KEYS.advancedPrice]: 699,
-  [SETTING_KEYS.elementaryPrice1on1]: 348,
+  [SETTING_KEYS.elementaryPrice1on1]: 349,
   [SETTING_KEYS.beginnerPrice1on1]: 299,
   [SETTING_KEYS.intermediatePrice1on1]: 399,
   [SETTING_KEYS.advancedPrice1on1]: 899,
-  [SETTING_KEYS.elementaryOriginalPrice]:496,
+  [SETTING_KEYS.elementaryOriginalPrice]:498,
   [SETTING_KEYS.beginnerOriginalPrice]: 398,
   [SETTING_KEYS.intermediateOriginalPrice]: 854,
   [SETTING_KEYS.advancedOriginalPrice]: 2330,

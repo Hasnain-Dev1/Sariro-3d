@@ -1024,7 +1024,7 @@ export const COURSES = [
     title: "Python Basics — Elementary",
     tagline: "Start your coding journey with Python — the world's most beginner-friendly language.",
     level: "Elementary", audience: "Students", durationWeeks: 12, modules: 8, lessons: 48,
-    price: 248, originalPrice: 496, nextCohort: "Aug 12, 2026", featured: true, accent: "green",
+    price: 249, originalPrice: 498, nextCohort: "Aug 12, 2026", featured: true, accent: "green",
     outcomes: ["Write your first Python programs", "Understand variables, loops, and functions", "Build simple games and tools", "Gain confidence to tackle bigger projects"],
     syllabus: [
       { num: "01", name: "Your First Python Program", project: "Print your name + a greeting", lessons: ["Installing Python 3", "Using the IDLE REPL", "print() and comments", "Variables and strings", "Numbers and math operators", "Your first .py script"] },

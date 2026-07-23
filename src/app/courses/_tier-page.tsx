@@ -66,7 +66,7 @@ const TIER_CFG: Record<
     intro:
       'Elementary courses are designed for first-time coders, young learners, and anyone who has never written a line of code. Every course is 8 modules, 48 lessons, with hands-on projects from day one. You will build real things — games, websites, calculators, and AI-powered Scratch projects — while learning the fundamentals that set you up for Beginner and beyond.',
     stats: [
-      { value: 248, suffix: '', label: 'USD per cohort' },
+      { value: 249, suffix: '', label: 'USD per cohort' },
       { value: 8, suffix: '', label: 'Modules' },
       { value: 48, suffix: '', label: 'Lessons' },
       { value: 12, suffix: '', label: 'Weeks' },

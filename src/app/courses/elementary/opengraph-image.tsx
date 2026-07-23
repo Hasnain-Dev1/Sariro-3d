@@ -10,6 +10,6 @@ export default function ElementaryOgImage() {
     title: 'Start coding from zero.',
     subtitle: 'Python, Java, Web Basics, and Scratch + ML. Built for absolute beginners and kids. No experience needed.',
     accent: 'amber',
-    footerRight: 'From $248 · sariro.com/courses/elementary',
+    footerRight: 'From $249 · sariro.com/courses/elementary',
   });
 }
