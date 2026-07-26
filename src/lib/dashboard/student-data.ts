@@ -31,7 +31,14 @@ export interface SyllabusModule {
   num: string;
   name: string;
   project: string;
-  lessons: string[];
+  /**
+   * Lessons can be either a plain string (legacy courses) OR a richer
+   * LessonObject with topic + objectives + capstone_step (enriched courses).
+   *
+   * Use the `lessonName()` helper from `@/lib/capstones` to extract the
+   * display name when you need a string.
+   */
+  lessons: (string | { name: string; topic?: string; objectives?: string[]; capstone_step?: { title: string; description: string; deliverable: string; starter_hint?: string }; estimated_minutes?: number })[];
 }
 
 export interface CourseSyllabus {
@@ -184,7 +191,10 @@ export function calculateProgress(
   );
   const totalLessons = syllabus.totalLessons;
   const completedLessonsCount = syllabus.modules.reduce((sum, mod) => {
-    return sum + mod.lessons.filter((lesson) => completedKeys.has(progressKey(mod.num, lesson))).length;
+    return sum + mod.lessons.filter((lesson) => {
+      const name = typeof lesson === 'string' ? lesson : lesson.name;
+      return completedKeys.has(progressKey(mod.num, name));
+    }).length;
   }, 0);
   const percent = totalLessons > 0 ? Math.round((completedLessonsCount / totalLessons) * 100) : 0;
   return {

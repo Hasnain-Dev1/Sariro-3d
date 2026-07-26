@@ -106,7 +106,7 @@ function CourseCard({ course, index }: { course: typeof COURSES[number]; index: 
           ))}
         </ul>
         <Link
-          href={`/course-path/${course.trackId}`}
+          href={course.level === 'Elementary' ? `/checkout?course=${course.id}` : `/course-path/${course.trackId}`}
           className={`group/btn inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-sm font-bold text-white ${a.bg} shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all cursor-pointer`}
           style={{ fontFamily: 'var(--font-grotesk)' }}
         >

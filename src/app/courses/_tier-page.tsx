@@ -143,7 +143,7 @@ const TIER_CFG: Record<
 };
 
 type Course = (typeof COURSES)[number];
-type SyllabusModule = { num: string; name: string; project: string; lessons: string[] };
+type SyllabusModule = { num: string; name: string; project: string; lessons: (string | { name: string; topic?: string })[] };
 
 export default function TierPage({ tier }: { tier: Tier }) {
   const cfg = TIER_CFG[tier];
@@ -650,7 +650,10 @@ function CourseDetailCard({
                   </div>
                 </div>
                 <ol className="p-4 space-y-1.5">
-                  {mod.lessons.map((lesson, li) => (
+                  {mod.lessons.map((lesson, li) => {
+                    const name = typeof lesson === 'string' ? lesson : lesson.name;
+                    const topic = typeof lesson === 'string' ? null : lesson.topic;
+                    return (
                     <li
                       key={li}
                       className="flex items-start gap-2 text-xs text-slate-700 leading-relaxed"
@@ -665,9 +668,15 @@ function CourseDetailCard({
                       >
                         {li + 1}
                       </span>
-                      <span>{lesson}</span>
+                      <span>
+                        {name}
+                        {topic && (
+                          <span className="block text-[10px] text-slate-400 leading-tight mt-0.5">{topic}</span>
+                        )}
+                      </span>
                     </li>
-                  ))}
+                    );
+                  })}
                 </ol>
               </div>
             ))}

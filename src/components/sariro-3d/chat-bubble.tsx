@@ -338,10 +338,16 @@ export default function ChatBubble() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 60, scale: 0.85 }}
             transition={{ type: 'spring', stiffness: 220, damping: 22 }}
-            className="fixed bottom-0 right-0 sm:bottom-5 sm:right-5 sm:rounded-3xl z-[55] w-full sm:w-[400px] h-[100vh] sm:h-[600px] sm:max-h-[80vh] flex flex-col overflow-hidden shadow-2xl border border-white/10 sariro-chat-panel"
+            className="fixed bottom-0 right-0 sm:bottom-5 sm:right-5 sm:rounded-3xl z-[55] w-full sm:w-[400px] h-[100dvh] sm:h-[600px] sm:max-h-[80vh] flex flex-col overflow-hidden shadow-2xl border border-white/10 sariro-chat-panel"
             style={{
               background: 'linear-gradient(180deg, #0B1120 0%, #111827 100%)',
               backdropFilter: 'blur(20px) saturate(180%)',
+              // Honor iOS safe areas so the header (and close button) is never
+              // hidden under the status bar / notch / dynamic island.
+              paddingTop: 'env(safe-area-inset-top, 0px)',
+              paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+              paddingLeft: 'env(safe-area-inset-left, 0px)',
+              paddingRight: 'env(safe-area-inset-right, 0px)',
             }}
           >
             {/* Glow background */}
@@ -351,25 +357,25 @@ export default function ChatBubble() {
             />
 
             {/* ---------- Header ---------- */}
-            <div className="relative flex items-center justify-between p-4 border-b border-white/10">
-              <div className="flex items-center gap-3">
+            <div className="relative flex items-center justify-between p-3 sm:p-4 border-b border-white/10 bg-slate-950/80 backdrop-blur-xl shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
                 <div
-                  className="relative w-10 h-10 rounded-xl flex items-center justify-center shadow-lg"
+                  className="relative w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shrink-0"
                   style={{ background: 'linear-gradient(135deg, #2563EB 0%, #7C3AED 100%)' }}
                 >
                   <MessageCircle className="w-5 h-5 text-white" strokeWidth={2.4} fill="currentColor" style={{ fillOpacity: 0.2 }} />
                   {/* Online dot */}
                   <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-500 ring-2 ring-slate-950" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <h3
-                    className="text-sm font-extrabold text-white"
+                    className="text-sm font-extrabold text-white truncate"
                     style={{ fontFamily: 'var(--font-jakarta)' }}
                   >
                     Sariro Assistant
                   </h3>
                   <p
-                    className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider"
+                    className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider truncate"
                     style={{ fontFamily: 'var(--font-grotesk)' }}
                   >
                     <span className="text-green-400">●</span> Online · typically replies instantly
@@ -379,10 +385,10 @@ export default function ChatBubble() {
               <button
                 onClick={() => setOpen(false)}
                 aria-label="Close chat"
-                className="w-11 h-11 sm:w-9 sm:h-9 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center text-white hover:bg-white/25 hover:scale-105 active:scale-95 transition-all z-30 touch-manipulation shrink-0 shadow-lg"
+                className="w-12 h-12 sm:w-9 sm:h-9 rounded-xl bg-amber-400 hover:bg-amber-300 border-2 border-amber-200/40 flex items-center justify-center text-slate-900 hover:scale-105 active:scale-95 transition-all z-30 touch-manipulation shrink-0 shadow-lg"
                 style={{ minHeight: '44px', minWidth: '44px' }}
               >
-                <X className="w-6 h-6 sm:w-5 sm:h-5" strokeWidth={2.5} />
+                <X className="w-6 h-6 sm:w-5 sm:h-5" strokeWidth={3} />
               </button>
             </div>
 

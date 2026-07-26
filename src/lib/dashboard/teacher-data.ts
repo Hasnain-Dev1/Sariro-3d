@@ -9,6 +9,7 @@
  */
 
 import { createClient } from '@/lib/supabase/client';
+import { getCourseSyllabus } from '@/lib/dashboard/student-data';
 
 export interface TeacherStats {
   classesThisWeek: number;
@@ -325,14 +326,15 @@ export async function fetchSessionStudents(bookingId: string): Promise<SessionSt
     const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
 
     // 4. Attendance for this booking
+    // Schema-correct columns: student_id (not user_id), marked_at (not recorded_at).
     const { data: attendance, error: attErr } = await supabase
       .from('session_attendance')
-      .select('user_id, status')
+      .select('student_id, status')
       .eq('booking_id', bookingId)
-      .in('user_id', userIds);
+      .in('student_id', userIds);
     if (attErr) throw attErr;
     const attendanceMap = new Map<string, string>(
-      (attendance ?? []).map((a) => [a.user_id as string, a.status as string])
+      (attendance ?? []).map((a) => [a.student_id as string, a.status as string])
     );
 
     // 5. Session notes (teacher-scoped — one note per booking+teacher)
@@ -505,7 +507,10 @@ export async function rescheduleBooking(
 
 /* ───── 5. createBooking ─────
    Creates a new booking with the current user as the teacher.
-   Copies the cohort's google_meet_url onto the booking. */
+   Copies the cohort's google_meet_url onto the booking.
+   AUTO-TAGS module_num + lesson_name from the cohort's syllabus based on
+   session sequence (1st booking = lesson 1, 2nd = lesson 2, etc.) — no
+   teacher UI needed, the mapping is derived from code. */
 export async function createBooking(params: {
   cohortId: string;
   slotStart: string;
@@ -524,14 +529,44 @@ export async function createBooking(params: {
       return { success: false, error: 'No authenticated teacher' };
     }
 
-    // Fetch the cohort's google_meet_url.
+    // Fetch the cohort's google_meet_url + track + level (for syllabus lookup).
     const { data: cohort, error: cohortErr } = await supabase
       .from('cohorts')
-      .select('google_meet_url')
+      .select('google_meet_url, track, level')
       .eq('id', params.cohortId)
       .maybeSingle();
 
     if (cohortErr) throw cohortErr;
+
+    // ── Auto-derive module_num + lesson_name from syllabus ──────────────
+    // Count existing bookings in this cohort to determine the sequence number.
+    // The Nth booking for this cohort = the Nth lesson in the syllabus.
+    let moduleNum: number | null = null;
+    let lessonName: string | null = null;
+    if (cohort?.track && cohort?.level) {
+      const { count: existingCount } = await supabase
+        .from('bookings')
+        .select('*', { count: 'exact', head: true })
+        .eq('cohort_id', params.cohortId);
+
+      const sessionSeq = (existingCount ?? 0) + 1; // 1-based: this will be the Nth session
+
+      // Look up the syllabus to find the Nth lesson across all modules.
+      const syllabus = getCourseSyllabus(cohort.track, cohort.level);
+      let lessonIndex = 0;
+      for (const mod of syllabus.modules) {
+        for (const lesson of mod.lessons) {
+          lessonIndex += 1;
+          if (lessonIndex === sessionSeq) {
+            moduleNum = parseInt(mod.num, 10);
+            lessonName = typeof lesson === 'string' ? lesson : lesson.name;
+            break;
+          }
+        }
+        if (moduleNum !== null) break;
+      }
+      // If sessionSeq > total lessons (e.g. extra review session), leave module_num null.
+    }
 
     const { data, error } = await supabase
       .from('bookings')
@@ -542,6 +577,8 @@ export async function createBooking(params: {
         slot_end: params.slotEnd,
         status: 'scheduled',
         google_meet_url: cohort?.google_meet_url ?? null,
+        module_num: moduleNum,
+        lesson_name: lessonName,
       })
       .select('id')
       .single();

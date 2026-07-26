@@ -46,6 +46,9 @@ interface Booking {
   slot_end: string;
   status: string;
   google_meet_url: string | null;
+  // Capstone system: lesson tagged at booking creation time
+  module_num?: number | null;
+  lesson_name?: string | null;
 }
 
 interface Cohort {
@@ -312,12 +315,13 @@ function CourseCard({ enrollment, cohort, onChanged }: {
               </div>
               <ul className="space-y-1">
                 {mod.lessons.map((lesson) => {
-                  const done = progress.completedKeys.has(`${mod.num}::${lesson}`);
+                  const lessonNameStr = typeof lesson === 'string' ? lesson : lesson.name;
+                  const done = progress.completedKeys.has(`${mod.num}::${lessonNameStr}`);
                   return (
-                    <li key={`${mod.num}-${lesson}`}>
+                    <li key={`${mod.num}-${lessonNameStr}`}>
                       <button
                         type="button"
-                        onClick={() => toggleLesson(mod.num, lesson, done)}
+                        onClick={() => toggleLesson(mod.num, lessonNameStr, done)}
                         className="flex items-start gap-2 w-full text-left text-xs text-slate-700 hover:text-slate-900 group min-h-[32px]"
                       >
                         {done ? (
@@ -325,7 +329,7 @@ function CourseCard({ enrollment, cohort, onChanged }: {
                         ) : (
                           <Circle className="w-4 h-4 text-slate-300 shrink-0 mt-0.5 group-hover:text-slate-400" />
                         )}
-                        <span className={done ? 'line-through text-slate-400' : ''}>{lesson}</span>
+                        <span className={done ? 'line-through text-slate-400' : ''}>{lessonNameStr}</span>
                       </button>
                     </li>
                   );
@@ -519,6 +523,77 @@ function RecommendedNextCard({ rec, completedTrackName, completedLevel }: {
   );
 }
 
+/* ───── Class Notes & Projects section (Capstone system) ─────
+   Lists past completed classes. Each card links to the submission page
+   /dashboard/student/submit/[bookingId] where the student can:
+   - Read the lesson brief (topic, objectives, capstone step)
+   - Submit their capstone piece (URL-only)
+   - See teacher feedback after review */
+function ClassNotesSection({
+  pastBookings,
+  cohorts,
+  timezone,
+}: {
+  pastBookings: Booking[];
+  cohorts: Record<string, Cohort>;
+  timezone: string | null;
+}) {
+  if (pastBookings.length === 0) return null;
+
+  return (
+    <div className="mb-10">
+      <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-jakarta)' }}>
+        <FolderOpen className="w-5 h-5 text-amber-600" /> Class Notes &amp; Projects
+      </h2>
+      <div className="space-y-2">
+        {pastBookings.map((booking) => {
+          const cohort = cohorts[booking.cohort_id];
+          const date = new Date(booking.slot_start);
+          return (
+            <Link
+              key={booking.id}
+              href={`/dashboard/student/submit/${booking.id}`}
+              className="block bg-white rounded-xl border border-slate-200 p-3.5 hover:border-blue-300 hover:shadow-md transition-all group min-h-[60px]"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-xs font-bold text-slate-400" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                      {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </span>
+                    {booking.module_num && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                        L{booking.module_num}
+                      </span>
+                    )}
+                    {booking.status === 'completed' && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-green-100 text-green-700" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                        Done
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm font-bold text-slate-900 truncate" style={{ fontFamily: 'var(--font-jakarta)' }}>
+                    {booking.lesson_name ?? 'Review session'}
+                  </p>
+                  {cohort && (
+                    <p className="text-xs text-slate-500 truncate">
+                      {cohort.track} · {levelDisplay(cohort.level)}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 text-xs font-bold text-blue-600 shrink-0">
+                  <span className="hidden sm:inline">Open</span>
+                  <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /* ───── Classmates section (violet accent) ───── */
 function ClassmatesSection({ classmates }: {
   classmates: Array<{ name: string | null; email: string | null; track: string; level: string }>;
@@ -567,6 +642,8 @@ function StudentDashboardInner() {
   const supabase = createClient();
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  // Capstone system: past bookings for "Class Notes & Projects" section
+  const [pastBookings, setPastBookings] = useState<Booking[]>([]);
   const [cohorts, setCohorts] = useState<Record<string, Cohort>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -642,8 +719,22 @@ function StudentDashboardInner() {
         if (bookingErr) throw bookingErr;
         if (cancelledRef.current) return;
         Promise.resolve().then(() => setBookings((bookingData || []) as Booking[]));
+
+        // 3b. Capstone system: fetch PAST bookings (completed classes) for
+        // the "Class Notes & Projects" section. These link to the submission page.
+        const { data: pastBookingData, error: pastErr } = await supabase
+          .from('bookings')
+          .select('*')
+          .in('cohort_id', cohortIds)
+          .lt('slot_start', now)
+          .order('slot_start', { ascending: false })
+          .limit(20);
+        if (pastErr) throw pastErr;
+        if (cancelledRef.current) return;
+        Promise.resolve().then(() => setPastBookings((pastBookingData || []) as Booking[]));
       } else {
         Promise.resolve().then(() => setBookings([]));
+        Promise.resolve().then(() => setPastBookings([]));
       }
 
       // 4. Find a completed enrollment to build the "Recommended next" card
@@ -829,6 +920,9 @@ function StudentDashboardInner() {
                 </div>
               )}
             </div>
+
+            {/* Class Notes & Projects (Capstone system — links to submission page) */}
+            <ClassNotesSection pastBookings={pastBookings} cohorts={cohorts} timezone={userTimezone} />
 
             {/* Classmates (v2 — only rendered when peers exist) */}
             <ClassmatesSection classmates={classmates} />

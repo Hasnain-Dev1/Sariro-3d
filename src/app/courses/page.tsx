@@ -667,7 +667,7 @@ function CourseBack({
               Syllabus
             </button>
             <Link
-              href={`/course-path/${course.trackId}`}
+              href={course.level === 'Elementary' ? `/checkout?course=${course.id}` : `/course-path/${course.trackId}`}
               className="px-3 py-2 rounded-xl bg-white text-slate-900 text-xs font-bold flex items-center gap-1.5 hover:bg-white/90 transition-colors"
               style={{ fontFamily: 'var(--font-grotesk)' }}
             >
@@ -814,7 +814,7 @@ function SyllabusModal({ course, onClose }: { course: Course | null; onClose: ()
             {/* Body — module list */}
             <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-5">
               {'syllabus' in course && Array.isArray(course.syllabus) &&
-                (course.syllabus as Array<{ num: string; name: string; project: string; lessons: string[] }>).map((mod, i) => (
+                (course.syllabus as Array<{ num: string; name: string; project: string; lessons: (string | { name: string; topic?: string })[] }>).map((mod, i) => (
                   <motion.div
                     key={mod.num}
                     initial={{ opacity: 0, y: 15 }}
@@ -842,7 +842,10 @@ function SyllabusModal({ course, onClose }: { course: Course | null; onClose: ()
                       </div>
                     </div>
                     <ol className="p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {mod.lessons.map((lesson, li) => (
+                      {mod.lessons.map((lesson, li) => {
+                        const name = typeof lesson === 'string' ? lesson : lesson.name;
+                        const topic = typeof lesson === 'string' ? null : lesson.topic;
+                        return (
                         <li
                           key={li}
                           className="flex items-start gap-2 text-xs text-slate-700 leading-relaxed"
@@ -857,9 +860,15 @@ function SyllabusModal({ course, onClose }: { course: Course | null; onClose: ()
                           >
                             {li + 1}
                           </span>
-                          <span>{lesson}</span>
+                          <span>
+                            {name}
+                            {topic && (
+                              <span className="block text-[10px] text-slate-400 leading-tight mt-0.5">{topic}</span>
+                            )}
+                          </span>
                         </li>
-                      ))}
+                        );
+                      })}
                     </ol>
                   </motion.div>
                 ))}
@@ -886,7 +895,7 @@ function SyllabusModal({ course, onClose }: { course: Course | null; onClose: ()
                 </div>
               </div>
               <Link
-                href={`/course-path/${course.trackId}`}
+                href={course.level === 'Elementary' ? `/checkout?course=${course.id}` : `/course-path/${course.trackId}`}
                 onClick={onClose}
                 className="btn-tactile btn-tactile-primary px-5 py-3 text-sm"
                 style={{ background: ACCENT_HEX[course.accent] ?? '#2563EB' }}

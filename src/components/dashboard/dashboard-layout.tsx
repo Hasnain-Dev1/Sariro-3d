@@ -8,7 +8,7 @@ import {
   Menu, X, LayoutDashboard, BookOpen, Calendar, Settings,
   LogOut, ChevronRight, Bell, Home as HomeIcon, GraduationCap,
   Users, ShieldCheck, DollarSign, ScrollText, ArrowLeft,
-  Loader2, AlertTriangle,
+  Loader2, AlertTriangle, Trophy,
 } from 'lucide-react';
 import { useAuth, getRole, type UserRole } from '@/components/auth/auth-provider';
 import { BRAND } from '@/lib/sariro-data';
@@ -35,6 +35,7 @@ interface NavItem {
 
 const STUDENT_NAV: NavItem[] = [
   { href: '/dashboard/student', label: 'Home', icon: LayoutDashboard },
+  { href: '/dashboard/student/leaderboard', label: 'Leaderboard', icon: Trophy },
   { href: '/courses', label: 'Browse Courses', icon: BookOpen },
   { href: '/dashboard/student#schedule', label: 'My Schedule', icon: Calendar },
   { href: '/settings', label: 'Settings', icon: Settings },
@@ -42,6 +43,7 @@ const STUDENT_NAV: NavItem[] = [
 
 const TEACHER_NAV: NavItem[] = [
   { href: '/dashboard/teacher', label: 'Home', icon: LayoutDashboard },
+  { href: '/dashboard/teacher/leaderboard', label: 'Leaderboard', icon: Trophy },
   { href: '/dashboard/teacher#schedule', label: 'My Schedule', icon: Calendar },
   { href: '/dashboard/teacher#students', label: 'Students', icon: Users },
   { href: '/settings', label: 'Settings', icon: Settings },

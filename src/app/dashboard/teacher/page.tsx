@@ -7,6 +7,7 @@ import {
   Calendar, Clock, Users, Video, Loader2, AlertCircle,
   CheckCircle2, XCircle, UserX, ChevronRight, GraduationCap, Sparkles,
   Plus, Edit3, Save, StickyNote, X, CalendarPlus,
+  Star, ExternalLink, FolderOpen, MessageCircle,
 } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import { useAuth } from '@/components/auth/auth-provider';
@@ -16,6 +17,12 @@ import {
   type TeacherStats, type TeacherBookingRow, type TeacherStudentRow,
   type SessionStudentRow, type TeacherCohortRow,
 } from '@/lib/dashboard/teacher-data';
+import {
+  fetchSubmissionsForBooking,
+  reviewSubmission,
+  type SubmissionWithFeedback,
+} from '@/lib/dashboard/submissions-data';
+import { HoneypotField } from '@/components/security/honeypot';
 import { getTrackName } from '@/lib/dashboard/upsell-engine';
 import { useRealtime } from '@/lib/dashboard/use-realtime';
 import { TeacherCalendar } from '@/components/dashboard/teacher-calendar';
@@ -357,7 +364,7 @@ const ATTENDANCE_OPTIONS: Array<{ key: 'present' | 'late' | 'absent' | 'excused'
   { key: 'excused', label: 'Excused', inactive: 'bg-slate-100 hover:bg-slate-200 text-slate-700', active: 'bg-slate-600 text-white' },
 ];
 
-/* ───── Session details modal — roster, attendance, notes ───── */
+/* ───── Session details modal — roster, attendance, notes, submissions ───── */
 function SessionDetailsModal({
   booking, onClose, onToast,
 }: {
@@ -365,6 +372,7 @@ function SessionDetailsModal({
   onClose: () => void;
   onToast: (msg: string, kind?: 'success' | 'error') => void;
 }) {
+  const [activeTab, setActiveTab] = useState<'roster' | 'submissions'>('roster');
   const [roster, setRoster] = useState<SessionStudentRow[]>([]);
   const [loading, setLoading] = useState(false);
   // Per-student editable note draft (string). Kept in a map so we don't
@@ -380,6 +388,7 @@ function SessionDetailsModal({
       setLoading(true);
       setRoster([]);
       setNoteDrafts({});
+      setActiveTab('roster');
     });
     fetchSessionStudents(booking.id).then(rows => {
       if (cancelled) return;
@@ -458,9 +467,39 @@ function SessionDetailsModal({
           </button>
         </div>
 
+        {/* Tab bar — Roster / Submissions */}
+        <div className="flex border-b border-slate-100 shrink-0">
+          <button
+            onClick={() => setActiveTab('roster')}
+            className={`flex-1 min-h-[44px] flex items-center justify-center gap-1.5 text-xs font-bold transition-colors touch-manipulation ${
+              activeTab === 'roster'
+                ? 'text-green-700 border-b-2 border-green-600 bg-green-50/50'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+            style={{ fontFamily: 'var(--font-grotesk)' }}
+          >
+            <Users className="w-3.5 h-3.5" />
+            Roster
+          </button>
+          <button
+            onClick={() => setActiveTab('submissions')}
+            className={`flex-1 min-h-[44px] flex items-center justify-center gap-1.5 text-xs font-bold transition-colors touch-manipulation ${
+              activeTab === 'submissions'
+                ? 'text-violet-700 border-b-2 border-violet-600 bg-violet-50/50'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+            style={{ fontFamily: 'var(--font-grotesk)' }}
+          >
+            <FolderOpen className="w-3.5 h-3.5" />
+            Submissions
+          </button>
+        </div>
+
         {/* Body */}
         <div className="p-5 overflow-y-auto flex-1">
-          {loading ? (
+          {activeTab === 'submissions' ? (
+            <SubmissionsTab booking={booking} onToast={onToast} />
+          ) : loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-7 h-7 animate-spin text-green-600" />
             </div>
@@ -564,6 +603,319 @@ function SessionDetailsModal({
       </motion.div>
     </div>
   );
+}
+
+/* ───── Submissions tab — list + review each submission ───── */
+function SubmissionsTab({
+  booking,
+  onToast,
+}: {
+  booking: TeacherBookingRow;
+  onToast: (msg: string, kind?: 'success' | 'error') => void;
+}) {
+  const [submissions, setSubmissions] = useState<SubmissionWithFeedback[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const loadSubmissions = useCallback(async () => {
+    const rows = await fetchSubmissionsForBooking(booking.id);
+    setSubmissions(rows);
+    setLoading(false);
+  }, [booking.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    // Defer setState to avoid cascading renders (matches existing pattern in SessionDetailsModal)
+    Promise.resolve().then(() => setLoading(true));
+    fetchSubmissionsForBooking(booking.id).then((rows) => {
+      if (cancelled) return;
+      setSubmissions(rows);
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [booking.id]);
+
+  const refreshSubmissions = useCallback(() => {
+    return loadSubmissions();
+  }, [loadSubmissions]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-7 h-7 animate-spin text-violet-600" />
+      </div>
+    );
+  }
+
+  if (submissions.length === 0) {
+    return (
+      <div className="text-center py-10">
+        <FolderOpen className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+        <p className="text-sm font-bold text-slate-700 mb-1" style={{ fontFamily: 'var(--font-jakarta)' }}>
+          No submissions yet
+        </p>
+        <p className="text-xs text-slate-500 max-w-xs mx-auto">
+          Student capstone submissions for this class will appear here. Submissions unlock after the class ends.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="text-xs text-slate-500 mb-1">
+        {submissions.length} submission{submissions.length !== 1 ? 's' : ''} · click to review
+      </div>
+      {submissions.map((sub) => (
+        <SubmissionReviewCard
+          key={sub.id}
+          submission={sub}
+          isExpanded={expandedId === sub.id}
+          onToggle={() => setExpandedId(expandedId === sub.id ? null : sub.id)}
+          onReviewed={() => {
+            // Refresh submissions + collapse
+            refreshSubmissions();
+            setExpandedId(null);
+          }}
+          onToast={onToast}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* ───── Single submission card with review form ───── */
+function SubmissionReviewCard({
+  submission,
+  isExpanded,
+  onToggle,
+  onReviewed,
+  onToast,
+}: {
+  submission: SubmissionWithFeedback;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onReviewed: () => void;
+  onToast: (msg: string, kind?: 'success' | 'error') => void;
+}) {
+  const [rating, setRating] = useState(submission.feedback?.rating ?? 5);
+  const [content, setContent] = useState(submission.feedback?.content ?? '');
+  const [submitting, setSubmitting] = useState(false);
+
+  const displayName = submission.student_name ?? 'Student';
+  const initials = displayName.charAt(0).toUpperCase();
+  const submittedDate = new Date(submission.submitted_at);
+  const timeAgo = formatTimeAgoShort(submittedDate);
+
+  const statusBadge = (() => {
+    if (submission.status === 'approved') {
+      return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-green-100 text-green-700" style={{ fontFamily: 'var(--font-grotesk)' }}>Approved</span>;
+    }
+    if (submission.status === 'resubmit') {
+      return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700" style={{ fontFamily: 'var(--font-grotesk)' }}>Resubmit</span>;
+    }
+    return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700" style={{ fontFamily: 'var(--font-grotesk)' }}>Pending</span>;
+  })();
+
+  const handleReview = async (approve: boolean) => {
+    setSubmitting(true);
+    const result = await reviewSubmission({
+      submissionId: submission.id,
+      rating,
+      content,
+      approved: approve,
+    });
+    setSubmitting(false);
+    if (result.success) {
+      onToast(approve ? 'Approved! Student notified.' : 'Resubmit requested', 'success');
+      onReviewed();
+    } else {
+      onToast(result.error || 'Review failed', 'error');
+    }
+  };
+
+  return (
+    <div className={`rounded-xl border-2 transition-all ${isExpanded ? 'border-violet-300 shadow-sm' : 'border-slate-200'}`}>
+      {/* Collapsed header — click to expand */}
+      <button
+        onClick={onToggle}
+        className="w-full p-3.5 flex items-center gap-3 text-left min-h-[60px] touch-manipulation"
+      >
+        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center text-white text-xs font-bold shrink-0" style={{ fontFamily: 'var(--font-jakarta)' }}>
+          {initials}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <p className="text-sm font-bold text-slate-900 truncate" style={{ fontFamily: 'var(--font-jakarta)' }}>
+              {displayName}
+            </p>
+            {statusBadge}
+          </div>
+          <p className="text-xs text-slate-600 truncate">{submission.title}</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">
+            {timeAgo} · +{submission.speed_points} speed pts
+          </p>
+        </div>
+        <ChevronRight className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+      </button>
+
+      {/* Expanded review panel */}
+      {isExpanded && (
+        <div className="px-3.5 pb-3.5 border-t border-slate-100 pt-3 space-y-3">
+          {/* Project details */}
+          <div className="bg-slate-50 rounded-lg p-3 space-y-2 text-xs">
+            <div>
+              <span className="font-bold text-slate-500">Project:</span>{' '}
+              <a
+                href={submission.project_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-violet-600 hover:text-violet-700 font-bold break-all"
+              >
+                <ExternalLink className="w-3 h-3 shrink-0" />
+                <span className="truncate">{submission.project_url}</span>
+              </a>
+            </div>
+            {submission.demo_url && (
+              <div>
+                <span className="font-bold text-slate-500">Demo:</span>{' '}
+                <a
+                  href={submission.demo_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-violet-600 hover:text-violet-700 font-bold break-all"
+                >
+                  <ExternalLink className="w-3 h-3 shrink-0" />
+                  <span className="truncate">{submission.demo_url}</span>
+                </a>
+              </div>
+            )}
+            {submission.description && (
+              <div>
+                <span className="font-bold text-slate-500">About:</span>
+                <p className="text-slate-700 mt-0.5 whitespace-pre-wrap">{submission.description}</p>
+              </div>
+            )}
+            {submission.reflection_tricky && (
+              <div>
+                <span className="font-bold text-slate-500">Tricky:</span>
+                <p className="text-slate-700 mt-0.5 italic">&ldquo;{submission.reflection_tricky}&rdquo;</p>
+              </div>
+            )}
+            {submission.reflection_proud && (
+              <div>
+                <span className="font-bold text-slate-500">Proud of:</span>
+                <p className="text-slate-700 mt-0.5 italic">&ldquo;{submission.reflection_proud}&rdquo;</p>
+              </div>
+            )}
+          </div>
+
+          {/* Existing feedback (if any) */}
+          {submission.feedback && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+              <div className="flex items-center gap-1.5 mb-1">
+                <MessageCircle className="w-3.5 h-3.5 text-amber-700" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                  Your previous feedback
+                </span>
+              </div>
+              <div className="flex items-center gap-0.5 mb-1">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <Star
+                    key={n}
+                    className={`w-3.5 h-3.5 ${n <= submission.feedback!.rating ? 'text-amber-400 fill-amber-400' : 'text-slate-300'}`}
+                  />
+                ))}
+              </div>
+              <p className="text-xs text-amber-800 whitespace-pre-wrap">{submission.feedback.content}</p>
+            </div>
+          )}
+
+          {/* Review form */}
+          <div className="space-y-2.5">
+            <HoneypotField name="website" />
+
+            {/* Star rating */}
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                Rating
+              </label>
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setRating(n)}
+                    className="min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
+                    aria-label={`${n} star${n !== 1 ? 's' : ''}`}
+                  >
+                    <Star
+                      className={`w-7 h-7 transition-colors ${
+                        n <= rating ? 'text-amber-400 fill-amber-400' : 'text-slate-300 hover:text-amber-200'
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Feedback textarea */}
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                Feedback (min 10 chars)
+              </label>
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                rows={3}
+                maxLength={5000}
+                disabled={submitting}
+                placeholder="Great use of elif! Try adding error handling for invalid input..."
+                className="w-full min-h-[80px] rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-400 disabled:opacity-50 resize-y"
+                style={{ fontFamily: 'var(--font-inter)', fontSize: '16px' }}
+              />
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => handleReview(true)}
+                disabled={submitting || content.trim().length < 10}
+                className="flex-1 min-h-[44px] rounded-lg bg-green-600 hover:bg-green-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center justify-center gap-1.5 touch-manipulation"
+                style={{ fontFamily: 'var(--font-grotesk)' }}
+              >
+                {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                Approve
+              </button>
+              <button
+                onClick={() => handleReview(false)}
+                disabled={submitting || content.trim().length < 10}
+                className="flex-1 min-h-[44px] rounded-lg bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center justify-center gap-1.5 touch-manipulation"
+                style={{ fontFamily: 'var(--font-grotesk)' }}
+              >
+                {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Edit3 className="w-3.5 h-3.5" />}
+                Request resubmit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ───── Helper: short time-ago format ───── */
+function formatTimeAgoShort(date: Date): string {
+  const diffMs = Date.now() - date.getTime();
+  const mins = Math.floor(diffMs / (1000 * 60));
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
 }
 
 /* ───── Reschedule modal ───── */

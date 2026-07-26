@@ -73,7 +73,8 @@ function flattenSyllabus(
   const out: { moduleNum: string; lessonName: string }[] = [];
   for (const mod of syllabus.modules) {
     for (const lesson of mod.lessons) {
-      out.push({ moduleNum: mod.num, lessonName: lesson });
+      const name = typeof lesson === 'string' ? lesson : lesson.name;
+      out.push({ moduleNum: mod.num, lessonName: name });
     }
   }
   return out;
@@ -164,17 +165,19 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Upsert attendance ───────────────────────────────────────────────
+  // Schema-correct columns: student_id (not user_id), marked_by (not recorded_by),
+  // marked_at (not recorded_at). Discovered during Phase 2 schema audit.
   const { error: upsertErr } = await supaServer
     .from('session_attendance')
     .upsert(
       {
         booking_id: bookingId,
-        user_id: studentId,
+        student_id: studentId,
         status,
-        recorded_by: teacherId,
-        recorded_at: new Date().toISOString(),
+        marked_by: teacherId,
+        marked_at: new Date().toISOString(),
       },
-      { onConflict: 'booking_id,user_id' }
+      { onConflict: 'booking_id,student_id' }
     );
   if (upsertErr) {
     console.warn('[attendance] upsert error:', upsertErr.message);
