@@ -242,3 +242,33 @@ model SubmissionFeedback {
   @@index([teacher_id, created_at])
   @@map("submission_feedback")
 }
+
+/* ════════════════════════════════════════════════════════════════
+   Demo Class Requests — public form for visitors to book a free demo
+   ════════════════════════════════════════════════════════════════ */
+
+model DemoClassRequest {
+  id                  String   @id @default(uuid())
+  student_name        String
+  parent_name         String?
+  phone               String
+  phone_country_code  String?
+  email               String?
+  course_interest     String?
+  preferred_slot      String
+  preferred_slot_label String
+  timezone            String
+  timezone_offset     Int?
+  user_agent          String?
+  referrer            String?
+  status              String   @default("new")
+  contacted_at        DateTime?
+  scheduled_at        DateTime?
+  notes               String?
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+
+  @@index([created_at])
+  @@index([status, created_at])
+  @@map("demo_class_requests")
+}

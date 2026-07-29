@@ -7,6 +7,7 @@ import { GlobalUpsellPopup } from "@/components/dashboard/global-upsell-popup";
 import ProfileCompletionModal from "@/components/auth/profile-completion-modal";
 import { ErrorTracker } from "@/components/observability/error-tracker";
 import { ImpersonationBanner } from "@/components/security/impersonation-banner";
+import WelcomePopup from "@/components/welcome/welcome-popup";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -19,7 +20,7 @@ const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
   weight: ["500", "600", "700", "800"],
 });
-
+ 
 const grotesk = Space_Grotesk({
   variable: "--font-grotesk",
   subsets: ["latin"],
@@ -86,6 +87,11 @@ export default function RootLayout({
           <GlobalUpsellPopup />
           {/* Impersonation banner — shows when admin is signed in as another user */}
           <ImpersonationBanner />
+          {/* Welcome popup — invites visitors to book a free demo class.
+              Shows after 6s on every page. Hidden for logged-in users.
+              X = hide this session only (shows again on reload).
+              "Maybe later" = never show again. "Yes" = converted. */}
+          <WelcomePopup />
           {/* Client-side error tracker — captures window.onerror +
               unhandledrejection, forwards to /api/errors. */}
           <ErrorTracker />

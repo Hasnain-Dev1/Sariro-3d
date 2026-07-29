@@ -7,6 +7,7 @@ import {
   CheckCircle2, XCircle, Loader2, AlertCircle, Plus, Video,
   Lock, PlayCircle, Trophy, ArrowRight, X, FolderOpen,
   Search, Download, UserCheck, TrendingUp, Phone, LogIn,
+  Calendar, Rocket, Mail,
 } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import { useAuth } from '@/components/auth/auth-provider';
@@ -587,7 +588,7 @@ function CreateCohortModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
-  const [track, setTrack] = useState(TRACKS[0]?.id ?? 'web');
+  const [track, setTrack] = useState<string>(TRACKS[0]?.id ?? 'web');
   const [level, setLevel] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
   const [ratio, setRatio] = useState<'1:1' | '1:4'>('1:4');
   const [submitting, setSubmitting] = useState(false);
@@ -1734,6 +1735,9 @@ function AdminDashboardInner() {
         onEnrolled={loadAll}
       />
 
+      {/* Demo Class Requests — from the welcome popup + /welcome form */}
+      <DemoRequestsSection onToast={(msg, kind) => handleToast(kind ?? 'success', msg)} />
+
       {/* Toast */}
       <AnimatePresence>
         {toast && (
@@ -1752,6 +1756,230 @@ function AdminDashboardInner() {
         )}
       </AnimatePresence>
     </section>
+  );
+}
+
+/* ───── Demo Class Requests section ───── */
+interface DemoRequestRow {
+  id: string;
+  student_name: string;
+  parent_name: string | null;
+  phone: string;
+  phone_country_code: string | null;
+  email: string | null;
+  course_interest: string | null;
+  preferred_slot: string;
+  preferred_slot_label: string;
+  timezone: string;
+  timezone_offset: number | null;
+  status: 'new' | 'contacted' | 'scheduled' | 'completed' | 'cancelled';
+  contacted_at: string | null;
+  scheduled_at: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+function DemoRequestsSection({ onToast }: { onToast: (msg: string, kind?: 'success' | 'error') => void }) {
+  const [requests, setRequests] = useState<DemoRequestRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedReq, setSelectedReq] = useState<DemoRequestRow | null>(null);
+
+  const loadRequests = useCallback(async () => {
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('demo_class_requests')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      setRequests((data ?? []) as DemoRequestRow[]);
+    } catch (err) {
+      console.warn('[admin] demo requests load error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadRequests();
+  }, [loadRequests]);
+
+  useRealtime({
+    tables: ['demo_class_requests'],
+    onRefresh: () => loadRequests(),
+  });
+
+  const newCount = requests.filter((r) => r.status === 'new').length;
+
+  const updateStatus = async (id: string, status: DemoRequestRow['status']) => {
+    try {
+      const supabase = createClient();
+      const updates: Partial<DemoRequestRow> = { status };
+      if (status === 'contacted') updates.contacted_at = new Date().toISOString();
+      if (status === 'scheduled') updates.scheduled_at = new Date().toISOString();
+
+      const { error } = await supabase.from('demo_class_requests').update(updates).eq('id', id);
+      if (error) throw error;
+      onToast(`Marked as ${status}`, 'success');
+      loadRequests();
+      setSelectedReq(null);
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : 'Failed to update', 'error');
+    }
+  };
+
+  return (
+    <div>
+      <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-jakarta)' }}>
+        <Rocket className="w-5 h-5 text-amber-600" /> Demo Class Requests
+        {newCount > 0 && (
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700" style={{ fontFamily: 'var(--font-grotesk)' }}>
+            {newCount} NEW
+          </span>
+        )}
+      </h2>
+
+      {loading ? (
+        <div className="card-3d p-6 flex items-center justify-center">
+          <Loader2 className="w-6 h-6 animate-spin text-amber-600" />
+        </div>
+      ) : requests.length === 0 ? (
+        <div className="card-3d p-6 text-center">
+          <Rocket className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+          <p className="text-sm text-slate-500">No demo class requests yet. They&apos;ll appear here when visitors book from the welcome popup.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {requests.map((req) => (
+            <button
+              key={req.id}
+              onClick={() => setSelectedReq(req)}
+              className="block w-full text-left bg-white rounded-xl border border-slate-200 p-3.5 hover:border-amber-300 hover:shadow-md transition-all min-h-[60px] touch-manipulation"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-xs font-bold text-slate-400" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                      {new Date(req.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </span>
+                    <StatusBadge status={req.status} />
+                  </div>
+                  <p className="text-sm font-bold text-slate-900 truncate" style={{ fontFamily: 'var(--font-jakarta)' }}>
+                    {req.student_name}
+                  </p>
+                  <p className="text-xs text-slate-500 truncate">
+                    {req.phone}{req.email && ` · ${req.email}`}
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-xs text-slate-500 truncate max-w-[150px]">{req.preferred_slot_label}</p>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {selectedReq && (
+        <DemoRequestModal request={selectedReq} onClose={() => setSelectedReq(null)} onUpdateStatus={updateStatus} />
+      )}
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: DemoRequestRow['status'] }) {
+  const styles: Record<DemoRequestRow['status'], string> = {
+    new: 'bg-amber-100 text-amber-700',
+    contacted: 'bg-blue-100 text-blue-700',
+    scheduled: 'bg-violet-100 text-violet-700',
+    completed: 'bg-green-100 text-green-700',
+    cancelled: 'bg-slate-100 text-slate-500',
+  };
+  return (
+    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${styles[status]}`} style={{ fontFamily: 'var(--font-grotesk)' }}>
+      {status}
+    </span>
+  );
+}
+
+function DemoRequestModal({
+  request,
+  onClose,
+  onUpdateStatus,
+}: {
+  request: DemoRequestRow;
+  onClose: () => void;
+  onUpdateStatus: (id: string, status: DemoRequestRow['status']) => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
+      <motion.div
+        initial={{ opacity: 0, y: 40 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 40 }}
+        role="dialog"
+        aria-modal="true"
+        className="relative w-full sm:max-w-lg bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[90vh]"
+      >
+        <div className="flex items-start justify-between gap-3 p-5 border-b border-slate-100 shrink-0">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <StatusBadge status={request.status} />
+            </div>
+            <h3 className="font-extrabold text-slate-900 text-base" style={{ fontFamily: 'var(--font-jakarta)' }}>
+              {request.student_name}
+            </h3>
+            <p className="text-xs text-slate-500">Requested {new Date(request.created_at).toLocaleString()}</p>
+          </div>
+          <button onClick={onClose} aria-label="Close" className="shrink-0 w-9 h-9 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center min-h-[44px] min-w-[44px]">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="p-5 overflow-y-auto flex-1 space-y-3">
+          <DetailRow icon={<Phone className="w-4 h-4" />} label="Phone" value={`${request.phone_country_code ? request.phone_country_code + ' ' : ''}${request.phone}`} />
+          {request.parent_name && <DetailRow icon={<Users className="w-4 h-4" />} label="Parent" value={request.parent_name} />}
+          {request.email && <DetailRow icon={<Mail className="w-4 h-4" />} label="Email" value={request.email} link={`mailto:${request.email}`} />}
+          {request.course_interest && <DetailRow icon={<BookOpen className="w-4 h-4" />} label="Course interest" value={request.course_interest} />}
+          <DetailRow icon={<Calendar className="w-4 h-4" />} label="Preferred slot" value={request.preferred_slot_label} />
+          <DetailRow icon={<Clock className="w-4 h-4" />} label="Timezone" value={`${request.timezone} (UTC${(request.timezone_offset ?? 0) >= 0 ? '+' : ''}${(request.timezone_offset ?? 0) / 60})`} />
+          {request.notes && <DetailRow icon={<BookOpen className="w-4 h-4" />} label="Notes" value={request.notes} />}
+        </div>
+
+        <div className="p-5 border-t border-slate-100 shrink-0 flex flex-wrap gap-2">
+          {request.status !== 'contacted' && (
+            <button onClick={() => onUpdateStatus(request.id, 'contacted')} className="flex-1 min-h-[44px] rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold touch-manipulation" style={{ fontFamily: 'var(--font-grotesk)' }}>Mark contacted</button>
+          )}
+          {request.status !== 'scheduled' && (
+            <button onClick={() => onUpdateStatus(request.id, 'scheduled')} className="flex-1 min-h-[44px] rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold touch-manipulation" style={{ fontFamily: 'var(--font-grotesk)' }}>Mark scheduled</button>
+          )}
+          {request.status !== 'completed' && (
+            <button onClick={() => onUpdateStatus(request.id, 'completed')} className="flex-1 min-h-[44px] rounded-xl bg-green-600 hover:bg-green-700 text-white text-xs font-bold touch-manipulation" style={{ fontFamily: 'var(--font-grotesk)' }}>Mark completed</button>
+          )}
+          {request.status !== 'cancelled' && (
+            <button onClick={() => onUpdateStatus(request.id, 'cancelled')} className="flex-1 min-h-[44px] rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold touch-manipulation" style={{ fontFamily: 'var(--font-grotesk)' }}>Cancel</button>
+          )}
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+function DetailRow({ icon, label, value, link }: { icon: React.ReactNode; label: string; value: string; link?: string }) {
+  return (
+    <div className="flex items-start gap-2.5">
+      <div className="text-slate-400 mt-0.5">{icon}</div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400" style={{ fontFamily: 'var(--font-grotesk)' }}>{label}</p>
+        {link ? (
+          <a href={link} className="text-sm font-bold text-blue-600 hover:text-blue-700 break-all">{value}</a>
+        ) : (
+          <p className="text-sm font-bold text-slate-900 break-words">{value}</p>
+        )}
+      </div>
+    </div>
   );
 }
 
