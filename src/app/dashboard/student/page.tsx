@@ -737,6 +737,93 @@ function StudentDashboardInner() {
         Promise.resolve().then(() => setPastBookings([]));
       }
 
+      // 3c. Auto-complete check — for each ACTIVE enrollment, check if all
+      // lessons are done. If yes, call the complete-enrollment endpoint
+      // (server-side verifies against syllabus, then marks status='completed'
+      // using service role). Runs in the background — doesn't block render.
+      enrollmentList
+        .filter(e => e.status === 'active')
+        .forEach(async (e) => {
+          try {
+            const syllabus = getCourseSyllabus(e.track, e.level);
+            if (syllabus.totalLessons === 0) return;
+            // Quick client-side check first — avoid API call if clearly not done
+            const { data: prog } = await supabase
+              .from('lesson_progress')
+              .select('module_num, lesson_name', { count: 'exact', head: true })
+              .eq('enrollment_id', e.id);
+            if ((prog as unknown as number) < syllabus.totalLessons) return;
+            // Likely all done — let server verify + update
+            await fetch('/api/student/complete-enrollment', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ enrollment_id: e.id }),
+            });
+            // Reload to reflect the new 'completed' status
+            loadAll();
+          } catch {
+            // Silent — this is a background optimization, not critical
+          }
+        });
+
+      // 3c. Auto-complete check — for each ACTIVE enrollment, check if all
+      // lessons are done. If yes, call the complete-enrollment endpoint
+      // (server-side verifies against syllabus, then marks status='completed'
+      // using service role). Runs in the background — doesn't block render.
+      enrollmentList
+        .filter(e => e.status === 'active')
+        .forEach(async (e) => {
+          try {
+            const syllabus = getCourseSyllabus(e.track, e.level);
+            if (syllabus.totalLessons === 0) return;
+            // Quick client-side check first — avoid API call if clearly not done
+            const { data: prog } = await supabase
+              .from('lesson_progress')
+              .select('module_num, lesson_name', { count: 'exact', head: true })
+              .eq('enrollment_id', e.id);
+            if ((prog as unknown as number) < syllabus.totalLessons) return;
+            // Likely all done — let server verify + update
+            await fetch('/api/student/complete-enrollment', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ enrollment_id: e.id }),
+            });
+            // Reload to reflect the new 'completed' status
+            loadAll();
+          } catch {
+            // Silent — this is a background optimization, not critical
+          }
+        });
+
+      // 3c. Auto-complete check — for each ACTIVE enrollment, check if all
+      // lessons are done. If yes, call the complete-enrollment endpoint
+      // (server-side verifies against syllabus, then marks status='completed'
+      // using service role). Runs in the background — doesn't block render.
+      enrollmentList
+        .filter(e => e.status === 'active')
+        .forEach(async (e) => {
+          try {
+            const syllabus = getCourseSyllabus(e.track, e.level);
+            if (syllabus.totalLessons === 0) return;
+            // Quick client-side check first — avoid API call if clearly not done
+            const { data: prog } = await supabase
+              .from('lesson_progress')
+              .select('module_num, lesson_name', { count: 'exact', head: true })
+              .eq('enrollment_id', e.id);
+            if ((prog as unknown as number) < syllabus.totalLessons) return;
+            // Likely all done — let server verify + update
+            await fetch('/api/student/complete-enrollment', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ enrollment_id: e.id }),
+            });
+            // Reload to reflect the new 'completed' status
+            loadAll();
+          } catch {
+            // Silent — this is a background optimization, not critical
+          }
+        });
+
       // 4. Find a completed enrollment to build the "Recommended next" card
       // (popup will handle the FIRST unshown one; this card handles the most
       // recent completed one regardless of shown status — gives a persistent

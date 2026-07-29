@@ -39,6 +39,7 @@ import { HoneypotField } from '@/components/security/honeypot';
 type PageState =
   | { kind: 'loading' }
   | { kind: 'not-enrolled' }
+  | { kind: 'course-completed' }
   | { kind: 'absent'; rescheduledDate: Date | null }
   | { kind: 'locked'; slotStart: Date }
   | { kind: 'empty-form' }
@@ -185,6 +186,9 @@ export default function SubmitProjectPage() {
         if (!cancelled) {
           if (!enrollRow) {
             setState({ kind: 'not-enrolled' });
+          } else if (enrollRow.status === 'completed') {
+            // Course already completed — show locked "course completed" state
+            setState({ kind: 'course-completed' });
           } else if (attendance?.status === 'absent') {
             // Absent — show absent screen, check if booking was rescheduled
             const slotEnd = new Date(b.slot_end);
@@ -285,6 +289,7 @@ export default function SubmitProjectPage() {
 
       <div className="max-w-2xl mx-auto px-4 py-6 pb-24">
         {state.kind === 'not-enrolled' && <NotEnrolledState />}
+        {state.kind === 'course-completed' && <CourseCompletedState />}
         {state.kind === 'absent' && <AbsentState rescheduledDate={state.rescheduledDate} />}
         {state.kind === 'locked' && (
           <LockedState
@@ -324,6 +329,36 @@ export default function SubmitProjectPage() {
     </div>
   );
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   State: Course Completed — enrollment is done, no more submissions
+   ════════════════════════════════════════════════════════════════════════ */
+
+function CourseCompletedState() {
+  return (
+    <Card>
+      <div className="text-center py-6">
+        <div className="w-16 h-16 rounded-2xl bg-green-100 flex items-center justify-center mx-auto mb-4">
+          <CheckCircle2 className="w-8 h-8 text-green-600" />
+        </div>
+        <h1 className="text-xl font-extrabold text-slate-900 mb-2" style={{ fontFamily: 'var(--font-jakarta)' }}>
+          Course completed 🎉
+        </h1>
+        <p className="text-sm text-slate-600 mb-6">
+          You&apos;ve finished all the lessons in this course. New submissions are locked — but you can still review your past work and feedback below.
+        </p>
+        <Link
+          href="/dashboard/student"
+          className="inline-flex items-center gap-2 min-h-[44px] px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold touch-manipulation"
+          style={{ fontFamily: 'var(--font-grotesk)' }}
+        >
+          <ArrowLeft className="w-4 h-4" /> Back to dashboard
+        </Link>
+      </div>
+    </Card>
+  );
+}
+
 
 /* ════════════════════════════════════════════════════════════════════════
    State: Not Enrolled
