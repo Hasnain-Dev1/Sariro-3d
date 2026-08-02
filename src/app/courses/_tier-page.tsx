@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
@@ -10,6 +11,8 @@ import {
   Clock,
   CheckCircle2,
   Sparkles,
+  Lock,
+  X,
   CalendarDays,
   Users,
   GraduationCap,
@@ -30,6 +33,8 @@ import {
   StickyScrollSection,
 } from '@/components/brand/effects-kit';
 import { COURSES, discountPercent, getRazorpayLink } from '@/lib/sariro-data';
+import { useAuth } from '@/components/auth/auth-provider';
+import { createClient } from '@/lib/supabase/client';
 
 /* ===============================================================
    TierPage — shared layout for /courses/beginner|intermediate|advanced
@@ -424,6 +429,88 @@ function CourseDetailCard({
 }) {
   const pct = discountPercent(course.price, course.originalPrice);
   const syllabus = 'syllabus' in course ? (course.syllabus as SyllabusModule[]) : [];
+  const { user, profile } = useAuth();
+  const [accessLevel, setAccessLevel] = useState<'full' | 'completed' | 'locked'>('locked');
+  const [completedKeys, setCompletedKeys] = useState<Set<string>>(new Set());
+
+  // Check access level: full (admin/teacher assigned), completed (enrolled student), locked (not enrolled)
+  useEffect(() => {
+    if (!user) {
+      Promise.resolve().then(() => setAccessLevel('locked'));
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const supabase = createClient();
+        const role = profile?.role
+          ?? (profile?.is_super_admin ? 'super_admin'
+            : profile?.is_admin ? 'admin'
+            : profile?.is_teacher ? 'teacher'
+            : 'student');
+
+        if (role === 'super_admin' || role === 'admin') {
+          if (!cancelled) setAccessLevel('full');
+          return;
+        }
+
+        if (role === 'teacher') {
+          const { data: teacherBookings } = await supabase
+            .from('bookings')
+            .select('cohort_id')
+            .eq('teacher_id', user.id);
+          const cohortIds = (teacherBookings ?? []).map((b) => b.cohort_id);
+          if (cohortIds.length > 0) {
+            const { data: matchingCohort } = await supabase
+              .from('cohorts')
+              .select('id')
+              .in('id', cohortIds)
+              .eq('track', course.trackId)
+              .eq('level', course.level)
+              .limit(1)
+              .maybeSingle();
+            if (matchingCohort) {
+              if (!cancelled) setAccessLevel('full');
+              return;
+            }
+          }
+          if (!cancelled) setAccessLevel('locked');
+          return;
+        }
+
+        // Student — check enrollment + fetch completed lessons
+        const { data: enrollment } = await supabase
+          .from('enrollments')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('track', course.trackId)
+          .eq('level', course.level)
+          .in('status', ['active', 'completed'])
+          .maybeSingle();
+
+        if (!enrollment) {
+          if (!cancelled) setAccessLevel('locked');
+          return;
+        }
+
+        const { data: progressRows } = await supabase
+          .from('lesson_progress')
+          .select('module_num, lesson_name')
+          .eq('enrollment_id', enrollment.id);
+
+        const keys = new Set(
+          (progressRows ?? []).map((r) => `${r.module_num}::${r.lesson_name}`)
+        );
+        if (!cancelled) {
+          setCompletedKeys(keys);
+          setAccessLevel('completed');
+        }
+      } catch {
+        if (!cancelled) setAccessLevel('locked');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [course, user, profile]);
 
   return (
     <motion.div
@@ -649,35 +736,70 @@ function CourseDetailCard({
                     </p>
                   </div>
                 </div>
-                <ol className="p-4 space-y-1.5">
-                  {mod.lessons.map((lesson, li) => {
-                    const name = typeof lesson === 'string' ? lesson : lesson.name;
-                    const topic = typeof lesson === 'string' ? null : lesson.topic;
-                    return (
-                    <li
-                      key={li}
-                      className="flex items-start gap-2 text-xs text-slate-700 leading-relaxed"
-                    >
-                      <span
-                        className="shrink-0 w-4 h-4 rounded flex items-center justify-center text-[9px] font-bold mt-0.5"
-                        style={{
-                          background: `${accentColor}15`,
-                          color: accentColor,
-                          fontFamily: 'var(--font-grotesk)',
-                        }}
+                {/* Lesson list — visibility based on role */}
+                {accessLevel === 'full' ? (
+                  <ol className="p-4 space-y-1.5">
+                    {mod.lessons.map((lesson, li) => {
+                      const name = typeof lesson === 'string' ? lesson : lesson.name;
+                      const topic = typeof lesson === 'string' ? null : lesson.topic;
+                      return (
+                      <li
+                        key={li}
+                        className="flex items-start gap-2 text-xs text-slate-700 leading-relaxed"
                       >
-                        {li + 1}
-                      </span>
-                      <span>
-                        {name}
-                        {topic && (
-                          <span className="block text-[10px] text-slate-400 leading-tight mt-0.5">{topic}</span>
-                        )}
-                      </span>
-                    </li>
-                    );
-                  })}
-                </ol>
+                        <span
+                          className="shrink-0 w-4 h-4 rounded flex items-center justify-center text-[9px] font-bold mt-0.5"
+                          style={{
+                            background: `${accentColor}15`,
+                            color: accentColor,
+                            fontFamily: 'var(--font-grotesk)',
+                          }}
+                        >
+                          {li + 1}
+                        </span>
+                        <span>
+                          {name}
+                          {topic && (
+                            <span className="block text-[10px] text-slate-400 leading-tight mt-0.5">{topic}</span>
+                          )}
+                        </span>
+                      </li>
+                      );
+                    })}
+                  </ol>
+                ) : accessLevel === 'completed' ? (
+                  <div className="p-4">
+                    {(() => {
+                      const completedInModule = mod.lessons.filter((lesson) => {
+                        const name = typeof lesson === 'string' ? lesson : lesson.name;
+                        return completedKeys.has(`${mod.num}::${name}`);
+                      });
+                      if (completedInModule.length === 0) {
+                        return <p className="text-xs text-slate-400 italic">No lessons completed yet.</p>;
+                      }
+                      return (
+                        <ol className="space-y-1.5">
+                          {completedInModule.map((lesson, li) => {
+                            const name = typeof lesson === 'string' ? lesson : lesson.name;
+                            return (
+                              <li key={li} className="flex items-start gap-2 text-xs text-slate-700 leading-relaxed">
+                                <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                                <span>{name}</span>
+                              </li>
+                            );
+                          })}
+                        </ol>
+                      );
+                    })()}
+                  </div>
+                ) : (
+                  <div className="p-4 bg-slate-50 flex items-center justify-center gap-2">
+                    <Lock className="w-4 h-4 text-slate-400 shrink-0" />
+                    <p className="text-xs text-slate-500 font-bold">
+                      {user ? 'Enroll to view lessons' : 'Sign in & enroll to view'}
+                    </p>
+                  </div>
+                )}
               </div>
             ))}
           </div>

@@ -37,7 +37,9 @@ export type RealtimeTable =
   | 'session_notes'
   | 'project_submissions'
   | 'submission_feedback'
-  | 'demo_class_requests';
+  | 'demo_class_requests'
+  | 'credits'
+  | 'credit_transactions';
 
 interface UseRealtimeOptions {
   /** Tables to watch for Postgres Changes. */

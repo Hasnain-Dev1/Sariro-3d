@@ -366,13 +366,15 @@ const ATTENDANCE_OPTIONS: Array<{ key: 'present' | 'late' | 'absent' | 'excused'
 
 /* ───── Session details modal — roster, attendance, notes, submissions ───── */
 function SessionDetailsModal({
-  booking, onClose, onToast,
+  booking, onClose, onToast, onStatusChange,
 }: {
   booking: TeacherBookingRow | null;
   onClose: () => void;
   onToast: (msg: string, kind?: 'success' | 'error') => void;
+  onStatusChange: (bookingId: string, status: 'scheduled' | 'completed' | 'cancelled' | 'no_show') => Promise<void>;
 }) {
   const [activeTab, setActiveTab] = useState<'roster' | 'submissions'>('roster');
+  const [endingClass, setEndingClass] = useState(false);
   const [roster, setRoster] = useState<SessionStudentRow[]>([]);
   const [loading, setLoading] = useState(false);
   // Per-student editable note draft (string). Kept in a map so we don't
@@ -458,13 +460,32 @@ function SessionDetailsModal({
               {formatSessionTime(booking.slot_start, null)}
             </div>
           </div>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="shrink-0 w-9 h-9 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            {/* End Class button — marks booking completed → triggers credit deduction */}
+            {booking.status === 'scheduled' && (
+              <button
+                onClick={async () => {
+                  setEndingClass(true);
+                  await onStatusChange(booking.id, 'completed');
+                  setEndingClass(false);
+                }}
+                disabled={endingClass}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-bold disabled:opacity-50 min-h-[44px] touch-manipulation"
+                style={{ fontFamily: 'var(--font-grotesk)' }}
+              >
+                {endingClass ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                <span className="hidden sm:inline">End Class</span>
+                <span className="sm:hidden">End</span>
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              aria-label="Close"
+              className="shrink-0 w-9 h-9 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors min-h-[44px] min-w-[44px]"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Tab bar — Roster / Submissions */}
@@ -1516,6 +1537,7 @@ function TeacherDashboardInner() {
             booking={manageBooking}
             onClose={() => setManageBooking(null)}
             onToast={handleToast}
+            onStatusChange={handleStatusChange}
           />
         )}
       </AnimatePresence>

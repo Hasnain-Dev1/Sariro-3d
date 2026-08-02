@@ -7,7 +7,7 @@ import {
   BookOpen, Clock, Calendar, ArrowRight, Sparkles, Rocket,
   TrendingUp, Video, Loader2, AlertCircle, ChevronRight,
   ChevronDown, ChevronUp, CheckCircle2, Circle, Download, FolderOpen,
-  Trash2, X, Award, Users, CalendarPlus,
+  Trash2, X, Award, Users, CalendarPlus, Coins, History,
 } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import { useAuth } from '@/components/auth/auth-provider';
@@ -23,6 +23,11 @@ import {
   calculateProgress, getCourseSyllabus, dropCourse, fetchCohortMaterials,
   type LessonProgressRow,
 } from '@/lib/dashboard/student-data';
+import {
+  fetchMyCredits, fetchMyCreditTransactions,
+  formatCreditAmount, formatTransactionType, formatTransactionTime,
+  type CreditRow, type CreditTransactionRow,
+} from '@/lib/dashboard/credits-data';
 import { useRealtime } from '@/lib/dashboard/use-realtime';
 
 /* ───── Types ───── */
@@ -257,7 +262,7 @@ function CourseCard({ enrollment, cohort, onChanged }: {
             style={{ fontFamily: 'var(--font-grotesk)' }}
           >
             {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            Lessons
+            Completed ({progress.completedLessons}/{syllabus.totalLessons})
           </button>
         )}
 
@@ -305,38 +310,53 @@ function CourseCard({ enrollment, cohort, onChanged }: {
         )}
       </div>
 
-      {/* Expandable lesson checklist */}
+      {/* Next scheduled class (only for active enrollments) — replaces old Current/Next Lesson cards.
+          Students can ONLY see what's scheduled next, not future lessons in the syllabus. */}
+      {isActive && !isDropped && syllabus.modules.length > 0 && (() => {
+        // Find the next scheduled booking for this enrollment's cohort
+        // (passed in via prop from parent — see NextScheduledClass component below)
+        return null; // Rendered by parent via NextScheduledClass component
+      })()}
+
+      {/* Expandable lesson checklist — STUDENTS ONLY SEE COMPLETED LESSONS */}
       {expanded && !isDropped && syllabus.modules.length > 0 && (
         <div className="mt-3 pt-3 border-t border-slate-100 space-y-3 max-h-72 overflow-y-auto pr-1">
-          {syllabus.modules.map((mod) => (
-            <div key={mod.num}>
-              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                Module {mod.num} · {mod.name}
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400" style={{ fontFamily: 'var(--font-grotesk)' }}>
+            ✓ Completed Lessons
+          </p>
+          {syllabus.modules.map((mod) => {
+            // Filter to only completed lessons in this module
+            const completedLessons = mod.lessons.filter((lesson) => {
+              const lessonNameStr = typeof lesson === 'string' ? lesson : lesson.name;
+              return progress.completedKeys.has(`${mod.num}::${lessonNameStr}`);
+            });
+            if (completedLessons.length === 0) return null;
+            return (
+              <div key={mod.num}>
+                <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                  Module {mod.num} · {mod.name}
+                </div>
+                <ul className="space-y-1">
+                  {completedLessons.map((lesson) => {
+                    const lessonNameStr = typeof lesson === 'string' ? lesson : lesson.name;
+                    return (
+                      <li key={`${mod.num}-${lessonNameStr}`}>
+                        <div className="flex items-start gap-2 w-full text-left text-xs text-slate-700 min-h-[32px]">
+                          <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                          <span className="text-slate-600">{lessonNameStr}</span>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
-              <ul className="space-y-1">
-                {mod.lessons.map((lesson) => {
-                  const lessonNameStr = typeof lesson === 'string' ? lesson : lesson.name;
-                  const done = progress.completedKeys.has(`${mod.num}::${lessonNameStr}`);
-                  return (
-                    <li key={`${mod.num}-${lessonNameStr}`}>
-                      <button
-                        type="button"
-                        onClick={() => toggleLesson(mod.num, lessonNameStr, done)}
-                        className="flex items-start gap-2 w-full text-left text-xs text-slate-700 hover:text-slate-900 group min-h-[32px]"
-                      >
-                        {done ? (
-                          <CheckCircle2 className="w-4 h-4 text-violet-500 shrink-0 mt-0.5" />
-                        ) : (
-                          <Circle className="w-4 h-4 text-slate-300 shrink-0 mt-0.5 group-hover:text-slate-400" />
-                        )}
-                        <span className={done ? 'line-through text-slate-400' : ''}>{lessonNameStr}</span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
+            );
+          })}
+          {progress.completedLessons === 0 && (
+            <p className="text-xs text-slate-400 italic text-center py-4">
+              No lessons completed yet. Your teacher will reveal lessons as you progress.
+            </p>
+          )}
         </div>
       )}
 
@@ -433,15 +453,60 @@ function downloadICS(booking: Booking, cohort?: Cohort) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function ScheduleCard({ booking, cohort, timezone }: { booking: Booking; cohort?: Cohort; timezone: string | null }) {
+function ScheduleCard({ booking, cohort, timezone, credits }: { booking: Booking; cohort?: Cohort; timezone: string | null; credits: CreditRow | null }) {
   const meetUrl = booking.google_meet_url || cohort?.google_meet_url;
   const trackName = cohort ? getTrackName(cohort.track) : 'Your session';
+  const [joining, setJoining] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [joined, setJoined] = useState(false);
+  const balance = credits?.balance ?? 0;
+  const hasCredits = balance > 0;
+
+  const handleJoinClass = async () => {
+    setJoining(true);
+    setJoinError(null);
+    try {
+      const res = await fetch('/api/student/join-class', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ booking_id: booking.id }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        setJoinError(json.message || json.error || 'Failed to join class');
+        setJoining(false);
+        return;
+      }
+      setJoined(true);
+      setJoining(false);
+      // Open Meet URL in new tab
+      if (json.meet_url) {
+        window.open(json.meet_url, '_blank', 'noopener,noreferrer');
+      }
+    } catch (err) {
+      setJoinError(err instanceof Error ? err.message : 'Network error');
+      setJoining(false);
+    }
+  };
+
   return (
     <div className="card-3d p-5">
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="min-w-0 flex-1">
-          <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-blue-600 mb-1" style={{ fontFamily: 'var(--font-grotesk)' }}>
-            {booking.status === 'scheduled' ? 'Upcoming' : booking.status.toUpperCase()}
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-blue-600" style={{ fontFamily: 'var(--font-grotesk)' }}>
+              {booking.status === 'scheduled' ? 'Upcoming' : booking.status.toUpperCase()}
+            </span>
+            {booking.module_num && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                L{booking.module_num}
+              </span>
+            )}
+            {booking.lesson_name && (
+              <span className="text-[10px] font-bold text-slate-500 truncate" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                {booking.lesson_name}
+              </span>
+            )}
           </div>
           <h4 className="font-extrabold text-slate-900 text-sm leading-tight" style={{ fontFamily: 'var(--font-jakarta)' }}>
             {trackName}
@@ -452,8 +517,40 @@ function ScheduleCard({ booking, cohort, timezone }: { booking: Booking; cohort?
       <div className="text-sm text-slate-700 mb-3">
         {formatSessionTime(booking.slot_start, timezone)}
       </div>
+
+      {/* Join status / error */}
+      {joined && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-2 mb-2 flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+          <span className="text-xs font-bold text-green-700">Attendance marked — you&apos;re present!</span>
+        </div>
+      )}
+      {joinError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-2 mb-2 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+          <span className="text-xs font-bold text-red-700">{joinError}</span>
+        </div>
+      )}
+      {!hasCredits && booking.status === 'scheduled' && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 mb-2 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+          <span className="text-xs font-bold text-amber-700">No credits remaining — contact admin to top up</span>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-2">
-        {meetUrl && (
+        {booking.status === 'scheduled' ? (
+          <button
+            type="button"
+            onClick={handleJoinClass}
+            disabled={joining || !hasCredits || joined}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-green-600 hover:bg-green-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold transition-colors min-h-[44px] touch-manipulation"
+            style={{ fontFamily: 'var(--font-grotesk)' }}
+          >
+            {joining ? <Loader2 className="w-4 h-4 animate-spin" /> : <Video className="w-4 h-4" />}
+            {joined ? 'Joined ✓' : 'Join Class'}
+          </button>
+        ) : meetUrl ? (
           <a
             href={meetUrl}
             target="_blank"
@@ -461,9 +558,9 @@ function ScheduleCard({ booking, cohort, timezone }: { booking: Booking; cohort?
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-green-50 text-green-700 text-xs font-bold hover:bg-green-100 transition-colors min-h-[40px]"
             style={{ fontFamily: 'var(--font-grotesk)' }}
           >
-            <Video className="w-4 h-4" /> Join Google Meet
+            <Video className="w-4 h-4" /> Open Meet
           </a>
-        )}
+        ) : null}
         <button
           type="button"
           onClick={() => downloadICS(booking, cohort)}
@@ -594,6 +691,80 @@ function ClassNotesSection({
   );
 }
 
+/* ───── Credits section — balance + transaction history ───── */
+function CreditsSection({
+  credits,
+  transactions,
+}: {
+  credits: CreditRow | null;
+  transactions: CreditTransactionRow[];
+}) {
+  const [showHistory, setShowHistory] = useState(false);
+  const balance = credits?.balance ?? 0;
+
+  return (
+    <div className="mb-10">
+      {/* Balance card */}
+      <div className="card-3d p-5 mb-3" style={{ background: balance > 0 ? 'linear-gradient(135deg, #F0FDF4 0%, #FFFFFF 100%)' : undefined }}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${balance > 0 ? 'bg-green-100' : 'bg-slate-100'}`}>
+              <Coins className={`w-6 h-6 ${balance > 0 ? 'text-green-600' : 'text-slate-400'}`} />
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                Credits Balance
+              </p>
+              <p className="text-2xl font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
+                {balance} <span className="text-sm font-bold text-slate-500">{balance === 1 ? 'credit' : 'credits'}</span>
+              </p>
+            </div>
+          </div>
+          {transactions.length > 0 && (
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white border border-slate-200 hover:border-slate-300 text-xs font-bold text-slate-700 min-h-[44px] touch-manipulation"
+              style={{ fontFamily: 'var(--font-grotesk)' }}
+            >
+              <History className="w-3.5 h-3.5" />
+              {showHistory ? 'Hide' : 'History'}
+            </button>
+          )}
+        </div>
+        {balance === 0 && (
+          <p className="text-xs text-amber-600 mt-2">
+            You&apos;re out of credits. Contact admin to top up so you can join your next class.
+          </p>
+        )}
+      </div>
+
+      {/* Transaction history (collapsible) */}
+      {showHistory && transactions.length > 0 && (
+        <div className="card-3d p-4 space-y-2">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2" style={{ fontFamily: 'var(--font-grotesk)' }}>
+            Transaction History
+          </p>
+          {transactions.map((tx) => (
+            <div key={tx.id} className="flex items-center justify-between gap-3 py-2 border-b border-slate-100 last:border-0">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-slate-900 truncate" style={{ fontFamily: 'var(--font-jakarta)' }}>
+                  {tx.description}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {formatTransactionType(tx.type)} · {formatTransactionTime(tx.created_at)}
+                </p>
+              </div>
+              <p className={`text-sm font-extrabold shrink-0 ${tx.amount > 0 ? 'text-green-600' : 'text-red-600'}`} style={{ fontFamily: 'var(--font-grotesk)' }}>
+                {formatCreditAmount(tx.amount)}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ───── Classmates section (violet accent) ───── */
 function ClassmatesSection({ classmates }: {
   classmates: Array<{ name: string | null; email: string | null; track: string; level: string }>;
@@ -644,6 +815,9 @@ function StudentDashboardInner() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   // Capstone system: past bookings for "Class Notes & Projects" section
   const [pastBookings, setPastBookings] = useState<Booking[]>([]);
+  // Credit system: student's balance + transaction history
+  const [credits, setCredits] = useState<CreditRow | null>(null);
+  const [creditTransactions, setCreditTransactions] = useState<CreditTransactionRow[]>([]);
   const [cohorts, setCohorts] = useState<Record<string, Cohort>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -737,92 +911,15 @@ function StudentDashboardInner() {
         Promise.resolve().then(() => setPastBookings([]));
       }
 
-      // 3c. Auto-complete check — for each ACTIVE enrollment, check if all
-      // lessons are done. If yes, call the complete-enrollment endpoint
-      // (server-side verifies against syllabus, then marks status='completed'
-      // using service role). Runs in the background — doesn't block render.
-      enrollmentList
-        .filter(e => e.status === 'active')
-        .forEach(async (e) => {
-          try {
-            const syllabus = getCourseSyllabus(e.track, e.level);
-            if (syllabus.totalLessons === 0) return;
-            // Quick client-side check first — avoid API call if clearly not done
-            const { data: prog } = await supabase
-              .from('lesson_progress')
-              .select('module_num, lesson_name', { count: 'exact', head: true })
-              .eq('enrollment_id', e.id);
-            if ((prog as unknown as number) < syllabus.totalLessons) return;
-            // Likely all done — let server verify + update
-            await fetch('/api/student/complete-enrollment', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ enrollment_id: e.id }),
-            });
-            // Reload to reflect the new 'completed' status
-            loadAll();
-          } catch {
-            // Silent — this is a background optimization, not critical
-          }
-        });
-
-      // 3c. Auto-complete check — for each ACTIVE enrollment, check if all
-      // lessons are done. If yes, call the complete-enrollment endpoint
-      // (server-side verifies against syllabus, then marks status='completed'
-      // using service role). Runs in the background — doesn't block render.
-      enrollmentList
-        .filter(e => e.status === 'active')
-        .forEach(async (e) => {
-          try {
-            const syllabus = getCourseSyllabus(e.track, e.level);
-            if (syllabus.totalLessons === 0) return;
-            // Quick client-side check first — avoid API call if clearly not done
-            const { data: prog } = await supabase
-              .from('lesson_progress')
-              .select('module_num, lesson_name', { count: 'exact', head: true })
-              .eq('enrollment_id', e.id);
-            if ((prog as unknown as number) < syllabus.totalLessons) return;
-            // Likely all done — let server verify + update
-            await fetch('/api/student/complete-enrollment', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ enrollment_id: e.id }),
-            });
-            // Reload to reflect the new 'completed' status
-            loadAll();
-          } catch {
-            // Silent — this is a background optimization, not critical
-          }
-        });
-
-      // 3c. Auto-complete check — for each ACTIVE enrollment, check if all
-      // lessons are done. If yes, call the complete-enrollment endpoint
-      // (server-side verifies against syllabus, then marks status='completed'
-      // using service role). Runs in the background — doesn't block render.
-      enrollmentList
-        .filter(e => e.status === 'active')
-        .forEach(async (e) => {
-          try {
-            const syllabus = getCourseSyllabus(e.track, e.level);
-            if (syllabus.totalLessons === 0) return;
-            // Quick client-side check first — avoid API call if clearly not done
-            const { data: prog } = await supabase
-              .from('lesson_progress')
-              .select('module_num, lesson_name', { count: 'exact', head: true })
-              .eq('enrollment_id', e.id);
-            if ((prog as unknown as number) < syllabus.totalLessons) return;
-            // Likely all done — let server verify + update
-            await fetch('/api/student/complete-enrollment', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ enrollment_id: e.id }),
-            });
-            // Reload to reflect the new 'completed' status
-            loadAll();
-          } catch {
-            // Silent — this is a background optimization, not critical
-          }
-        });
+      // 3c. Credit system: fetch student's balance + transaction history
+      const [myCredits, myTx] = await Promise.all([
+        fetchMyCredits(),
+        fetchMyCreditTransactions(20),
+      ]);
+      if (!cancelledRef.current) {
+        Promise.resolve().then(() => setCredits(myCredits));
+        Promise.resolve().then(() => setCreditTransactions(myTx));
+      }
 
       // 4. Find a completed enrollment to build the "Recommended next" card
       // (popup will handle the FIRST unshown one; this card handles the most
@@ -907,7 +1004,7 @@ function StudentDashboardInner() {
   // Realtime sync — auto-refresh when enrollments / bookings / cohorts /
   // notifications / lesson_progress / session_attendance change.
   useRealtime({
-    tables: ['enrollments', 'bookings', 'cohorts', 'notifications', 'lesson_progress', 'session_attendance'],
+    tables: ['enrollments', 'bookings', 'cohorts', 'notifications', 'lesson_progress', 'session_attendance', 'credits', 'credit_transactions'],
     onRefresh: () => { loadAll(); },
     enabled: !!user,
   });
@@ -961,6 +1058,9 @@ function StudentDashboardInner() {
               </div>
             )}
 
+            {/* Credits balance + transaction history */}
+            <CreditsSection credits={credits} transactions={creditTransactions} />
+
             {/* My Courses */}
             <div className="mb-10">
               <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-jakarta)' }}>
@@ -1002,6 +1102,7 @@ function StudentDashboardInner() {
                       booking={b}
                       cohort={b.cohort_id ? cohorts[b.cohort_id] : undefined}
                       timezone={userTimezone}
+                      credits={credits}
                     />
                   ))}
                 </div>
