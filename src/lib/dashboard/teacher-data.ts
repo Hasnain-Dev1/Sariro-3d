@@ -538,6 +538,24 @@ export async function createBooking(params: {
 
     if (cohortErr) throw cohortErr;
 
+    // ── Eligibility check: teacher must be assigned to this track + level ──
+    if (cohort?.track && cohort?.level) {
+      const { data: eligibility } = await supabase
+        .from('teacher_course_assignments')
+        .select('id')
+        .eq('teacher_id', teacherId)
+        .eq('track', cohort.track)
+        .eq('level', cohort.level)
+        .maybeSingle();
+
+      if (!eligibility) {
+        return {
+          success: false,
+          error: 'You are not eligible to teach this course. Ask an admin to assign you to this track + level first.',
+        };
+      }
+    }
+
     // ── Auto-derive module_num + lesson_name from syllabus ──────────────
     // Count existing bookings in this cohort to determine the sequence number.
     // The Nth booking for this cohort = the Nth lesson in the syllabus.

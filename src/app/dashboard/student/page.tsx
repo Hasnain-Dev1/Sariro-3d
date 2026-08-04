@@ -471,7 +471,18 @@ function ScheduleCard({ booking, cohort, timezone, credits }: { booking: Booking
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ booking_id: booking.id }),
       });
-      const json = await res.json();
+
+      const text = await res.text();
+      let json: { ok?: boolean; error?: string; message?: string; meet_url?: string; balance?: number };
+      try {
+        json = JSON.parse(text);
+      } catch {
+        console.error('[join-class] Non-JSON response:', text.slice(0, 200));
+        setJoinError('Server error. Please try again or contact support.');
+        setJoining(false);
+        return;
+      }
+
       if (!res.ok || !json.ok) {
         setJoinError(json.message || json.error || 'Failed to join class');
         setJoining(false);
@@ -479,7 +490,6 @@ function ScheduleCard({ booking, cohort, timezone, credits }: { booking: Booking
       }
       setJoined(true);
       setJoining(false);
-      // Open Meet URL in new tab
       if (json.meet_url) {
         window.open(json.meet_url, '_blank', 'noopener,noreferrer');
       }

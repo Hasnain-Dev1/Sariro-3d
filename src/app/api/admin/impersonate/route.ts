@@ -100,12 +100,25 @@ export async function POST(req: NextRequest) {
   // ── Verify target user exists ───────────────────────────────────────
   const { data: targetProfile, error: targetErr } = await serviceClient
     .from('profiles')
-    .select('id, email, full_name, role')
+    .select('id, email, full_name, role, is_admin, is_super_admin, is_teacher, is_student')
     .eq('id', targetUserId)
     .maybeSingle();
 
   if (targetErr || !targetProfile) {
     return NextResponse.json({ ok: false, error: 'target_user_not_found' }, { status: 404 });
+  }
+
+  // ── SECURITY: Admins cannot impersonate super_admins ─────────────────
+  const targetRole = targetProfile.role
+    || (targetProfile.is_super_admin ? 'super_admin'
+      : targetProfile.is_admin ? 'admin'
+      : targetProfile.is_teacher ? 'teacher'
+      : 'student');
+  if (targetRole === 'super_admin' && adminRole !== 'super_admin') {
+    return NextResponse.json(
+      { ok: false, error: 'forbidden', message: 'Admins cannot impersonate super admins.' },
+      { status: 403 }
+    );
   }
 
   // ── Generate a magic link for the target user ───────────────────────
@@ -146,7 +159,7 @@ export async function POST(req: NextRequest) {
   const { data: verifyData, error: verifyErr } = await supaServer.auth.verifyOtp({
     type: 'magiclink',
     token_hash: tokenHash,
-    options: { emailRedirectTo: redirectTo },
+    options: { redirectTo: redirectTo },
   });
 
   if (verifyErr || !verifyData.session) {

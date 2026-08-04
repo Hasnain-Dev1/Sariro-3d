@@ -23,6 +23,9 @@ import {
   type UserRow, type CohortStudentRow, type RevenueStats,
 } from '@/lib/dashboard/admin-data';
 import { getTrackName } from '@/lib/dashboard/upsell-engine';
+import { TeacherManagementModal } from '@/components/dashboard/teacher-management';
+import { SellerLeads } from '@/app/dashboard/admin/seller-leads';
+import { TeacherCourseAssignmentModal } from '@/app/dashboard/admin/teacher-course-assignments';
 import { useRealtime } from '@/lib/dashboard/use-realtime';
 
 /* ───── Helpers ───── */
@@ -1326,6 +1329,8 @@ function AdminDashboardInner() {
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showUserManagement, setShowUserManagement] = useState(false);
+  const [showTeacherModal, setShowTeacherModal] = useState(false);
+  const [showAssignmentModal, setShowAssignmentModal] = useState(false);
   const [showManualEnroll, setShowManualEnroll] = useState(false);
   const [rosterCohort, setRosterCohort] = useState<CohortRow | null>(null);
   const [revenue, setRevenue] = useState<RevenueStats | null>(null);
@@ -1475,6 +1480,18 @@ function AdminDashboardInner() {
                 className="btn-tactile btn-tactile-light px-4 py-2.5 text-sm flex items-center gap-2"
               >
                 <UserCheck className="w-4 h-4" /> Users
+              </button>
+              <button
+                onClick={() => setShowTeacherModal(true)}
+                className="btn-tactile btn-tactile-light px-4 py-2.5 text-sm flex items-center gap-2"
+              >
+                <Users className="w-4 h-4" /> Teachers
+              </button>
+              <button
+                onClick={() => setShowAssignmentModal(true)}
+                className="btn-tactile btn-tactile-light px-4 py-2.5 text-sm flex items-center gap-2"
+              >
+                <BookOpen className="w-4 h-4" /> Course Eligibility
               </button>
               <button
                 onClick={() => setShowManualEnroll(true)}
@@ -1721,6 +1738,20 @@ function AdminDashboardInner() {
         onToast={handleToast}
       />
 
+      {/* v2 — Teacher management modal (assign teachers to cohorts) */}
+      <TeacherManagementModal
+        open={showTeacherModal}
+        onClose={() => setShowTeacherModal(false)}
+        onToast={(msg, kind) => handleToast(kind || 'success', msg)}
+      />
+
+      {/* v2 — Teacher course eligibility modal (assign tracks+levels to teachers) */}
+      <TeacherCourseAssignmentModal
+        open={showAssignmentModal}
+        onClose={() => setShowAssignmentModal(false)}
+        onToast={(msg, kind) => handleToast(kind || 'success', msg)}
+      />
+
       {/* v2 — Cohort roster modal (controlled by rosterCohort state) */}
       <CohortRosterModal
         cohort={rosterCohort}
@@ -1734,6 +1765,9 @@ function AdminDashboardInner() {
         onToast={handleToast}
         onEnrolled={loadAll}
       />
+
+      {/* Seller Leads — leads assigned to this admin/seller */}
+      <SellerLeads onToast={(msg, kind) => handleToast(kind ?? 'success', msg)} />
 
       {/* Demo Class Requests — from the welcome popup + /welcome form */}
       <DemoRequestsSection onToast={(msg, kind) => handleToast(kind ?? 'success', msg)} />
@@ -1805,6 +1839,7 @@ function DemoRequestsSection({ onToast }: { onToast: (msg: string, kind?: 'succe
     loadRequests();
   }, [loadRequests]);
 
+  // Realtime sync — refresh when new requests come in
   useRealtime({
     tables: ['demo_class_requests'],
     onRefresh: () => loadRequests(),
@@ -1819,7 +1854,10 @@ function DemoRequestsSection({ onToast }: { onToast: (msg: string, kind?: 'succe
       if (status === 'contacted') updates.contacted_at = new Date().toISOString();
       if (status === 'scheduled') updates.scheduled_at = new Date().toISOString();
 
-      const { error } = await supabase.from('demo_class_requests').update(updates).eq('id', id);
+      const { error } = await supabase
+        .from('demo_class_requests')
+        .update(updates)
+        .eq('id', id);
       if (error) throw error;
       onToast(`Marked as ${status}`, 'success');
       loadRequests();
@@ -1873,7 +1911,9 @@ function DemoRequestsSection({ onToast }: { onToast: (msg: string, kind?: 'succe
                   </p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-xs text-slate-500 truncate max-w-[150px]">{req.preferred_slot_label}</p>
+                  <p className="text-xs text-slate-500 truncate max-w-[150px]">
+                    {req.preferred_slot_label}
+                  </p>
                 </div>
               </div>
             </button>
@@ -1881,8 +1921,13 @@ function DemoRequestsSection({ onToast }: { onToast: (msg: string, kind?: 'succe
         </div>
       )}
 
+      {/* Detail modal */}
       {selectedReq && (
-        <DemoRequestModal request={selectedReq} onClose={() => setSelectedReq(null)} onUpdateStatus={updateStatus} />
+        <DemoRequestModal
+          request={selectedReq}
+          onClose={() => setSelectedReq(null)}
+          onUpdateStatus={updateStatus}
+        />
       )}
     </div>
   );
@@ -1923,6 +1968,7 @@ function DemoRequestModal({
         aria-modal="true"
         className="relative w-full sm:max-w-lg bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[90vh]"
       >
+        {/* Header */}
         <div className="flex items-start justify-between gap-3 p-5 border-b border-slate-100 shrink-0">
           <div className="min-w-0">
             <div className="flex items-center gap-2 mb-1">
@@ -1931,35 +1977,71 @@ function DemoRequestModal({
             <h3 className="font-extrabold text-slate-900 text-base" style={{ fontFamily: 'var(--font-jakarta)' }}>
               {request.student_name}
             </h3>
-            <p className="text-xs text-slate-500">Requested {new Date(request.created_at).toLocaleString()}</p>
+            <p className="text-xs text-slate-500">
+              Requested {new Date(request.created_at).toLocaleString()}
+            </p>
           </div>
           <button onClick={onClose} aria-label="Close" className="shrink-0 w-9 h-9 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center min-h-[44px] min-w-[44px]">
             <X className="w-4 h-4" />
           </button>
         </div>
 
+        {/* Body */}
         <div className="p-5 overflow-y-auto flex-1 space-y-3">
           <DetailRow icon={<Phone className="w-4 h-4" />} label="Phone" value={`${request.phone_country_code ? request.phone_country_code + ' ' : ''}${request.phone}`} />
-          {request.parent_name && <DetailRow icon={<Users className="w-4 h-4" />} label="Parent" value={request.parent_name} />}
-          {request.email && <DetailRow icon={<Mail className="w-4 h-4" />} label="Email" value={request.email} link={`mailto:${request.email}`} />}
-          {request.course_interest && <DetailRow icon={<BookOpen className="w-4 h-4" />} label="Course interest" value={request.course_interest} />}
+          {request.parent_name && (
+            <DetailRow icon={<Users className="w-4 h-4" />} label="Parent" value={request.parent_name} />
+          )}
+          {request.email && (
+            <DetailRow icon={<Mail className="w-4 h-4" />} label="Email" value={request.email} link={`mailto:${request.email}`} />
+          )}
+          {request.course_interest && (
+            <DetailRow icon={<BookOpen className="w-4 h-4" />} label="Course interest" value={request.course_interest} />
+          )}
           <DetailRow icon={<Calendar className="w-4 h-4" />} label="Preferred slot" value={request.preferred_slot_label} />
           <DetailRow icon={<Clock className="w-4 h-4" />} label="Timezone" value={`${request.timezone} (UTC${(request.timezone_offset ?? 0) >= 0 ? '+' : ''}${(request.timezone_offset ?? 0) / 60})`} />
-          {request.notes && <DetailRow icon={<BookOpen className="w-4 h-4" />} label="Notes" value={request.notes} />}
+          {request.notes && (
+            <DetailRow icon={<BookOpen className="w-4 h-4" />} label="Notes" value={request.notes} />
+          )}
         </div>
 
+        {/* Actions */}
         <div className="p-5 border-t border-slate-100 shrink-0 flex flex-wrap gap-2">
           {request.status !== 'contacted' && (
-            <button onClick={() => onUpdateStatus(request.id, 'contacted')} className="flex-1 min-h-[44px] rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold touch-manipulation" style={{ fontFamily: 'var(--font-grotesk)' }}>Mark contacted</button>
+            <button
+              onClick={() => onUpdateStatus(request.id, 'contacted')}
+              className="flex-1 min-h-[44px] rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold touch-manipulation"
+              style={{ fontFamily: 'var(--font-grotesk)' }}
+            >
+              Mark contacted
+            </button>
           )}
           {request.status !== 'scheduled' && (
-            <button onClick={() => onUpdateStatus(request.id, 'scheduled')} className="flex-1 min-h-[44px] rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold touch-manipulation" style={{ fontFamily: 'var(--font-grotesk)' }}>Mark scheduled</button>
+            <button
+              onClick={() => onUpdateStatus(request.id, 'scheduled')}
+              className="flex-1 min-h-[44px] rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold touch-manipulation"
+              style={{ fontFamily: 'var(--font-grotesk)' }}
+            >
+              Mark scheduled
+            </button>
           )}
           {request.status !== 'completed' && (
-            <button onClick={() => onUpdateStatus(request.id, 'completed')} className="flex-1 min-h-[44px] rounded-xl bg-green-600 hover:bg-green-700 text-white text-xs font-bold touch-manipulation" style={{ fontFamily: 'var(--font-grotesk)' }}>Mark completed</button>
+            <button
+              onClick={() => onUpdateStatus(request.id, 'completed')}
+              className="flex-1 min-h-[44px] rounded-xl bg-green-600 hover:bg-green-700 text-white text-xs font-bold touch-manipulation"
+              style={{ fontFamily: 'var(--font-grotesk)' }}
+            >
+              Mark completed
+            </button>
           )}
           {request.status !== 'cancelled' && (
-            <button onClick={() => onUpdateStatus(request.id, 'cancelled')} className="flex-1 min-h-[44px] rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold touch-manipulation" style={{ fontFamily: 'var(--font-grotesk)' }}>Cancel</button>
+            <button
+              onClick={() => onUpdateStatus(request.id, 'cancelled')}
+              className="flex-1 min-h-[44px] rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold touch-manipulation"
+              style={{ fontFamily: 'var(--font-grotesk)' }}
+            >
+              Cancel
+            </button>
           )}
         </div>
       </motion.div>
@@ -1972,7 +2054,9 @@ function DetailRow({ icon, label, value, link }: { icon: React.ReactNode; label:
     <div className="flex items-start gap-2.5">
       <div className="text-slate-400 mt-0.5">{icon}</div>
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400" style={{ fontFamily: 'var(--font-grotesk)' }}>{label}</p>
+        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400" style={{ fontFamily: 'var(--font-grotesk)' }}>
+          {label}
+        </p>
         {link ? (
           <a href={link} className="text-sm font-bold text-blue-600 hover:text-blue-700 break-all">{value}</a>
         ) : (

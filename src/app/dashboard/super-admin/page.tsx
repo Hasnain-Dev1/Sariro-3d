@@ -30,6 +30,8 @@ import {
 import { getCourseSyllabus } from '@/lib/dashboard/student-data';
 import { getTrackName } from '@/lib/dashboard/upsell-engine';
 import { TeacherManagementModal } from '@/components/dashboard/teacher-management';
+import { TeacherCourseAssignmentModal } from '@/app/dashboard/admin/teacher-course-assignments';
+import { LeadPipeline } from '@/app/dashboard/super-admin/lead-pipeline';
 import { useRealtime } from '@/lib/dashboard/use-realtime';
 
 /* ───── Helpers (shared with admin) ───── */
@@ -618,6 +620,7 @@ function SuperAdminDashboardInner() {
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showTeacherModal, setShowTeacherModal] = useState(false);
+  const [showAssignmentModal, setShowAssignmentModal] = useState(false);
 
   const loadAll = useCallback(async () => {
     const [s, intents, c, logs, actions] = await Promise.all([
@@ -735,6 +738,12 @@ function SuperAdminDashboardInner() {
                 className="btn-tactile btn-tactile-light px-4 py-2.5 text-sm flex items-center gap-2"
               >
                 <Users className="w-4 h-4" /> Teachers
+              </button>
+              <button
+                onClick={() => setShowAssignmentModal(true)}
+                className="btn-tactile btn-tactile-light px-4 py-2.5 text-sm flex items-center gap-2"
+              >
+                <BookOpen className="w-4 h-4" /> Course Eligibility
               </button>
               <button onClick={() => setShowCreateModal(true)}
                 className="btn-tactile btn-tactile-primary px-5 py-2.5 text-sm flex items-center gap-2">
@@ -919,6 +928,16 @@ function SuperAdminDashboardInner() {
         onClose={() => setShowTeacherModal(false)}
         onToast={(msg, kind) => setToast({ type: kind || 'success', message: msg })}
       />
+
+      {/* Teacher course eligibility modal (assign tracks+levels to teachers) */}
+      <TeacherCourseAssignmentModal
+        open={showAssignmentModal}
+        onClose={() => setShowAssignmentModal(false)}
+        onToast={(msg, kind) => setToast({ type: kind || 'success', message: msg })}
+      />
+
+      {/* Lead Pipeline — centralized student/lead management */}
+      <LeadPipeline onToast={(msg, kind) => setToast({ type: kind || 'success', message: msg })} />
 
       {/* Demo Class Requests — same as admin dashboard */}
       <DemoRequestsSection onToast={(msg, kind) => setToast({ type: kind || 'success', message: msg })} />
@@ -1521,3 +1540,4 @@ export default function SuperAdminDashboard() {
     </DashboardLayout>
   );
 }
+ 
