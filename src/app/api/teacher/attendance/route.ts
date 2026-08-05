@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClientHelper } from '@/lib/supabase/server';
-import { getSupabaseAdmin } from '@/lib/razorpay/server';
+import { createServerClientHelper, createServiceClient } from '@/lib/supabase/server';
 import { getCourseSyllabus } from '@/lib/dashboard/student-data';
 import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
@@ -272,8 +271,10 @@ export async function POST(req: NextRequest) {
   // ── Service-role insert into lesson_progress (bypasses RLS) ─────────
   // The teacher can't directly write to a student-owned lesson_progress
   // row via RLS — we use the service-role admin client.
-  const admin = getSupabaseAdmin();
-  if (!admin) {
+  let admin;
+  try {
+    admin = createServiceClient();
+  } catch {
     console.warn('[attendance] service-role client unavailable — lesson automation skipped');
     return NextResponse.json({
       ok: true,

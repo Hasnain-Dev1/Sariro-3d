@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
-  Sparkles, Rocket, ArrowRight, Star, Clock, Users, CheckCircle2,
+  Sparkles, Rocket, ArrowRight, ArrowLeft, Star, Clock, Users, CheckCircle2,
   Phone, Mail, Calendar, Globe, Loader2, User, GraduationCap,
   ChevronDown,
 } from 'lucide-react';
@@ -13,6 +13,17 @@ import PageHero from '@/components/brand/page-hero';
 import { WaveDivider3D } from '@/components/sariro-3d/kit-3d';
 import { TESTIMONIALS, TRACKS } from '@/lib/sariro-data';
 import { HoneypotField } from '@/components/security/honeypot';
+
+/* ════════════════════════════════════════════════════════════════════════
+   Welcome Page — /welcome
+   ════════════════════════════════════════════════════════════════════════
+   Sections:
+   1. Hero — "Try Sariro — Free Demo Class"
+   2. Why take a demo — 3 benefit cards
+   3. All testimonials — full grid
+   4. Book A Demo Class form — auto-detects timezone + country code
+   5. Footer CTA — "Not ready? Browse courses"
+   ════════════════════════════════════════════════════════════════════════ */
 
 export default function WelcomePage() {
   return (
@@ -243,16 +254,19 @@ function TestimonialCard({
       transition={{ duration: 0.5, delay: (index % 3) * 0.1 }}
       className="card-3d p-6 h-full flex flex-col"
     >
+      {/* Stars */}
       <div className="flex items-center gap-0.5 mb-3">
         {[1, 2, 3, 4, 5].map((n) => (
           <Star key={n} className="w-4 h-4 text-amber-400 fill-amber-400" />
         ))}
       </div>
 
+      {/* Quote */}
       <p className="text-sm text-slate-700 leading-relaxed mb-5 flex-1 italic">
         &ldquo;{testimonial.quote}&rdquo;
       </p>
 
+      {/* Author */}
       <div className="flex items-center gap-3 pt-4 border-t border-slate-100">
         <div
           className="w-10 h-10 rounded-full flex items-center justify-center text-white font-extrabold text-sm shrink-0"
@@ -283,6 +297,7 @@ interface TimezoneInfo {
   city: string;
 }
 
+// Map of common timezones → country code + calling code + city
 const TZ_TO_COUNTRY: Record<string, { country: string; calling: string; city: string }> = {
   'Asia/Karachi': { country: 'PK', calling: '+92', city: 'Karachi' },
   'Asia/Dhaka': { country: 'BD', calling: '+880', city: 'Dhaka' },
@@ -331,6 +346,8 @@ function detectTimezone(): TimezoneInfo {
   try {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
     const mapping = TZ_TO_COUNTRY[tz];
+
+    // Calculate offset in minutes
     const now = new Date();
     const offsetMinutes = -now.getTimezoneOffset();
 
@@ -344,13 +361,14 @@ function detectTimezone(): TimezoneInfo {
       };
     }
 
+    // Fallback: try to extract country from browser language
     const lang = navigator.language || 'en-US';
     const langCountry = lang.split('-')[1]?.toUpperCase();
     if (langCountry && langCountry.length === 2) {
       return {
         timezone: tz,
         countryCode: langCountry,
-        callingCode: '+1',
+        callingCode: '+1', // fallback
         offsetMinutes,
         city: tz.split('/').pop()?.replace(/_/g, ' ') ?? 'Your city',
       };
@@ -381,23 +399,40 @@ function DemoClassForm() {
   const [email, setEmail] = useState('');
   const [courseInterest, setCourseInterest] = useState('');
   const [selectedSlot, setSelectedSlot] = useState<string>('');
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [tzInfo, setTzInfo] = useState<TimezoneInfo | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [success, setSuccess] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  // Detect timezone on mount
   useEffect(() => {
+    // Defer to avoid cascading renders (matches existing pattern)
     Promise.resolve().then(() => setTzInfo(detectTimezone()));
   }, []);
 
-  const slots = generateSlots();
+  // Generate next 7 days × 4 slots
+  // Generate next 7 days for the date picker
+  const now = new Date();
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const date = new Date(now);
+    date.setDate(date.getDate() + i + 1);
+    date.setHours(0, 0, 0, 0);
+    return {
+      offset: i + 1,
+      weekday: date.toLocaleDateString('en-US', { weekday: 'short' }),
+      dayNum: date.getDate().toString(),
+      month: date.toLocaleDateString('en-US', { month: 'short' }),
+    };
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors([]);
     setSubmitError(null);
 
+    // Validation
     const fieldErrors: string[] = [];
     if (!studentName.trim() || studentName.trim().length < 2) {
       fieldErrors.push('Please enter your name (at least 2 characters)');
@@ -435,7 +470,7 @@ function DemoClassForm() {
       });
       const json = await res.json();
       if (!res.ok || !json.ok) {
-        setSubmitError(json.error || json.message || 'Submission failed. Please try again.');
+        setSubmitError(json.message || json.error || 'Submission failed. Please try again.');
         setSubmitting(false);
         return;
       }
@@ -447,10 +482,17 @@ function DemoClassForm() {
     }
   };
 
+  /* ─── Success screen ─── */
   if (success) {
-    return <SuccessScreen studentName={studentName} phone={phone} selectedSlot={selectedSlot} tzInfo={tzInfo} />;
+    return <SuccessScreen
+      studentName={studentName}
+      phone={phone}
+      selectedSlot={selectedSlot}
+      tzInfo={tzInfo}
+    />;
   }
 
+  /* ─── Form ─── */
   return (
     <div className="card-3d p-6 sm:p-8">
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -502,6 +544,7 @@ function DemoClassForm() {
         {/* Phone */}
         <Field label="Phone number" required icon={<Phone className="w-4 h-4" />}>
           <div className="flex">
+            {/* Country code (auto-detected, editable) */}
             <input
               type="text"
               value={tzInfo?.callingCode ?? '+1'}
@@ -556,40 +599,130 @@ function DemoClassForm() {
           </div>
         </Field>
 
-        {/* Preferred time slot */}
+        {/* Preferred time slot — 2-step: pick date, then pick time */}
         <Field label="Preferred time slot" required icon={<Calendar className="w-4 h-4" />}>
           <div className="space-y-3">
             <p className="text-xs text-slate-500">
-              Pick a day + time block. We&apos;ll confirm the exact time when we call.
+              Pick a day first, then choose an available time block.
               {tzInfo && (
                 <span className="block mt-1 text-green-600 font-bold">
                   Times shown in your timezone ({tzInfo.timezone})
                 </span>
               )}
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[280px] overflow-y-auto p-1">
-              {slots.map((slot) => {
-                const isSelected = selectedSlot === slot.value;
-                return (
-                  <button
-                    key={slot.value}
-                    type="button"
-                    onClick={() => setSelectedSlot(slot.value)}
-                    disabled={submitting}
-                    className={`text-left p-3 rounded-xl border-2 transition-all min-h-[60px] touch-manipulation ${
-                      isSelected
-                        ? 'border-green-500 bg-green-50 shadow-sm'
-                        : 'border-slate-200 hover:border-green-300 bg-white'
-                    }`}
-                  >
-                    <p className="text-xs font-bold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
-                      {slot.dayLabel}
-                    </p>
-                    <p className="text-xs text-slate-500">{slot.timeLabel}</p>
-                  </button>
-                );
-              })}
+
+            {/* Step 1: Date picker — horizontal scrollable row of days */}
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                1. Select a day
+              </p>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {days.map((day) => {
+                  const isSelected = selectedDay === day.offset;
+                  return (
+                    <button
+                      key={day.offset}
+                      type="button"
+                      onClick={() => { setSelectedDay(day.offset); setSelectedSlot(''); }}
+                      disabled={submitting}
+                      className={`shrink-0 min-w-[80px] p-2.5 rounded-xl border-2 transition-all min-h-[64px] touch-manipulation text-center ${
+                        isSelected
+                          ? 'border-green-500 bg-green-50 shadow-sm'
+                          : 'border-slate-200 hover:border-green-300 bg-white'
+                      }`}
+                    >
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                        {day.weekday}
+                      </p>
+                      <p className="text-sm font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
+                        {day.dayNum}
+                      </p>
+                      <p className="text-[9px] text-slate-400" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                        {day.month}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
+
+            {/* Step 2: Time slots for selected day */}
+            {selectedDay !== null ? (
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                    2. Select a time block
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedDay(null); setSelectedSlot(''); }}
+                    disabled={submitting}
+                    className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-700 min-h-[32px] touch-manipulation"
+                    style={{ fontFamily: 'var(--font-grotesk)' }}
+                  >
+                    <ArrowLeft className="w-3 h-3" />
+                    Change day
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {TIME_BLOCKS.map((block) => {
+                    const slotDate = new Date(now);
+                    slotDate.setDate(slotDate.getDate() + selectedDay);
+                    slotDate.setHours(block.hour, 0, 0, 0);
+                    const slotValue = slotDate.toISOString();
+                    const isSelected = selectedSlot === slotValue;
+                    return (
+                      <button
+                        key={block.hour}
+                        type="button"
+                        onClick={() => setSelectedSlot(slotValue)}
+                        disabled={submitting}
+                        className={`text-left p-3 rounded-xl border-2 transition-all min-h-[56px] touch-manipulation ${
+                          isSelected
+                            ? 'border-green-500 bg-green-50 shadow-sm'
+                            : 'border-slate-200 hover:border-green-300 bg-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          {isSelected ? (
+                            <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                          ) : (
+                            <Clock className="w-4 h-4 text-slate-300 shrink-0" />
+                          )}
+                          <div>
+                            <p className="text-xs font-bold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
+                              {block.label}
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-slate-50 border border-dashed border-slate-300 rounded-xl p-4 text-center">
+                <Calendar className="w-6 h-6 text-slate-300 mx-auto mb-1" />
+                <p className="text-xs text-slate-400">Pick a day above to see available time slots</p>
+              </div>
+            )}
+
+            {/* Selected slot summary */}
+            {selectedSlot && (
+              <div className="bg-green-50 border border-green-200 rounded-xl p-2.5 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                <p className="text-xs font-bold text-green-800">
+                  {new Date(selectedSlot).toLocaleString('en-US', {
+                    weekday: 'long',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    timeZone: tzInfo?.timezone,
+                  })}
+                </p>
+              </div>
+            )}
           </div>
         </Field>
 
@@ -650,6 +783,7 @@ function SuccessScreen({
   selectedSlot: string;
   tzInfo: TimezoneInfo | null;
 }) {
+  // Parse the slot to display nicely
   const slotDate = new Date(selectedSlot);
   const slotLabel = isNaN(slotDate.getTime())
     ? selectedSlot
@@ -685,6 +819,7 @@ function SuccessScreen({
         We&apos;ll call you within 24 hours at <strong className="text-slate-900">{phone}</strong> to confirm your demo class.
       </p>
 
+      {/* Booking details card */}
       <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6 text-left max-w-sm mx-auto">
         <div className="flex items-center gap-2 mb-2 text-green-800">
           <Calendar className="w-4 h-4 shrink-0" />
@@ -702,6 +837,7 @@ function SuccessScreen({
         )}
       </div>
 
+      {/* What happens next */}
       <div className="text-left max-w-sm mx-auto mb-6 space-y-2">
         <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2" style={{ fontFamily: 'var(--font-grotesk)' }}>
           What happens next
@@ -720,6 +856,7 @@ function SuccessScreen({
         ))}
       </div>
 
+      {/* CTA buttons */}
       <div className="flex flex-col sm:flex-row gap-2 justify-center">
         <Link
           href="/auth/sign-up"
@@ -777,41 +914,12 @@ function Field({
 }
 
 /* ════════════════════════════════════════════════════════════════════════
-   Generate slots — next 7 days × 4 time blocks
+   Time blocks — 4 slots per day
    ════════════════════════════════════════════════════════════════════════ */
 
-function generateSlots(): Array<{ value: string; dayLabel: string; timeLabel: string }> {
-  const slots: Array<{ value: string; dayLabel: string; timeLabel: string }> = [];
-  const now = new Date();
-
-  const timeBlocks = [
-    { hour: 10, label: 'Morning · 9:00 AM – 12:00 PM' },
-    { hour: 13, label: 'Afternoon · 12:00 PM – 4:00 PM' },
-    { hour: 17, label: 'Evening · 4:00 PM – 8:00 PM' },
-    { hour: 20, label: 'Night · 8:00 PM – 11:00 PM' },
-  ];
-
-  for (let dayOffset = 1; dayOffset <= 7; dayOffset++) {
-    const date = new Date(now);
-    date.setDate(date.getDate() + dayOffset);
-    date.setHours(0, 0, 0, 0);
-
-    const dayLabel = date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    });
-
-    for (const block of timeBlocks) {
-      const slotDate = new Date(date);
-      slotDate.setHours(block.hour, 0, 0, 0);
-      slots.push({
-        value: slotDate.toISOString(),
-        dayLabel,
-        timeLabel: block.label,
-      });
-    }
-  }
-
-  return slots;
-}
+const TIME_BLOCKS = [
+  { hour: 10, label: 'Morning · 9:00 AM – 12:00 PM' },
+  { hour: 13, label: 'Afternoon · 12:00 PM – 4:00 PM' },
+  { hour: 17, label: 'Evening · 4:00 PM – 8:00 PM' },
+  { hour: 20, label: 'Night · 8:00 PM – 11:00 PM' },
+];

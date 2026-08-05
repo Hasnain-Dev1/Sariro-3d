@@ -6,9 +6,24 @@ import { useRouter } from 'next/navigation';
 import { X, Sparkles, ArrowRight, Rocket } from 'lucide-react';
 import { useAuth } from '@/components/auth/auth-provider';
 
-const LOCAL_DISMISS_KEY = 'sariro-welcome-dismissed';
-const SESSION_CLOSE_KEY = 'sariro-welcome-session-closed';
-const TRIGGER_DELAY_MS = 6000;
+/* ════════════════════════════════════════════════════════════════════════
+   WelcomePopup — global popup that invites visitors to book a demo class
+   ════════════════════════════════════════════════════════════════════════
+
+   SMART PERSISTENCE (per user decision):
+   - Click "Maybe later"  → never show again (localStorage: sariro-welcome-dismissed)
+   - Click X (close)      → hide for THIS session only, will show again on next
+                             reload (sessionStorage: sariro-welcome-session-closed)
+   - Click "Yes, take a demo" → never show again (converted)
+   - Hidden for logged-in users (they're already enrolled)
+
+   TRIGGER: 6 seconds after page load (per user decision 1A)
+   SHOWN ON: every page (per user decision 2A)
+   ════════════════════════════════════════════════════════════════════════ */
+
+const LOCAL_DISMISS_KEY = 'sariro-welcome-dismissed'; // never show again
+const SESSION_CLOSE_KEY = 'sariro-welcome-session-closed'; // hide this session only
+const TRIGGER_DELAY_MS = 6000; // 6 seconds
 
 export default function WelcomePopup() {
   const router = useRouter();
@@ -16,36 +31,53 @@ export default function WelcomePopup() {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
+    // Don't show if auth is still loading (we need to know if user is logged in)
     if (authLoading) return;
+
+    // Don't show for logged-in users — they're already enrolled
     if (user) return;
 
+    // Only permanently dismiss if user clicked "Yes, take a demo" (converted)
     try {
       if (localStorage.getItem(LOCAL_DISMISS_KEY)) return;
-    } catch {}
-    try {
-      if (sessionStorage.getItem(SESSION_CLOSE_KEY)) return;
-    } catch {}
+    } catch {
+      // localStorage might be blocked — continue
+    }
 
+    // NOTE: We intentionally do NOT check sessionStorage here.
+    // For logged-out visitors, the popup should appear again and again —
+    // every page load, every 6 seconds. Only "Yes" permanently dismisses it.
+    // X and "Maybe later" just close it temporarily (it reappears on next navigation).
+
+    // Trigger after 6 seconds
     const timer = setTimeout(() => setOpen(true), TRIGGER_DELAY_MS);
     return () => clearTimeout(timer);
   }, [user, authLoading]);
 
+  /* ─── Handlers ─── */
+
   const handleYes = () => {
-    try { localStorage.setItem(LOCAL_DISMISS_KEY, 'converted'); } catch {}
+    // Mark as converted — never show again
+    try {
+      localStorage.setItem(LOCAL_DISMISS_KEY, 'converted');
+    } catch {
+      // ignore
+    }
     setOpen(false);
     router.push('/welcome');
   };
 
   const handleMaybeLater = () => {
-    try { localStorage.setItem(LOCAL_DISMISS_KEY, 'maybe-later'); } catch {}
+    // Just close — will reappear on next page navigation (no sessionStorage)
     setOpen(false);
   };
 
   const handleClose = () => {
-    try { sessionStorage.setItem(SESSION_CLOSE_KEY, '1'); } catch {}
+    // Just close — will reappear on next page navigation (no sessionStorage)
     setOpen(false);
   };
 
+  /* ─── Render ─── */
   return (
     <AnimatePresence>
       {open && (
@@ -61,8 +93,14 @@ export default function WelcomePopup() {
             paddingBottom: 'env(safe-area-inset-bottom, 0px)',
           }}
         >
-          <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-md" onClick={handleClose} aria-hidden="true" />
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-slate-950/70 backdrop-blur-md"
+            onClick={handleClose}
+            aria-hidden="true"
+          />
 
+          {/* Popup card — bottom-sheet on mobile, centered modal on desktop */}
           <motion.div
             key="welcome-card"
             initial={{ y: 60, opacity: 0, scale: 0.95 }}
@@ -74,11 +112,13 @@ export default function WelcomePopup() {
             aria-labelledby="welcome-popup-title"
             className="relative w-full sm:max-w-md bg-slate-900 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden border border-white/10"
           >
+            {/* Glow background */}
             <div
               className="absolute -top-20 left-1/2 -translate-x-1/2 w-[300px] h-[200px] rounded-full blur-[80px] opacity-40 pointer-events-none"
               style={{ background: 'linear-gradient(135deg, #2563EB 0%, #7C3AED 50%, #F59E0B 100%)' }}
             />
 
+            {/* Close button — top right, 44px tap target */}
             <button
               onClick={handleClose}
               aria-label="Close (will show again on reload)"
@@ -88,7 +128,9 @@ export default function WelcomePopup() {
               <X className="w-5 h-5" strokeWidth={2.5} />
             </button>
 
+            {/* Content */}
             <div className="relative p-6 sm:p-8 text-center">
+              {/* Icon */}
               <motion.div
                 animate={{ rotate: [0, 10, -10, 0], scale: [1, 1.1, 1] }}
                 transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
@@ -97,9 +139,16 @@ export default function WelcomePopup() {
                 <Rocket className="w-8 h-8 text-slate-900" strokeWidth={2.4} />
               </motion.div>
 
-              <h2 id="welcome-popup-title" className="text-2xl font-extrabold text-white mb-2" style={{ fontFamily: 'var(--font-jakarta)' }}>
+              {/* Title */}
+              <h2
+                id="welcome-popup-title"
+                className="text-2xl font-extrabold text-white mb-2"
+                style={{ fontFamily: 'var(--font-jakarta)' }}
+              >
                 Wanna Take a Demo Lesson?
               </h2>
+
+              {/* Subtitle */}
               <p className="text-sm text-slate-300 mb-1">
                 Try Sariro for free — meet your teacher, build something real, ask anything.
               </p>
@@ -107,6 +156,7 @@ export default function WelcomePopup() {
                 No credit card. No commitment. Just 30 minutes that could change everything.
               </p>
 
+              {/* CTA buttons */}
               <div className="space-y-2.5">
                 <button
                   onClick={handleYes}
@@ -127,9 +177,7 @@ export default function WelcomePopup() {
                 </button>
               </div>
 
-              <p className="text-[10px] text-slate-500 mt-4">
-                Clicking X will show this again on your next visit
-              </p>
+              
             </div>
           </motion.div>
         </motion.div>

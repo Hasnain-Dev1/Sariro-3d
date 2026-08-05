@@ -7,6 +7,7 @@ import {
   DollarSign, Loader2, AlertCircle, CheckCircle2, XCircle, Plus,
   Lock, Trophy, ArrowRight, X, Video, Copy, ShieldCheck, Link as LinkIcon,
   FolderOpen, Rocket, Calendar, Mail, Phone, Coins, ChevronDown,
+  UserCheck, Search, Download, LogIn,
 } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import { useAuth } from '@/components/auth/auth-provider';
@@ -31,6 +32,7 @@ import { getCourseSyllabus } from '@/lib/dashboard/student-data';
 import { getTrackName } from '@/lib/dashboard/upsell-engine';
 import { TeacherManagementModal } from '@/components/dashboard/teacher-management';
 import { TeacherCourseAssignmentModal } from '@/app/dashboard/admin/teacher-course-assignments';
+import { UserManagementModal } from '@/components/dashboard/user-management-modal';
 import { LeadPipeline } from '@/app/dashboard/super-admin/lead-pipeline';
 import { useRealtime } from '@/lib/dashboard/use-realtime';
 
@@ -621,6 +623,7 @@ function SuperAdminDashboardInner() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showTeacherModal, setShowTeacherModal] = useState(false);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
+  const [showUserManagement, setShowUserManagement] = useState(false);
 
   const loadAll = useCallback(async () => {
     const [s, intents, c, logs, actions] = await Promise.all([
@@ -733,6 +736,12 @@ function SuperAdminDashboardInner() {
               </p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => setShowUserManagement(true)}
+                className="btn-tactile btn-tactile-light px-4 py-2.5 text-sm flex items-center gap-2"
+              >
+                <UserCheck className="w-4 h-4" /> Users
+              </button>
               <button
                 onClick={() => setShowTeacherModal(true)}
                 className="btn-tactile btn-tactile-light px-4 py-2.5 text-sm flex items-center gap-2"
@@ -934,6 +943,13 @@ function SuperAdminDashboardInner() {
         open={showAssignmentModal}
         onClose={() => setShowAssignmentModal(false)}
         onToast={(msg, kind) => setToast({ type: kind || 'success', message: msg })}
+      />
+
+      {/* User management modal — change roles + sign in as */}
+      <UserManagementModal
+        open={showUserManagement}
+        onClose={() => setShowUserManagement(false)}
+        onToast={(type, message) => setToast({ type, message })}
       />
 
       {/* Lead Pipeline — centralized student/lead management */}
@@ -1540,4 +1556,3 @@ export default function SuperAdminDashboard() {
     </DashboardLayout>
   );
 }
- 
