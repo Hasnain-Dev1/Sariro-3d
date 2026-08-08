@@ -3,7 +3,7 @@
 import { motion, useScroll, useSpring, AnimatePresence } from 'framer-motion';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { useEffect, useState, useRef, ReactNode } from 'react';
+import { useEffect, useState, useRef, ReactNode, type ComponentType, type CSSProperties } from 'react';
 import { Menu, X, GraduationCap, Sparkles, Mail, LifeBuoy, Briefcase, Handshake, MapPin } from 'lucide-react';
 import { BRAND, EMAILS } from '@/lib/sariro-data';
 import { CustomCursor } from '@/components/sariro-3d/scroll-effects';
@@ -16,7 +16,13 @@ import ChatBubble from '@/components/sariro-3d/chat-bubble';
 import { useAuth } from '@/components/auth/auth-provider';
 
 /* Map the icon name string from EMAILS data to a real icon component. */
-const EMAIL_ICONS: Record<string, React.ComponentType<{ className?: string; strokeWidth?: number }>> = {
+type EmailIconProps = {
+  className?: string;
+  strokeWidth?: number;
+  style?: CSSProperties;
+};
+
+const EMAIL_ICONS: Record<string, ComponentType<EmailIconProps>> = {
   Mail,
   LifeBuoy,
   School: GraduationCap,
@@ -183,11 +189,11 @@ function BrandNavbar() {
               <AuthNavButton />
               {!isLoggedIn && (
                 <Link
-                  href="/courses"
+                  href="/welcome#book"
                   className="btn-tactile btn-tactile-primary px-5 py-2.5 text-sm"
                 >
                   <Sparkles className="w-4 h-4" />
-                  Start Learning
+                  Book Demo
                 </Link>
               )}
             </div>

@@ -109,6 +109,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ── SECURITY: Admins cannot impersonate super_admins ─────────────────
+  // Only super_admins can impersonate other super_admins.
   const targetRole = targetProfile.role
     || (targetProfile.is_super_admin ? 'super_admin'
       : targetProfile.is_admin ? 'admin'

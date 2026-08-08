@@ -192,6 +192,8 @@ export function UserManagementModal({
                 <option value="all">All Roles</option>
                 <option value="student">Students</option>
                 <option value="teacher">Teachers</option>
+                <option value="seller">Sellers</option>
+                <option value="hr">HR</option>
                 <option value="admin">Admins</option>
                 <option value="super_admin">Super Admins</option>
               </select>
@@ -248,6 +250,8 @@ export function UserManagementModal({
                       >
                         <option value="student">Student</option>
                         <option value="teacher">Teacher</option>
+                        <option value="seller">Seller</option>
+                        <option value="hr">HR</option>
                         <option value="admin">Admin</option>
                         <option value="super_admin">Super Admin</option>
                       </select>

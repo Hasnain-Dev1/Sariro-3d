@@ -299,10 +299,11 @@ export async function fetchLeadHistory(leadId: string): Promise<LeadHistoryRow[]
 export async function fetchSellers(): Promise<Array<{ id: string; full_name: string | null; email: string | null }>> {
   try {
     const supabase = createClient();
+    // Fetch ALL admins + super_admins (both can be sellers)
     const { data, error } = await supabase
       .from('profiles')
       .select('id, full_name, email')
-      .or('role.eq.admin,is_admin.eq.true')
+      .or('role.eq.admin,role.eq.super_admin,is_admin.eq.true,is_super_admin.eq.true')
       .order('full_name', { ascending: true });
 
     if (error) throw error;

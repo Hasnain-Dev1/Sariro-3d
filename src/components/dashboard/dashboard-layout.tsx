@@ -49,6 +49,17 @@ const TEACHER_NAV: NavItem[] = [
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
+const SELLER_NAV: NavItem[] = [
+  { href: '/dashboard/seller', label: 'Home', icon: LayoutDashboard },
+  { href: '/courses', label: 'Browse Courses', icon: BookOpen },
+  { href: '/settings', label: 'Settings', icon: Settings },
+];
+
+const HR_NAV: NavItem[] = [
+  { href: '/dashboard/hr', label: 'Home', icon: LayoutDashboard },
+  { href: '/settings', label: 'Settings', icon: Settings },
+];
+
 const ADMIN_NAV: NavItem[] = [
   { href: '/dashboard/admin', label: 'Home', icon: LayoutDashboard },
   { href: '/dashboard/admin#cohorts', label: 'Courses', icon: GraduationCap },
@@ -68,6 +79,8 @@ function getNavForRole(role: UserRole): NavItem[] {
   switch (role) {
     case 'super_admin': return SUPER_ADMIN_NAV;
     case 'admin': return ADMIN_NAV;
+    case 'hr': return HR_NAV;
+    case 'seller': return SELLER_NAV;
     case 'teacher': return TEACHER_NAV;
     default: return STUDENT_NAV;
   }
@@ -76,6 +89,8 @@ function getNavForRole(role: UserRole): NavItem[] {
 const ROLE_LABEL: Record<UserRole, string> = {
   student: 'Student',
   teacher: 'Teacher',
+  seller: 'Seller',
+  hr: 'HR',
   admin: 'Admin',
   super_admin: 'Super Admin',
 };
@@ -83,6 +98,8 @@ const ROLE_LABEL: Record<UserRole, string> = {
 const ROLE_BADGE_COLOR: Record<UserRole, string> = {
   student: '#2563EB',
   teacher: '#16A34A',
+  seller: '#06B6D4',
+  hr: '#7C3AED',
   admin: '#F59E0B',
   super_admin: '#DC2626',
 };
@@ -476,6 +493,8 @@ function LoadingGate() {
 const ROLE_DASHBOARD_PATHS: Record<UserRole, string> = {
   student: '/dashboard/student',
   teacher: '/dashboard/teacher',
+  seller: '/dashboard/seller',
+  hr: '/dashboard/hr',
   admin: '/dashboard/admin',
   super_admin: '/dashboard/super-admin',
 };
@@ -483,6 +502,8 @@ const ROLE_DASHBOARD_PATHS: Record<UserRole, string> = {
 function getRoleFromPath(pathname: string): UserRole | null {
   if (pathname === '/dashboard/student') return 'student';
   if (pathname === '/dashboard/teacher') return 'teacher';
+  if (pathname === '/dashboard/seller') return 'seller';
+  if (pathname === '/dashboard/hr') return 'hr';
   if (pathname === '/dashboard/admin') return 'admin';
   if (pathname === '/dashboard/super-admin') return 'super_admin';
   return null;

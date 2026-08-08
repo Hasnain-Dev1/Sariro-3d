@@ -30,6 +30,8 @@ export default function DashboardRouter() {
     switch (role) {
       case 'super_admin': router.replace('/dashboard/super-admin'); break;
       case 'admin': router.replace('/dashboard/admin'); break;
+      case 'hr': router.replace('/dashboard/hr'); break;
+      case 'seller': router.replace('/dashboard/seller'); break;
       case 'teacher': router.replace('/dashboard/teacher'); break;
       default: router.replace('/dashboard/student'); break;
     }

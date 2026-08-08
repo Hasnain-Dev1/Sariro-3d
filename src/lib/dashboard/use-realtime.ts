@@ -41,7 +41,11 @@ export type RealtimeTable =
   | 'credits'
   | 'credit_transactions'
   | 'student_leads'
-  | 'lead_history';
+  | 'lead_history'
+  | 'teacher_earnings'
+  | 'teacher_settlements'
+  | 'teacher_incentives'
+  | 'teacher_leaves';
 
 interface UseRealtimeOptions {
   /** Tables to watch for Postgres Changes. */

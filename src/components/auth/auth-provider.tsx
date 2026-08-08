@@ -34,7 +34,7 @@ export interface Profile {
   updated_at: string;
 }
 
-export type UserRole = 'student' | 'teacher' | 'admin' | 'super_admin';
+export type UserRole = 'student' | 'teacher' | 'seller' | 'hr' | 'admin' | 'super_admin';
 
 /**
  * Returns the user's highest-priority role.
@@ -46,6 +46,8 @@ export function getRole(profile: Profile | null): UserRole {
   // Prefer the new `role` column
   if (profile.role === 'super_admin' || profile.is_super_admin) return 'super_admin';
   if (profile.role === 'admin' || profile.is_admin) return 'admin';
+  if (profile.role === 'hr') return 'hr';
+  if (profile.role === 'seller') return 'seller';
   if (profile.role === 'teacher' || profile.is_teacher) return 'teacher';
   return 'student';
 }
