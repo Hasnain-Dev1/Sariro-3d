@@ -815,6 +815,8 @@ export async function updateUserRole(
       role: newRole,
       is_student: newRole === 'student',
       is_teacher: newRole === 'teacher',
+      is_seller: newRole === 'seller',
+      is_hr: newRole === 'hr',
       is_admin: newRole === 'admin' || newRole === 'super_admin',
       is_super_admin: newRole === 'super_admin',
     };
