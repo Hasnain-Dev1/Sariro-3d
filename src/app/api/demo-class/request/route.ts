@@ -236,18 +236,29 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ── 8. Send notification email to admin (best-effort, non-blocking) ───
-  // We don't fail the request if email fails — the DB insert is the source of truth.
-  // Email sending is handled by the existing email infrastructure if configured.
-  // (RESEND_API_KEY or SENDGRID_API_KEY env vars — documented in .env.example)
+  // ── 8. Send confirmation email to student + notification to admin ───
+  // Best-effort — we don't fail the request if email fails (DB insert is source of truth)
   try {
-    const adminEmail = process.env.DEMO_CLASS_NOTIFY_EMAIL || 'founder@sariro.com';
-    // Log the notification — actual email sending would go here if a provider is configured
+    const { sendBookingConfirmationEmail } = await import('@/lib/email/hostinger');
+
+    // Send confirmation to student (if email provided)
+    if (body.email?.trim()) {
+      await sendBookingConfirmationEmail({
+        studentName: body.student_name!,
+        email: body.email.trim(),
+        phone: body.phone!,
+        preferredSlot: slotLabel,
+        timezone: body.timezone!,
+      });
+    }
+
+    // Log admin notification
+    const adminEmail = process.env.DEMO_CLASS_NOTIFY_EMAIL || 'support@sariro.in';
     console.log(
       `[demo-class] New request from ${body.student_name} (${body.phone}) for ${slotLabel} — notify ${adminEmail}`
     );
   } catch {
-    // ignore email errors
+    // ignore email errors — DB insert is the source of truth
   }
 
   // ── 9. Return success ─────────────────────────────────────────────────

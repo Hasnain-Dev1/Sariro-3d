@@ -3,7 +3,7 @@
 import { motion, useScroll, useSpring, AnimatePresence } from 'framer-motion';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { useEffect, useState, useRef, ReactNode, type ComponentType, type CSSProperties } from 'react';
+import { useEffect, useState, useRef, type ReactNode, type CSSProperties, type ComponentType } from 'react';
 import { Menu, X, GraduationCap, Sparkles, Mail, LifeBuoy, Briefcase, Handshake, MapPin } from 'lucide-react';
 import { BRAND, EMAILS } from '@/lib/sariro-data';
 import { CustomCursor } from '@/components/sariro-3d/scroll-effects';
@@ -16,13 +16,9 @@ import ChatBubble from '@/components/sariro-3d/chat-bubble';
 import { useAuth } from '@/components/auth/auth-provider';
 
 /* Map the icon name string from EMAILS data to a real icon component. */
-type EmailIconProps = {
-  className?: string;
-  strokeWidth?: number;
-  style?: CSSProperties;
-};
+type EmailIconComponent = ComponentType<{ className?: string; strokeWidth?: number; style?: CSSProperties }>;
 
-const EMAIL_ICONS: Record<string, ComponentType<EmailIconProps>> = {
+const EMAIL_ICONS: Record<string, EmailIconComponent> = {
   Mail,
   LifeBuoy,
   School: GraduationCap,
@@ -184,17 +180,38 @@ function BrandNavbar() {
               })}
             </nav>
 
-            {/* Desktop CTA */}
+            {/* Desktop CTA — 3-button layout for logged-out visitors */}
             <div className="hidden lg:flex items-center gap-2">
-              <AuthNavButton />
-              {!isLoggedIn && (
-                <Link
-                  href="/welcome#book"
-                  className="btn-tactile btn-tactile-primary px-5 py-2.5 text-sm"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  Book Demo
-                </Link>
+              {!isLoggedIn ? (
+                <>
+                  {/* Sign Up — small white */}
+                  <Link
+                    href="/auth/sign-up"
+                    className="px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 transition-colors"
+                    style={{ fontFamily: 'var(--font-grotesk)' }}
+                  >
+                    Sign Up
+                  </Link>
+                  {/* Explore Courses — small white */}
+                  <Link
+                    href="/courses"
+                    className="px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 transition-colors"
+                    style={{ fontFamily: 'var(--font-grotesk)' }}
+                  >
+                    Explore Courses
+                  </Link>
+                  {/* Book a Free Class — prominent yellow */}
+                  <Link
+                    href="/welcome#book"
+                    className="px-5 py-2.5 rounded-lg text-slate-900 text-sm font-extrabold hover:scale-105 transition-transform shadow-md flex items-center gap-1.5"
+                    style={{ fontFamily: 'var(--font-grotesk)', background: 'linear-gradient(135deg, #FBBF24 0%, #F59E0B 100%)' }}
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    Book a Free Class
+                  </Link>
+                </>
+              ) : (
+                <AuthNavButton />
               )}
             </div>
 

@@ -56,7 +56,7 @@ export function UserManagementModal({
 
   const handleRoleChange = async (
     userId: string,
-    newRole: 'student' | 'teacher' | 'admin' | 'super_admin'
+    newRole: 'student' | 'teacher' | 'seller' | 'hr' | 'admin' | 'super_admin'
   ) => {
     setBusyUserId(userId);
     const result = await updateUserRole(userId, newRole);
@@ -243,7 +243,7 @@ export function UserManagementModal({
                       </div>
                       <select
                         value={u.role || 'student'}
-                        onChange={(e) => handleRoleChange(u.id, e.target.value as 'student' | 'teacher' | 'admin' | 'super_admin')}
+                        onChange={(e) => handleRoleChange(u.id, e.target.value as 'student' | 'teacher' | 'seller' | 'hr' | 'admin' | 'super_admin')}
                         disabled={busyUserId === u.id}
                         className="h-9 px-2 rounded-lg border border-slate-200 text-xs font-bold bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50"
                         style={{ fontFamily: 'var(--font-grotesk)' }}

@@ -246,7 +246,7 @@ export async function confirmPurchaseIntent(intent: PurchaseIntentRow): Promise<
     }
 
     // 2. Create the enrollment
-    const { error: enrollErr } = await supabase
+    const { data: enrollData, error: enrollErr } = await supabase
       .from('enrollments')
       .insert({
         user_id: intent.user_id,
@@ -256,9 +256,24 @@ export async function confirmPurchaseIntent(intent: PurchaseIntentRow): Promise<
         status: 'active',
         cohort_id: cohortId,
         started_at: new Date().toISOString(),
-      });
+      })
+      .select('id')
+      .single();
 
     if (enrollErr) throw enrollErr;
+
+    // 2b. Grant credits — the DB trigger grants 1 placeholder, then we call
+    // the grant-credits API to top up to the real lesson count (e.g. 42 for web-201).
+    // Best-effort: if this fails, the trigger still granted 1 credit, and admin
+    // can manually adjust later.
+    if (enrollData?.id) {
+      try {
+        const { grantCreditsOnEnrollment } = await import('@/lib/dashboard/credits-data');
+        await grantCreditsOnEnrollment(enrollData.id, intent.track, intent.level);
+      } catch (creditErr) {
+        console.warn('[admin] credit grant failed (non-fatal):', creditErr);
+      }
+    }
 
     // 3. Mark the purchase intent as confirmed
     const { error: piErr } = await supabase
@@ -789,7 +804,7 @@ export async function fetchUsers(
    agree on the user's role. */
 export async function updateUserRole(
   userId: string,
-  newRole: 'student' | 'teacher' | 'admin' | 'super_admin'
+  newRole: 'student' | 'teacher' | 'seller' | 'hr' | 'admin' | 'super_admin'
 ): Promise<{ success: boolean; error?: string }> {
   if (!userId || !newRole) {
     return { success: false, error: 'Missing required fields' };
@@ -800,7 +815,7 @@ export async function updateUserRole(
       role: newRole,
       is_student: newRole === 'student',
       is_teacher: newRole === 'teacher',
-      is_admin: newRole === 'admin',
+      is_admin: newRole === 'admin' || newRole === 'super_admin',
       is_super_admin: newRole === 'super_admin',
     };
     const { error } = await supabase.from('profiles').update(patch).eq('id', userId);
