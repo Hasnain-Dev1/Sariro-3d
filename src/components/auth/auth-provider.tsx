@@ -24,10 +24,10 @@ export interface Profile {
   profile_completed: boolean;
   is_student: boolean;
   is_teacher: boolean;
-  is_seller?: boolean;
-  is_hr?: boolean;
   is_admin: boolean;
   is_super_admin: boolean;
+  is_seller: boolean;
+  is_hr: boolean;
   /* New fields added in v1.0 batch-management migration */
   timezone?: string | null;
   track?: string | null;
@@ -45,10 +45,11 @@ export type UserRole = 'student' | 'teacher' | 'seller' | 'hr' | 'admin' | 'supe
  */
 export function getRole(profile: Profile | null): UserRole {
   if (!profile) return 'student';
+  // Prefer the new `role` column
   if (profile.role === 'super_admin' || profile.is_super_admin) return 'super_admin';
   if (profile.role === 'admin' || profile.is_admin) return 'admin';
-  if (profile.role === 'hr' || (profile as { is_hr?: boolean }).is_hr) return 'hr';
-  if (profile.role === 'seller' || (profile as { is_seller?: boolean }).is_seller) return 'seller';
+  if (profile.role === 'hr') return 'hr';
+  if (profile.role === 'seller') return 'seller';
   if (profile.role === 'teacher' || profile.is_teacher) return 'teacher';
   return 'student';
 }

@@ -43,7 +43,7 @@ interface CohortRow {
 
 interface BookingRow {
   id: string;
-  cohort_id: string;
+  cohort_id?: string;
   teacher_id: string | null;
   slot_start: string;
   slot_end: string;

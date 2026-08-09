@@ -12,7 +12,7 @@
  *   web → app → saas → agent → data → cloud → design → game → automation → security → web...
  */
 
-import { TRACKS, type Track } from '@/lib/sariro-data';
+import { TRACKS } from '@/lib/sariro-data';
 
 export type CourseLevel = 'beginner' | 'intermediate' | 'advanced';
 

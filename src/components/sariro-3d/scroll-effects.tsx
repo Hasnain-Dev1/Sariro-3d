@@ -302,7 +302,7 @@ export function CustomCursor() {
     let ringY = mouseY;
     let rafId = 0;
 
-    const onMove = (e: MouseEvent) => {
+    const onMove = (e: globalThis.MouseEvent) => {
       mouseX = e.clientX;
       mouseY = e.clientY;
       dot.style.transform = `translate(${mouseX}px, ${mouseY}px) translate(-50%, -50%)`;

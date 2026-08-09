@@ -810,18 +810,17 @@ export async function updateUserRole(
     return { success: false, error: 'Missing required fields' };
   }
   try {
-    const supabase = createClient();
-    const patch = {
-      role: newRole,
-      is_student: newRole === 'student',
-      is_teacher: newRole === 'teacher',
-      is_seller: newRole === 'seller',
-      is_hr: newRole === 'hr',
-      is_admin: newRole === 'admin' || newRole === 'super_admin',
-      is_super_admin: newRole === 'super_admin',
-    };
-    const { error } = await supabase.from('profiles').update(patch).eq('id', userId);
-    if (error) throw error;
+    // Use API route with service role — browser client can't update
+    // other users' profiles due to RLS (users can only update own).
+    const res = await fetch('/api/admin/update-role', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, newRole }),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.ok) {
+      return { success: false, error: json.error || json.message || 'Role update failed' };
+    }
     return { success: true };
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';

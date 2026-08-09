@@ -4,8 +4,15 @@
  * Sends transactional emails via Hostinger's mail API.
  *
  * Env vars required:
- *   HOSTINGER_MAIL_API_TOKEN — API token from Hostinger
- *   HOSTINGER_MAIL_FROM — sender email (e.g. support@sariro.in)
+ *   HOSTINGER_MAIL_API_TOKEN — API token from the Hostinger Panel (email provisioning tab)
+ *   HOSTINGER_MAIL_MAILBOX_ID — resourceId of the managed mailbox the token is scoped to
+ *                               (from GET /api/v1/me → data.mailboxes[].resourceId)
+ * Optional:
+ *   HOSTINGER_MAIL_FROM_NAME — display name shown on outgoing mail (default "Sariro")
+ *
+ * Note: the sender address is the managed mailbox itself (identified by the mailbox
+ * resourceId in the URL path). The API has no `from`/`reply_to` body fields — only an
+ * optional `displayName`. A successful send returns HTTP 204 (no body).
  *
  * Usage:
  *   import { sendEmail } from '@/lib/email/hostinger';
@@ -16,12 +23,15 @@
  *   });
  */
 
+const HOSTINGER_MAIL_BASE = 'https://api.mail.hostinger.com';
+
 interface SendEmailParams {
   to: string;
   subject: string;
   html: string;
-  from?: string;
-  replyTo?: string;
+  text?: string;
+  /** Overrides HOSTINGER_MAIL_FROM_NAME for this message. */
+  displayName?: string;
 }
 
 interface SendEmailResult {
@@ -35,47 +45,58 @@ interface SendEmailResult {
  */
 export async function sendEmail(params: SendEmailParams): Promise<SendEmailResult> {
   const apiToken = process.env.HOSTINGER_MAIL_API_TOKEN;
-  const fromEmail = params.from || process.env.HOSTINGER_MAIL_FROM || 'support@sariro.in';
-  const fromName = process.env.HOSTINGER_MAIL_FROM_NAME || 'Sariro';
+  const mailboxId = process.env.HOSTINGER_MAIL_MAILBOX_ID;
+  const displayName =
+    params.displayName || process.env.HOSTINGER_MAIL_FROM_NAME || 'Sariro';
 
   if (!apiToken) {
     console.warn('[email] HOSTINGER_MAIL_API_TOKEN not set — email not sent');
     return { success: false, error: 'mail_api_not_configured' };
   }
+  if (!mailboxId) {
+    console.warn('[email] HOSTINGER_MAIL_MAILBOX_ID not set — email not sent');
+    return { success: false, error: 'mail_mailbox_not_configured' };
+  }
 
   try {
-    // Hostinger mail API endpoint
-    const response = await fetch('https://api.hostinger.com/v1/mail/send', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiToken}`,
-      },
-      body: JSON.stringify({
-        from: {
-          email: fromEmail,
-          name: fromName,
+    // POST /api/v1/mailboxes/{mailboxResourceId}/send — sends from the managed
+    // mailbox and saves a copy to its Sent folder. Success is HTTP 204.
+    const response = await fetch(
+      `${HOSTINGER_MAIL_BASE}/api/v1/mailboxes/${mailboxId}/send`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiToken}`,
         },
-        to: [
-          {
-            email: params.to,
-          },
-        ],
-        subject: params.subject,
-        html: params.html,
-        reply_to: params.replyTo
-          ? { email: params.replyTo }
-          : { email: fromEmail },
-      }),
-    });
+        body: JSON.stringify({
+          to: [params.to],
+          subject: params.subject,
+          html: params.html,
+          ...(params.text ? { text: params.text } : {}),
+          displayName,
+        }),
+      }
+    );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.warn('[email] Hostinger API error:', response.status, errorText);
-      return { success: false, error: `api_error_${response.status}` };
+    // 204 No Content = sent and saved to Sent folder.
+    if (response.status === 204) {
+      return { success: true };
     }
 
-    return { success: true };
+    // Surface validation details (422 maps field → array of error messages).
+    let detail = '';
+    try {
+      const bodyJson = await response.json();
+      detail =
+        bodyJson?.error ||
+        bodyJson?.code ||
+        (bodyJson?.params ? JSON.stringify(bodyJson.params) : '');
+    } catch {
+      // non-JSON body — ignore
+    }
+    console.warn('[email] Hostinger API error:', response.status, detail);
+    return { success: false, error: `api_error_${response.status}` };
   } catch (err) {
     console.warn('[email] send error:', err);
     return {
@@ -170,6 +191,5 @@ export async function sendBookingConfirmationEmail(params: {
     to: email,
     subject: 'Your Demo Class is Booked! 🎉 — Sariro',
     html,
-    replyTo: 'support@sariro.in',
   });
 }

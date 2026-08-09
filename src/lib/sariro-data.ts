@@ -37,7 +37,10 @@ export const RAZORPAY_LINKS_PREMIUM: Record<string, string> = Object.fromEntries
  *  - ratio='1:4' (or omitted) → standard cohort link
  *  - ratio='1:1' → premium personal instruction link (base + "premium")
  *  Falls back to the Beginner link if the level is unknown. */
-export function getRazorpayLink(level: string, ratio?: '1:4' | '1:1'): string {
+/** Cohort learning ratio: 1 teacher per 4 students, or 1-on-1 premium. */
+export type LearningRatio = '1:4' | '1:1';
+
+export function getRazorpayLink(level: string, ratio?: LearningRatio): string {
   const baseLinks = ratio === '1:1' ? RAZORPAY_LINKS_PREMIUM : RAZORPAY_LINKS;
   return baseLinks[level] ?? baseLinks.Beginner;
 }

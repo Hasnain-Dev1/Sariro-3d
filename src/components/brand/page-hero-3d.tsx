@@ -207,7 +207,7 @@ function SchoolsScene({ color }: { color: string }) {
       <group ref={solidsRef}>
         {SOLIDS.map((s, i) => (
           <Float key={i} speed={1.5 + i * 0.2} floatIntensity={0.4} rotationIntensity={0.3}>
-            <mesh position={s.pos}>
+            <mesh position={s.pos as [number, number, number]}>
               {s.geo}
               <meshStandardMaterial
                 color={s.color}
@@ -782,7 +782,7 @@ function StoryScene({ color }: { color: string }) {
 function FaqScene({ color }: { color: string }) {
   const group = useScrollRotation();
   const cardRef = useRef<THREE.Group>(null);
-  const qRefs = useRef<THREE.Group>([]);
+  const qRefs = useRef<THREE.Group[]>([]);
 
   useFrame((state) => {
     const t = state.clock.elapsedTime;
