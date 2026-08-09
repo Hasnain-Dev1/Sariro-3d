@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { motion, useScroll, useTransform, useMotionValueEvent, useInView } from 'framer-motion';
 import { useRef } from 'react';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowRight, Sparkles, Rocket } from 'lucide-react';
 import { BRAND, HERO_STATS, TRUSTED_BY } from '@/lib/sariro-data';
 import BrandLayout from '@/components/brand/brand-layout';
 import OryzoSection from '@/components/brand/oryzo-section';
@@ -96,21 +96,27 @@ export default function Home() {
                 {BRAND.mission}
               </motion.p>
 
-              {/* CTAs */}
+              {/* CTAs — 3-button layout */}
               <motion.div
                 initial={{ opacity: 0, y: 24 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.7, delay: 0.3 }}
                 className="mt-8 flex flex-wrap items-center gap-3"
               >
-                <Link href="/courses" className="btn-tactile btn-tactile-primary px-7 py-4 text-base">
-                  <Sparkles className="w-5 h-5" />
-                  Explore Courses
-                  <ArrowRight className="w-5 h-5" />
-                </Link>
-                <Link href="/auth/sign-up" className="btn-tactile btn-tactile-light px-7 py-4 text-base">
+                {/* Explore Courses — small white */}
+                <Link href="/courses" className="px-5 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 text-sm font-bold hover:bg-slate-50 transition-colors flex items-center gap-2">
                   <Sparkles className="w-4 h-4" />
-                  Sign up!
+                  Explore Courses
+                </Link>
+                {/* Sign Up — small white */}
+                <Link href="/auth/sign-up" className="px-5 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 text-sm font-bold hover:bg-slate-50 transition-colors flex items-center gap-2">
+                  <ArrowRight className="w-4 h-4" />
+                  Sign Up
+                </Link>
+                {/* Book a Free Class — prominent yellow */}
+                <Link href="/welcome#book" className="px-6 py-3.5 rounded-xl text-slate-900 text-sm font-extrabold hover:scale-105 transition-transform shadow-md flex items-center gap-2" style={{ background: 'linear-gradient(135deg, #FBBF24 0%, #F59E0B 100%)' }}>
+                  <Rocket className="w-5 h-5" />
+                  Book a Free Class
                 </Link>
               </motion.div>
 

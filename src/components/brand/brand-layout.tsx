@@ -3,7 +3,7 @@
 import { motion, useScroll, useSpring, AnimatePresence } from 'framer-motion';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { useEffect, useState, useRef, type ReactNode, type CSSProperties, type ComponentType } from 'react';
+import { useEffect, useState, useRef, ReactNode } from 'react';
 import { Menu, X, GraduationCap, Sparkles, Mail, LifeBuoy, Briefcase, Handshake, MapPin } from 'lucide-react';
 import { BRAND, EMAILS } from '@/lib/sariro-data';
 import { CustomCursor } from '@/components/sariro-3d/scroll-effects';
@@ -16,9 +16,7 @@ import ChatBubble from '@/components/sariro-3d/chat-bubble';
 import { useAuth } from '@/components/auth/auth-provider';
 
 /* Map the icon name string from EMAILS data to a real icon component. */
-type EmailIconComponent = ComponentType<{ className?: string; strokeWidth?: number; style?: CSSProperties }>;
-
-const EMAIL_ICONS: Record<string, EmailIconComponent> = {
+const EMAIL_ICONS: Record<string, React.ComponentType<{ className?: string; strokeWidth?: number; style?: React.CSSProperties }>> = {
   Mail,
   LifeBuoy,
   School: GraduationCap,
@@ -180,7 +178,7 @@ function BrandNavbar() {
               })}
             </nav>
 
-            {/* Desktop CTA — 3-button layout for logged-out visitors */}
+            {/* Desktop CTA — 2-button layout in navbar (Book Demo is in hero) */}
             <div className="hidden lg:flex items-center gap-2">
               {!isLoggedIn ? (
                 <>
@@ -199,15 +197,6 @@ function BrandNavbar() {
                     style={{ fontFamily: 'var(--font-grotesk)' }}
                   >
                     Explore Courses
-                  </Link>
-                  {/* Book a Free Class — prominent yellow */}
-                  <Link
-                    href="/welcome#book"
-                    className="px-5 py-2.5 rounded-lg text-slate-900 text-sm font-extrabold hover:scale-105 transition-transform shadow-md flex items-center gap-1.5"
-                    style={{ fontFamily: 'var(--font-grotesk)', background: 'linear-gradient(135deg, #FBBF24 0%, #F59E0B 100%)' }}
-                  >
-                    <Sparkles className="w-4 h-4" />
-                    Book a Free Class
                   </Link>
                 </>
               ) : (
