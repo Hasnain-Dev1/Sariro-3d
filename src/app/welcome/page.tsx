@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
   Sparkles, Rocket, ArrowRight, ArrowLeft, Star, Clock, Users, CheckCircle2,
-  Phone, Mail, Calendar, Globe, Loader2, User, GraduationCap,
+  Phone, Mail, Calendar, Globe, Loader2, User, GraduationCap, AlertCircle,
   ChevronDown,
 } from 'lucide-react';
 import BrandLayout from '@/components/brand/brand-layout';
@@ -543,6 +543,12 @@ function DemoClassForm() {
 
         {/* Phone */}
         <Field label="Phone number" required icon={<Phone className="w-4 h-4" />}>
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 mb-2 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+            <p className="text-[11px] text-amber-700 font-semibold leading-tight">
+              Please disable any VPN/Proxy to ensure accurate country code detection for your booking.
+            </p>
+          </div>
           <div className="flex">
             {/* Country code (auto-detected, editable) */}
             <input
@@ -816,7 +822,16 @@ function SuccessScreen({
       </h2>
 
       <p className="text-base text-slate-600 mb-6 max-w-md mx-auto">
-        We&apos;ll call you within 24 hours at <strong className="text-slate-900">{phone}</strong> to confirm your demo class.
+        We&apos;ll call you within 24 hours at{' '}
+        <strong className="text-slate-900">
+          {tzInfo?.callingCode} {phone}
+        </strong>{' '}
+        {tzInfo?.countryCode && (
+          <span className="text-sm text-slate-500">
+            ({tzInfo.countryCode} — {tzInfo.city})
+          </span>
+        )}
+        {' '}to confirm your demo class.
       </p>
 
       {/* Booking details card */}

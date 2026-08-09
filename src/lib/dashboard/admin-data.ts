@@ -819,7 +819,7 @@ export async function updateUserRole(
     });
     const json = await res.json();
     if (!res.ok || !json.ok) {
-      return { success: false, error: json.error || json.message || 'Role update failed' };
+      return { success: false, error: json.message || json.error || 'Role update failed' };
     }
     return { success: true };
   } catch (err) {
