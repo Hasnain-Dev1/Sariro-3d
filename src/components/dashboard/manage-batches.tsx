@@ -22,8 +22,8 @@ interface Person { id: string; full_name: string | null }
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function ManageBatchesModal({
-  open, onClose, onToast,
-}: { open: boolean; onClose: () => void; onToast?: (msg: string, kind?: 'success' | 'error') => void }) {
+  open, onClose, onToast, adminId,
+}: { open: boolean; onClose: () => void; onToast?: (msg: string, kind?: 'success' | 'error') => void; adminId?: string | null }) {
   const [schedules, setSchedules] = useState<Sched[]>([]);
   const [teachers, setTeachers] = useState<Person[]>([]);
   const [students, setStudents] = useState<Person[]>([]);
@@ -35,18 +35,26 @@ export default function ManageBatchesModal({
   const load = useCallback(async () => {
     setLoading(true);
     const sb = createClient();
-    const [sRes, tRes, stRes] = await Promise.all([
-      sb.from('cohort_schedules')
-        .select('id, cohort_id, teacher_id, days_of_week, time_local, timezone, classes_per_week, status, cohorts(track, level, ratio), teacher:profiles!teacher_id(full_name)')
-        .order('created_at', { ascending: false }),
-      sb.from('profiles').select('id, full_name').or('role.eq.teacher,is_teacher.eq.true').order('full_name'),
+    // Teachers — scoped to this admin's roster when adminId is set.
+    let tq = sb.from('profiles').select('id, full_name').or('role.eq.teacher,is_teacher.eq.true');
+    if (adminId) tq = tq.eq('reporting_admin_id', adminId);
+    const tRes = await tq.order('full_name');
+    const teacherList = (tRes.data ?? []) as Person[];
+
+    // Schedules — restricted to those teachers when scoped.
+    let sq = sb.from('cohort_schedules')
+      .select('id, cohort_id, teacher_id, days_of_week, time_local, timezone, classes_per_week, status, cohorts(track, level, ratio), teacher:profiles!teacher_id(full_name)');
+    if (adminId) sq = sq.in('teacher_id', teacherList.length ? teacherList.map((t) => t.id) : ['00000000-0000-0000-0000-000000000000']);
+
+    const [sRes, stRes] = await Promise.all([
+      sq.order('created_at', { ascending: false }),
       sb.from('profiles').select('id, full_name').or('role.eq.student,is_student.eq.true').order('full_name').limit(500),
     ]);
     setSchedules((sRes.data ?? []) as unknown as Sched[]);
-    setTeachers((tRes.data ?? []) as Person[]);
+    setTeachers(teacherList);
     setStudents((stRes.data ?? []) as Person[]);
     setLoading(false);
-  }, []);
+  }, [adminId]);
 
   useEffect(() => { if (open) Promise.resolve().then(load); }, [open, load]);
 

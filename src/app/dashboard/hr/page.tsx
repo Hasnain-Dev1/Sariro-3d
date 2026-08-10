@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { TRACKS } from '@/lib/sariro-data';
 import SalesEarningsReport from '@/components/dashboard/sales-earnings-report';
+import MyTeachers from '@/components/dashboard/my-teachers';
 
 export default function HRDashboard() {
   const { user, loading } = useAuth();
@@ -21,7 +22,7 @@ export default function HRDashboard() {
   const [teachers, setTeachers] = useState<TeacherProfile[]>([]);
   const [students, setStudents] = useState<StudentProfile[]>([]);
   const [loadingData, setLoadingData] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'incentives' | 'payments' | 'credits' | 'tiers'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'my_teachers' | 'incentives' | 'payments' | 'credits' | 'tiers'>('overview');
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [showSales, setShowSales] = useState(false);
 
@@ -131,13 +132,14 @@ export default function HRDashboard() {
           <div className="flex border-b border-slate-200 mb-4 overflow-x-auto">
             {[
               { key: 'overview', label: 'Overview' },
+              { key: 'my_teachers', label: 'My Teachers' },
               { key: 'incentives', label: 'Incentives' },
               { key: 'payments', label: 'Payments' },
               { key: 'credits', label: 'Credits & Tiers' },
             ].map((tab) => (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key as 'overview' | 'incentives' | 'payments' | 'credits')}
+                onClick={() => setActiveTab(tab.key as 'overview' | 'my_teachers' | 'incentives' | 'payments' | 'credits')}
                 className={`min-h-[44px] px-4 text-xs font-bold transition-colors touch-manipulation whitespace-nowrap ${
                   activeTab === tab.key
                     ? 'text-violet-700 border-b-2 border-violet-600'
@@ -156,6 +158,9 @@ export default function HRDashboard() {
             </div>
           ) : (
             <>
+              {/* ─── MY TEACHERS TAB ─── */}
+              {activeTab === 'my_teachers' && <MyTeachers field="hr" />}
+
               {/* ─── OVERVIEW TAB ─── */}
               {activeTab === 'overview' && (
                 <div className="space-y-6">

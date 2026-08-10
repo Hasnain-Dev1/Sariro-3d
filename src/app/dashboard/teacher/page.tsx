@@ -12,6 +12,7 @@ import {
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import { DesktopClock } from '@/components/dashboard/desktop-clock';
 import TeacherEarnings from '@/components/dashboard/teacher-earnings';
+import TeacherManagers from '@/components/dashboard/teacher-managers';
 import { useAuth } from '@/components/auth/auth-provider';
 import {
   fetchTeacherStats, fetchTeacherBookings, fetchTeacherStudents, updateBookingStatus,
@@ -1425,6 +1426,9 @@ function TeacherDashboardInner() {
           </div>
           <DesktopClock />
         </motion.div>
+
+        {/* Reporting Admin + HR */}
+        <TeacherManagers />
 
         {/* Earnings & payouts — teacher finance portal */}
         <TeacherEarnings />

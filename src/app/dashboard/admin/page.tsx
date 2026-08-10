@@ -27,6 +27,9 @@ import { TeacherManagementModal } from '@/components/dashboard/teacher-managemen
 import { SellerLeads } from '@/app/dashboard/admin/seller-leads';
 import { TeacherCourseAssignmentModal } from '@/app/dashboard/admin/teacher-course-assignments';
 import { useRealtime } from '@/lib/dashboard/use-realtime';
+import ScheduleBatchModal from '@/components/dashboard/schedule-batch';
+import ManageBatchesModal from '@/components/dashboard/manage-batches';
+import MyTeachers from '@/components/dashboard/my-teachers';
 
 /* ───── Helpers ───── */
 function levelDisplay(level: string): string {
@@ -1332,6 +1335,8 @@ function AdminDashboardInner() {
   const [showTeacherModal, setShowTeacherModal] = useState(false);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
   const [showManualEnroll, setShowManualEnroll] = useState(false);
+  const [showScheduleBatch, setShowScheduleBatch] = useState(false);
+  const [showManageBatches, setShowManageBatches] = useState(false);
   const [rosterCohort, setRosterCohort] = useState<CohortRow | null>(null);
   const [revenue, setRevenue] = useState<RevenueStats | null>(null);
   const [revenueLoading, setRevenueLoading] = useState(true);
@@ -1500,6 +1505,18 @@ function AdminDashboardInner() {
                 <Plus className="w-4 h-4" /> Manual Enroll
               </button>
               <button
+                onClick={() => setShowScheduleBatch(true)}
+                className="btn-tactile btn-tactile-light px-4 py-2.5 text-sm flex items-center gap-2"
+              >
+                <Clock className="w-4 h-4" /> Schedule Batch
+              </button>
+              <button
+                onClick={() => setShowManageBatches(true)}
+                className="btn-tactile btn-tactile-light px-4 py-2.5 text-sm flex items-center gap-2"
+              >
+                <Users className="w-4 h-4" /> Manage Batches
+              </button>
+              <button
                 onClick={() => setShowCreateModal(true)}
                 className="btn-tactile btn-tactile-primary px-5 py-2.5 text-sm flex items-center gap-2"
               >
@@ -1525,6 +1542,11 @@ function AdminDashboardInner() {
           <StatCard icon={BookOpen} color="bg-green-100 text-green-600" value={stats?.totalEnrollments ?? 0} label="Enrollments" loading={statsLoading} />
           <StatCard icon={Clock} color="bg-amber-100 text-amber-600" value={stats?.pendingPurchaseIntents ?? 0} label="Pending approvals" loading={statsLoading} />
           <StatCard icon={GraduationCap} color="bg-violet-100 text-violet-600" value={stats?.activeCohorts ?? 0} label="Active courses" loading={statsLoading} />
+        </div>
+
+        {/* My teachers (reporting to this admin) */}
+        <div className="mb-10">
+          <MyTeachers field="admin" />
         </div>
 
         {/* Pending enrollments queue */}
@@ -1764,6 +1786,20 @@ function AdminDashboardInner() {
         onClose={() => setShowManualEnroll(false)}
         onToast={handleToast}
         onEnrolled={loadAll}
+      />
+
+      <ScheduleBatchModal
+        open={showScheduleBatch}
+        onClose={() => setShowScheduleBatch(false)}
+        adminId={user?.id}
+        onCreated={() => { handleToast('success', 'Batch scheduled — classes generated.'); loadAll(); }}
+      />
+
+      <ManageBatchesModal
+        open={showManageBatches}
+        onClose={() => setShowManageBatches(false)}
+        adminId={user?.id}
+        onToast={(msg, kind) => handleToast(kind ?? 'success', msg)}
       />
 
       {/* Seller Leads — leads assigned to this admin/seller */}

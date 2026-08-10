@@ -31,9 +31,8 @@ import {
 import { getCourseSyllabus } from '@/lib/dashboard/student-data';
 import { getTrackName } from '@/lib/dashboard/upsell-engine';
 import { TeacherManagementModal } from '@/components/dashboard/teacher-management';
-import ScheduleBatchModal from '@/components/dashboard/schedule-batch';
-import ManageBatchesModal from '@/components/dashboard/manage-batches';
 import SalesEarningsReport from '@/components/dashboard/sales-earnings-report';
+import AssignTeacherModal from '@/components/dashboard/assign-teacher';
 import { TeacherCourseAssignmentModal } from '@/app/dashboard/admin/teacher-course-assignments';
 import { UserManagementModal } from '@/components/dashboard/user-management-modal';
 import { LeadPipeline } from '@/app/dashboard/super-admin/lead-pipeline';
@@ -627,9 +626,8 @@ function SuperAdminDashboardInner() {
   const [showTeacherModal, setShowTeacherModal] = useState(false);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
   const [showUserManagement, setShowUserManagement] = useState(false);
-  const [showScheduleBatch, setShowScheduleBatch] = useState(false);
-  const [showManageBatches, setShowManageBatches] = useState(false);
   const [showEarningsReport, setShowEarningsReport] = useState(false);
+  const [showAssignTeacher, setShowAssignTeacher] = useState(false);
 
   const loadAll = useCallback(async () => {
     const [s, intents, c, logs, actions] = await Promise.all([
@@ -761,22 +759,16 @@ function SuperAdminDashboardInner() {
                 <BookOpen className="w-4 h-4" /> Course Eligibility
               </button>
               <button
-                onClick={() => setShowScheduleBatch(true)}
-                className="btn-tactile btn-tactile-light px-4 py-2.5 text-sm flex items-center gap-2"
-              >
-                <Clock className="w-4 h-4" /> Schedule Batch
-              </button>
-              <button
-                onClick={() => setShowManageBatches(true)}
-                className="btn-tactile btn-tactile-light px-4 py-2.5 text-sm flex items-center gap-2"
-              >
-                <Users className="w-4 h-4" /> Manage Batches
-              </button>
-              <button
                 onClick={() => setShowEarningsReport(true)}
                 className="btn-tactile btn-tactile-light px-4 py-2.5 text-sm flex items-center gap-2"
               >
                 <ScrollText className="w-4 h-4" /> Earnings &amp; Sales
+              </button>
+              <button
+                onClick={() => setShowAssignTeacher(true)}
+                className="btn-tactile btn-tactile-light px-4 py-2.5 text-sm flex items-center gap-2"
+              >
+                <UserCheck className="w-4 h-4" /> Assign Teacher
               </button>
               <button onClick={() => setShowCreateModal(true)}
                 className="btn-tactile btn-tactile-primary px-5 py-2.5 text-sm flex items-center gap-2">
@@ -976,21 +968,15 @@ function SuperAdminDashboardInner() {
         onToast={(type, message) => setToast({ type, message })}
       />
 
-      <ScheduleBatchModal
-        open={showScheduleBatch}
-        onClose={() => setShowScheduleBatch(false)}
-        onCreated={() => { setToast({ type: 'success', message: 'Batch scheduled — classes generated.' }); loadAll(); }}
-      />
-
-      <ManageBatchesModal
-        open={showManageBatches}
-        onClose={() => setShowManageBatches(false)}
-        onToast={(msg, kind) => setToast({ type: kind || 'success', message: msg })}
-      />
-
       <SalesEarningsReport
         open={showEarningsReport}
         onClose={() => setShowEarningsReport(false)}
+        onToast={(msg, kind) => setToast({ type: kind || 'success', message: msg })}
+      />
+
+      <AssignTeacherModal
+        open={showAssignTeacher}
+        onClose={() => setShowAssignTeacher(false)}
         onToast={(msg, kind) => setToast({ type: kind || 'success', message: msg })}
       />
 

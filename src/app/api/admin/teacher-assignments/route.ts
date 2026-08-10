@@ -48,8 +48,10 @@ export async function POST(req: NextRequest) {
 
   const { data: teacherProfile } = await admin.from('profiles').select('id, role, is_teacher').eq('id', body.teacher_id).maybeSingle();
   if (!teacherProfile) return NextResponse.json({ ok: false, error: 'teacher_not_found' }, { status: 404 });
-  const teacherRole = teacherProfile.role ?? (teacherProfile.is_teacher ? 'teacher' : 'student');
-  if (teacherRole !== 'teacher') return NextResponse.json({ ok: false, error: 'not_a_teacher' }, { status: 400 });
+  // Accept either a 'teacher' role OR the is_teacher flag — a profile can carry
+  // is_teacher=true while its primary role says something else.
+  const isTeacher = teacherProfile.role === 'teacher' || teacherProfile.is_teacher === true;
+  if (!isTeacher) return NextResponse.json({ ok: false, error: 'not_a_teacher' }, { status: 400 });
 
   try {
     if (body.action === 'assign') {

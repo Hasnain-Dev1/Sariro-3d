@@ -57,8 +57,22 @@ export async function POST(req: NextRequest) {
       // ── INCENTIVE MANAGEMENT ──
       case 'approve_incentive': {
         if (!body.incentive_id) return NextResponse.json({ ok: false, error: 'missing_incentive_id' }, { status: 400 });
+        // Read first so we only pay out once (skip if already approved).
+        const { data: inc } = await admin.from('teacher_incentives').select('id, teacher_id, amount, reason, status').eq('id', body.incentive_id).maybeSingle();
+        if (!inc) return NextResponse.json({ ok: false, error: 'incentive_not_found' }, { status: 404 });
         const { error } = await admin.from('teacher_incentives').update({ status: 'approved', approved_by: user.id, approved_at: new Date().toISOString() }).eq('id', body.incentive_id);
         if (error) throw error;
+        // Reflect the approved incentive in the teacher's PENDING PAYOUT as a
+        // positive earning (only when transitioning INTO approved).
+        if (inc.status !== 'approved') {
+          const amt = Number(inc.amount) || 0;
+          await admin.from('teacher_earnings').insert({
+            teacher_id: inc.teacher_id, booking_id: null, class_date: new Date().toISOString(),
+            lesson_name: `Incentive: ${(inc.reason ?? '').slice(0, 80)}`,
+            student_count: 0, base_amount: amt, bonus_amount: 0, penalty_amount: 0,
+            net_amount: amt, amount: amt, status: 'pending',
+          });
+        }
         return NextResponse.json({ ok: true });
       }
       case 'reject_incentive': {

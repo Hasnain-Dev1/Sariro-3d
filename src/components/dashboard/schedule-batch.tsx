@@ -36,8 +36,8 @@ const fmtInZone = (iso: string, tz: string) => {
 };
 
 export default function ScheduleBatchModal({
-  open, onClose, onCreated,
-}: { open: boolean; onClose: () => void; onCreated?: () => void }) {
+  open, onClose, onCreated, adminId,
+}: { open: boolean; onClose: () => void; onCreated?: () => void; adminId?: string | null }) {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
   const [kids, setKids] = useState<Kid[]>([]);
@@ -59,14 +59,17 @@ export default function ScheduleBatchModal({
     if (!open) return;
     const sb = createClient();
     (async () => {
+      // Scope teachers to this admin's roster when adminId is provided.
+      let tq = sb.from('profiles').select('id, full_name, timezone').or('role.eq.teacher,is_teacher.eq.true');
+      if (adminId) tq = tq.eq('reporting_admin_id', adminId);
       const [tRes, cRes] = await Promise.all([
-        sb.from('profiles').select('id, full_name, timezone').or('role.eq.teacher,is_teacher.eq.true').order('full_name'),
+        tq.order('full_name'),
         sb.from('cohorts').select('id, track, level, ratio, status').in('status', ['gathering', 'ready', 'active']).order('created_at', { ascending: false }),
       ]);
       setTeachers((tRes.data ?? []) as Teacher[]);
       setCohorts((cRes.data ?? []) as Cohort[]);
     })();
-  }, [open]);
+  }, [open, adminId]);
 
   // Load kids when a cohort is chosen.
   const loadKids = useCallback(async (cid: string) => {

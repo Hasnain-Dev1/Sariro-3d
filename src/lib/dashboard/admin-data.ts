@@ -891,8 +891,6 @@ export async function manualEnrollStudent(params: {
     return { success: false, error: 'Missing required fields' };
   }
   try {
-    const supabase = createClient();
-
     // Find or create a gathering cohort.
     let cohortId = await findGatheringCohort(params.track, params.level, params.ratio);
     if (!cohortId) {
@@ -907,29 +905,22 @@ export async function manualEnrollStudent(params: {
       return { success: false, error: 'Failed to find or create cohort' };
     }
 
-    const { error: enrollErr } = await supabase.from('enrollments').insert({
-      user_id: params.userId,
-      track: params.track,
-      level: params.level,
-      ratio: params.ratio,
-      status: 'active',
-      cohort_id: cohortId,
-      started_at: new Date().toISOString(),
+    // The enrollment row is for ANOTHER user, which RLS blocks from the
+    // browser client — go through the service-role API instead.
+    const res = await fetch('/api/admin/enroll', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: params.userId,
+        track: params.track,
+        level: params.level,
+        ratio: params.ratio,
+        cohortId,
+      }),
     });
-
-    if (enrollErr) throw enrollErr;
-
-    // Best-effort notification to the student.
-    try {
-      await supabase.from('notifications').insert({
-        user_id: params.userId,
-        type: 'enrollment_confirmed',
-        title: 'You have been enrolled!',
-        message: `An admin has manually enrolled you in ${params.track} (${params.level}, ${params.ratio}). Head to your dashboard to see your cohort.`,
-        link: '/dashboard/student',
-      });
-    } catch (notifErr) {
-      console.warn('[admin] manualEnrollStudent notification error:', notifErr);
+    const json = await res.json();
+    if (!res.ok || !json.ok) {
+      return { success: false, error: json.message || json.error || 'Enrollment failed' };
     }
 
     return { success: true, cohortId };

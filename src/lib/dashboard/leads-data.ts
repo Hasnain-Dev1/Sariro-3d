@@ -305,7 +305,7 @@ export async function fetchSellers(): Promise<Array<{ id: string; full_name: str
     const { data, error } = await supabase
       .from('profiles')
       .select('id, full_name, email')
-      .or('role.eq.seller,role.eq.admin,role.eq.super_admin,is_admin.eq.true,is_super_admin.eq.true')
+      .or('role.eq.seller,is_seller.eq.true,role.eq.admin,role.eq.super_admin,is_admin.eq.true,is_super_admin.eq.true')
       .order('full_name', { ascending: true });
 
     if (error) throw error;

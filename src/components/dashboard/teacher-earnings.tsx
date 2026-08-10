@@ -185,9 +185,19 @@ export default function TeacherEarnings() {
             <Gift className="w-4 h-4" /> Request Incentive
           </button>
           <button
-            onClick={() => setShowSettle(true)}
+            onClick={() => {
+              // Settlement cycle closes on the 30th (teacher's local date).
+              if (new Date().getDate() < 30) {
+                flash("Settlement opens on the 30th — this cycle hasn't ended yet.", 'error');
+                return;
+              }
+              setShowSettle(true);
+            }}
             disabled={pendingCount === 0}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold transition-colors min-h-[40px]"
+            title={new Date().getDate() < 30 ? 'Available from the 30th' : undefined}
+            className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-colors min-h-[40px] disabled:cursor-not-allowed text-white ${
+              new Date().getDate() < 30 ? 'bg-slate-400 hover:bg-slate-400' : 'bg-green-600 hover:bg-green-700'
+            } disabled:bg-slate-300`}
             style={{ fontFamily: 'var(--font-grotesk)' }}
           >
             <Receipt className="w-4 h-4" /> Settle{pendingCount > 0 ? ` (${inr(pendingTotal)})` : ''}
