@@ -42,6 +42,7 @@ interface DemoRequestBody {
   email?: string;
   course_interest?: string;
   preferred_slot?: string;
+  preferred_slot_window?: string;
   timezone?: string;
   timezone_offset?: number;
   phone_country_code?: string;
@@ -168,6 +169,11 @@ export async function POST(req: NextRequest) {
     errors.push('Invalid course interest');
   }
 
+  // Preferred slot window — optional display label (e.g. "Morning · 9:00 AM – 12:00 PM")
+  if (body.preferred_slot_window && body.preferred_slot_window.length > 100) {
+    errors.push('Invalid preferred slot window');
+  }
+
   if (errors.length > 0) {
     return NextResponse.json(
       { ok: false, error: 'validation_failed', errors },
@@ -241,13 +247,28 @@ export async function POST(req: NextRequest) {
   try {
     const { sendBookingConfirmationEmail } = await import('@/lib/email/hostinger');
 
-    // Send confirmation to student (if email provided)
+    // Send confirmation to student (if email provided).
+    // The email shows the time WINDOW the user selected (e.g. "Monday, September 1 ·
+    // Morning · 9:00 AM – 12:00 PM"), not a single exact time — a rep confirms the
+    // precise slot by phone. Falls back to the exact-time label if no window sent.
+    const slotWindow = body.preferred_slot_window?.trim();
+    const emailSlotLabel = slotWindow
+      ? (isNaN(slotDate.getTime())
+          ? slotWindow
+          : slotDate.toLocaleString('en-US', {
+              weekday: 'long',
+              month: 'long',
+              day: 'numeric',
+              timeZone: body.timezone,
+            }) + ` · ${slotWindow}`)
+      : slotLabel;
+
     if (body.email?.trim()) {
       await sendBookingConfirmationEmail({
         studentName: body.student_name!,
         email: body.email.trim(),
         phone: body.phone!,
-        preferredSlot: slotLabel,
+        preferredSlot: emailSlotLabel,
         timezone: body.timezone!,
       });
     }

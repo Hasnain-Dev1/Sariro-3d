@@ -10,6 +10,8 @@ import {
   Star, ExternalLink, FolderOpen, MessageCircle,
 } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
+import { DesktopClock } from '@/components/dashboard/desktop-clock';
+import TeacherEarnings from '@/components/dashboard/teacher-earnings';
 import { useAuth } from '@/components/auth/auth-provider';
 import {
   fetchTeacherStats, fetchTeacherBookings, fetchTeacherStudents, updateBookingStatus,
@@ -160,9 +162,29 @@ function BookingCard({
   const isPast = new Date(booking.slot_start) < new Date();
   const trackName = getTrackName(booking.cohort_track);
 
+  const [started, setStarted] = useState(false);
+  const [startInfo, setStartInfo] = useState<string | null>(null);
+
   const handleStatus = async (newStatus: 'completed' | 'no_show' | 'cancelled') => {
     setProcessing(true);
     await onStatusChange(booking.id, newStatus);
+    setProcessing(false);
+  };
+
+  // Start Class → records join time (source of truth for the late-join penalty).
+  const handleStart = async () => {
+    setProcessing(true);
+    try {
+      const res = await fetch('/api/teacher/start-class', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: booking.id }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        setStarted(true);
+        setStartInfo(json.late_minutes > 3 ? `Started ${json.late_minutes} min late` : 'Started on time');
+      }
+    } catch { /* transient */ }
     setProcessing(false);
   };
 
@@ -233,6 +255,14 @@ function BookingCard({
         {/* Action buttons — only show for past scheduled sessions */}
         {booking.status === 'scheduled' && isPast && (
           <>
+            <button
+              onClick={handleStart}
+              disabled={processing || started}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold disabled:opacity-50 min-h-[40px]"
+              style={{ fontFamily: 'var(--font-grotesk)' }}
+            >
+              {started ? (startInfo ?? 'Started') : 'Start Class'}
+            </button>
             <button
               onClick={() => handleStatus('completed')}
               disabled={processing}
@@ -1378,20 +1408,26 @@ function TeacherDashboardInner() {
     <section className="relative pt-6 sm:pt-10 pb-16 px-4 sm:px-6 lg:px-10">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-          <div className="flex items-center gap-2 mb-2">
-            <GraduationCap className="w-5 h-5 text-green-600" />
-            <span className="text-xs font-bold uppercase tracking-[0.18em] text-green-600" style={{ fontFamily: 'var(--font-grotesk)' }}>
-              Teacher Dashboard
-            </span>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mb-8 flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <GraduationCap className="w-5 h-5 text-green-600" />
+              <span className="text-xs font-bold uppercase tracking-[0.18em] text-green-600" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                Teacher Dashboard
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
+              Welcome, {displayName.split(' ')[0]}! 👋
+            </h1>
+            <p className="text-slate-600 mt-1.5 text-sm">
+              Your schedule, students, and session history at a glance.
+            </p>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
-            Welcome, {displayName.split(' ')[0]}! 👋
-          </h1>
-          <p className="text-slate-600 mt-1.5 text-sm">
-            Your schedule, students, and session history at a glance.
-          </p>
+          <DesktopClock />
         </motion.div>
+
+        {/* Earnings & payouts — teacher finance portal */}
+        <TeacherEarnings />
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-10">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
@@ -463,6 +463,7 @@ function DemoClassForm() {
           email: email.trim() || undefined,
           course_interest: courseInterest || undefined,
           preferred_slot: selectedSlot,
+          preferred_slot_window: getSlotWindowLabel(selectedSlot) || undefined,
           timezone: tzInfo?.timezone ?? 'UTC',
           timezone_offset: tzInfo?.offsetMinutes ?? 0,
           phone_country_code: tzInfo?.countryCode,
@@ -543,6 +544,12 @@ function DemoClassForm() {
 
         {/* Phone */}
         <Field label="Phone number" required icon={<Phone className="w-4 h-4" />}>
+          <div className="bg-green-50 border border-green-200 rounded-lg p-2 mb-2 flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+            <p className="text-[11px] text-green-800 font-semibold leading-tight">
+              Please double-check your number is correct — we&apos;ll send your <strong>AI-Ready Certificate</strong> and class details straight to it. A wrong number means you could miss them.
+            </p>
+          </div>
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 mb-2 flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
             <p className="text-[11px] text-amber-700 font-semibold leading-tight">
@@ -789,21 +796,36 @@ function SuccessScreen({
   selectedSlot: string;
   tzInfo: TimezoneInfo | null;
 }) {
-  // Parse the slot to display nicely
+  // Show the day, then the time WINDOW the user selected (not a single exact
+  // time) — a rep calls to confirm the precise slot within that window.
   const slotDate = new Date(selectedSlot);
-  const slotLabel = isNaN(slotDate.getTime())
+  const dateLabel = isNaN(slotDate.getTime())
     ? selectedSlot
     : slotDate.toLocaleString('en-US', {
         weekday: 'long',
         month: 'long',
         day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
         timeZone: tzInfo?.timezone,
       });
+  const windowLabel = getSlotWindowLabel(selectedSlot);
+
+  // Auto-scroll fix: when the form is replaced by this shorter confirmation,
+  // the page shrinks and Lenis re-clamps scroll, dumping the viewport onto the
+  // footer section. Bring the confirmation into view so the user actually sees
+  // it. `behavior: 'auto'` places it instantly instead of animating around.
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const id = requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: 'auto', block: 'center' });
+    });
+    return () => cancelAnimationFrame(id);
+  }, []);
 
   return (
     <motion.div
+      ref={rootRef}
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       className="card-3d p-8 text-center"
@@ -835,21 +857,34 @@ function SuccessScreen({
       </p>
 
       {/* Booking details card */}
-      <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6 text-left max-w-sm mx-auto">
+      <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4 text-left max-w-sm mx-auto">
         <div className="flex items-center gap-2 mb-2 text-green-800">
           <Calendar className="w-4 h-4 shrink-0" />
           <span className="text-xs font-bold uppercase tracking-wider" style={{ fontFamily: 'var(--font-grotesk)' }}>
-            Your preferred slot
+            Your preferred window
           </span>
         </div>
         <p className="text-sm font-bold text-green-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
-          {slotLabel}
+          {dateLabel}
         </p>
+        {windowLabel && (
+          <p className="text-sm font-bold text-green-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
+            {windowLabel}
+          </p>
+        )}
         {tzInfo && (
           <p className="text-xs text-green-600 mt-1">
             {tzInfo.timezone} (UTC{tzInfo.offsetMinutes >= 0 ? '+' : ''}{tzInfo.offsetMinutes / 60})
           </p>
         )}
+      </div>
+
+      {/* Window disclaimer */}
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-6 max-w-sm mx-auto flex items-start gap-2 text-left">
+        <Phone className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+        <p className="text-xs font-semibold text-amber-800">
+          Our representative will get over a call to confirm your slot in the window you selected.
+        </p>
       </div>
 
       {/* What happens next */}
@@ -938,3 +973,14 @@ const TIME_BLOCKS = [
   { hour: 17, label: 'Evening · 4:00 PM – 8:00 PM' },
   { hour: 20, label: 'Night · 8:00 PM – 11:00 PM' },
 ];
+
+/* Returns the human time-window label (e.g. "Morning · 9:00 AM – 12:00 PM") for
+   a selected slot ISO string, by matching its hour to TIME_BLOCKS. Slots are
+   generated from TIME_BLOCKS, so the local hour uniquely identifies the block.
+   Returns null if no block matches (defensive fallback). */
+function getSlotWindowLabel(selectedSlot: string): string | null {
+  const d = new Date(selectedSlot);
+  if (isNaN(d.getTime())) return null;
+  const block = TIME_BLOCKS.find((b) => b.hour === d.getHours());
+  return block ? block.label : null;
+}

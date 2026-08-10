@@ -241,10 +241,13 @@ export async function POST(req: NextRequest) {
   }
 
   // Find this booking's index among the cohort's bookings ordered by slot_start
+  // Only real classes count toward lesson order — a no_show/cancelled slot
+  // must NOT consume a lesson index (cascade-shift: missed lesson slides forward).
   const { data: cohortBookings, error: cbErr } = await supaServer
     .from('bookings')
     .select('id, slot_start')
     .eq('cohort_id', cohortRow.id)
+    .in('status', ['scheduled', 'completed'])
     .order('slot_start', { ascending: true });
   if (cbErr || !cohortBookings) {
     console.warn('[attendance] cohort bookings lookup failed:', cbErr?.message);

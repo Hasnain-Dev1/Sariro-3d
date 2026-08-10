@@ -10,6 +10,8 @@ import {
   Trash2, X, Award, Users, CalendarPlus, Coins, History,
 } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
+import { DesktopClock } from '@/components/dashboard/desktop-clock';
+import TeacherLatePopup from '@/components/dashboard/teacher-late-popup';
 import { useAuth } from '@/components/auth/auth-provider';
 import { TRACKS } from '@/lib/sariro-data';
 import { createClient } from '@/lib/supabase/client';
@@ -1023,20 +1025,26 @@ function StudentDashboardInner() {
     <section className="relative pt-6 sm:pt-10 pb-16 px-4 sm:px-6 lg:px-10">
       <div className="max-w-6xl mx-auto">
         {/* Welcome header */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-          <div className="flex items-center gap-2 mb-2">
-            <Sparkles className="w-5 h-5 text-blue-600" />
-            <span className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600" style={{ fontFamily: 'var(--font-grotesk)' }}>
-              Student Dashboard
-            </span>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mb-8 flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="w-5 h-5 text-blue-600" />
+              <span className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                Student Dashboard
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
+              Hey {firstName}! 👋
+            </h1>
+            <p className="text-slate-600 mt-1.5 text-sm sm:text-base">
+              Welcome back. Here's your learning journey at a glance.
+            </p>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
-            Hey {firstName}! 👋
-          </h1>
-          <p className="text-slate-600 mt-1.5 text-sm sm:text-base">
-            Welcome back. Here's your learning journey at a glance.
-          </p>
+          <DesktopClock />
         </motion.div>
+
+        {/* Live class-status popup (teacher late / no-show) */}
+        <TeacherLatePopup />
 
         {loading ? (
           <div className="flex items-center justify-center py-20">

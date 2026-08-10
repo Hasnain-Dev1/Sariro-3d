@@ -146,15 +146,22 @@ export async function sendBookingConfirmationEmail(params: {
         </p>
 
         <!-- Booking details -->
-        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 20px; margin-bottom: 16px;">
           <p style="font-size: 12px; font-weight: 700; color: #15803d; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">
-            Your Booking Details
+            Your Preferred Window
           </p>
           <p style="font-size: 16px; font-weight: 700; color: #14532d; margin-bottom: 4px;">
             ${preferredSlot}
           </p>
           <p style="font-size: 14px; color: #15803d;">
             Timezone: ${timezone}
+          </p>
+        </div>
+
+        <!-- Window disclaimer -->
+        <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 16px; margin-bottom: 24px;">
+          <p style="font-size: 14px; font-weight: 600; color: #92400e; margin: 0;">
+            📞 Our representative will get over a call to confirm your slot in the window you selected.
           </p>
         </div>
 

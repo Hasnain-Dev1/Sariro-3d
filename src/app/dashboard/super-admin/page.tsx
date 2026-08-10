@@ -31,6 +31,8 @@ import {
 import { getCourseSyllabus } from '@/lib/dashboard/student-data';
 import { getTrackName } from '@/lib/dashboard/upsell-engine';
 import { TeacherManagementModal } from '@/components/dashboard/teacher-management';
+import ScheduleBatchModal from '@/components/dashboard/schedule-batch';
+import ManageBatchesModal from '@/components/dashboard/manage-batches';
 import { TeacherCourseAssignmentModal } from '@/app/dashboard/admin/teacher-course-assignments';
 import { UserManagementModal } from '@/components/dashboard/user-management-modal';
 import { LeadPipeline } from '@/app/dashboard/super-admin/lead-pipeline';
@@ -624,6 +626,8 @@ function SuperAdminDashboardInner() {
   const [showTeacherModal, setShowTeacherModal] = useState(false);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
   const [showUserManagement, setShowUserManagement] = useState(false);
+  const [showScheduleBatch, setShowScheduleBatch] = useState(false);
+  const [showManageBatches, setShowManageBatches] = useState(false);
 
   const loadAll = useCallback(async () => {
     const [s, intents, c, logs, actions] = await Promise.all([
@@ -753,6 +757,18 @@ function SuperAdminDashboardInner() {
                 className="btn-tactile btn-tactile-light px-4 py-2.5 text-sm flex items-center gap-2"
               >
                 <BookOpen className="w-4 h-4" /> Course Eligibility
+              </button>
+              <button
+                onClick={() => setShowScheduleBatch(true)}
+                className="btn-tactile btn-tactile-light px-4 py-2.5 text-sm flex items-center gap-2"
+              >
+                <Clock className="w-4 h-4" /> Schedule Batch
+              </button>
+              <button
+                onClick={() => setShowManageBatches(true)}
+                className="btn-tactile btn-tactile-light px-4 py-2.5 text-sm flex items-center gap-2"
+              >
+                <Users className="w-4 h-4" /> Manage Batches
               </button>
               <button onClick={() => setShowCreateModal(true)}
                 className="btn-tactile btn-tactile-primary px-5 py-2.5 text-sm flex items-center gap-2">
@@ -950,6 +966,18 @@ function SuperAdminDashboardInner() {
         open={showUserManagement}
         onClose={() => setShowUserManagement(false)}
         onToast={(type, message) => setToast({ type, message })}
+      />
+
+      <ScheduleBatchModal
+        open={showScheduleBatch}
+        onClose={() => setShowScheduleBatch(false)}
+        onCreated={() => { setToast({ type: 'success', message: 'Batch scheduled — classes generated.' }); loadAll(); }}
+      />
+
+      <ManageBatchesModal
+        open={showManageBatches}
+        onClose={() => setShowManageBatches(false)}
+        onToast={(msg, kind) => setToast({ type: kind || 'success', message: msg })}
       />
 
       {/* Lead Pipeline — centralized student/lead management */}
