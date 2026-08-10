@@ -10,6 +10,7 @@ import {
   Award, Coins, GraduationCap, ArrowRight,
 } from 'lucide-react';
 import { TRACKS } from '@/lib/sariro-data';
+import SalesEarningsReport from '@/components/dashboard/sales-earnings-report';
 
 export default function HRDashboard() {
   const { user, loading } = useAuth();
@@ -22,6 +23,7 @@ export default function HRDashboard() {
   const [loadingData, setLoadingData] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'incentives' | 'payments' | 'credits' | 'tiers'>('overview');
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [showSales, setShowSales] = useState(false);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ type, message });
@@ -99,13 +101,22 @@ export default function HRDashboard() {
       <section className="relative pt-6 sm:pt-10 pb-16 px-4 sm:px-6 lg:px-10">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
-          <div className="mb-6">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-1" style={{ fontFamily: 'var(--font-jakarta)' }}>
-              HR Dashboard
-            </h1>
-            <p className="text-sm text-slate-500">
-              Teacher earnings, incentives, settlements, credits, and tiers.
-            </p>
+          <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-1" style={{ fontFamily: 'var(--font-jakarta)' }}>
+                HR Dashboard
+              </h1>
+              <p className="text-sm text-slate-500">
+                Teacher earnings, incentives, settlements, credits, and tiers.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowSales(true)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-bold min-h-[44px]"
+              style={{ fontFamily: 'var(--font-grotesk)' }}
+            >
+              <TrendingUp className="w-4 h-4" /> Earnings &amp; Sales
+            </button>
           </div>
 
           {/* Summary cards */}
@@ -429,6 +440,12 @@ export default function HRDashboard() {
             <span className="text-sm font-bold">{toast.message}</span>
           </div>
         )}
+
+        <SalesEarningsReport
+          open={showSales}
+          onClose={() => setShowSales(false)}
+          onToast={(msg, kind) => setToast({ type: kind || 'success', message: msg })}
+        />
       </section>
     </DashboardLayout>
   );

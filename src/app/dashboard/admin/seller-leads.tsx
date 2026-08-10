@@ -31,6 +31,7 @@ export function SellerLeads({ onToast }: { onToast: (msg: string, kind?: 'succes
   const [stageFilter, setStageFilter] = useState<LeadStage | 'all'>('all');
   const [search, setSearch] = useState('');
   const [historyLead, setHistoryLead] = useState<StudentLead | null>(null);
+  const [enrollLead, setEnrollLead] = useState<StudentLead | null>(null);
 
   const loadAll = useCallback(async () => {
     const leadsData = await fetchLeads({
@@ -170,6 +171,7 @@ export function SellerLeads({ onToast }: { onToast: (msg: string, kind?: 'succes
                   onToast={onToast}
                   onChanged={loadAll}
                   onShowHistory={() => setHistoryLead(lead)}
+                  onEnroll={() => setEnrollLead(lead)}
                 />
               ))}
             </tbody>
@@ -180,6 +182,16 @@ export function SellerLeads({ onToast }: { onToast: (msg: string, kind?: 'succes
       {/* History modal */}
       {historyLead && (
         <SellerHistoryModal lead={historyLead} onClose={() => setHistoryLead(null)} />
+      )}
+
+      {/* Enroll → capture sale value */}
+      {enrollLead && (
+        <EnrollSaleModal
+          lead={enrollLead}
+          onToast={onToast}
+          onClose={() => setEnrollLead(null)}
+          onDone={() => { setEnrollLead(null); loadAll(); }}
+        />
       )}
     </div>
   );
@@ -194,16 +206,20 @@ function SellerLeadRow({
   onToast,
   onChanged,
   onShowHistory,
+  onEnroll,
 }: {
   lead: StudentLead;
   onToast: (msg: string, kind?: 'success' | 'error') => void;
   onChanged: () => void;
   onShowHistory: () => void;
+  onEnroll: () => void;
 }) {
   const [updating, setUpdating] = useState(false);
   const colors = STAGE_COLORS[lead.stage];
 
   const handleStageChange = async (newStage: LeadStage) => {
+    // Enrolling captures the sale value first (parent-managed modal).
+    if (newStage === 'enrolled') { onEnroll(); return; }
     setUpdating(true);
     const result = await updateLeadStage(lead.id, newStage);
     setUpdating(false);
@@ -362,6 +378,66 @@ function SellerHistoryModal({ lead, onClose }: { lead: StudentLead; onClose: () 
           )}
         </div>
       </motion.div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   Enroll → capture sale value + amount paid (seller)
+   ════════════════════════════════════════════════════════════════════════ */
+
+function EnrollSaleModal({
+  lead, onToast, onClose, onDone,
+}: {
+  lead: StudentLead;
+  onToast: (msg: string, kind?: 'success' | 'error') => void;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [sale, setSale] = useState(lead.sale_value != null ? String(lead.sale_value) : '');
+  const [paid, setPaid] = useState(lead.amount_paid != null ? String(lead.amount_paid) : '');
+  const [busy, setBusy] = useState(false);
+  const due = (Number(sale) || 0) - (Number(paid) || 0);
+  const valid = sale !== '' && Number(sale) >= 0 && Number(paid) >= 0;
+
+  const confirm = async () => {
+    setBusy(true);
+    try {
+      const fRes = await fetch('/api/leads/financials', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId: lead.id, saleValue: Number(sale) || 0, amountPaid: Number(paid) || 0 }),
+      });
+      const fJson = await fRes.json();
+      if (!fJson.ok) { onToast(fJson.error || 'Could not save sale value', 'error'); setBusy(false); return; }
+      const result = await updateLeadStage(lead.id, 'enrolled');
+      if (result.success) { onToast('Enrolled — sale recorded', 'success'); onDone(); }
+      else { onToast(result.error || 'Sale saved, but stage update failed', 'error'); setBusy(false); }
+    } catch { onToast('Network error', 'error'); setBusy(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50" role="dialog" aria-modal="true">
+      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+        <div className="flex items-start justify-between mb-4">
+          <h3 className="text-lg font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>Record the sale</h3>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400" aria-label="Close"><X className="w-4 h-4" /></button>
+        </div>
+        <p className="text-sm text-slate-600 mb-4">Enrolling <strong>{lead.student_name}</strong>. Enter the agreed sale value and what the parent has paid so far.</p>
+        <label className="block text-xs font-bold text-slate-700 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>Total sale value (₹)</label>
+        <input type="number" min={0} value={sale} onChange={(e) => setSale(e.target.value)} disabled={busy} placeholder="0" className="w-full min-h-[44px] px-3 rounded-lg border border-slate-200 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-green-500/40" />
+        <label className="block text-xs font-bold text-slate-700 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>Amount paid by parent (₹)</label>
+        <input type="number" min={0} value={paid} onChange={(e) => setPaid(e.target.value)} disabled={busy} placeholder="0" className="w-full min-h-[44px] px-3 rounded-lg border border-slate-200 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-green-500/40" />
+        <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 mb-5 flex items-center justify-between">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider" style={{ fontFamily: 'var(--font-grotesk)' }}>Due</span>
+          <span className={`text-lg font-extrabold ${due > 0 ? 'text-red-600' : 'text-green-700'}`} style={{ fontFamily: 'var(--font-jakarta)' }}>₹{due.toFixed(0)}</span>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={onClose} disabled={busy} className="flex-1 min-h-[44px] rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold disabled:opacity-50">Cancel</button>
+          <button onClick={confirm} disabled={busy || !valid} className="flex-1 min-h-[44px] rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-bold flex items-center justify-center gap-2 disabled:bg-slate-300">
+            {busy ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</> : 'Confirm enrollment'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

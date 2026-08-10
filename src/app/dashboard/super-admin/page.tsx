@@ -33,6 +33,7 @@ import { getTrackName } from '@/lib/dashboard/upsell-engine';
 import { TeacherManagementModal } from '@/components/dashboard/teacher-management';
 import ScheduleBatchModal from '@/components/dashboard/schedule-batch';
 import ManageBatchesModal from '@/components/dashboard/manage-batches';
+import SalesEarningsReport from '@/components/dashboard/sales-earnings-report';
 import { TeacherCourseAssignmentModal } from '@/app/dashboard/admin/teacher-course-assignments';
 import { UserManagementModal } from '@/components/dashboard/user-management-modal';
 import { LeadPipeline } from '@/app/dashboard/super-admin/lead-pipeline';
@@ -628,6 +629,7 @@ function SuperAdminDashboardInner() {
   const [showUserManagement, setShowUserManagement] = useState(false);
   const [showScheduleBatch, setShowScheduleBatch] = useState(false);
   const [showManageBatches, setShowManageBatches] = useState(false);
+  const [showEarningsReport, setShowEarningsReport] = useState(false);
 
   const loadAll = useCallback(async () => {
     const [s, intents, c, logs, actions] = await Promise.all([
@@ -769,6 +771,12 @@ function SuperAdminDashboardInner() {
                 className="btn-tactile btn-tactile-light px-4 py-2.5 text-sm flex items-center gap-2"
               >
                 <Users className="w-4 h-4" /> Manage Batches
+              </button>
+              <button
+                onClick={() => setShowEarningsReport(true)}
+                className="btn-tactile btn-tactile-light px-4 py-2.5 text-sm flex items-center gap-2"
+              >
+                <ScrollText className="w-4 h-4" /> Earnings &amp; Sales
               </button>
               <button onClick={() => setShowCreateModal(true)}
                 className="btn-tactile btn-tactile-primary px-5 py-2.5 text-sm flex items-center gap-2">
@@ -977,6 +985,12 @@ function SuperAdminDashboardInner() {
       <ManageBatchesModal
         open={showManageBatches}
         onClose={() => setShowManageBatches(false)}
+        onToast={(msg, kind) => setToast({ type: kind || 'success', message: msg })}
+      />
+
+      <SalesEarningsReport
+        open={showEarningsReport}
+        onClose={() => setShowEarningsReport(false)}
         onToast={(msg, kind) => setToast({ type: kind || 'success', message: msg })}
       />
 

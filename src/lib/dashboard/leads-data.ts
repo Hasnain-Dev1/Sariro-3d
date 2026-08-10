@@ -46,6 +46,8 @@ export interface StudentLead {
   notes: string | null;
   last_updated: string;
   created_at: string;
+  sale_value?: number | null;
+  amount_paid?: number | null;
   // Joined fields
   seller_name?: string | null;
   seller_email?: string | null;
@@ -294,16 +296,16 @@ export async function fetchLeadHistory(leadId: string): Promise<LeadHistoryRow[]
 }
 
 /**
- * Fetch all sellers (admins) for the assignment dropdown.
+ * Fetch everyone who can own/progress a lead for the assignment dropdown:
+ * sellers (role='seller') plus admins + super_admins (who also handle leads).
  */
 export async function fetchSellers(): Promise<Array<{ id: string; full_name: string | null; email: string | null }>> {
   try {
     const supabase = createClient();
-    // Fetch ALL admins + super_admins (both can be sellers)
     const { data, error } = await supabase
       .from('profiles')
       .select('id, full_name, email')
-      .or('role.eq.admin,role.eq.super_admin,is_admin.eq.true,is_super_admin.eq.true')
+      .or('role.eq.seller,role.eq.admin,role.eq.super_admin,is_admin.eq.true,is_super_admin.eq.true')
       .order('full_name', { ascending: true });
 
     if (error) throw error;
