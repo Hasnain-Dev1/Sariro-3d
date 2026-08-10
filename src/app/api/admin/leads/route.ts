@@ -47,10 +47,13 @@ export async function POST(req: NextRequest) {
   try {
     if (body.action === 'assign_seller') {
       if (!body.seller_id) return NextResponse.json({ ok: false, error: 'missing_seller_id' }, { status: 400 });
-      const { data: sellerProfile } = await admin.from('profiles').select('id, role, is_admin').eq('id', body.seller_id).maybeSingle();
+      const { data: sellerProfile } = await admin.from('profiles').select('id, role, is_seller, is_admin, is_super_admin').eq('id', body.seller_id).maybeSingle();
       if (!sellerProfile) return NextResponse.json({ ok: false, error: 'seller_not_found' }, { status: 404 });
-      const sellerRole = sellerProfile.role ?? (sellerProfile.is_admin ? 'admin' : 'student');
-      if (sellerRole !== 'admin' && sellerRole !== 'super_admin') return NextResponse.json({ ok: false, error: 'not_a_seller' }, { status: 400 });
+      // Sellers, admins, and super-admins can all own leads — accept role OR flag.
+      const canOwnLeads =
+        sellerProfile.role === 'seller' || sellerProfile.role === 'admin' || sellerProfile.role === 'super_admin' ||
+        sellerProfile.is_seller === true || sellerProfile.is_admin === true || sellerProfile.is_super_admin === true;
+      if (!canOwnLeads) return NextResponse.json({ ok: false, error: 'not_a_seller' }, { status: 400 });
 
       const oldSeller = lead.assigned_seller;
       const isReassignment = oldSeller !== null;
