@@ -9,12 +9,24 @@
  * No external deps: uses Intl to read the tz offset for a given instant.
  */
 
+export interface PerDayTime {
+  time: string;             // 'HH:MM' or 'HH:MM:SS' — start time for this weekday
+  durationMin?: number;     // optional override; falls back to rule.durationMin
+}
+
 export interface ScheduleRule {
   startDate: string;        // 'YYYY-MM-DD'
   daysOfWeek: number[];     // 0=Sun .. 6=Sat (1 entry for 1/wk, 2 for 2/wk)
-  timeLocal: string;        // 'HH:MM' or 'HH:MM:SS'
-  durationMin: number;      // class length
+  timeLocal: string;        // 'HH:MM' or 'HH:MM:SS' — default/fallback time
+  durationMin: number;      // default class length
   timezone: string;         // IANA tz, e.g. 'Asia/Kolkata'
+  /**
+   * Optional per-weekday times. Keyed by day-of-week (0=Sun..6=Sat). When a
+   * selected day has an entry here, its `time`/`durationMin` win; otherwise the
+   * day uses `timeLocal`/`durationMin`. Lets a batch meet at, say, 5pm Mon but
+   * 7pm Thu.
+   */
+  perDay?: Record<number, PerDayTime>;
 }
 
 export interface GeneratedSlot {
@@ -70,7 +82,6 @@ export function generateOccurrences(
   count: number,
   after: Date = new Date()
 ): GeneratedSlot[] {
-  const { hour, minute } = parseHM(rule.timeLocal);
   const days = new Set(rule.daysOfWeek);
   const slots: GeneratedSlot[] = [];
 
@@ -88,11 +99,16 @@ export function generateOccurrences(
     const wd = weekdayInZone(d, rule.timezone);
     if (!days.has(wd)) continue;
 
+    // Per-day time/duration wins for this weekday; else fall back to defaults.
+    const dayCfg = rule.perDay?.[wd];
+    const { hour, minute } = parseHM(dayCfg?.time ?? rule.timeLocal);
+    const durationMin = dayCfg?.durationMin && dayCfg.durationMin > 0 ? dayCfg.durationMin : rule.durationMin;
+
     const ymd = ymdInZone(d, rule.timezone);
     const slotStart = zonedWallTimeToUTC(ymd.year, ymd.month, ymd.day, hour, minute, rule.timezone);
     if (slotStart.getTime() < after.getTime()) continue; // already passed today
 
-    const slotEnd = new Date(slotStart.getTime() + rule.durationMin * 60_000);
+    const slotEnd = new Date(slotStart.getTime() + durationMin * 60_000);
     slots.push({ slotStart: slotStart.toISOString(), slotEnd: slotEnd.toISOString() });
   }
   return slots;

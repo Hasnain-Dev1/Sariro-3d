@@ -53,6 +53,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'not_startable', message: `Class is ${booking.status}.` }, { status: 409 });
   }
 
+  // Teachers may only join from 5 minutes before start (never earlier).
+  const EARLY_JOIN_MIN = 5;
+  const startsMs = new Date(booking.slot_start).getTime();
+  const opensMs = startsMs - EARLY_JOIN_MIN * 60_000;
+  if (Date.now() < opensMs) {
+    const mins = Math.ceil((opensMs - Date.now()) / 60_000);
+    return NextResponse.json({
+      ok: false, error: 'too_early',
+      message: `You can join this class 5 minutes before it starts — please try again in about ${mins} minute${mins === 1 ? '' : 's'}.`,
+      opens_at: new Date(opensMs).toISOString(),
+    }, { status: 409 });
+  }
+
   const now = new Date();
   // Idempotent: keep the earliest recorded start.
   const startedAt = booking.teacher_started_at ? new Date(booking.teacher_started_at) : now;

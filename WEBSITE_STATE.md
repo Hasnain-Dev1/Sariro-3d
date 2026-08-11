@@ -440,3 +440,33 @@ Every lesson in every course advances ONE concrete capstone project step. After 
 
 - ✅ `python-elem` → **SariroQuest: A Text Adventure** — 48 steps building a complete text adventure game
 - ⏳ Other 29 courses — capstones to be defined in future sessions
+
+---
+
+## v3.0 Lesson Pages + Per-Day Scheduling + Role Guardrails — Added Aug 11, 2026
+
+### 🗄️ Migrations to run in Supabase (idempotent)
+- `scripts/schedule-per-day-times.sql` → `cohort_schedule_days` (per-weekday start time / duration override for a schedule).
+- `scripts/lesson-pages.sql` → `lesson_pages` (per-course lesson content templates; RLS admin-only direct read).
+
+### ⏰ Per-day schedule times
+- Each selected weekday of a batch can now have its OWN time (e.g. Mon 5pm, Thu 7pm). Old single-time schedules keep working.
+- `schedule-generation.ts` `generateOccurrences()` takes an optional `perDay` map; `/api/admin/schedule` accepts `days:[{day,time,durationMin?}]`; `schedule-batch.tsx` shows a time input per day + previews each day's next class in the teacher's AND every kid's timezone.
+
+### 📚 Lesson content pages (per-course templates)
+- ONE `lesson_pages` row per lesson of a course, seeded as empty `<h1>{name}</h1>`. Seeded for `python-elem` (48). Bulk-create via admin **Lesson Pages** page → "Generate empty pages" (`POST /api/admin/lessons/seed`, idempotent).
+- **Access control (server-enforced in `/api/lessons/list` + `/api/lessons/content`):**
+  - Student → CURRENT + COMPLETED lessons only. No upcoming, no unassigned pages, no other courses.
+  - Teacher → ELIGIBLE courses only, up to CURRENT + NEXT (past-taught + current + next).
+  - Admin → everything (edits pages directly via RLS).
+- New routes: `/dashboard/student/lessons`, `/dashboard/teacher/lessons`, `/dashboard/admin/lessons`. Shared `lessons-viewer.tsx`; logic in `lessons-data.ts` (pure) + `lessons-server.ts` (DB).
+
+### 🔐 Role management
+- Super-admin sets Admin / HR (already via `/api/admin/update-role`). NEW guardrail: only super_admin may grant hr/admin/super_admin (`forbidden_staff_grant`). UI options gated: super-admin modal gets `canManageStaff`; admin modal hides elevated roles unless the user already holds them.
+- Admin sets teacher course eligibility via existing `TeacherCourseAssignmentModal` (`teacher_course_assignments`).
+
+### 🌍 Cross-timezone display
+- `tz-format.ts` + `tz-badge.tsx`: sun/moon + `GMT±offset` badge on student ScheduleCard and teacher calendar rows, so each viewer sees the session in THEIR zone with explicit day/night (day-rollover safe). Requires `profiles.timezone` populated.
+
+### ✅ Quality gate
+- `tsc --noEmit` = 0 errors project-wide. NOT yet run against a live Supabase (migrations + seed untested end-to-end).

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClientHelper, createServiceClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
-import { generateOccurrences, requiredDayCount } from '@/lib/dashboard/schedule-generation';
+import { generateOccurrences } from '@/lib/dashboard/schedule-generation';
 
 /**
  * SARIRO — POST /api/admin/schedule
@@ -22,6 +22,12 @@ export const runtime = 'nodejs';
 
 const HORIZON_DEFAULT = 8; // generate ~8 upcoming classes; topped up later.
 
+interface DayTime {
+  day: number;          // 0=Sun..6=Sat
+  time: string;         // 'HH:MM'
+  durationMin?: number; // optional per-day override
+}
+
 interface Body {
   cohortId?: string;
   teacherId?: string;
@@ -32,7 +38,11 @@ interface Body {
   timezone?: string;
   classesPerWeek?: number;
   count?: number;
+  /** New: per-weekday times. When present, wins over daysOfWeek/timeLocal. */
+  days?: DayTime[];
 }
+
+const HM_RE = /^\d{1,2}:\d{2}(:\d{2})?$/;
 
 async function requireAdmin(): Promise<{ userId: string } | null> {
   let supa;
@@ -83,24 +93,65 @@ export async function POST(req: NextRequest) {
 
   // ── Validate ──
   const errors: string[] = [];
-  const classesPerWeek = body.classesPerWeek === 2 ? 2 : 1;
-  const daysOfWeek = Array.isArray(body.daysOfWeek) ? body.daysOfWeek.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6) : [];
   const durationMin = Number(body.durationMin) > 0 ? Number(body.durationMin) : 60;
   const count = Number.isInteger(body.count) && body.count! > 0 && body.count! <= 52 ? body.count! : HORIZON_DEFAULT;
+
+  // Normalize into a canonical list of {day, time, durationMin}. Prefer the new
+  // per-day `days` array; fall back to legacy daysOfWeek + single timeLocal.
+  let dayTimes: DayTime[] = [];
+  if (Array.isArray(body.days) && body.days.length > 0) {
+    const seen = new Set<number>();
+    for (const d of body.days) {
+      const day = Number(d?.day);
+      const time = String(d?.time ?? '');
+      if (!Number.isInteger(day) || day < 0 || day > 6) { errors.push(`invalid day: ${d?.day}`); continue; }
+      if (!HM_RE.test(time)) { errors.push(`invalid time for day ${day}`); continue; }
+      if (seen.has(day)) { errors.push(`duplicate day: ${day}`); continue; }
+      seen.add(day);
+      const perDur = Number(d?.durationMin);
+      dayTimes.push({ day, time, durationMin: perDur > 0 ? perDur : undefined });
+    }
+  } else {
+    const legacyDays = Array.isArray(body.daysOfWeek) ? body.daysOfWeek.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6) : [];
+    if (!body.timeLocal || !HM_RE.test(body.timeLocal)) errors.push('timeLocal must be HH:MM');
+    dayTimes = legacyDays.map((day) => ({ day, time: body.timeLocal! }));
+  }
+
+  // Cadence is derived from the number of distinct days (1 or 2 classes/week).
+  const classesPerWeek = dayTimes.length === 2 ? 2 : 1;
+  dayTimes.sort((a, b) => a.day - b.day);
+  const daysOfWeek = dayTimes.map((d) => d.day);
+  const timeLocalFallback = dayTimes[0]?.time ?? body.timeLocal ?? '';
 
   if (!body.cohortId) errors.push('cohortId is required');
   if (!body.teacherId) errors.push('teacherId is required');
   if (!body.startDate || !/^\d{4}-\d{2}-\d{2}$/.test(body.startDate)) errors.push('startDate must be YYYY-MM-DD');
-  if (!body.timeLocal || !/^\d{1,2}:\d{2}(:\d{2})?$/.test(body.timeLocal)) errors.push('timeLocal must be HH:MM');
   if (!body.timezone) errors.push('timezone is required');
-  if (daysOfWeek.length !== requiredDayCount(classesPerWeek)) {
-    errors.push(`${classesPerWeek === 2 ? 'Two weekdays' : 'One weekday'} required for ${classesPerWeek} class(es)/week`);
+  if (dayTimes.length < 1 || dayTimes.length > 2) {
+    errors.push('Pick one or two weekdays (with a time each).');
   }
   if (errors.length) {
     return NextResponse.json({ ok: false, error: 'validation_failed', errors }, { status: 400 });
   }
 
+  // Build the per-day map the generator understands.
+  const perDay: Record<number, { time: string; durationMin?: number }> = {};
+  for (const d of dayTimes) perDay[d.day] = { time: d.time, durationMin: d.durationMin };
+
   const admin = createServiceClient();
+
+  // ── 0. Training gate — teacher must have super-admin-marked training
+  //       completion for this cohort's course before they can be scheduled. ──
+  const { data: cohortRow } = await admin.from('cohorts').select('track, level').eq('id', body.cohortId!).maybeSingle();
+  if (cohortRow) {
+    const { data: trained } = await admin.from('teacher_course_assignments')
+      .select('id').eq('teacher_id', body.teacherId!)
+      .ilike('track', cohortRow.track).ilike('level', cohortRow.level)
+      .not('training_completed_at', 'is', null).maybeSingle();
+    if (!trained) {
+      return NextResponse.json({ ok: false, error: 'teacher_not_trained', message: "This teacher's course training isn't marked complete yet." }, { status: 409 });
+    }
+  }
 
   // ── 1. Create the schedule rule ──
   const { data: schedule, error: sErr } = await admin
@@ -110,7 +161,7 @@ export async function POST(req: NextRequest) {
       teacher_id: body.teacherId,
       start_date: body.startDate,
       days_of_week: daysOfWeek,
-      time_local: body.timeLocal,
+      time_local: timeLocalFallback,
       duration_min: durationMin,
       timezone: body.timezone,
       classes_per_week: classesPerWeek,
@@ -123,14 +174,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'schedule_create_failed', message: sErr?.message }, { status: 500 });
   }
 
-  // ── 2. Generate the first horizon of bookings ──
+  // ── 1b. Persist per-day time rows (best-effort; generation still works
+  //         from the default time_local if this table is absent). ──
+  const dayRows = dayTimes.map((d) => ({
+    schedule_id: schedule.id,
+    day_of_week: d.day,
+    time_local: d.time,
+    duration_min: d.durationMin ?? null,
+  }));
+  const { error: dErr } = await admin.from('cohort_schedule_days').insert(dayRows);
+  if (dErr) {
+    // Non-fatal: the schedule + default time still generate correct slots.
+    console.warn('[admin/schedule] cohort_schedule_days insert failed:', dErr.message);
+  }
+
+  // ── 2. Generate the first horizon of bookings (per-day times honored) ──
   const slots = generateOccurrences(
     {
       startDate: body.startDate!,
       daysOfWeek,
-      timeLocal: body.timeLocal!,
+      timeLocal: timeLocalFallback,
       durationMin,
       timezone: body.timezone!,
+      perDay,
     },
     count
   );

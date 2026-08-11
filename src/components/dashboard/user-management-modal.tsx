@@ -21,11 +21,14 @@ import {
    ════════════════════════════════════════════════════════════════════════ */
 
 export function UserManagementModal({
-  open, onClose, onToast,
+  open, onClose, onToast, canManageStaff = false,
 }: {
   open: boolean;
   onClose: () => void;
   onToast: (type: 'success' | 'error', message: string) => void;
+  /** Only super-admins may grant HR / Admin / Super Admin. Hides those options
+   *  when false (the server enforces this regardless). */
+  canManageStaff?: boolean;
 }) {
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -253,9 +256,12 @@ export function UserManagementModal({
                         <option value="student">Student</option>
                         <option value="teacher">Teacher</option>
                         <option value="seller">Seller</option>
-                        <option value="hr">HR</option>
-                        <option value="admin">Admin</option>
-                        <option value="super_admin">Super Admin</option>
+                        {/* Elevated roles: super-admin only. If the user already
+                            holds one, keep it visible so the dropdown reflects
+                            their current role. */}
+                        {(canManageStaff || u.role === 'hr') && <option value="hr">HR</option>}
+                        {(canManageStaff || u.role === 'admin') && <option value="admin">Admin</option>}
+                        {(canManageStaff || u.role === 'super_admin') && <option value="super_admin">Super Admin</option>}
                       </select>
                       {/* Sign in as user (impersonation) */}
                       <button

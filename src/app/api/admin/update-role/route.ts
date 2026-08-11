@@ -46,6 +46,13 @@ export async function POST(req: NextRequest) {
   const role = profile?.role ?? (profile?.is_super_admin ? 'super_admin' : profile?.is_admin ? 'admin' : 'student');
   if (!['admin', 'super_admin'].includes(role)) return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
 
+  // Escalation guardrail: only a super-admin may grant staff/elevated roles
+  // (hr, admin, super_admin). Plain admins can only assign student/teacher/seller.
+  const STAFF_ROLES = ['hr', 'admin', 'super_admin'];
+  if (STAFF_ROLES.includes(body.newRole) && role !== 'super_admin') {
+    return NextResponse.json({ ok: false, error: 'forbidden_staff_grant', message: 'Only a super-admin can set HR, Admin, or Super Admin roles.' }, { status: 403 });
+  }
+
   let admin;
   try { admin = createServiceClient(); } catch { return NextResponse.json({ ok: false, error: 'service_role_unavailable' }, { status: 503 }); }
 

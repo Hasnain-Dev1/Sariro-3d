@@ -958,8 +958,11 @@ function UserManagementModal({
                       >
                         <option value="student">Student</option>
                         <option value="teacher">Teacher</option>
-                        <option value="admin">Admin</option>
-                        <option value="super_admin">Super Admin</option>
+                        {/* HR / Admin / Super Admin can only be granted by a
+                            super-admin (server-enforced). Shown read-only if the
+                            user already holds one. */}
+                        {u.role === 'admin' && <option value="admin">Admin</option>}
+                        {u.role === 'super_admin' && <option value="super_admin">Super Admin</option>}
                       </select>
                       {/* Sign in as user (impersonation) — admin/super-admin only */}
                       <button

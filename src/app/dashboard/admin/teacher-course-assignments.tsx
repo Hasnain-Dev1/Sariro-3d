@@ -6,7 +6,7 @@ import {
   Loader2, X, Plus, Trash2, GraduationCap, CheckCircle2, BookOpen,
 } from 'lucide-react';
 import {
-  fetchTeachersWithAssignments, assignTeacherCourse, removeTeacherCourse,
+  fetchTeachersWithAssignments, assignTeacherCourse, removeTeacherCourse, setTeacherTraining,
   ALL_LEVELS, getTrackName,
   type TeacherWithAssignments,
 } from '@/lib/dashboard/teacher-assignments-data';
@@ -16,10 +16,13 @@ export function TeacherCourseAssignmentModal({
   open,
   onClose,
   onToast,
+  canManageTraining = false,
 }: {
   open: boolean;
   onClose: () => void;
   onToast: (msg: string, kind?: 'success' | 'error') => void;
+  /** Super-admins can mark a teacher's course training complete (scheduler gate). */
+  canManageTraining?: boolean;
 }) {
   const [teachers, setTeachers] = useState<TeacherWithAssignments[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,6 +86,7 @@ export function TeacherCourseAssignmentModal({
                   teacher={teacher}
                   onToast={onToast}
                   onChanged={loadTeachers}
+                  canManageTraining={canManageTraining}
                 />
               ))}
             </div>
@@ -97,10 +101,12 @@ function TeacherAssignmentRow({
   teacher,
   onToast,
   onChanged,
+  canManageTraining,
 }: {
   teacher: TeacherWithAssignments;
   onToast: (msg: string, kind?: 'success' | 'error') => void;
   onChanged: () => void;
+  canManageTraining: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [newTrack, setNewTrack] = useState<string>(TRACKS[0]?.id ?? '');
@@ -132,6 +138,18 @@ function TeacherAssignmentRow({
     }
   };
 
+  const handleTraining = async (track: string, level: string, complete: boolean) => {
+    setBusy(true);
+    const result = await setTeacherTraining(teacher.id, track, level, complete);
+    setBusy(false);
+    if (result.success) {
+      onToast(complete ? 'Training marked complete' : 'Training reset', 'success');
+      onChanged();
+    } else {
+      onToast(result.error || 'Failed to update training', 'error');
+    }
+  };
+
   return (
     <div className={`rounded-xl border-2 transition-all ${expanded ? 'border-blue-300 shadow-sm' : 'border-slate-200'}`}>
       <button
@@ -160,20 +178,38 @@ function TeacherAssignmentRow({
               </p>
               {teacher.assignments.map((a, i) => (
                 <div key={i} className="flex items-center justify-between gap-2 bg-slate-50 rounded-lg p-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
                     <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
-                    <span className="text-xs font-bold text-slate-700" style={{ fontFamily: 'var(--font-jakarta)' }}>
+                    <span className="text-xs font-bold text-slate-700 truncate" style={{ fontFamily: 'var(--font-jakarta)' }}>
                       {getTrackName(a.track)} · {a.level}
                     </span>
+                    {a.training_completed_at ? (
+                      <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-green-100 text-green-700" title="Training complete — can be scheduled">Trained</span>
+                    ) : (
+                      <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700" title="Training not complete — cannot be scheduled">Untrained</span>
+                    )}
                   </div>
-                  <button
-                    onClick={() => handleRemove(a.track, a.level)}
-                    disabled={busy}
-                    className="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 flex items-center justify-center min-h-[32px] min-w-[32px] touch-manipulation disabled:opacity-50"
-                    title="Remove eligibility"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {canManageTraining && (
+                      <button
+                        onClick={() => handleTraining(a.track, a.level, !a.training_completed_at)}
+                        disabled={busy}
+                        className={`h-8 px-2 rounded-lg text-[10px] font-bold flex items-center gap-1 touch-manipulation disabled:opacity-50 ${a.training_completed_at ? 'bg-slate-100 hover:bg-slate-200 text-slate-600' : 'bg-green-600 hover:bg-green-700 text-white'}`}
+                        title={a.training_completed_at ? 'Revoke training' : 'Mark training complete'}
+                      >
+                        <GraduationCap className="w-3.5 h-3.5" />
+                        {a.training_completed_at ? 'Reset' : 'Mark trained'}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleRemove(a.track, a.level)}
+                      disabled={busy}
+                      className="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 flex items-center justify-center min-h-[32px] min-w-[32px] touch-manipulation disabled:opacity-50"
+                      title="Remove eligibility"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

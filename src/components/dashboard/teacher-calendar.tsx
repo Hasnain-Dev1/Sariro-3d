@@ -39,10 +39,13 @@ import { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, ChevronRight, Calendar as CalendarIcon,
-  Video, Clock, X,
+  Video, Clock, X, HelpCircle,
 } from 'lucide-react';
 import type { TeacherBookingRow } from '@/lib/dashboard/teacher-data';
 import { getTrackName } from '@/lib/dashboard/upsell-engine';
+import { TzBadge } from '@/components/dashboard/tz-badge';
+import { RescheduleModal } from '@/components/dashboard/reschedule-modal';
+import { CancelClassModal } from '@/components/dashboard/cancel-class-modal';
 
 /* ───── Helpers ───── */
 
@@ -147,11 +150,30 @@ interface TeacherCalendarProps {
   bookings: TeacherBookingRow[];
   timezone: string | null;
   onSelectBooking?: (booking: TeacherBookingRow) => void;
+  /** Called after a successful reschedule so the parent can refetch bookings. */
+  onChanged?: () => void;
 }
 
-export function TeacherCalendar({ bookings, timezone, onSelectBooking }: TeacherCalendarProps) {
+export function TeacherCalendar({ bookings, timezone, onSelectBooking, onChanged }: TeacherCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [rescheduleTarget, setRescheduleTarget] = useState<TeacherBookingRow | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<TeacherBookingRow | null>(null);
+  const [doubtBusyId, setDoubtBusyId] = useState<string | null>(null);
+  const [doubtRequested, setDoubtRequested] = useState<Set<string>>(new Set());
+
+  const requestDoubt = useCallback(async (bookingId: string) => {
+    setDoubtBusyId(bookingId);
+    try {
+      const res = await fetch('/api/doubt-session', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'request', bookingId }),
+      });
+      const j = await res.json();
+      if (j.ok) setDoubtRequested((prev) => new Set(prev).add(bookingId));
+      else alert(j.message || j.error || 'Could not request doubt session.');
+    } finally { setDoubtBusyId(null); }
+  }, []);
 
   // Group bookings by day key for O(1) lookup
   const bookingsByDay = useMemo(() => {
@@ -391,13 +413,14 @@ export function TeacherCalendar({ bookings, timezone, onSelectBooking }: Teacher
                           {colors.label.toUpperCase()}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                      <div className="flex items-center gap-2 text-[11px] text-slate-500 flex-wrap">
                         <Clock className="w-3 h-3" />
                         <span>{formatTime(b.slot_start, timezone)} → {formatTime(b.slot_end, timezone)}</span>
                         <span className="text-slate-300">·</span>
                         <span>{formatDuration(b.slot_start, b.slot_end)}</span>
                         <span className="text-slate-300">·</span>
                         <span>{levelDisplay(b.cohort_level)} {b.cohort_ratio}</span>
+                        <TzBadge iso={b.slot_start} timezone={timezone} who="your time" />
                       </div>
                     </div>
                     {meetUrl && (
@@ -411,6 +434,39 @@ export function TeacherCalendar({ bookings, timezone, onSelectBooking }: Teacher
                         <Video className="w-3 h-3" /> Join
                       </a>
                     )}
+                    {b.status === 'scheduled' && (
+                      <>
+                        <button
+                          onClick={() => setRescheduleTarget(b)}
+                          className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-bold transition-colors"
+                          style={{ fontFamily: 'var(--font-grotesk)' }}
+                        >
+                          <CalendarIcon className="w-3 h-3" /> Reschedule
+                        </button>
+                        <button
+                          onClick={() => setCancelTarget(b)}
+                          className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 text-[10px] font-bold transition-colors"
+                          style={{ fontFamily: 'var(--font-grotesk)' }}
+                        >
+                          <X className="w-3 h-3" /> Cancel
+                        </button>
+                      </>
+                    )}
+                    {b.status === 'completed' && (
+                      doubtRequested.has(b.id) ? (
+                        <span className="shrink-0 text-[10px] font-bold text-green-600" style={{ fontFamily: 'var(--font-grotesk)' }}>Doubt session requested</span>
+                      ) : (
+                        <button
+                          onClick={() => requestDoubt(b.id)}
+                          disabled={doubtBusyId === b.id}
+                          className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 text-[10px] font-bold transition-colors disabled:opacity-50"
+                          style={{ fontFamily: 'var(--font-grotesk)' }}
+                          title="For a 1:1 no-show: request an HR-approved doubt session to reclaim the withheld half-pay"
+                        >
+                          <HelpCircle className="w-3 h-3" /> Request doubt session
+                        </button>
+                      )
+                    )}
                   </div>
                 );
               })}
@@ -418,6 +474,21 @@ export function TeacherCalendar({ bookings, timezone, onSelectBooking }: Teacher
           )}
         </AnimatePresence>
       </div>
+
+      <RescheduleModal
+        open={!!rescheduleTarget}
+        onClose={() => setRescheduleTarget(null)}
+        booking={rescheduleTarget}
+        timezone={timezone}
+        onDone={() => { setRescheduleTarget(null); onChanged?.(); }}
+      />
+      <CancelClassModal
+        open={!!cancelTarget}
+        onClose={() => setCancelTarget(null)}
+        booking={cancelTarget}
+        role="teacher"
+        onDone={() => { setCancelTarget(null); onChanged?.(); }}
+      />
     </div>
   );
 }

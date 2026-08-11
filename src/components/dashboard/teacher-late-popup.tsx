@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, AlertTriangle, CalendarClock } from 'lucide-react';
+import { Loader2, AlertTriangle, CalendarClock, Video } from 'lucide-react';
 import { useAuth } from '@/components/auth/auth-provider';
 import { createClient } from '@/lib/supabase/client';
 import { useRealtime } from '@/lib/dashboard/use-realtime';
@@ -22,11 +22,18 @@ interface ImminentBooking {
   slot_start: string;
   status: string;
   teacher_started_at: string | null;
+  google_meet_url: string | null;
+  cohort_id: string | null;
 }
+
+// Grace before the "your teacher is joining…" notice appears (teachers often
+// click Start Class a minute into the call).
+const GRACE_MIN = 2;
 
 export default function TeacherLatePopup() {
   const { user } = useAuth();
   const [booking, setBooking] = useState<ImminentBooking | null>(null);
+  const [meetUrl, setMeetUrl] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [dismissed, setDismissed] = useState<string | null>(null);
   const firedRef = useRef<Set<string>>(new Set());
@@ -36,16 +43,28 @@ export default function TeacherLatePopup() {
     const sb = createClient();
     const { data: enrs } = await sb.from('enrollments').select('cohort_id').eq('user_id', user.id).eq('status', 'active');
     const cohortIds = (enrs ?? []).map((e: { cohort_id: string }) => e.cohort_id).filter(Boolean);
-    if (cohortIds.length === 0) { setBooking(null); return; }
+    if (cohortIds.length === 0) { setBooking(null); setMeetUrl(null); return; }
     // A class whose start is within [-2h, +15min] and still scheduled.
     const from = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
     const to = new Date(Date.now() + 15 * 60 * 1000).toISOString();
     const { data } = await sb.from('bookings')
-      .select('id, slot_start, status, teacher_started_at')
+      .select('id, slot_start, status, teacher_started_at, google_meet_url, cohort_id')
       .in('cohort_id', cohortIds).eq('status', 'scheduled')
       .gte('slot_start', from).lte('slot_start', to)
       .order('slot_start', { ascending: false }).limit(1);
-    setBooking((data && data[0]) ? (data[0] as ImminentBooking) : null);
+    const b = (data && data[0]) ? (data[0] as ImminentBooking) : null;
+    setBooking(b);
+    // Resolve a join link: booking's own, else the cohort's shared Meet URL.
+    if (b) {
+      let url = b.google_meet_url ?? null;
+      if (!url && b.cohort_id) {
+        const { data: c } = await sb.from('cohorts').select('google_meet_url').eq('id', b.cohort_id).maybeSingle();
+        url = (c?.google_meet_url as string | null) ?? null;
+      }
+      setMeetUrl(url);
+    } else {
+      setMeetUrl(null);
+    }
   }, [user]);
 
   useEffect(() => { Promise.resolve().then(load); }, [load]);
@@ -67,6 +86,8 @@ export default function TeacherLatePopup() {
   if (elapsedMin < 0) return null; // not started yet
 
   const isEmergency = elapsedMin >= THRESHOLD_MIN;
+  // Short grace so we don't nag the instant the class starts.
+  if (!isEmergency && elapsedMin < GRACE_MIN) return null;
 
   // Fire the server-verified no-show finalisation once when we cross 10 min.
   if (isEmergency && !firedRef.current.has(booking.id)) {
@@ -111,8 +132,23 @@ export default function TeacherLatePopup() {
               They may be facing a tech or internet issue. Our team is trying to reach them —
               please hang tight for up to <strong>10 minutes</strong>.
             </p>
-            <div className="inline-flex items-center gap-2 text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 text-sm font-bold">
+            <div className="inline-flex items-center gap-2 text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 text-sm font-bold mb-4">
               <AlertTriangle className="w-4 h-4" /> ~{remaining} min left
+            </div>
+            <div className="flex flex-col gap-2">
+              {meetUrl && (
+                <a
+                  href={meetUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="min-h-[44px] px-6 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-bold w-full flex items-center justify-center gap-2"
+                >
+                  <Video className="w-4 h-4" /> Join class now
+                </a>
+              )}
+              <button onClick={() => setDismissed(booking.id)} className="min-h-[44px] px-6 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold w-full">
+                Close
+              </button>
             </div>
           </>
         )}

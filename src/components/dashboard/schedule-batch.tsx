@@ -45,11 +45,17 @@ export default function ScheduleBatchModal({
   const [teacherId, setTeacherId] = useState('');
   const [cohortId, setCohortId] = useState('');
   const [startDate, setStartDate] = useState('');
-  const [weekdays, setWeekdays] = useState<number[]>([]);
-  const [timeLocal, setTimeLocal] = useState('17:00');
+  // Per-day times: which weekdays are selected AND the start time for each.
+  const [dayTimes, setDayTimes] = useState<Record<number, string>>({});
+  const [defaultTime, setDefaultTime] = useState('17:00'); // seeds newly-picked days
   const [durationMin, setDurationMin] = useState(60);
   const [classesPerWeek, setClassesPerWeek] = useState<1 | 2>(1);
   const [anchorTz, setAnchorTz] = useState(FALLBACK_TZ);
+
+  const weekdays = useMemo(
+    () => Object.keys(dayTimes).map(Number).sort((a, b) => a - b),
+    [dayTimes]
+  );
 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -82,42 +88,96 @@ export default function ScheduleBatchModal({
     setKids((profs ?? []) as Kid[]);
   }, []);
 
-  useEffect(() => { loadKids(cohortId); }, [cohortId, loadKids]);
+  useEffect(() => { Promise.resolve().then(() => loadKids(cohortId)); }, [cohortId, loadKids]);
+
+  // Only teachers whose course TRAINING is marked complete (by a super-admin)
+  // for the selected batch's course may be scheduled.
+  const [trainedTeacherIds, setTrainedTeacherIds] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    const cohort = cohorts.find((c) => c.id === cohortId);
+    if (!cohort) { Promise.resolve().then(() => setTrainedTeacherIds(null)); return; }
+    let cancelled = false;
+    const sb = createClient();
+    (async () => {
+      const { data } = await sb.from('teacher_course_assignments')
+        .select('teacher_id')
+        .ilike('track', cohort.track).ilike('level', cohort.level)
+        .not('training_completed_at', 'is', null);
+      if (!cancelled) setTrainedTeacherIds(new Set((data ?? []).map((r: { teacher_id: string }) => r.teacher_id)));
+    })();
+    return () => { cancelled = true; };
+  }, [cohortId, cohorts]);
+
+  const visibleTeachers = useMemo(
+    () => (trainedTeacherIds ? teachers.filter((t) => trainedTeacherIds.has(t.id)) : teachers),
+    [teachers, trainedTeacherIds]
+  );
+
+  // Clear a chosen teacher if they're no longer eligible for the new batch.
+  useEffect(() => {
+    if (teacherId && trainedTeacherIds && !trainedTeacherIds.has(teacherId)) {
+      Promise.resolve().then(() => setTeacherId(''));
+    }
+  }, [teacherId, trainedTeacherIds]);
 
   const teacher = useMemo(() => teachers.find((t) => t.id === teacherId), [teachers, teacherId]);
 
   // Default the anchor tz to the selected teacher's tz.
   useEffect(() => {
-    if (teacher?.timezone) setAnchorTz(teacher.timezone);
+    if (teacher?.timezone) { const tz = teacher.timezone; Promise.resolve().then(() => setAnchorTz(tz)); }
   }, [teacher]);
 
-  // Enforce weekday count against cadence.
+  // Enforce weekday count against cadence; each newly-picked day inherits the
+  // current default time, then can be tuned independently below.
   const toggleDay = (d: number) => {
-    setWeekdays((prev) => {
-      if (prev.includes(d)) return prev.filter((x) => x !== d);
-      if (prev.length >= classesPerWeek) {
+    setDayTimes((prev) => {
+      const next = { ...prev };
+      if (d in next) { delete next[d]; return next; }
+      const keys = Object.keys(next).map(Number);
+      if (keys.length >= classesPerWeek) {
         // replace oldest when at capacity
-        return [...prev.slice(1), d];
+        delete next[keys.sort((a, b) => a - b)[0]];
       }
-      return [...prev, d].sort((a, b) => a - b);
+      next[d] = defaultTime;
+      return next;
     });
+  };
+  const setDayTime = (d: number, time: string) => {
+    setDayTimes((prev) => ({ ...prev, [d]: time }));
   };
   const setCadence = (n: 1 | 2) => {
     setClassesPerWeek(n);
-    setWeekdays((prev) => prev.slice(0, n));
+    setDayTimes((prev) => {
+      const keys = Object.keys(prev).map(Number).sort((a, b) => a - b).slice(0, n);
+      const next: Record<number, string> = {};
+      for (const k of keys) next[k] = prev[k];
+      return next;
+    });
   };
 
-  // Live preview: next occurrence rendered in every relevant tz.
-  const preview = useMemo(() => {
-    if (!startDate || weekdays.length !== classesPerWeek || !timeLocal) return null;
-    const slots = generateOccurrences(
-      { startDate, daysOfWeek: weekdays, timeLocal, durationMin, timezone: anchorTz },
-      1
-    );
-    return slots[0]?.slotStart ?? null;
-  }, [startDate, weekdays, classesPerWeek, timeLocal, durationMin, anchorTz]);
+  // Per-day map for the generator.
+  const perDay = useMemo(() => {
+    const m: Record<number, { time: string }> = {};
+    for (const d of weekdays) m[d] = { time: dayTimes[d] };
+    return m;
+  }, [weekdays, dayTimes]);
 
-  const valid = teacherId && cohortId && startDate && timeLocal && weekdays.length === classesPerWeek;
+  // Live preview: the NEXT occurrence of each selected day, so the booker sees
+  // exactly which day+time each class lands on (per-day times reflected).
+  const previews = useMemo(() => {
+    if (!startDate || weekdays.length !== classesPerWeek) return [];
+    return weekdays
+      .map((d) => {
+        const slots = generateOccurrences(
+          { startDate, daysOfWeek: [d], timeLocal: dayTimes[d], durationMin, timezone: anchorTz, perDay },
+          1
+        );
+        return { day: d, iso: slots[0]?.slotStart ?? null };
+      })
+      .filter((p): p is { day: number; iso: string } => !!p.iso);
+  }, [startDate, weekdays, classesPerWeek, dayTimes, durationMin, anchorTz, perDay]);
+
+  const valid = !!(teacherId && cohortId && startDate && weekdays.length === classesPerWeek && weekdays.every((d) => dayTimes[d]));
 
   const submit = async () => {
     setBusy(true); setErr(null);
@@ -126,8 +186,9 @@ export default function ScheduleBatchModal({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          cohortId, teacherId, startDate, daysOfWeek: weekdays,
-          timeLocal, durationMin, timezone: anchorTz, classesPerWeek,
+          cohortId, teacherId, startDate,
+          days: weekdays.map((d) => ({ day: d, time: dayTimes[d] })),
+          durationMin, timezone: anchorTz,
         }),
       });
       const json = await res.json();
@@ -197,10 +258,24 @@ export default function ScheduleBatchModal({
           </div>
         </Field>
 
+        {/* Per-day times — each selected day can meet at a different time */}
+        {weekdays.length > 0 && (
+          <Field label="Time each day (set independently)">
+            <div className="space-y-1.5">
+              {weekdays.map((d) => (
+                <div key={d} className="flex items-center gap-2">
+                  <span className="w-12 shrink-0 text-xs font-bold text-slate-600" style={{ fontFamily: 'var(--font-grotesk)' }}>{WEEKDAYS[d]}</span>
+                  <input type="time" value={dayTimes[d]} onChange={(e) => setDayTime(d, e.target.value)} className={inputCls} />
+                </div>
+              ))}
+            </div>
+          </Field>
+        )}
+
         {/* Start date + time + duration + anchor tz */}
         <div className="grid grid-cols-2 gap-3 mb-3">
           <Field label="Start date"><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={inputCls} /></Field>
-          <Field label="Time"><input type="time" value={timeLocal} onChange={(e) => setTimeLocal(e.target.value)} className={inputCls} /></Field>
+          <Field label="Default time (seeds new days)"><input type="time" value={defaultTime} onChange={(e) => setDefaultTime(e.target.value)} className={inputCls} /></Field>
           <Field label="Duration (min)"><input type="number" min={15} step={15} value={durationMin} onChange={(e) => setDurationMin(Number(e.target.value) || 60)} className={inputCls} /></Field>
           <Field label="Time is set in">
             <select value={anchorTz} onChange={(e) => setAnchorTz(e.target.value)} className={selectCls}>
@@ -215,14 +290,21 @@ export default function ScheduleBatchModal({
             <Globe className="w-3.5 h-3.5" />
             <span className="text-[11px] font-bold uppercase tracking-wider" style={{ fontFamily: 'var(--font-grotesk)' }}>Next class, everyone&apos;s local time</span>
           </div>
-          {preview ? (
-            <div className="space-y-1.5 text-sm">
-              <TzRow label={`Teacher${teacher?.full_name ? ` (${teacher.full_name.split(' ')[0]})` : ''}`} tz={teacher?.timezone || anchorTz} iso={preview} />
-              {kids.length === 0 && <p className="text-xs text-slate-400">No enrolled kids yet — they&apos;ll join future classes.</p>}
-              {kids.map((k) => <TzRow key={k.id} label={k.full_name?.split(' ')[0] || 'Kid'} tz={k.timezone || anchorTz} iso={preview} muted={!k.timezone} />)}
+          {previews.length > 0 ? (
+            <div className="space-y-3">
+              {previews.map(({ day, iso }) => (
+                <div key={day} className="space-y-1.5 text-sm">
+                  <div className="text-[11px] font-extrabold text-slate-700" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                    {WEEKDAYS[day]} · next: {dayTimes[day]}
+                  </div>
+                  <TzRow label={`Teacher${teacher?.full_name ? ` (${teacher.full_name.split(' ')[0]})` : ''}`} tz={teacher?.timezone || anchorTz} iso={iso} />
+                  {kids.length === 0 && <p className="text-xs text-slate-400">No enrolled kids yet — they&apos;ll join future classes.</p>}
+                  {kids.map((k) => <TzRow key={k.id} label={k.full_name?.split(' ')[0] || 'Kid'} tz={k.timezone || anchorTz} iso={iso} muted={!k.timezone} />)}
+                </div>
+              ))}
             </div>
           ) : (
-            <p className="text-xs text-slate-400">Pick teacher, batch, day{classesPerWeek === 2 ? 's' : ''}, start date &amp; time to preview.</p>
+            <p className="text-xs text-slate-400">Pick teacher, batch, day{classesPerWeek === 2 ? 's' : ''}, start date &amp; a time for each day to preview.</p>
           )}
         </div>
 

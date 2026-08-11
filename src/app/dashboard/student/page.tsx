@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import { DesktopClock } from '@/components/dashboard/desktop-clock';
+import { TzBadge } from '@/components/dashboard/tz-badge';
+import { CancelClassModal } from '@/components/dashboard/cancel-class-modal';
 import TeacherLatePopup from '@/components/dashboard/teacher-late-popup';
 import { useAuth } from '@/components/auth/auth-provider';
 import { TRACKS } from '@/lib/sariro-data';
@@ -461,8 +463,13 @@ function ScheduleCard({ booking, cohort, timezone, credits }: { booking: Booking
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [joined, setJoined] = useState(false);
+  const [showCancel, setShowCancel] = useState(false);
   const balance = credits?.balance ?? 0;
   const hasCredits = balance > 0;
+  // Students may cancel only their OWN 1:1 classes (group classes can't be cancelled).
+  const canStudentCancel = booking.status === 'scheduled'
+    && cohort?.ratio === '1:1'
+    && new Date(booking.slot_start).getTime() > Date.now();
 
   const handleJoinClass = async () => {
     setJoining(true);
@@ -526,9 +533,27 @@ function ScheduleCard({ booking, cohort, timezone, credits }: { booking: Booking
         </div>
         <Clock className="w-5 h-5 text-slate-400 shrink-0" />
       </div>
-      <div className="text-sm text-slate-700 mb-3">
+      <div className="text-sm text-slate-700 mb-1">
         {formatSessionTime(booking.slot_start, timezone)}
       </div>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <TzBadge iso={booking.slot_start} timezone={timezone} />
+        {canStudentCancel && (
+          <button
+            onClick={() => setShowCancel(true)}
+            className="text-[11px] font-bold text-red-600 hover:text-red-700 hover:underline"
+          >
+            Cancel class
+          </button>
+        )}
+      </div>
+      <CancelClassModal
+        open={showCancel}
+        onClose={() => setShowCancel(false)}
+        booking={{ id: booking.id, slot_start: booking.slot_start }}
+        role="student"
+        onDone={() => window.location.reload()}
+      />
 
       {/* Join status / error */}
       {joined && (

@@ -10,7 +10,7 @@ const VALID_LEVELS = ['Elementary', 'Beginner', 'Intermediate', 'Advanced'];
 const VALID_TRACKS: string[] = TRACKS.map((t) => t.id);
 
 interface AssignBody {
-  action?: 'assign' | 'remove';
+  action?: 'assign' | 'remove' | 'complete_training' | 'revoke_training';
   teacher_id?: string;
   track?: string;
   level?: string;
@@ -62,6 +62,18 @@ export async function POST(req: NextRequest) {
     if (body.action === 'remove') {
       const { error: deleteErr } = await admin.from('teacher_course_assignments').delete().eq('teacher_id', body.teacher_id).eq('track', body.track).eq('level', body.level);
       if (deleteErr) return NextResponse.json({ ok: false, error: 'delete_failed', message: deleteErr.message }, { status: 500 });
+      return NextResponse.json({ ok: true });
+    }
+    // Training completion gates whether a teacher can be picked in the scheduler.
+    // Only a super-admin may mark/revoke a teacher's course training.
+    if (body.action === 'complete_training' || body.action === 'revoke_training') {
+      if (role !== 'super_admin') return NextResponse.json({ ok: false, error: 'forbidden', message: 'Only a super-admin can mark course training complete.' }, { status: 403 });
+      const patch = body.action === 'complete_training'
+        ? { training_completed_at: new Date().toISOString(), training_completed_by: user.id }
+        : { training_completed_at: null, training_completed_by: null };
+      const { error: upErr } = await admin.from('teacher_course_assignments')
+        .update(patch).eq('teacher_id', body.teacher_id).eq('track', body.track).eq('level', body.level);
+      if (upErr) return NextResponse.json({ ok: false, error: 'training_update_failed', message: upErr.message }, { status: 500 });
       return NextResponse.json({ ok: true });
     }
     return NextResponse.json({ ok: false, error: 'invalid_action' }, { status: 400 });

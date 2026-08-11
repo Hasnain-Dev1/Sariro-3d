@@ -959,6 +959,7 @@ function SuperAdminDashboardInner() {
         open={showAssignmentModal}
         onClose={() => setShowAssignmentModal(false)}
         onToast={(msg, kind) => setToast({ type: kind || 'success', message: msg })}
+        canManageTraining
       />
 
       {/* User management modal — change roles + sign in as */}
@@ -966,6 +967,7 @@ function SuperAdminDashboardInner() {
         open={showUserManagement}
         onClose={() => setShowUserManagement(false)}
         onToast={(type, message) => setToast({ type, message })}
+        canManageStaff
       />
 
       <SalesEarningsReport

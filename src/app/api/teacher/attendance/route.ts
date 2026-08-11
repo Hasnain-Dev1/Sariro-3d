@@ -49,6 +49,7 @@ interface BookingRow {
   cohort_id: string;
   teacher_id: string;
   slot_start: string;
+  slot_end: string;
 }
 
 interface CohortRow {
@@ -146,7 +147,7 @@ export async function POST(req: NextRequest) {
   // ── Verify booking + ownership ──────────────────────────────────────
   const { data: booking, error: bookingErr } = await supaServer
     .from('bookings')
-    .select('id, cohort_id, teacher_id, slot_start')
+    .select('id, cohort_id, teacher_id, slot_start, slot_end')
     .eq('id', bookingId)
     .maybeSingle();
   if (bookingErr) {
@@ -160,6 +161,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { ok: false, error: 'forbidden', message: 'You can only mark attendance for your own sessions.' },
       { status: 403 }
+    );
+  }
+
+  // ── Class must be finished before attendance can be marked ──────────
+  const slotEnd = (booking as BookingRow).slot_end;
+  if (slotEnd && Date.now() < new Date(slotEnd).getTime()) {
+    return NextResponse.json(
+      { ok: false, error: 'class_not_finished', message: 'Attendance can only be marked after the class has finished.' },
+      { status: 409 }
     );
   }
 

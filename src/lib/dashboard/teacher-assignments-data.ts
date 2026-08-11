@@ -21,7 +21,7 @@ export interface TeacherWithAssignments {
   id: string;
   full_name: string | null;
   email: string | null;
-  assignments: Array<{ track: string; level: string }>;
+  assignments: Array<{ track: string; level: string; training_completed_at: string | null }>;
 }
 
 export async function fetchAllTeacherAssignments(): Promise<TeacherAssignment[]> {
@@ -45,13 +45,13 @@ export async function fetchTeachersWithAssignments(): Promise<TeacherWithAssignm
     const supabase = createClient();
     const { data: teachers, error: tErr } = await supabase.from('profiles').select('id, full_name, email').or('role.eq.teacher,is_teacher.eq.true').order('full_name', { ascending: true });
     if (tErr) throw tErr;
-    const { data: assignments, error: aErr } = await supabase.from('teacher_course_assignments').select('teacher_id, track, level');
+    const { data: assignments, error: aErr } = await supabase.from('teacher_course_assignments').select('teacher_id, track, level, training_completed_at');
     if (aErr) throw aErr;
-    const assignmentMap = new Map<string, Array<{ track: string; level: string }>>();
+    const assignmentMap = new Map<string, Array<{ track: string; level: string; training_completed_at: string | null }>>();
     for (const a of assignments ?? []) {
       const tid = a.teacher_id as string;
       if (!assignmentMap.has(tid)) assignmentMap.set(tid, []);
-      assignmentMap.get(tid)!.push({ track: a.track as string, level: a.level as string });
+      assignmentMap.get(tid)!.push({ track: a.track as string, level: a.level as string, training_completed_at: (a.training_completed_at as string | null) ?? null });
     }
     return (teachers ?? []).map((t) => ({ id: t.id as string, full_name: t.full_name as string | null, email: t.email as string | null, assignments: assignmentMap.get(t.id as string) ?? [] }));
   } catch (err) {
@@ -103,6 +103,22 @@ export async function removeTeacherCourse(teacherId: string, track: string, leve
     const res = await fetch('/api/admin/teacher-assignments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'remove', teacher_id: teacherId, track, level }) });
     const json = await res.json();
     if (!res.ok || !json.ok) return { success: false, error: json.error || 'Removal failed' };
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Network error' };
+  }
+}
+
+/** Super-admin only: mark (or revoke) a teacher's course training as complete.
+ *  Gates whether the teacher can be picked in the scheduling tool. */
+export async function setTeacherTraining(teacherId: string, track: string, level: string, complete: boolean): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/admin/teacher-assignments', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: complete ? 'complete_training' : 'revoke_training', teacher_id: teacherId, track, level }),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.ok) return { success: false, error: json.message || json.error || 'Training update failed' };
     return { success: true };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Network error' };

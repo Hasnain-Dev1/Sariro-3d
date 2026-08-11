@@ -7,7 +7,7 @@ import {
   Calendar, Clock, Users, Video, Loader2, AlertCircle,
   CheckCircle2, XCircle, UserX, ChevronRight, GraduationCap, Sparkles,
   Plus, Edit3, Save, StickyNote, X, CalendarPlus,
-  Star, ExternalLink, FolderOpen, MessageCircle,
+  Star, ExternalLink, FolderOpen, MessageCircle, CalendarClock,
 } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import { DesktopClock } from '@/components/dashboard/desktop-clock';
@@ -165,6 +165,11 @@ function BookingCard({
 
   const [started, setStarted] = useState(false);
   const [startInfo, setStartInfo] = useState<string | null>(null);
+  const [earlyMsg, setEarlyMsg] = useState<string | null>(null);
+
+  // Teachers can only join from 5 minutes before start.
+  const EARLY_JOIN_MIN = 5;
+  const joinOpensMs = new Date(booking.slot_start).getTime() - EARLY_JOIN_MIN * 60_000;
 
   const handleStatus = async (newStatus: 'completed' | 'no_show' | 'cancelled') => {
     setProcessing(true);
@@ -172,8 +177,23 @@ function BookingCard({
     setProcessing(false);
   };
 
+  // Guarded join: opens the Meet only inside the 5-min window; otherwise warns.
+  const handleJoin = () => {
+    if (Date.now() < joinOpensMs) {
+      const mins = Math.ceil((joinOpensMs - Date.now()) / 60_000);
+      setEarlyMsg(`You can join this class 5 minutes before it starts — please come back in about ${mins} minute${mins === 1 ? '' : 's'}.`);
+      return;
+    }
+    if (meetUrl) window.open(meetUrl, '_blank', 'noopener,noreferrer');
+  };
+
   // Start Class → records join time (source of truth for the late-join penalty).
   const handleStart = async () => {
+    if (Date.now() < joinOpensMs) {
+      const mins = Math.ceil((joinOpensMs - Date.now()) / 60_000);
+      setEarlyMsg(`You can start this class 5 minutes before it begins — please come back in about ${mins} minute${mins === 1 ? '' : 's'}.`);
+      return;
+    }
     setProcessing(true);
     try {
       const res = await fetch('/api/teacher/start-class', {
@@ -184,6 +204,8 @@ function BookingCard({
       if (json.ok) {
         setStarted(true);
         setStartInfo(json.late_minutes > 3 ? `Started ${json.late_minutes} min late` : 'Started on time');
+      } else if (json.error === 'too_early') {
+        setEarlyMsg(json.message);
       }
     } catch { /* transient */ }
     setProcessing(false);
@@ -211,15 +233,14 @@ function BookingCard({
       {/* Meet link + actions */}
       <div className="flex items-center gap-2 flex-wrap">
         {meetUrl && (
-          <a
-            href={meetUrl}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={handleJoin}
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-green-50 hover:bg-green-100 text-green-700 text-xs font-bold transition-colors min-h-[40px]"
             style={{ fontFamily: 'var(--font-grotesk)' }}
           >
             <Video className="w-4 h-4" /> Join Meet
-          </a>
+          </button>
         )}
 
         {/* Students + Reschedule buttons — available for all bookings */}
@@ -297,6 +318,24 @@ function BookingCard({
           </button>
         )}
       </div>
+
+      {/* Early-join guard — teachers may only join 5 minutes before start */}
+      {earlyMsg && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50" role="dialog" aria-modal="true">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl text-center">
+            <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-4">
+              <CalendarClock className="w-7 h-7 text-amber-600" />
+            </div>
+            <h3 className="text-lg font-extrabold text-slate-900 mb-2" style={{ fontFamily: 'var(--font-jakarta)' }}>
+              A little early
+            </h3>
+            <p className="text-sm text-slate-600 mb-5">{earlyMsg}</p>
+            <button onClick={() => setEarlyMsg(null)} className="min-h-[44px] px-6 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold w-full">
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1475,7 +1514,7 @@ function TeacherDashboardInner() {
           {/* Visual month calendar — shows ALL bookings (not filtered) */}
           {allBookings.length > 0 && (
             <div className="mb-6">
-              <TeacherCalendar bookings={allBookings} timezone={userTimezone} />
+              <TeacherCalendar bookings={allBookings} timezone={userTimezone} onChanged={loadAll} />
             </div>
           )}
 

@@ -8,7 +8,7 @@ import {
   Menu, X, LayoutDashboard, BookOpen, Calendar, Settings,
   LogOut, ChevronRight, Bell, Home as HomeIcon, GraduationCap,
   Users, ShieldCheck, DollarSign, ScrollText, ArrowLeft,
-  Loader2, AlertTriangle, Trophy,
+  Loader2, AlertTriangle, Trophy, LifeBuoy, HelpCircle,
 } from 'lucide-react';
 import { useAuth, getRole, type UserRole } from '@/components/auth/auth-provider';
 import { BRAND } from '@/lib/sariro-data';
@@ -35,7 +35,9 @@ interface NavItem {
 
 const STUDENT_NAV: NavItem[] = [
   { href: '/dashboard/student', label: 'Home', icon: LayoutDashboard },
+  { href: '/dashboard/student/lessons', label: 'My Lessons', icon: BookOpen },
   { href: '/dashboard/student/leaderboard', label: 'Leaderboard', icon: Trophy },
+  { href: '/dashboard/student/support', label: 'Support', icon: LifeBuoy },
   { href: '/courses', label: 'Browse Courses', icon: BookOpen },
   { href: '/dashboard/student#schedule', label: 'My Schedule', icon: Calendar },
   { href: '/settings', label: 'Settings', icon: Settings },
@@ -43,6 +45,8 @@ const STUDENT_NAV: NavItem[] = [
 
 const TEACHER_NAV: NavItem[] = [
   { href: '/dashboard/teacher', label: 'Home', icon: LayoutDashboard },
+  { href: '/dashboard/teacher/lessons', label: 'Lessons', icon: BookOpen },
+  { href: '/dashboard/teacher/doubt-sessions', label: 'Doubt Sessions', icon: HelpCircle },
   { href: '/dashboard/teacher/leaderboard', label: 'Leaderboard', icon: Trophy },
   { href: '/dashboard/teacher#schedule', label: 'My Schedule', icon: Calendar },
   { href: '/dashboard/teacher#students', label: 'Students', icon: Users },
@@ -57,11 +61,14 @@ const SELLER_NAV: NavItem[] = [
 
 const HR_NAV: NavItem[] = [
   { href: '/dashboard/hr', label: 'Home', icon: LayoutDashboard },
+  { href: '/dashboard/hr/doubt-sessions', label: 'Doubt Sessions', icon: HelpCircle },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 const ADMIN_NAV: NavItem[] = [
   { href: '/dashboard/admin', label: 'Home', icon: LayoutDashboard },
+  { href: '/dashboard/admin/lessons', label: 'Lesson Pages', icon: BookOpen },
+  { href: '/dashboard/admin/support', label: 'Support Inbox', icon: LifeBuoy },
   { href: '/dashboard/admin#cohorts', label: 'Courses', icon: GraduationCap },
   { href: '/dashboard/admin#enrollments', label: 'Enrollments', icon: BookOpen },
   { href: '/settings', label: 'Settings', icon: Settings },
@@ -69,6 +76,7 @@ const ADMIN_NAV: NavItem[] = [
 
 const SUPER_ADMIN_NAV: NavItem[] = [
   { href: '/dashboard/super-admin', label: 'Home', icon: LayoutDashboard },
+  { href: '/dashboard/super-admin/parents', label: 'Parent Access', icon: Users },
   { href: '/dashboard/super-admin#cohorts', label: 'Courses', icon: GraduationCap },
   { href: '/dashboard/super-admin#pricing', label: 'Pricing', icon: DollarSign },
   { href: '/dashboard/super-admin#audit', label: 'Audit Logs', icon: ScrollText },
