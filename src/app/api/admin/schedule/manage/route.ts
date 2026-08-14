@@ -83,12 +83,41 @@ export async function POST(req: NextRequest) {
   switch (body.action) {
     case 'change_teacher': {
       if (!body.scheduleId || !body.teacherId) return NextResponse.json({ ok: false, error: 'missing_params' }, { status: 400 });
-      const { error: e1 } = await admin.from('cohort_schedules').update({ teacher_id: body.teacherId, updated_at: nowIso }).eq('id', body.scheduleId);
+      // Training gate — the new teacher must be trained for this batch's course.
+      const { data: sched } = await admin.from('cohort_schedules').select('cohort_id').eq('id', body.scheduleId).maybeSingle();
+      if (sched) {
+        const { data: cohort } = await admin.from('cohorts').select('track, level').eq('id', sched.cohort_id).maybeSingle();
+        if (cohort) {
+          const { data: trained } = await admin.from('teacher_course_assignments').select('id')
+            .eq('teacher_id', body.teacherId).ilike('track', cohort.track).ilike('level', cohort.level)
+            .not('training_completed_at', 'is', null).maybeSingle();
+          if (!trained) return NextResponse.json({ ok: false, error: 'teacher_not_trained', message: "That teacher's training for this course isn't complete." }, { status: 409 });
+        }
+      }
+      const { error: e1 } = await admin.from('cohort_schedules').update({ teacher_id: body.teacherId, status: 'active', updated_at: nowIso }).eq('id', body.scheduleId);
       if (e1) return NextResponse.json({ ok: false, error: 'update_failed', message: e1.message }, { status: 500 });
-      // future scheduled bookings only
+      // Point future scheduled bookings at the new teacher.
       await admin.from('bookings').update({ teacher_id: body.teacherId })
         .eq('schedule_id', body.scheduleId).eq('status', 'scheduled').gt('slot_start', nowIso);
+      // If the batch had been paused (no future classes), regenerate a horizon.
+      const { count } = await admin.from('bookings').select('id', { count: 'exact', head: true })
+        .eq('schedule_id', body.scheduleId).eq('status', 'scheduled').gt('slot_start', nowIso);
+      if ((count ?? 0) === 0) await appendMakeups(admin, body.scheduleId, 8);
       return NextResponse.json({ ok: true });
+    }
+
+    case 'remove_teacher': {
+      if (!body.scheduleId) return NextResponse.json({ ok: false, error: 'missing_params' }, { status: 400 });
+      // Pause the batch and cancel its future scheduled classes until a new
+      // teacher is assigned (reassigning via change_teacher reactivates it).
+      const { error: rErr } = await admin.from('cohort_schedules').update({ status: 'paused', updated_at: nowIso }).eq('id', body.scheduleId);
+      if (rErr) return NextResponse.json({ ok: false, error: 'update_failed', message: rErr.message }, { status: 500 });
+      const { data: toCancel } = await admin.from('bookings').select('id')
+        .eq('schedule_id', body.scheduleId).eq('status', 'scheduled').gt('slot_start', nowIso);
+      if (toCancel?.length) {
+        await admin.from('bookings').update({ status: 'cancelled', cancel_actor_role: 'admin', cancel_type: 'admin', pay_status: 'zero', cancelled_at: nowIso }).in('id', toCancel.map((b) => b.id));
+      }
+      return NextResponse.json({ ok: true, cancelled: toCancel?.length ?? 0 });
     }
 
     case 'pause_batch': {

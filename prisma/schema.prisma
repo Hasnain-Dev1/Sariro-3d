@@ -84,6 +84,7 @@ model Profile {
 
 model Cohort {
   id              String   @id @default(uuid())
+  batch_code      String?  @unique // human-readable batch id, e.g. "B-0001"
   track           String
   level           String   // 'beginner' | 'intermediate' | 'advanced'
   ratio           String   // '1:1' | '1:4'

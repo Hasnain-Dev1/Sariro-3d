@@ -34,9 +34,12 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ ok: false, error: 'unauthenticated' }, { status: 401 });
 
-  const { data: profile } = await supabase.from('profiles').select('role, is_admin, is_super_admin').eq('id', user.id).maybeSingle();
-  const role = profile?.role ?? (profile?.is_super_admin ? 'super_admin' : profile?.is_admin ? 'admin' : 'student');
-  if (role !== 'admin' && role !== 'super_admin') return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
+  const { data: profile } = await supabase.from('profiles').select('role, is_admin, is_super_admin, is_seller').eq('id', user.id).maybeSingle();
+  const role = profile?.role ?? (profile?.is_super_admin ? 'super_admin' : profile?.is_admin ? 'admin' : profile?.is_seller ? 'seller' : 'student');
+  const isStaff = role === 'admin' || role === 'super_admin';
+  const isSeller = role === 'seller' || profile?.is_seller === true;
+  // Admins/super-admins have full access; sellers can advance their OWN leads.
+  if (!isStaff && !isSeller) return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
 
   let admin;
   try { admin = createServiceClient(); } catch { return NextResponse.json({ ok: false, error: 'service_role_unavailable', message: 'SUPABASE_SERVICE_ROLE_KEY not set' }, { status: 503 }); }
@@ -46,6 +49,8 @@ export async function POST(req: NextRequest) {
 
   try {
     if (body.action === 'assign_seller') {
+      // Only admins/super-admins may (re)assign a lead's owner.
+      if (!isStaff) return NextResponse.json({ ok: false, error: 'forbidden', message: 'Only an admin can assign leads.' }, { status: 403 });
       if (!body.seller_id) return NextResponse.json({ ok: false, error: 'missing_seller_id' }, { status: 400 });
       const { data: sellerProfile } = await admin.from('profiles').select('id, role, is_seller, is_admin, is_super_admin').eq('id', body.seller_id).maybeSingle();
       if (!sellerProfile) return NextResponse.json({ ok: false, error: 'seller_not_found' }, { status: 404 });
@@ -68,6 +73,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (body.action === 'update_stage') {
+      // A seller may only advance leads that belong to them.
+      if (!isStaff && lead.assigned_seller !== user.id) {
+        return NextResponse.json({ ok: false, error: 'forbidden', message: 'You can only update your own leads.' }, { status: 403 });
+      }
       const validStages = ['new', 'seller_assigned', 'connected', 'gathering_booked', 'final', 'deferred', 'enrolled'];
       if (!body.new_stage || !validStages.includes(body.new_stage)) return NextResponse.json({ ok: false, error: 'invalid_stage' }, { status: 400 });
       const oldStage = lead.stage;

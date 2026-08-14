@@ -2,6 +2,34 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClientHelper, createServiceClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
+import { getCourseSyllabus } from '@/lib/dashboard/student-data';
+
+/**
+ * Grant class credits for an enrollment (idempotent per enrollment). Credits are
+ * consumed per completed class, so a manual enroll MUST grant them or the kid
+ * can't join. Only tops up the difference so re-runs / DB grant-triggers don't
+ * double-count.
+ */
+async function grantEnrollmentCredits(
+  admin: ReturnType<typeof createServiceClient>,
+  opts: { userId: string; enrollmentId: string; track: string; level: string; grantedBy: string }
+) {
+  const lessonCount = getCourseSyllabus(opts.track, opts.level).totalLessons;
+  if (!lessonCount || lessonCount < 1) return;
+  const { data: txns } = await admin.from('credit_transactions')
+    .select('amount').eq('related_enrollment_id', opts.enrollmentId);
+  const already = (txns ?? []).reduce((s: number, t: { amount: number }) => s + (t.amount > 0 ? t.amount : 0), 0);
+  const topUp = lessonCount - already;
+  if (topUp <= 0) return;
+  const { data: cr } = await admin.from('credits').select('balance').eq('user_id', opts.userId).maybeSingle();
+  const newBalance = (cr?.balance ?? 0) + topUp;
+  await admin.from('credits').upsert({ user_id: opts.userId, balance: newBalance }, { onConflict: 'user_id' });
+  await admin.from('credit_transactions').insert({
+    user_id: opts.userId, amount: topUp, type: 'purchase',
+    description: `Enrollment credits — ${opts.track} ${opts.level} (${lessonCount} lessons)`,
+    related_enrollment_id: opts.enrollmentId, created_by: opts.grantedBy,
+  });
+}
 
 /**
  * SARIRO — POST /api/admin/enroll  (admin / super_admin)
@@ -50,6 +78,8 @@ export async function POST(req: NextRequest) {
   const { data: existing } = await admin.from('enrollments').select('id, status').eq('user_id', body.userId).eq('cohort_id', body.cohortId).maybeSingle();
   if (existing) {
     if (existing.status !== 'active') await admin.from('enrollments').update({ status: 'active' }).eq('id', existing.id);
+    // Ensure credits exist even on reactivation (idempotent top-up).
+    await grantEnrollmentCredits(admin, { userId: body.userId, enrollmentId: existing.id, track: body.track, level: body.level, grantedBy: userId });
     return NextResponse.json({ ok: true, enrollment_id: existing.id, reactivated: true });
   }
 
@@ -58,6 +88,11 @@ export async function POST(req: NextRequest) {
     status: 'active', cohort_id: body.cohortId, started_at: new Date().toISOString(),
   }).select('id').single();
   if (error) return NextResponse.json({ ok: false, error: 'enroll_failed', message: error.message }, { status: 500 });
+
+  // Grant class credits (idempotent) so the kid can actually join classes.
+  if (enrollment) {
+    await grantEnrollmentCredits(admin, { userId: body.userId, enrollmentId: enrollment.id, track: body.track, level: body.level, grantedBy: userId });
+  }
 
   // Best-effort notification.
   await admin.from('notifications').insert({

@@ -10,6 +10,7 @@ import {
   Star, ExternalLink, FolderOpen, MessageCircle, CalendarClock,
 } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
+import { BatchRescheduleModal } from '@/components/dashboard/batch-reschedule-modal';
 import { DesktopClock } from '@/components/dashboard/desktop-clock';
 import TeacherEarnings from '@/components/dashboard/teacher-earnings';
 import TeacherManagers from '@/components/dashboard/teacher-managers';
@@ -1390,6 +1391,7 @@ function TeacherDashboardInner() {
   const [manageBooking, setManageBooking] = useState<TeacherBookingRow | null>(null);
   const [rescheduleBookingState, setRescheduleBookingState] = useState<TeacherBookingRow | null>(null);
   const [showAddSession, setShowAddSession] = useState(false);
+  const [showBatchReschedule, setShowBatchReschedule] = useState(false);
 
   // Thin adapter so the v2 modals (which fire `(msg, kind?) => void`)
   // can drive the existing toast UI without changing its signature.
@@ -1511,12 +1513,29 @@ function TeacherDashboardInner() {
             </div>
           </div>
 
+          {/* Reschedule a whole batch going forward */}
+          <div className="flex justify-end mb-3">
+            <button
+              onClick={() => setShowBatchReschedule(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold min-h-[40px]"
+              style={{ fontFamily: 'var(--font-grotesk)' }}
+            >
+              <CalendarClock className="w-3.5 h-3.5" /> Reschedule whole batch
+            </button>
+          </div>
+
           {/* Visual month calendar — shows ALL bookings (not filtered) */}
           {allBookings.length > 0 && (
             <div className="mb-6">
               <TeacherCalendar bookings={allBookings} timezone={userTimezone} onChanged={loadAll} />
             </div>
           )}
+
+          <BatchRescheduleModal
+            open={showBatchReschedule}
+            onClose={() => setShowBatchReschedule(false)}
+            onDone={loadAll}
+          />
 
           {/* Filtered bookings list (upcoming / past / all) */}
           <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3" style={{ fontFamily: 'var(--font-grotesk)' }}>

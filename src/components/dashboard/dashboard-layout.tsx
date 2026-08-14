@@ -77,6 +77,7 @@ const ADMIN_NAV: NavItem[] = [
 const SUPER_ADMIN_NAV: NavItem[] = [
   { href: '/dashboard/super-admin', label: 'Home', icon: LayoutDashboard },
   { href: '/dashboard/super-admin/parents', label: 'Parent Access', icon: Users },
+  { href: '/dashboard/super-admin/teacher-pay', label: 'Tiers & Pay', icon: DollarSign },
   { href: '/dashboard/super-admin#cohorts', label: 'Courses', icon: GraduationCap },
   { href: '/dashboard/super-admin#pricing', label: 'Pricing', icon: DollarSign },
   { href: '/dashboard/super-admin#audit', label: 'Audit Logs', icon: ScrollText },

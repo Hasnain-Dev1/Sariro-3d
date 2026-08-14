@@ -34,10 +34,19 @@ interface Body {
   payStatus?: 'full' | 'partial' | 'zero';
 }
 
-/** Rate matrix mirrors create_teacher_earning_on_complete() in SQL. */
-function baseRate(tier: number, isGroup: boolean): number {
+/** Code-default rate matrix (mirrors the SQL trigger fallbacks). */
+function defaultBaseRate(tier: number, isGroup: boolean): number {
   if (isGroup) return tier === 1 ? 300 : tier === 2 ? 275 : 250;
   return tier === 1 ? 300 : tier === 2 ? 250 : 225;
+}
+
+/** Live base rate: app_settings override → code default. Keeps cancellation pay
+ *  consistent with the editable per-tier rates the earnings trigger reads. */
+async function baseRate(admin: ReturnType<typeof createServiceClient>, tier: number, isGroup: boolean): Promise<number> {
+  const key = `pay_tier${tier}_${isGroup ? 'group' : '1on1'}`;
+  const { data } = await admin.from('app_settings').select('value').eq('key', key).maybeSingle();
+  const v = Number(data?.value);
+  return Number.isFinite(v) && v > 0 ? v : defaultBaseRate(tier, isGroup);
 }
 
 async function appendOneMakeup(admin: ReturnType<typeof createServiceClient>, scheduleId: string | null) {
@@ -164,7 +173,7 @@ export async function POST(req: NextRequest) {
     const tier = prof?.teacher_tier ?? 3;
     const { count: studentCount } = await admin.from('enrollments')
       .select('id', { count: 'exact', head: true }).eq('cohort_id', booking.cohort_id).eq('status', 'active');
-    const base = baseRate(tier, isGroup);
+    const base = await baseRate(admin, tier, isGroup);
     const pay = payStatus === 'partial' ? Math.round((base * POLICY.PARTIAL_PAY_PERCENT) / 100) : base;
     const reason = payStatus === 'partial' ? `Student cancellation (${POLICY.PARTIAL_PAY_PERCENT}% partial pay)` : 'HR-approved doubt session (full pay)';
     // Only insert if there isn't already an earning for this booking.

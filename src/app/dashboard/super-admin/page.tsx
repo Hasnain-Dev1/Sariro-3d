@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Crown, Users, BookOpen, Clock, GraduationCap, ScrollText,
@@ -605,6 +605,40 @@ function CreateCohortModal({ open, onClose, onCreated }: { open: boolean; onClos
   );
 }
 
+/* ───── "See all" preview helpers ───── */
+function SeeAllButton({ count, onClick }: { count: number; onClick: () => void }) {
+  return (
+    <div className="flex justify-center mt-4">
+      <button
+        onClick={onClick}
+        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-bold transition-colors"
+        style={{ fontFamily: 'var(--font-grotesk)' }}
+      >
+        See all {count} <ArrowRight className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
+
+function SeeAllOverlay({ title, count, onClose, children }: { title: string; count: number; onClose: () => void; children: ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-[80] bg-slate-50 overflow-y-auto" role="dialog" aria-modal="true">
+      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-slate-200">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
+          <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2" style={{ fontFamily: 'var(--font-jakarta)' }}>
+            {title}
+            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600">{count}</span>
+          </h2>
+          <button onClick={onClose} className="inline-flex items-center gap-1.5 px-3 min-h-[40px] rounded-lg hover:bg-slate-100 text-slate-600 text-sm font-bold" aria-label="Close">
+            <X className="w-4 h-4" /> Close
+          </button>
+        </div>
+      </div>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 pb-24">{children}</div>
+    </div>
+  );
+}
+
 /* ───── Main super-admin dashboard ───── */
 function SuperAdminDashboardInner() {
   const { profile, user } = useAuth();
@@ -628,6 +662,11 @@ function SuperAdminDashboardInner() {
   const [showUserManagement, setShowUserManagement] = useState(false);
   const [showEarningsReport, setShowEarningsReport] = useState(false);
   const [showAssignTeacher, setShowAssignTeacher] = useState(false);
+  // "See all" full-screen overlays (dashboard shows a preview of 5 per section).
+  const [showAllEnrollments, setShowAllEnrollments] = useState(false);
+  const [showAllCohorts, setShowAllCohorts] = useState(false);
+  const [showAllAudit, setShowAllAudit] = useState(false);
+  const PREVIEW = 5;
 
   const loadAll = useCallback(async () => {
     const [s, intents, c, logs, actions] = await Promise.all([
@@ -805,11 +844,16 @@ function SuperAdminDashboardInner() {
               <p className="text-sm text-slate-500">No pending enrollment approvals right now.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {pendingIntents.map(intent => (
-                <PendingEnrollmentCard key={intent.id} intent={intent} onConfirm={handleConfirmIntent} onReject={handleRejectIntent} />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {pendingIntents.slice(0, PREVIEW).map(intent => (
+                  <PendingEnrollmentCard key={intent.id} intent={intent} onConfirm={handleConfirmIntent} onReject={handleRejectIntent} />
+                ))}
+              </div>
+              {pendingIntents.length > PREVIEW && (
+                <SeeAllButton count={pendingIntents.length} onClick={() => setShowAllEnrollments(true)} />
+              )}
+            </>
           )}
         </div>
 
@@ -844,9 +888,14 @@ function SuperAdminDashboardInner() {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {cohorts.map(c => <CohortCard key={c.id} cohort={c} onTransition={handleCohortTransition} onSetMeetUrl={handleSetMeetUrl} onSetMaterialsUrl={handleSetMaterialsUrl} />)}
-            </div>
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {cohorts.slice(0, PREVIEW).map(c => <CohortCard key={c.id} cohort={c} onTransition={handleCohortTransition} onSetMeetUrl={handleSetMeetUrl} onSetMaterialsUrl={handleSetMaterialsUrl} />)}
+              </div>
+              {cohorts.length > PREVIEW && (
+                <SeeAllButton count={cohorts.length} onClick={() => setShowAllCohorts(true)} />
+              )}
+            </>
           )}
         </div>
 
@@ -920,9 +969,14 @@ function SuperAdminDashboardInner() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {auditLogs.map(log => <AuditLogRowItem key={log.id} log={log} />)}
-            </div>
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {auditLogs.slice(0, PREVIEW).map(log => <AuditLogRowItem key={log.id} log={log} />)}
+              </div>
+              {auditLogs.length > PREVIEW && (
+                <SeeAllButton count={auditLogs.length} onClick={() => setShowAllAudit(true)} />
+              )}
+            </>
           )}
         </div>
 
@@ -969,6 +1023,31 @@ function SuperAdminDashboardInner() {
         onToast={(type, message) => setToast({ type, message })}
         canManageStaff
       />
+
+      {/* "See all" full-screen overlays — the full list without cluttering the dashboard */}
+      {showAllEnrollments && (
+        <SeeAllOverlay title="All Pending Enrollments" count={pendingIntents.length} onClose={() => setShowAllEnrollments(false)}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {pendingIntents.map(intent => (
+              <PendingEnrollmentCard key={intent.id} intent={intent} onConfirm={handleConfirmIntent} onReject={handleRejectIntent} />
+            ))}
+          </div>
+        </SeeAllOverlay>
+      )}
+      {showAllCohorts && (
+        <SeeAllOverlay title="All Courses" count={cohorts.length} onClose={() => setShowAllCohorts(false)}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {cohorts.map(c => <CohortCard key={c.id} cohort={c} onTransition={handleCohortTransition} onSetMeetUrl={handleSetMeetUrl} onSetMaterialsUrl={handleSetMaterialsUrl} />)}
+          </div>
+        </SeeAllOverlay>
+      )}
+      {showAllAudit && (
+        <SeeAllOverlay title="All Audit Logs" count={auditLogs.length} onClose={() => setShowAllAudit(false)}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {auditLogs.map(log => <AuditLogRowItem key={log.id} log={log} />)}
+          </div>
+        </SeeAllOverlay>
+      )}
 
       <SalesEarningsReport
         open={showEarningsReport}
@@ -1054,7 +1133,7 @@ function DemoRequestsSection({ onToast }: { onToast: (msg: string, kind?: 'succe
   }, []);
 
   useEffect(() => {
-    loadRequests();
+    Promise.resolve().then(loadRequests);
   }, [loadRequests]);
 
   useRealtime({
