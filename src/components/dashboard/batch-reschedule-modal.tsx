@@ -1,11 +1,13 @@
 'use client';
 
 /**
- * SARIRO — BatchRescheduleModal
+ * SARIRO — BatchRescheduleModal ("Change schedule")
  *
- * Teacher reschedules a WHOLE batch going forward: pick the batch, set new
- * weekday(s) + time per day. Future classes regenerate to the new cadence;
- * past classes are untouched. Calls /api/schedule/reschedule-batch.
+ * Reschedule a WHOLE batch going forward: pick the batch, choose the date the
+ * new cadence starts from ("Apply from" — a future date leaves a break), then
+ * set new weekday(s) + time per day (seeded with the current values, fully
+ * editable). Upcoming classes regenerate; past classes are untouched.
+ * Calls /api/schedule/reschedule-batch.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -20,16 +22,19 @@ interface Sched {
 }
 
 export function BatchRescheduleModal({
-  open, onClose, onDone,
-}: { open: boolean; onClose: () => void; onDone?: () => void }) {
+  open, onClose, onDone, presetScheduleId,
+}: { open: boolean; onClose: () => void; onDone?: () => void; presetScheduleId?: string | null }) {
   const [schedules, setSchedules] = useState<Sched[]>([]);
   const [loading, setLoading] = useState(true);
   const [selId, setSelId] = useState('');
   const [dayTimes, setDayTimes] = useState<Record<number, string>>({});
   const [defaultTime, setDefaultTime] = useState('17:00');
   const [cadence, setCadence] = useState<1 | 2>(1);
+  const [effectiveFrom, setEffectiveFrom] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   useEffect(() => {
     if (!open) return;
@@ -37,11 +42,14 @@ export function BatchRescheduleModal({
     Promise.resolve().then(() => setLoading(true));
     fetch('/api/schedule/reschedule-batch').then((r) => r.json()).then((j) => {
       if (cancelled) return;
-      setSchedules(j.ok ? j.schedules : []);
+      const list: Sched[] = j.ok ? j.schedules : [];
+      setSchedules(list);
+      // Preselect when opened for a specific batch (admin per-row "Change schedule").
+      if (presetScheduleId && list.some((s) => s.id === presetScheduleId)) setSelId(presetScheduleId);
       setLoading(false);
     }).catch(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [open]);
+  }, [open, presetScheduleId]);
 
   const selected = useMemo(() => schedules.find((s) => s.id === selId), [schedules, selId]);
 
@@ -54,8 +62,9 @@ export function BatchRescheduleModal({
       setDayTimes(seed);
       setDefaultTime(selected.time_local.slice(0, 5) || '17:00');
       setCadence(selected.classes_per_week === 2 ? 2 : 1);
+      setEffectiveFrom((prev) => prev || todayStr);
     });
-  }, [selected]);
+  }, [selected, todayStr]);
 
   const weekdays = useMemo(() => Object.keys(dayTimes).map(Number).sort((a, b) => a - b), [dayTimes]);
 
@@ -87,7 +96,7 @@ export function BatchRescheduleModal({
     try {
       const res = await fetch('/api/schedule/reschedule-batch', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scheduleId: selId, days: weekdays.map((d) => ({ day: d, time: dayTimes[d] })) }),
+        body: JSON.stringify({ scheduleId: selId, days: weekdays.map((d) => ({ day: d, time: dayTimes[d] })), effectiveFrom: effectiveFrom || undefined }),
       });
       const j = await res.json();
       if (j.ok) { onDone?.(); onClose(); }
@@ -104,7 +113,7 @@ export function BatchRescheduleModal({
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-2">
             <CalendarClock className="w-5 h-5 text-blue-600" />
-            <h3 className="text-lg font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>Reschedule whole batch</h3>
+            <h3 className="text-lg font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>Change schedule</h3>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400" aria-label="Close"><X className="w-4 h-4" /></button>
         </div>
@@ -130,6 +139,14 @@ export function BatchRescheduleModal({
               <>
                 <p className="text-xs text-slate-500 mb-3">
                   Currently: {selected.days_of_week.map((d) => WD[d]).join(', ')} · {selected.time_local.slice(0, 5)} {selected.timezone}
+                </p>
+
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">Apply from
+                  <input type="date" value={effectiveFrom} min={todayStr} onChange={(e) => setEffectiveFrom(e.target.value)}
+                    className="mt-1 w-full min-h-[40px] px-3 rounded-lg border border-slate-200 text-sm" />
+                </label>
+                <p className="text-[11px] text-slate-500 mb-3">
+                  The new schedule starts on this date. Pick a later date to give the student a <span className="font-semibold text-slate-600">break</span> until then — classes in between are cleared.
                 </p>
 
                 <div className="mb-3">
@@ -180,7 +197,7 @@ export function BatchRescheduleModal({
             <div className="flex gap-2">
               <button onClick={onClose} disabled={busy} className="flex-1 min-h-[44px] rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold disabled:opacity-50">Cancel</button>
               <button onClick={submit} disabled={busy || !valid} className="flex-1 min-h-[44px] rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold flex items-center justify-center gap-2 disabled:bg-slate-300">
-                {busy ? <><Loader2 className="w-4 h-4 animate-spin" /> Rescheduling…</> : <><Check className="w-4 h-4" /> Reschedule batch</>}
+                {busy ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</> : <><Check className="w-4 h-4" /> Save schedule</>}
               </button>
             </div>
           </>

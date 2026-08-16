@@ -8,15 +8,19 @@ import { resolveActor } from '@/lib/dashboard/schedule-ops-server';
 /**
  * SARIRO — POST /api/schedule/reschedule-batch
  *
- * Reschedule an ENTIRE batch going forward: change the recurring weekday(s)/time.
- * Future scheduled classes are regenerated to the new cadence; past/completed
- * classes are untouched. Teacher may reschedule their OWN batch; admins any.
+ * Reschedule an ENTIRE batch going forward: change the recurring weekday(s)/time,
+ * optionally starting from a chosen date. Upcoming scheduled classes are cancelled
+ * and regenerated to the new cadence from `effectiveFrom` (default today); past and
+ * completed classes are untouched. A FUTURE effectiveFrom leaves a gap between now
+ * and that date — i.e. a break (e.g. the kid is away) — after which the new schedule
+ * resumes. Teacher may reschedule their OWN batch; admins any.
  *
- * Body: { scheduleId, days: [{day, time, durationMin?}] }
+ * Body: { scheduleId, days: [{day, time, durationMin?}], effectiveFrom? (YYYY-MM-DD) }
  */
 export const runtime = 'nodejs';
 
 const HM_RE = /^\d{1,2}:\d{2}(:\d{2})?$/;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const HORIZON = 8;
 
 interface DayTime { day: number; time: string; durationMin?: number }
@@ -32,9 +36,20 @@ export async function POST(req: NextRequest) {
   const rl = rateLimit({ key: `reschedule-batch:${actor.userId}`, limit: 15, windowMs: 60_000 });
   if (!rl.ok) return NextResponse.json({ ok: false, error: 'rate_limited' }, { status: 429 });
 
-  let body: { scheduleId?: string; days?: DayTime[] };
+  let body: { scheduleId?: string; days?: DayTime[]; effectiveFrom?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ ok: false, error: 'invalid_json' }, { status: 400 }); }
   if (!body.scheduleId) return NextResponse.json({ ok: false, error: 'bad_request' }, { status: 400 });
+
+  // "Apply from" date: new cadence starts here. Default = today. Cannot be in the
+  // past. A future date leaves a break between now and then.
+  const todayStr = new Date().toISOString().slice(0, 10);
+  let effectiveFrom = todayStr;
+  if (body.effectiveFrom) {
+    if (!DATE_RE.test(body.effectiveFrom) || Number.isNaN(Date.parse(body.effectiveFrom))) {
+      return NextResponse.json({ ok: false, error: 'bad_effective_from', message: 'Pick a valid start date.' }, { status: 400 });
+    }
+    effectiveFrom = body.effectiveFrom < todayStr ? todayStr : body.effectiveFrom;
+  }
 
   // Normalize + validate the new per-day cadence (1 or 2 days).
   const errors: string[] = [];
@@ -88,9 +103,9 @@ export async function POST(req: NextRequest) {
     await admin.from('bookings').update({ status: 'cancelled', cancel_actor_role: actor.isAdmin ? 'admin' : 'teacher', cancel_type: 'admin', pay_status: 'zero', cancelled_at: nowIso, cancelled_by: actor.userId }).in('id', future.map((b) => b.id));
   }
 
-  // 4. Regenerate the horizon from now with the new cadence.
+  // 4. Regenerate the horizon from the effective date with the new cadence.
   const slots = generateOccurrences({
-    startDate: nowIso.slice(0, 10), daysOfWeek, timeLocal: timeLocalFallback,
+    startDate: effectiveFrom, daysOfWeek, timeLocal: timeLocalFallback,
     durationMin: sched.duration_min ?? 60, timezone: sched.timezone, perDay,
   }, HORIZON);
   if (slots.length) {
@@ -100,7 +115,7 @@ export async function POST(req: NextRequest) {
     })));
   }
 
-  return NextResponse.json({ ok: true, regenerated: slots.length, cancelled: future?.length ?? 0 });
+  return NextResponse.json({ ok: true, regenerated: slots.length, cancelled: future?.length ?? 0, effectiveFrom });
 }
 
 /** GET — list the caller's batches (teacher=own active schedules; admin=all active). */

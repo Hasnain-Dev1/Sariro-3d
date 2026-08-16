@@ -35,6 +35,7 @@ import SalesEarningsReport from '@/components/dashboard/sales-earnings-report';
 import AssignTeacherModal from '@/components/dashboard/assign-teacher';
 import { TeacherCourseAssignmentModal } from '@/app/dashboard/admin/teacher-course-assignments';
 import { UserManagementModal } from '@/components/dashboard/user-management-modal';
+import { BatchRescheduleModal } from '@/components/dashboard/batch-reschedule-modal';
 import { LeadPipeline } from '@/app/dashboard/super-admin/lead-pipeline';
 import { useRealtime } from '@/lib/dashboard/use-realtime';
 
@@ -1067,6 +1068,9 @@ function SuperAdminDashboardInner() {
       {/* Demo Class Requests — same as admin dashboard */}
       <DemoRequestsSection onToast={(msg, kind) => setToast({ type: kind || 'success', message: msg })} />
 
+      {/* Change schedule — super admin can reschedule any batch (days/times, apply-from date, break) */}
+      <BatchScheduleSection onToast={(msg, kind) => setToast({ type: kind || 'success', message: msg })} />
+
       {/* Credit Adjustment — super admin can add/deduct credits from any student */}
       <CreditAdjustmentSection onToast={(msg, kind) => setToast({ type: kind || 'success', message: msg })} />
 
@@ -1315,6 +1319,33 @@ function DemoDetailRow({ icon, label, value, link }: { icon: React.ReactNode; la
 /* ════════════════════════════════════════════════════════════════════════
    Credit Adjustment Section — super admin can add/deduct credits
    ════════════════════════════════════════════════════════════════════════ */
+
+/* ════════════════════════════════════════════════════════════════════════
+   Change Schedule Section — super admin can reschedule ANY active batch
+   (new days/times, an "apply from" date, or a break). Reuses the shared
+   BatchRescheduleModal, which lists all active batches for admins.
+   ════════════════════════════════════════════════════════════════════════ */
+function BatchScheduleSection({ onToast }: { onToast: (msg: string, kind?: 'success' | 'error') => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mb-6">
+      <div className="card-3d p-4 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2" style={{ fontFamily: 'var(--font-jakarta)' }}>
+            <Calendar className="w-5 h-5 text-blue-600" /> Change schedule
+          </h2>
+          <p className="text-xs text-slate-500 mt-1">Reschedule any batch — new days/times, apply from a date, or set a break.</p>
+        </div>
+        <button
+          onClick={() => setOpen(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold shrink-0">
+          <Clock className="w-4 h-4" /> Open
+        </button>
+      </div>
+      <BatchRescheduleModal open={open} onClose={() => setOpen(false)} onDone={() => { setOpen(false); onToast('Schedule updated'); }} />
+    </div>
+  );
+}
 
 function CreditAdjustmentSection({ onToast }: { onToast: (msg: string, kind?: 'success' | 'error') => void }) {
   const [searchQuery, setSearchQuery] = useState('');

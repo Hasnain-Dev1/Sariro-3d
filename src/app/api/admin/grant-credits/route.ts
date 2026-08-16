@@ -118,56 +118,45 @@ export async function POST(req: NextRequest) {
 
   try {
     const lessonCount = body.lesson_count!;
-    const topUpAmount = lessonCount - 1; // trigger already granted 1
 
-    // Ensure credits row exists
-    await admin
-      .from('credits')
-      .upsert(
-        { user_id: enrollment.user_id, balance: lessonCount },
-        { onConflict: 'user_id' }
-      );
+    // Idempotent per enrollment: sum what was ALREADY granted for this
+    // enrollment (via related_enrollment_id) and only top up the difference.
+    // Previously this route SET balance = lessonCount absolutely, which wiped a
+    // student's credits from OTHER courses and double-granted on re-runs.
+    const { data: priorTxns } = await admin
+      .from('credit_transactions')
+      .select('amount')
+      .eq('related_enrollment_id', enrollment.id);
+    const alreadyGranted = (priorTxns ?? []).reduce(
+      (sum: number, t: { amount: number }) => sum + (t.amount > 0 ? t.amount : 0),
+      0
+    );
+    const topUpAmount = lessonCount - alreadyGranted;
 
-    // If topUpAmount > 0, update the balance + transaction
     if (topUpAmount > 0) {
-      // Update the placeholder transaction (amount=1) to the real amount
-      // Find the most recent 'purchase' transaction for this enrollment
-      const { data: tx } = await admin
-        .from('credit_transactions')
-        .select('id, amount')
+      // Add the missing credits to the EXISTING balance (never overwrite).
+      const { data: current } = await admin
+        .from('credits')
+        .select('balance')
         .eq('user_id', enrollment.user_id)
-        .eq('related_enrollment_id', enrollment.id)
-        .eq('type', 'purchase')
-        .order('created_at', { ascending: false })
-        .limit(1)
         .maybeSingle();
+      const newBalance = (current?.balance ?? 0) + topUpAmount;
 
-      if (tx) {
-        // Update the transaction amount to the full lesson count
-        await admin
-          .from('credit_transactions')
-          .update({
-            amount: lessonCount,
-            description: `Credits granted for enrollment in ${enrollment.track} ${enrollment.level} (${lessonCount} lessons)`,
-          })
-          .eq('id', tx.id);
-      } else {
-        // No placeholder transaction exists — insert a new one
-        await admin.from('credit_transactions').insert({
-          user_id: enrollment.user_id,
-          amount: lessonCount,
-          type: 'purchase',
-          description: `Credits granted for enrollment in ${enrollment.track} ${enrollment.level} (${lessonCount} lessons)`,
-          related_enrollment_id: enrollment.id,
-          created_by: user.id,
-        });
-      }
-
-      // Update balance to the correct total
       await admin
         .from('credits')
-        .update({ balance: lessonCount })
-        .eq('user_id', enrollment.user_id);
+        .upsert(
+          { user_id: enrollment.user_id, balance: newBalance },
+          { onConflict: 'user_id' }
+        );
+
+      await admin.from('credit_transactions').insert({
+        user_id: enrollment.user_id,
+        amount: topUpAmount,
+        type: 'purchase',
+        description: `Credits granted for enrollment in ${enrollment.track} ${enrollment.level} (${lessonCount} lessons)`,
+        related_enrollment_id: enrollment.id,
+        created_by: user.id,
+      });
     }
 
     return NextResponse.json({

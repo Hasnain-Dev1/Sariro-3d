@@ -1,8 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { X, Users, UserPlus, UserMinus, PauseCircle, Loader2, RefreshCw } from 'lucide-react';
+import { X, Users, UserPlus, UserMinus, PauseCircle, Loader2, RefreshCw, CalendarClock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { BatchRescheduleModal } from '@/components/dashboard/batch-reschedule-modal';
 
 /* ════════════════════════════════════════════════════════════════════════
    ManageBatchesModal — admin/super-admin management of recurring schedules:
@@ -32,6 +33,7 @@ export default function ManageBatchesModal({
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [changeSchedId, setChangeSchedId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -167,6 +169,16 @@ export default function ManageBatchesModal({
                   </button>
                 </div>
 
+                {/* Change schedule (days/times, apply-from date, break) */}
+                <div className="mb-2">
+                  <button
+                    disabled={busy || s.status !== 'active'}
+                    onClick={() => setChangeSchedId(s.id)}
+                    className="inline-flex items-center gap-1.5 min-h-[36px] px-2.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold disabled:opacity-40">
+                    <CalendarClock className="w-3.5 h-3.5" /> Change schedule
+                  </button>
+                </div>
+
                 {/* Pause batch */}
                 <PauseRow disabled={busy} onPause={(start, end) => call({ action: 'pause_batch', scheduleId: s.id, pauseStart: start, pauseEnd: end }, 'Batch paused; classes shifted forward')} />
 
@@ -207,6 +219,13 @@ export default function ManageBatchesModal({
           </div>
         )}
       </div>
+
+      <BatchRescheduleModal
+        open={!!changeSchedId}
+        presetScheduleId={changeSchedId}
+        onClose={() => setChangeSchedId(null)}
+        onDone={() => { setChangeSchedId(null); onToast?.('Schedule updated'); load(); }}
+      />
     </div>
   );
 }

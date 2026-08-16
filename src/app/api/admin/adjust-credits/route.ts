@@ -110,40 +110,27 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Ensure credits row exists
+    // Read the CURRENT balance, then ADD the delta. We do the arithmetic here
+    // (read-modify-write) rather than trusting a DB function — a hand-written
+    // `adjust_credits_balance` on the live DB was SETTING the balance to the
+    // entered value instead of adding/deducting, which wiped existing credits.
+    const { data: current } = await admin
+      .from('credits')
+      .select('balance')
+      .eq('user_id', body.user_id!)
+      .maybeSingle();
+
+    const prevBalance = current?.balance ?? 0;
+    // Never let a deduction push the balance below zero.
+    const newBalance = Math.max(0, prevBalance + body.amount!);
+
+    // Upsert so a missing credits row is created with the correct balance.
     await admin
       .from('credits')
       .upsert(
-        { user_id: body.user_id!, balance: 0 },
+        { user_id: body.user_id!, balance: newBalance },
         { onConflict: 'user_id' }
       );
-
-    // Update balance
-    const { data: updated, error: updateErr } = await admin
-      .rpc('adjust_credits_balance', {
-        p_user_id: body.user_id!,
-        p_amount: body.amount!,
-      })
-      .maybeSingle();
-
-    // If RPC doesn't exist, do it manually
-    let newBalance: number;
-    if (updateErr || !updated) {
-      const { data: current } = await admin
-        .from('credits')
-        .select('balance')
-        .eq('user_id', body.user_id!)
-        .maybeSingle();
-
-      newBalance = (current?.balance ?? 0) + body.amount!;
-
-      await admin
-        .from('credits')
-        .update({ balance: newBalance })
-        .eq('user_id', body.user_id!);
-    } else {
-      newBalance = (updated as { new_balance: number }).new_balance ?? 0;
-    }
 
     // Insert transaction record
     await admin.from('credit_transactions').insert({
