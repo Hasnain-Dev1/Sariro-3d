@@ -3,6 +3,7 @@ import { createServerClientHelper, createServiceClient } from '@/lib/supabase/se
 import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import { generateOccurrences } from '@/lib/dashboard/schedule-generation';
+import { getCourseSyllabus } from '@/lib/dashboard/student-data';
 
 /**
  * SARIRO — POST /api/admin/schedule/manage  (admin/super-admin only)
@@ -39,6 +40,35 @@ async function requireAdmin(admin: ReturnType<typeof createServiceClient>): Prom
   const { data: p } = await admin.from('profiles').select('role, is_admin, is_super_admin').eq('id', user.id).single();
   const ok = p?.role === 'admin' || p?.role === 'super_admin' || p?.is_admin === true || p?.is_super_admin === true;
   return ok ? user.id : null;
+}
+
+/**
+ * Grant class credits for an enrollment (idempotent per enrollment). A kid can
+ * only JOIN a class if they have credits (1 credit = 1 class, consumed on
+ * completion), so adding a kid to a batch MUST grant them — otherwise the kid
+ * enrols but can never join. Mirrors /api/admin/enroll's grant so both the
+ * "add kid" path and renewals top up correctly without double-counting.
+ */
+async function grantEnrollmentCredits(
+  admin: ReturnType<typeof createServiceClient>,
+  opts: { userId: string; enrollmentId: string; track: string | null; level: string | null; grantedBy: string }
+) {
+  if (!opts.track || !opts.level) return;
+  const lessonCount = getCourseSyllabus(opts.track, opts.level).totalLessons;
+  if (!lessonCount || lessonCount < 1) return;
+  const { data: txns } = await admin.from('credit_transactions')
+    .select('amount').eq('related_enrollment_id', opts.enrollmentId);
+  const already = (txns ?? []).reduce((s: number, t: { amount: number }) => s + (t.amount > 0 ? t.amount : 0), 0);
+  const topUp = lessonCount - already;
+  if (topUp <= 0) return;
+  const { data: cr } = await admin.from('credits').select('balance').eq('user_id', opts.userId).maybeSingle();
+  const newBalance = (cr?.balance ?? 0) + topUp;
+  await admin.from('credits').upsert({ user_id: opts.userId, balance: newBalance }, { onConflict: 'user_id' });
+  await admin.from('credit_transactions').insert({
+    user_id: opts.userId, amount: topUp, type: 'purchase',
+    description: `Enrollment credits — ${opts.track} ${opts.level} (${lessonCount} lessons)`,
+    related_enrollment_id: opts.enrollmentId, created_by: opts.grantedBy,
+  });
 }
 
 async function appendMakeups(admin: ReturnType<typeof createServiceClient>, scheduleId: string, n: number) {
@@ -151,18 +181,24 @@ export async function POST(req: NextRequest) {
 
     case 'add_kid': {
       if (!body.cohortId || !body.studentId) return NextResponse.json({ ok: false, error: 'missing_params' }, { status: 400 });
+      const { data: cohort } = await admin.from('cohorts').select('track, level, ratio').eq('id', body.cohortId).maybeSingle();
       const { data: existing } = await admin.from('enrollments').select('id, status').eq('cohort_id', body.cohortId).eq('user_id', body.studentId).maybeSingle();
       if (existing) {
         if (existing.status !== 'active') await admin.from('enrollments').update({ status: 'active' }).eq('id', existing.id);
+        // Ensure credits exist even on reactivation (idempotent top-up).
+        await grantEnrollmentCredits(admin, { userId: body.studentId, enrollmentId: existing.id, track: cohort?.track ?? null, level: cohort?.level ?? null, grantedBy: userId });
         return NextResponse.json({ ok: true, reactivated: true });
       }
-      const { data: cohort } = await admin.from('cohorts').select('track, level, ratio').eq('id', body.cohortId).maybeSingle();
-      const { error: e2 } = await admin.from('enrollments').insert({
+      const { data: enrollment, error: e2 } = await admin.from('enrollments').insert({
         user_id: body.studentId, cohort_id: body.cohortId,
         track: cohort?.track ?? null, level: cohort?.level ?? null, ratio: cohort?.ratio ?? null,
         status: 'active',
-      });
+      }).select('id').single();
       if (e2) return NextResponse.json({ ok: false, error: 'enroll_failed', message: e2.message }, { status: 500 });
+      // Grant class credits (idempotent) so the kid can actually join classes.
+      if (enrollment) {
+        await grantEnrollmentCredits(admin, { userId: body.studentId, enrollmentId: enrollment.id, track: cohort?.track ?? null, level: cohort?.level ?? null, grantedBy: userId });
+      }
       return NextResponse.json({ ok: true });
     }
 
