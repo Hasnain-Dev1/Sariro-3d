@@ -487,6 +487,7 @@ export function TeacherCalendar({ bookings, timezone, onSelectBooking, onChanged
         onClose={() => setCancelTarget(null)}
         booking={cancelTarget}
         role="teacher"
+        timezone={timezone}
         onDone={() => { setCancelTarget(null); onChanged?.(); }}
       />
     </div>

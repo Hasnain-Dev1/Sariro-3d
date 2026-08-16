@@ -301,7 +301,7 @@ function BookingCard({
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold disabled:opacity-50 min-h-[40px]"
               style={{ fontFamily: 'var(--font-grotesk)' }}
             >
-              <UserX className="w-3.5 h-3.5" /> No-show
+              <UserX className="w-3.5 h-3.5" /> Student no-show
             </button>
           </>
         )}
@@ -1437,6 +1437,30 @@ function TeacherDashboardInner() {
     bookingId: string,
     status: 'scheduled' | 'completed' | 'cancelled' | 'no_show'
   ) => {
+    // Completion + student no-show move MONEY (they fire the earning trigger),
+    // so they go through the server route that gates ownership/timing and
+    // reliably creates the earning + any penalty. A "no_show" from this UI means
+    // the STUDENT didn't show (teacher no-shows are auto-detected elsewhere).
+    if (status === 'completed' || status === 'no_show') {
+      const outcome = status === 'no_show' ? 'student_no_show' : 'completed';
+      try {
+        const res = await fetch('/api/teacher/complete-class', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bookingId, outcome }),
+        });
+        const j = await res.json();
+        if (j.ok) {
+          setToast({ type: 'success', message: status === 'no_show' ? 'Marked student no-show (half pay withheld)' : 'Class marked complete' });
+          await loadAll();
+        } else {
+          setToast({ type: 'error', message: j.message || j.error || 'Failed to update session' });
+        }
+      } catch {
+        setToast({ type: 'error', message: 'Network error' });
+      }
+      return;
+    }
+
     const result = await updateBookingStatus(bookingId, status);
     if (result.success) {
       setToast({ type: 'success', message: `Session marked as ${status.replace('_', '-')}` });

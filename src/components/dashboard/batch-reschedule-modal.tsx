@@ -29,7 +29,6 @@ export function BatchRescheduleModal({
   const [selId, setSelId] = useState('');
   const [dayTimes, setDayTimes] = useState<Record<number, string>>({});
   const [defaultTime, setDefaultTime] = useState('17:00');
-  const [cadence, setCadence] = useState<1 | 2>(1);
   const [effectiveFrom, setEffectiveFrom] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -53,7 +52,8 @@ export function BatchRescheduleModal({
 
   const selected = useMemo(() => schedules.find((s) => s.id === selId), [schedules, selId]);
 
-  // Seed the editor from the chosen batch's current cadence.
+  // Seed the editor from the chosen batch's CURRENT days + time — so "keep the
+  // same schedule" just means: don't touch the days, only pick a new start date.
   useEffect(() => {
     if (!selected) return;
     const seed: Record<number, string> = {};
@@ -61,35 +61,36 @@ export function BatchRescheduleModal({
     Promise.resolve().then(() => {
       setDayTimes(seed);
       setDefaultTime(selected.time_local.slice(0, 5) || '17:00');
-      setCadence(selected.classes_per_week === 2 ? 2 : 1);
       setEffectiveFrom((prev) => prev || todayStr);
     });
   }, [selected, todayStr]);
 
   const weekdays = useMemo(() => Object.keys(dayTimes).map(Number).sort((a, b) => a - b), [dayTimes]);
 
+  // Free toggle: pick any 1–7 weekdays; each keeps its own time.
   const toggleDay = useCallback((d: number) => {
     setDayTimes((prev) => {
       const next = { ...prev };
-      if (d in next) { delete next[d]; return next; }
-      const keys = Object.keys(next).map(Number);
-      if (keys.length >= cadence) delete next[keys.sort((a, b) => a - b)[0]];
-      next[d] = defaultTime;
+      if (d in next) delete next[d];
+      else next[d] = defaultTime;
       return next;
     });
-  }, [cadence, defaultTime]);
+  }, [defaultTime]);
 
-  const setCad = (n: 1 | 2) => {
-    setCadence(n);
+  // Quick presets: N classes/week using the most common weekday templates.
+  const applyPreset = useCallback((n: number) => {
+    const templates: Record<number, number[]> = {
+      1: [1], 2: [1, 4], 3: [1, 3, 5], 4: [1, 2, 4, 5], 5: [1, 2, 3, 4, 5],
+      6: [1, 2, 3, 4, 5, 6], 7: [0, 1, 2, 3, 4, 5, 6],
+    };
     setDayTimes((prev) => {
-      const keys = Object.keys(prev).map(Number).sort((a, b) => a - b).slice(0, n);
       const next: Record<number, string> = {};
-      for (const k of keys) next[k] = prev[k];
+      for (const d of templates[n] ?? [1]) next[d] = prev[d] ?? defaultTime;
       return next;
     });
-  };
+  }, [defaultTime]);
 
-  const valid = !!(selId && weekdays.length === cadence && weekdays.every((d) => dayTimes[d]));
+  const valid = !!(selId && weekdays.length >= 1 && weekdays.length <= 7 && weekdays.every((d) => dayTimes[d]) && effectiveFrom);
 
   const submit = async () => {
     setBusy(true); setErr(null);
@@ -150,19 +151,19 @@ export function BatchRescheduleModal({
                 </p>
 
                 <div className="mb-3">
-                  <span className="block text-xs font-bold text-slate-700 mb-1.5">Classes per week</span>
-                  <div className="flex gap-2">
-                    {([1, 2] as const).map((n) => (
-                      <button key={n} onClick={() => setCad(n)}
-                        className={`flex-1 min-h-[38px] rounded-lg text-sm font-bold border-2 ${cadence === n ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600'}`}>
-                        {n} {n === 1 ? 'day' : 'days'}/week
+                  <span className="block text-xs font-bold text-slate-700 mb-1.5">Quick pick</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+                      <button key={n} onClick={() => applyPreset(n)}
+                        className={`min-h-[34px] px-2.5 rounded-lg text-xs font-bold border-2 ${weekdays.length === n ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600'}`}>
+                        {n === 7 ? 'Every day' : `${n}/wk`}
                       </button>
                     ))}
                   </div>
                 </div>
 
                 <div className="mb-3">
-                  <span className="block text-xs font-bold text-slate-700 mb-1.5">New day{cadence === 2 ? 's' : ''} (pick {cadence})</span>
+                  <span className="block text-xs font-bold text-slate-700 mb-1.5">Days (pick any 1–7)</span>
                   <div className="grid grid-cols-7 gap-1">
                     {WD.map((w, i) => (
                       <button key={w} onClick={() => toggleDay(i)}

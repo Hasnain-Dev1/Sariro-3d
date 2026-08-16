@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
     effectiveFrom = body.effectiveFrom < todayStr ? todayStr : body.effectiveFrom;
   }
 
-  // Normalize + validate the new per-day cadence (1 or 2 days).
+  // Normalize + validate the new per-day cadence (1–7 days/week, each with a time).
   const errors: string[] = [];
   const seen = new Set<number>();
   const dayTimes: DayTime[] = [];
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     const dur = Number(d?.durationMin);
     dayTimes.push({ day, time, durationMin: dur > 0 ? dur : undefined });
   }
-  if (dayTimes.length < 1 || dayTimes.length > 2) errors.push('Pick one or two weekdays with a time each.');
+  if (dayTimes.length < 1 || dayTimes.length > 7) errors.push('Pick between one and seven weekdays, each with a time.');
   if (errors.length) return NextResponse.json({ ok: false, error: 'validation_failed', errors }, { status: 400 });
 
   dayTimes.sort((a, b) => a.day - b.day);
