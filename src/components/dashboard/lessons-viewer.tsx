@@ -15,6 +15,9 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { Lock, Check, PlayCircle, ChevronRight, Loader2, BookOpen } from 'lucide-react';
+import { getStructuredCourse, getStructuredLesson } from '@/lib/curriculum';
+import { StructuredLessonView } from '@/components/dashboard/structured-lesson-view';
+import type { StructuredLesson } from '@/lib/curriculum/types';
 
 interface LessonRow {
   module_num: number;
@@ -42,8 +45,13 @@ export function LessonsViewer({ courseId }: { courseId: string }) {
 
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [content, setContent] = useState<{ html: string; name: string } | null>(null);
+  const [structured, setStructured] = useState<StructuredLesson | null>(null);
   const [contentLoading, setContentLoading] = useState(false);
   const [contentError, setContentError] = useState<string | null>(null);
+
+  // Courses listed in the curriculum registry render as rich 5-tab lessons
+  // from codebase data instead of the DB html_content path.
+  const structuredCourse = getStructuredCourse(courseId);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,7 +73,17 @@ export function LessonsViewer({ courseId }: { courseId: string }) {
   const openLesson = useCallback(async (l: LessonRow) => {
     if (!l.viewable) return;
     const key = `${l.module_num}:${l.lesson_index}`;
-    setActiveKey(key); setContent(null); setContentError(null); setContentLoading(true);
+    setActiveKey(key); setContent(null); setStructured(null); setContentError(null);
+
+    // Structured curriculum: render straight from codebase data, no fetch.
+    if (structuredCourse) {
+      const lesson = getStructuredLesson(courseId, l.module_num, l.lesson_index);
+      if (lesson) { setStructured(lesson); return; }
+      setContentError('This lesson has not been written yet.');
+      return;
+    }
+
+    setContentLoading(true);
     try {
       const res = await fetch(`/api/lessons/content?courseId=${encodeURIComponent(courseId)}&module=${l.module_num}&index=${l.lesson_index}`);
       const j = await res.json();
@@ -76,7 +94,7 @@ export function LessonsViewer({ courseId }: { courseId: string }) {
     } finally {
       setContentLoading(false);
     }
-  }, [courseId]);
+  }, [courseId, structuredCourse]);
 
   if (loading) {
     return <div className="flex items-center justify-center py-12 text-slate-400"><Loader2 className="w-5 h-5 animate-spin" /></div>;
@@ -145,6 +163,8 @@ export function LessonsViewer({ courseId }: { courseId: string }) {
           <div className="flex items-center justify-center py-16 text-slate-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
         ) : contentError ? (
           <div className="text-center py-16 text-sm text-slate-500">{contentError}</div>
+        ) : structured ? (
+          <StructuredLessonView lesson={structured} />
         ) : content ? (
           <article className="lesson-content prose max-w-none" dangerouslySetInnerHTML={{ __html: content.html }} />
         ) : (
