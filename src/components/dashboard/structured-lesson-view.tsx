@@ -8,43 +8,74 @@
  * The Quiz is interactive and auto-scored. Content comes from the in-codebase
  * curriculum (src/lib/curriculum), not the DB — so it's the same for every
  * viewer and needs no authoring UI.
+ *
+ * Visual language matches Sariro's lesson-platform design system (Sariro
+ * Green, dark-emerald banner, pill segmented tabs, module colour badges) —
+ * see the design tokens below, sourced from the platform's theme.css.
  */
 
 import { useState } from 'react';
-import { BookOpen, FlaskConical, Rocket, ListChecks, GraduationCap, Check, X, ChevronRight } from 'lucide-react';
+import { BookOpen, FlaskConical, Rocket, ListChecks, GraduationCap, Check, X, ChevronRight, Clock } from 'lucide-react';
 import type { StructuredLesson, CodeBlock, QuizQuestion } from '@/lib/curriculum/types';
+
+/* ── Design tokens (Sariro lesson-platform theme) ────────────────────────
+   Mirrors theme.css: brand green, sky/violet/amber/red module accents. */
+const PRIMARY = '#16a34a';
+const PRIMARY_DARK = '#15803d';
+const PRIMARY_SOFT = '#16a34a1c';
+const ACCENT = '#f59e0b';
+const HERO_START = '#052e17';
+const HERO_END = '#0a1a12';
+const MODULE_COLORS = ['#16a34a', '#0ea5e9', '#7c3aed', '#f59e0b', '#dc2626'];
+
+function moduleColor(moduleNum: number): string {
+  return MODULE_COLORS[(moduleNum - 1) % MODULE_COLORS.length] ?? PRIMARY;
+}
 
 type TabKey = 'concept' | 'mini' | 'final' | 'quiz' | 'homework';
 
-const TABS: { key: TabKey; label: string; icon: typeof BookOpen }[] = [
-  { key: 'concept', label: 'Concept', icon: BookOpen },
-  { key: 'mini', label: 'Mini Project', icon: FlaskConical },
-  { key: 'final', label: 'Final Project', icon: Rocket },
+const TABS: { key: TabKey; label: string; icon: typeof BookOpen; minutes?: number }[] = [
+  { key: 'concept', label: 'Concept', icon: BookOpen, minutes: 15 },
+  { key: 'mini', label: 'Mini Project', icon: FlaskConical, minutes: 15 },
+  { key: 'final', label: 'Final Project', icon: Rocket, minutes: 30 },
   { key: 'quiz', label: 'Quiz', icon: ListChecks },
   { key: 'homework', label: 'Homework', icon: GraduationCap },
 ];
 
 function Code({ block }: { block: CodeBlock }) {
   return (
-    <div className="rounded-xl overflow-hidden border border-slate-800 bg-[#0b1524] my-3">
-      {(block.filename || block.language) && (
-        <div className="flex items-center gap-2 px-3.5 py-2 border-b border-white/10 text-[11px] font-mono text-slate-400">
-          <span className="flex gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
-            <span className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
-            <span className="w-2.5 h-2.5 rounded-full bg-[#28c840]" />
-          </span>
-          <span className="ml-1">{block.filename ?? block.language}</span>
-        </div>
-      )}
-      <pre className="overflow-x-auto p-4 text-[12.5px] leading-relaxed text-slate-200 font-mono"><code>{block.code}</code></pre>
-      {block.caption && <p className="px-4 pb-3 text-[11px] text-slate-500 font-mono">{block.caption}</p>}
+    <div className="rounded-xl overflow-hidden border border-[#1c2b22] bg-[#0b1220] my-3 shadow-sm">
+      <div className="relative flex items-center gap-2 pl-11 pr-3.5 py-2 border-b border-white/10 text-[11px] font-mono text-[#a9c9b7]">
+        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 flex gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-[#ef4444]" />
+          <span className="w-2 h-2 rounded-full bg-[#f59e0b]" />
+          <span className="w-2 h-2 rounded-full bg-[#22c55e]" />
+        </span>
+        <span>{block.filename ?? block.language}</span>
+      </div>
+      <pre className="overflow-x-auto p-4 text-[12.5px] leading-relaxed text-[#e5f2ea] font-mono"><code>{block.code}</code></pre>
+      {block.caption && <p className="px-4 pb-3 text-[11px] text-[#6f9280] font-mono">{block.caption}</p>}
     </div>
   );
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <p className="text-[10px] font-bold uppercase tracking-wider text-cyan-700 mb-2" style={{ fontFamily: 'var(--font-grotesk)' }}>{children}</p>;
+  return (
+    <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: PRIMARY_DARK, fontFamily: 'var(--font-grotesk)' }}>
+      {children}
+    </p>
+  );
+}
+
+function TimeBox({ minutes }: { minutes: number }) {
+  return (
+    <span
+      className="inline-block text-[10px] font-extrabold uppercase tracking-wide rounded-full px-2.5 py-1 mb-3"
+      style={{ background: ACCENT, color: '#1f2937' }}
+    >
+      {minutes} min
+    </span>
+  );
 }
 
 function Prose({ text }: { text: string }) {
@@ -57,13 +88,14 @@ function Prose({ text }: { text: string }) {
   );
 }
 
-function Bullets({ items, tone = 'slate' }: { items: string[]; tone?: 'slate' | 'amber' | 'green' | 'cyan' }) {
-  const dot = { slate: 'text-slate-400', amber: 'text-amber-500', green: 'text-green-500', cyan: 'text-cyan-500' }[tone];
+function Bullets({ items, tone = 'slate' }: { items: string[]; tone?: 'slate' | 'amber' | 'green' | 'brand' }) {
+  const dot = { slate: 'text-slate-400', amber: 'text-amber-500', green: 'text-green-500', brand: '' }[tone];
+  const style = tone === 'brand' ? { color: PRIMARY } : undefined;
   return (
     <ul className="space-y-1.5">
       {items.map((it, i) => (
         <li key={i} className="flex gap-2 text-sm text-slate-600 leading-relaxed">
-          <ChevronRight className={`w-4 h-4 shrink-0 mt-0.5 ${dot}`} /> <span>{it}</span>
+          <ChevronRight className={`w-4 h-4 shrink-0 mt-0.5 ${dot}`} style={style} /> <span>{it}</span>
         </li>
       ))}
     </ul>
@@ -98,7 +130,7 @@ function Quiz({ questions }: { questions: QuizQuestion[] }) {
           return (
             <div key={q.id} className="rounded-xl border border-slate-200 p-4">
               <div className="flex items-start gap-2 mb-2">
-                <span className="shrink-0 text-[11px] font-bold text-cyan-700 font-mono mt-0.5">Q{qi + 1}</span>
+                <span className="shrink-0 text-[11px] font-bold font-mono mt-0.5" style={{ color: PRIMARY_DARK }}>Q{qi + 1}</span>
                 <p className="text-sm font-bold text-slate-800">{q.prompt}</p>
               </div>
               {q.code && <Code block={q.code} />}
@@ -106,24 +138,29 @@ function Quiz({ questions }: { questions: QuizQuestion[] }) {
                 {q.options.map((opt, oi) => {
                   const isChosen = chosen === oi;
                   const isCorrect = oi === q.answerIndex;
-                  let cls = 'border-slate-200 hover:border-cyan-300';
+                  let cls = 'border-slate-200 hover:border-green-300';
+                  let bg: string | undefined;
                   if (submitted) {
                     if (isCorrect) cls = 'border-green-400 bg-green-50';
                     else if (isChosen) cls = 'border-red-300 bg-red-50';
                     else cls = 'border-slate-200 opacity-70';
-                  } else if (isChosen) cls = 'border-cyan-400 bg-cyan-50';
+                  } else if (isChosen) { cls = 'border-transparent'; bg = PRIMARY_SOFT; }
                   return (
                     <button
                       key={oi}
                       disabled={submitted}
                       onClick={() => setAnswers((a) => ({ ...a, [q.id]: oi }))}
+                      style={bg ? { background: bg, borderColor: PRIMARY } : undefined}
                       className={`w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-lg border-2 text-sm transition-colors ${cls}`}
                     >
-                      <span className={`shrink-0 w-5 h-5 rounded-full border grid place-items-center text-[11px] font-bold ${
-                        submitted && isCorrect ? 'bg-green-500 border-green-500 text-white'
-                        : submitted && isChosen ? 'bg-red-400 border-red-400 text-white'
-                        : isChosen ? 'bg-cyan-500 border-cyan-500 text-white' : 'border-slate-300 text-slate-400'
-                      }`}>
+                      <span
+                        className={`shrink-0 w-5 h-5 rounded-full border grid place-items-center text-[11px] font-bold ${
+                          submitted && isCorrect ? 'bg-green-500 border-green-500 text-white'
+                          : submitted && isChosen ? 'bg-red-400 border-red-400 text-white'
+                          : 'border-slate-300 text-slate-400'
+                        }`}
+                        style={!submitted && isChosen ? { background: PRIMARY, borderColor: PRIMARY, color: '#fff' } : undefined}
+                      >
                         {submitted && isCorrect ? <Check className="w-3 h-3" /> : submitted && isChosen && !isCorrect ? <X className="w-3 h-3" /> : String.fromCharCode(65 + oi)}
                       </span>
                       <span className="text-slate-700">{opt}</span>
@@ -146,7 +183,8 @@ function Quiz({ questions }: { questions: QuizQuestion[] }) {
           <button
             onClick={() => setSubmitted(true)}
             disabled={answeredCount < questions.length}
-            className="min-h-[44px] px-5 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-bold disabled:bg-slate-300"
+            style={answeredCount >= questions.length ? { background: `linear-gradient(135deg, ${PRIMARY}, ${PRIMARY_DARK})` } : undefined}
+            className="min-h-[44px] px-5 rounded-lg text-white text-sm font-bold disabled:bg-slate-300 shadow-sm transition-transform hover:-translate-y-0.5"
           >
             {answeredCount < questions.length ? `Answer all ${questions.length} (${answeredCount} done)` : 'Submit & score'}
           </button>
@@ -166,35 +204,67 @@ function Quiz({ questions }: { questions: QuizQuestion[] }) {
 /* ── Main ─────────────────────────────────────────────────────────────── */
 export function StructuredLessonView({ lesson }: { lesson: StructuredLesson }) {
   const [tab, setTab] = useState<TabKey>('concept');
+  const mColor = moduleColor(lesson.moduleNum);
+  const activeTabDef = TABS.find((t) => t.key === tab);
 
   return (
     <div>
-      {/* Lesson header */}
-      <div className="mb-4">
-        <p className="text-[11px] font-bold uppercase tracking-wider text-cyan-700 font-mono">Lesson {lesson.globalNumber} · Module {lesson.moduleNum}</p>
-        <h2 className="text-xl font-extrabold text-slate-900 mt-1" style={{ fontFamily: 'var(--font-jakarta)' }}>{lesson.title}</h2>
-        <p className="text-sm text-slate-500 mt-1">{lesson.subtitle}</p>
+      {/* Lesson header — dark emerald "hero" banner, matching the platform's brand banner */}
+      <div
+        className="relative overflow-hidden rounded-2xl px-5 py-5 mb-5"
+        style={{
+          backgroundColor: HERO_END,
+          backgroundImage: `radial-gradient(640px circle at 88% -10%, #22c55e2e, transparent 60%),
+            repeating-linear-gradient(0deg, #ffffff0f 0 1px, transparent 1px 48px),
+            repeating-linear-gradient(90deg, #ffffff0f 0 1px, transparent 1px 48px),
+            linear-gradient(135deg, ${HERO_START}, ${HERO_END})`,
+        }}
+      >
+        <span
+          aria-hidden
+          className="absolute -top-16 right-[6%] w-[180px] h-[180px] rounded-full pointer-events-none"
+          style={{ border: '1px solid #ffffff20' }}
+        />
+        <div className="relative flex items-center gap-2 mb-1.5">
+          <span
+            className="inline-block text-[10px] font-extrabold uppercase tracking-wide rounded-full px-2.5 py-1 text-white"
+            style={{ background: mColor }}
+          >
+            Module {lesson.moduleNum}
+          </span>
+          <span className="text-[11px] font-mono font-bold text-[#a9c9b7]">Lesson {lesson.globalNumber}</span>
+        </div>
+        <h2 className="relative text-xl font-extrabold text-[#eafbf0] mt-0.5" style={{ fontFamily: 'var(--font-jakarta)' }}>{lesson.title}</h2>
+        <p className="relative text-sm text-[#a9c9b7] mt-1 max-w-[60ch]">{lesson.subtitle}</p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-slate-200 mb-5 overflow-x-auto">
-        {TABS.map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            className={`flex items-center gap-1.5 px-3 py-2.5 text-sm font-bold border-b-2 -mb-px whitespace-nowrap transition-colors ${
-              tab === key ? 'border-cyan-500 text-cyan-700' : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <Icon className="w-4 h-4" /> {label}
-          </button>
-        ))}
+      {/* Tabs — pill segmented control */}
+      <div className="inline-flex flex-wrap gap-1 bg-[#eef4f0] border border-[#edf2ee] rounded-full p-1 mb-5">
+        {TABS.map(({ key, label, icon: Icon }) => {
+          const active = tab === key;
+          return (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              style={active ? { background: `linear-gradient(135deg, ${PRIMARY}, ${PRIMARY_DARK})` } : undefined}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${
+                active ? 'text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-white'
+              }`}
+            >
+              <Icon className="w-4 h-4" /> {label}
+            </button>
+          );
+        })}
       </div>
+
+      {activeTabDef?.minutes && <TimeBox minutes={activeTabDef.minutes} />}
 
       {/* Concept */}
       {tab === 'concept' && (
         <div className="space-y-5">
-          <p className="text-sm text-slate-700 bg-cyan-50 border border-cyan-100 rounded-lg p-3"><span className="font-bold">In this lesson:</span> {lesson.concept.summary}</p>
+          <p className="text-sm text-slate-700 rounded-lg p-3 border" style={{ background: PRIMARY_SOFT, borderColor: PRIMARY }}>
+            <span className="font-bold">In this lesson:</span> {lesson.concept.summary}
+          </p>
           {lesson.concept.sections.map((s, i) => (
             <div key={i}>
               <h3 className="text-base font-bold text-slate-900 mb-1.5" style={{ fontFamily: 'var(--font-jakarta)' }}>{s.heading}</h3>
@@ -220,7 +290,7 @@ export function StructuredLessonView({ lesson }: { lesson: StructuredLesson }) {
         <div className="space-y-4">
           <h3 className="text-base font-bold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>{lesson.miniProject.title}</h3>
           <div><SectionLabel>Objective</SectionLabel><p className="text-sm text-slate-600">{lesson.miniProject.objective}</p></div>
-          <div><SectionLabel>Instructions</SectionLabel><Bullets items={lesson.miniProject.instructions} tone="cyan" /></div>
+          <div><SectionLabel>Instructions</SectionLabel><Bullets items={lesson.miniProject.instructions} tone="brand" /></div>
           <div><SectionLabel>Code</SectionLabel>{lesson.miniProject.code.map((c, i) => <Code key={i} block={c} />)}</div>
           <div><SectionLabel>How it works</SectionLabel><Prose text={lesson.miniProject.explanation} /></div>
           <div><SectionLabel>Expected output</SectionLabel><p className="text-sm text-slate-600">{lesson.miniProject.expectedOutput}</p></div>
@@ -231,9 +301,9 @@ export function StructuredLessonView({ lesson }: { lesson: StructuredLesson }) {
       {/* Final Project */}
       {tab === 'final' && (
         <div className="space-y-4">
-          <div className="rounded-xl bg-cyan-50 border border-cyan-100 p-4">
+          <div className="rounded-xl p-4 border" style={{ background: PRIMARY_SOFT, borderColor: PRIMARY }}>
             <SectionLabel>Feature we're shipping</SectionLabel>
-            <p className="text-sm font-semibold text-slate-800">{lesson.finalProject.feature}</p>
+            <p className="text-sm font-semibold" style={{ color: PRIMARY_DARK }}>{lesson.finalProject.feature}</p>
           </div>
           <div><SectionLabel>Why we need it</SectionLabel><p className="text-sm text-slate-600">{lesson.finalProject.why}</p></div>
           <div><SectionLabel>Where it lives</SectionLabel><p className="text-sm text-slate-600 font-mono">{lesson.finalProject.fileLocation}</p></div>
@@ -241,9 +311,12 @@ export function StructuredLessonView({ lesson }: { lesson: StructuredLesson }) {
           <div><SectionLabel>Where to put it</SectionLabel><Prose text={lesson.finalProject.placement} /></div>
           <div><SectionLabel>How it works</SectionLabel><Prose text={lesson.finalProject.implementation} /></div>
           <div><SectionLabel>Expected result</SectionLabel><p className="text-sm text-slate-600">{lesson.finalProject.expectedResult}</p></div>
-          <div className="rounded-xl border border-slate-200 p-4">
-            <SectionLabel>How this connects</SectionLabel>
-            <p className="text-sm text-slate-600">{lesson.finalProject.connects}</p>
+          <div className="rounded-xl border border-slate-200 p-4 flex gap-2.5">
+            <Clock className="w-4 h-4 shrink-0 mt-0.5" style={{ color: mColor }} />
+            <div>
+              <SectionLabel>How this connects</SectionLabel>
+              <p className="text-sm text-slate-600">{lesson.finalProject.connects}</p>
+            </div>
           </div>
         </div>
       )}
@@ -255,7 +328,7 @@ export function StructuredLessonView({ lesson }: { lesson: StructuredLesson }) {
       {tab === 'homework' && (
         <div className="space-y-4">
           <div><SectionLabel>Your task</SectionLabel><p className="text-sm text-slate-600">{lesson.homework.task}</p></div>
-          <div><SectionLabel>Requirements</SectionLabel><Bullets items={lesson.homework.requirements} tone="cyan" /></div>
+          <div><SectionLabel>Requirements</SectionLabel><Bullets items={lesson.homework.requirements} tone="brand" /></div>
           <div><SectionLabel>Expected outcome</SectionLabel><p className="text-sm text-slate-600">{lesson.homework.expectedOutcome}</p></div>
 
           {lesson.homework.previousHomeworkHint && (
