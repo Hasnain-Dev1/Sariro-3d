@@ -1,6 +1,7 @@
 import type { StructuredCourse, StructuredLesson } from '@/lib/curriculum/types';
 import { momentumCourse } from '@/lib/curriculum/momentum';
 import { orbitCourse } from '@/lib/curriculum/orbit';
+import { compassCourse } from '@/lib/curriculum/compass';
 
 /**
  * SARIRO — Structured Curriculum Registry
@@ -13,6 +14,7 @@ import { orbitCourse } from '@/lib/curriculum/orbit';
 const REGISTRY: Record<string, StructuredCourse> = {
   [momentumCourse.courseId]: momentumCourse, // web-101 — Momentum (Beginner)
   [orbitCourse.courseId]: orbitCourse,       // web-201 — Orbit (Intermediate)
+  [compassCourse.courseId]: compassCourse,   // agent-101 — Compass (Beginner)
 };
 
 /** The structured curriculum for a course, or null if it uses legacy HTML lessons. */
