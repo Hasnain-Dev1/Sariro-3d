@@ -10,7 +10,9 @@
  * and cannot be opened — the gating is enforced server-side either way.
  *
  *   Student → completed + current unlocked; upcoming locked.
- *   Teacher → past-taught + current + next unlocked; further future locked.
+ *   Teacher → EVERY lesson unlocked (review anything to finish training); the
+ *             badge still reflects their taught progress (completed/current/
+ *             next/upcoming) so the list doubles as a training tracker.
  */
 
 import { useEffect, useState, useCallback } from 'react';
@@ -33,7 +35,9 @@ const ACCESS_BADGE: Record<string, { label: string; cls: string }> = {
   completed: { label: 'Completed', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
   current: { label: 'Current', cls: 'bg-green-50 text-green-700 border-green-200' },
   next: { label: 'Next', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
-  upcoming: { label: 'Locked', cls: 'bg-slate-100 text-slate-400 border-slate-200' },
+  // "upcoming" is shown when the lesson is VIEWABLE (a teacher reviewing ahead
+  // for training) — "locked" is the true not-viewable state (students only).
+  upcoming: { label: 'Upcoming', cls: 'bg-slate-100 text-slate-500 border-slate-200' },
   locked: { label: 'Locked', cls: 'bg-slate-100 text-slate-400 border-slate-200' },
 };
 
@@ -126,7 +130,10 @@ export function LessonsViewer({ courseId }: { courseId: string }) {
               </p>
               <div className="space-y-1">
                 {mod.rows.map((l) => {
-                  const badge = ACCESS_BADGE[l.access] ?? ACCESS_BADGE.upcoming;
+                  // Not-viewable always reads as "Locked" regardless of access
+                  // label; a viewable-but-upcoming lesson (teachers) reads as
+                  // "Upcoming" instead — it's open for review, just not taught yet.
+                  const badge = !l.viewable ? ACCESS_BADGE.locked : (ACCESS_BADGE[l.access] ?? ACCESS_BADGE.upcoming);
                   const key = `${l.module_num}:${l.lesson_index}`;
                   const isActive = activeKey === key;
                   return (

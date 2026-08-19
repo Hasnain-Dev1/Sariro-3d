@@ -7,8 +7,12 @@
  * and decides, from progress, which lessons a viewer may open:
  *
  *   • Student  → CURRENT + COMPLETED lessons only (never upcoming).
- *   • Teacher  → up to CURRENT + NEXT (past-taught, current, next) for an
- *                ELIGIBLE course; nothing further into the future.
+ *   • Teacher  → EVERY lesson of an ELIGIBLE (assigned) course — teachers must
+ *                be able to review any lesson, not just what they've taught so
+ *                far, to complete their own training. `access` still labels
+ *                each lesson (completed/current/next/upcoming) from the
+ *                teacher's taught progress, so the list reads as a training
+ *                tracker even though nothing is actually locked.
  *   • Admin    → everything.
  *
  * The DB reads (enrollment, lesson_progress, eligibility) happen in the API
@@ -117,7 +121,10 @@ export function resolveLessonAccess(
 
     let viewable: boolean;
     if (role === 'admin') viewable = true;
-    else if (role === 'teacher') viewable = l.order <= current + 1; // past+current+next
+    // Teachers can review EVERY lesson of a course they're assigned to, so they
+    // can finish training on lessons they haven't taught yet — access still
+    // shows where they actually are (completed/current/next/upcoming).
+    else if (role === 'teacher') viewable = true;
     else viewable = done || access === 'current';                    // student: completed+current
 
     return { ...l, access, viewable };
