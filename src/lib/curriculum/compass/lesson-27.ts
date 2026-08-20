@@ -25,17 +25,17 @@ export const lesson27: StructuredLesson = {
         code: {
           language: 'toml',
           filename: '.streamlit/secrets.toml (local only, git-ignored)',
-          code: 'ANTHROPIC_API_KEY = "sk-ant-..."',
+          code: 'OPENAI_API_KEY = "sk-..."',
         },
       },
       {
         heading: 'Reading secrets in code',
         body:
-          "st.secrets behaves like a dict, and is the natural place to construct the Anthropic client so it works identically locally and once deployed.",
+          "st.secrets behaves like a dict, and is the natural place to construct the client so it works identically locally and once deployed. Since Compass uses the openai package's client shape throughout, the same pattern works unchanged if you later swap to Groq or Gemini via base_url.",
         code: {
           language: 'python',
           code:
-            'import streamlit as st\nimport anthropic\n\nclient = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])',
+            'import streamlit as st\nfrom openai import OpenAI\n\nclient = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])',
         },
       },
       {
@@ -120,13 +120,13 @@ export const lesson27: StructuredLesson = {
       {
         language: 'toml',
         filename: '.streamlit/secrets.toml',
-        code: 'ANTHROPIC_API_KEY = "sk-ant-your-key-here"',
+        code: 'OPENAI_API_KEY = "sk-your-key-here"',
       },
       {
         language: 'python',
         filename: 'compass_agent.py (client + on_step threaded through)',
         code:
-          'import streamlit as st\nimport anthropic\n\nclient = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])\n\n\ndef route_and_answer(question: str, on_step=print) -> str:\n    if should_use_cot(question):\n        on_step("Routing to chain-of-thought reasoning")\n        return reason_through(question)\n    if looks_multi_part(question):\n        on_step("Routing to plan+execute")\n        return plan_execute_and_recover(question, on_step=on_step)\n    on_step("Routing to standard reasoning agent")\n    return answer_with_reflection(question, on_step=on_step)',
+          'import streamlit as st\nfrom openai import OpenAI\n\nclient = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])\n\n\ndef route_and_answer(question: str, on_step=print) -> str:\n    if should_use_cot(question):\n        on_step("Routing to chain-of-thought reasoning")\n        return reason_through(question)\n    if looks_multi_part(question):\n        on_step("Routing to plan+execute")\n        return plan_execute_and_recover(question, on_step=on_step)\n    on_step("Routing to standard reasoning agent")\n    return answer_with_reflection(question, on_step=on_step)',
       },
       {
         language: 'python',
@@ -145,11 +145,11 @@ export const lesson27: StructuredLesson = {
   },
 
   quiz: [
-    { id: 'c27q1', kind: 'concept', prompt: 'Where should the Anthropic API key be stored for a Streamlit app?', options: ['Hardcoded in app.py', 'st.secrets, backed by .streamlit/secrets.toml locally', 'In a public GitHub repo', 'In the URL'], answerIndex: 1, explanation: 'st.secrets is Streamlit’s secure secrets mechanism, matching the .env pattern used elsewhere in the course.' },
+    { id: 'c27q1', kind: 'concept', prompt: 'Where should the OpenAI API key be stored for a Streamlit app?', options: ['Hardcoded in app.py', 'st.secrets, backed by .streamlit/secrets.toml locally', 'In a public GitHub repo', 'In the URL'], answerIndex: 1, explanation: 'st.secrets is Streamlit’s secure secrets mechanism, matching the .env pattern used elsewhere in the course.' },
     { id: 'c27q2', kind: 'concept', prompt: 'Why don’t Compass’s existing print() statements show up in the deployed web app?', options: ['print() is broken in Streamlit', 'print() output goes to the server’s logs, not the browser the user sees', 'Streamlit disables print() entirely', 'It’s a Python 3 limitation'], answerIndex: 1, explanation: 'Server-side print output never reaches the client browser in a deployed web context.' },
     { id: 'c27q3', kind: 'application', prompt: 'What does st.status() provide that a plain print() can’t, in a Streamlit app?', options: ['Nothing different', 'A live-updating UI panel visible to the actual user in their browser', 'Faster execution', 'Automatic error handling'], answerIndex: 1, explanation: 'st.status() is a UI-visible container updated live while code inside it runs.' },
     { id: 'c27q4', kind: 'code_reading', prompt: 'What does `on_step=print` as a default parameter achieve in route_and_answer()?', options: ['Nothing, it’s unused', 'The CLI version keeps working unchanged (using print), while the web version passes on_step=st.write instead', 'It disables all output', 'It’s required syntax'], answerIndex: 1, explanation: 'The default lets the SAME function serve both interfaces without the CLI code needing any changes.' },
-    { id: 'c27q5', kind: 'debug', prompt: 'A deployed Compass app crashes with a KeyError on st.secrets["ANTHROPIC_API_KEY"]. What’s the likely cause?', options: ['The code is wrong', 'The secret wasn’t configured in the deployment platform’s secrets settings (or the local secrets.toml is missing/misnamed)', 'Streamlit is broken', 'The API key format is wrong'], answerIndex: 1, explanation: 'A missing secrets.toml (locally) or unconfigured platform secret (deployed) is the most common cause of this error.' },
+    { id: 'c27q5', kind: 'debug', prompt: 'A deployed Compass app crashes with a KeyError on st.secrets["OPENAI_API_KEY"]. What’s the likely cause?', options: ['The code is wrong', 'The secret wasn’t configured in the deployment platform’s secrets settings (or the local secrets.toml is missing/misnamed)', 'Streamlit is broken', 'The API key format is wrong'], answerIndex: 1, explanation: 'A missing secrets.toml (locally) or unconfigured platform secret (deployed) is the most common cause of this error.' },
     { id: 'c27q6', kind: 'application', prompt: 'Why pass on_step=st.write instead of rewriting Compass’s core logic to call st.write() directly?', options: ['No real reason', 'It keeps the agent logic decoupled from any specific UI framework, reusable by both the CLI and web interfaces', 'st.write() only works inside app.py', 'It’s required by the API'], answerIndex: 1, explanation: 'A swappable callback avoids coupling core agent logic to Streamlit specifically.' },
     { id: 'c27q7', kind: 'output', prompt: 'What does status.update(label="Done", state="complete") change?', options: ['Nothing visible', 'The status panel’s displayed label and its visual complete/collapsed state', 'The chat history', 'The API key'], answerIndex: 1, explanation: 'update() lets you change the container’s label and completion state once its work is done.' },
     { id: 'c27q8', kind: 'project', prompt: 'Why does the final project use expanded=False for the status panel by default?', options: ['No reason', 'To keep the chat visually clean for users who just want the answer, while still letting them expand to see the reasoning', 'It’s required syntax', 'To hide errors'], answerIndex: 1, explanation: 'Collapsed-by-default balances transparency (available on demand) with a clean default chat experience.' },

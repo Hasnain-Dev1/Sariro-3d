@@ -26,17 +26,17 @@ export const lesson04: StructuredLesson = {
       {
         heading: 'try/except around every API call',
         body:
-          "Wrap the call in try/except and return something USABLE on failure — never let an unhandled exception crash the whole program. The anthropic package raises specific exception classes you can catch individually.",
+          "Wrap the call in try/except and return something USABLE on failure — never let an unhandled exception crash the whole program. The openai package raises specific exception classes you can catch individually — import openai alongside from openai import OpenAI to reach them.",
         code: {
           language: 'python',
           code:
-            "import anthropic\n\ntry:\n    response = client.messages.create(...)\n    return response.content[0].text\nexcept anthropic.APIError as err:\n    print(f\"Compass API error: {err}\")\n    return \"Sorry, I couldn't reach my brain just now. Please try again.\"",
+            "import openai\nfrom openai import OpenAI\n\ntry:\n    response = client.chat.completions.create(...)\n    return response.choices[0].message.content\nexcept openai.APIStatusError as err:\n    print(f\"Compass API error: {err}\")\n    return \"Sorry, I couldn't reach my brain just now. Please try again.\"",
         },
       },
       {
         heading: 'Rate limits — a normal, expected failure',
         body:
-          "APIs cap requests per time window to protect the service. Hitting this limit raises anthropic.RateLimitError specifically (HTTP 429 under the hood). A well-built agent catches this specifically and can wait-and-retry, rather than treating it the same as a total failure.",
+          "APIs cap requests per time window to protect the service. Hitting this limit raises openai.RateLimitError specifically (HTTP 429 under the hood). A well-built agent catches this specifically and can wait-and-retry, rather than treating it the same as a total failure.",
       },
       {
         heading: 'A simple retry with backoff',
@@ -51,12 +51,12 @@ export const lesson04: StructuredLesson = {
       {
         heading: 'Not every error should be retried',
         body:
-          "A rate limit or brief network hiccup is worth retrying. An INVALID API key (anthropic.AuthenticationError) or a malformed request (anthropic.BadRequestError) will fail identically every time — retrying just wastes time. Good error handling distinguishes 'try again' failures from 'fix the actual problem' failures where practical.",
+          "A rate limit or brief network hiccup is worth retrying. An INVALID API key (openai.AuthenticationError) or a malformed request (openai.BadRequestError) will fail identically every time — retrying just wastes time. Good error handling distinguishes 'try again' failures from 'fix the actual problem' failures where practical.",
       },
     ],
     keyTerms: [
       { term: 'Transient error', definition: "A temporary failure (rate limit, brief network issue) likely to succeed if retried." },
-      { term: 'anthropic.RateLimitError', definition: "The specific exception raised when you've exceeded the API's request rate limit." },
+      { term: 'openai.RateLimitError', definition: "The specific exception raised when you've exceeded the API's request rate limit." },
       { term: 'Exponential backoff', definition: "A retry strategy where each wait is longer than the last, avoiding overwhelming a struggling service." },
       { term: 'Graceful degradation', definition: "Failing in a controlled, user-friendly way instead of crashing outright." },
     ],
@@ -69,7 +69,7 @@ export const lesson04: StructuredLesson = {
     ],
     takeaways: [
       "Always wrap API calls in try/except and return something usable on failure.",
-      "Rate limits are a normal, expected failure mode — anthropic.RateLimitError lets you handle them specifically.",
+      "Rate limits are a normal, expected failure mode — openai.RateLimitError lets you handle them specifically.",
       "Exponential backoff retries transient failures without hammering the service.",
       "Not every error is worth retrying — distinguish transient from permanent failures.",
       "Test failure paths deliberately; don't assume error handling works until you've triggered it.",
@@ -123,13 +123,13 @@ export const lesson04: StructuredLesson = {
         language: 'python',
         filename: 'main.py (wrap the API call inside ask_compass)',
         code:
-          "def ask_compass(question: str) -> str:\n    try:\n        response = with_retry(lambda: client.messages.create(\n            model=\"claude-sonnet-5\",\n            max_tokens=400,\n            temperature=0.2,\n            system=SYSTEM_PROMPT,\n            messages=[{\"role\": \"user\", \"content\": question}],\n        ))\n\n        print(f\"[usage] input: {response.usage.input_tokens} tokens, output: {response.usage.output_tokens} tokens\")\n        return response.content[0].text\n    except Exception as err:\n        print(f\"[error] Compass could not get a response: {err}\")\n        return \"Sorry, I'm having trouble right now. Please try again in a moment.\"",
+          "def ask_compass(question: str) -> str:\n    try:\n        response = with_retry(lambda: client.chat.completions.create(\n            model=MODEL,\n            max_tokens=400,\n            temperature=0.2,\n            messages=[\n                {\"role\": \"system\", \"content\": SYSTEM_PROMPT},\n                {\"role\": \"user\", \"content\": question},\n            ],\n        ))\n\n        usage = response.usage\n        print(f\"[usage] input: {usage.prompt_tokens} tokens, output: {usage.completion_tokens} tokens\")\n        return response.choices[0].message.content\n    except Exception as err:\n        print(f\"[error] Compass could not get a response: {err}\")\n        return \"Sorry, I'm having trouble right now. Please try again in a moment.\"",
       },
     ],
     placement:
       "Add the with_retry() helper function near the top of main.py, after your imports. Then update ask_compass() to wrap the API call with with_retry(lambda: ...) inside an outer try/except, exactly as shown.",
     implementation:
-      "with_retry wraps the actual client.messages.create call (passed in as a lambda, since with_retry needs to CALL it fresh on each attempt) — if it fails (network blip, transient rate limit), it retries up to 3 times with exponential backoff before giving up. The OUTER try/except in ask_compass() is the final safety net: if even the retries are exhausted, it catches that error and returns a friendly, usable string instead of letting the exception crash whatever called ask_compass(). This two-layer approach — retry transient failures, gracefully handle permanent ones — is exactly the concept lesson's core idea, applied directly to Compass's real code.",
+      "with_retry wraps the actual client.chat.completions.create call (passed in as a lambda, since with_retry needs to CALL it fresh on each attempt) — if it fails (network blip, transient rate limit), it retries up to 3 times with exponential backoff before giving up. The OUTER try/except in ask_compass() is the final safety net: if even the retries are exhausted, it catches that error and returns a friendly, usable string instead of letting the exception crash whatever called ask_compass(). This two-layer approach — retry transient failures, gracefully handle permanent ones — is exactly the concept lesson's core idea, applied directly to Compass's real code.",
     expectedResult:
       "Compass now survives a brief network interruption or rate limit by quietly retrying and succeeding — and if it genuinely can't reach the API, it returns a clear, friendly message instead of crashing your program.",
     connects:
@@ -151,11 +151,11 @@ export const lesson04: StructuredLesson = {
 
   homework: {
     task:
-      "Make with_retry only retry anthropic.RateLimitError specifically, and immediately re-raise anything else, so a permanent error fails fast instead of wasting retries.",
+      "Make with_retry only retry openai.RateLimitError specifically, and immediately re-raise anything else, so a permanent error fails fast instead of wasting retries.",
     requirements: [
-      "Catch anthropic.RateLimitError specifically inside with_retry's except block.",
+      "Catch openai.RateLimitError specifically inside with_retry's except block.",
       "If the caught exception is NOT a RateLimitError, re-raise it immediately without retrying.",
-      "Test with a function that raises anthropic.RateLimitError twice then succeeds, and a SEPARATE function that raises a plain Exception once (confirm it does NOT retry).",
+      "Test with a function that raises openai.RateLimitError twice then succeeds, and a SEPARATE function that raises a plain Exception once (confirm it does NOT retry).",
     ],
     expectedOutcome:
       "A RateLimitError-raising function eventually succeeds via retries; a plain-Exception-raising function fails immediately on the first attempt, with no wasted retries.",

@@ -110,7 +110,7 @@ export const lesson25: StructuredLesson = {
         language: 'python',
         filename: 'app.py',
         code:
-          'import streamlit as st\nfrom compass_agent import route_and_answer\n\nst.set_page_config(page_title="Compass", page_icon="🧭")\n\nst.title("🧭 Compass")\nst.caption("Your AI research and task agent — powered by Claude.")\n\nquestion = st.text_input("Ask Compass something:", placeholder="e.g. What\'s 15% of 340?")\n\nif st.button("Ask") and question:\n    with st.spinner("Thinking..."):\n        try:\n            answer = route_and_answer(question)\n            st.success("Done")\n            st.write(answer)\n        except Exception as e:\n            st.error(f"Something went wrong: {e}")',
+          'import streamlit as st\nfrom compass_agent import route_and_answer\n\nst.set_page_config(page_title="Compass", page_icon="🧭")\n\nst.title("🧭 Compass")\nst.caption("Your AI research and task agent — powered by an OpenAI-compatible model.")\n\nquestion = st.text_input("Ask Compass something:", placeholder="e.g. What\'s 15% of 340?")\n\nif st.button("Ask") and question:\n    with st.spinner("Thinking..."):\n        try:\n            answer = route_and_answer(question)\n            st.success("Done")\n            st.write(answer)\n        except Exception as e:\n            st.error(f"Something went wrong: {e}")',
       },
       {
         language: 'bash',

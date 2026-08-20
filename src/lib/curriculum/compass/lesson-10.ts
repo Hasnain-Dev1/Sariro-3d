@@ -21,12 +21,12 @@ export const lesson10: StructuredLesson = {
       {
         heading: 'Why Compass needs a search tool',
         body:
-          "Claude's training has a knowledge cutoff — it doesn't know about anything after that point, and it can't browse the internet on its own. A search tool is what turns Compass from 'answers from memory' into 'can look things up' — the single most impactful tool a research assistant can have.",
+          "Every model has a knowledge cutoff — it doesn't know about anything after that point, and it can't browse the internet on its own. A search tool is what turns Compass from 'answers from memory' into 'can look things up' — the single most impactful tool a research assistant can have.",
       },
       {
         heading: 'Wrapping any API as a tool',
         body:
-          "A tool implementation can call ANY external service — the pattern from Lessons 7-9 doesn't care whether the tool does math or hits a real API. Python's requests library is the standard way to make HTTP calls; you fetch, parse the response into a clean string, and return that as the tool_result, exactly like run_calculator did.",
+          "A tool implementation can call ANY external service — the pattern from Lessons 7-9 doesn't care whether the tool does math or hits a real API. Python's requests library is the standard way to make HTTP calls; you fetch, parse the response into a clean string, and return that as the tool result, exactly like run_calculator did.",
         code: {
           language: 'python',
           code:
@@ -46,21 +46,21 @@ export const lesson10: StructuredLesson = {
       {
         heading: 'Summarize search results before sending them back',
         body:
-          "Raw search API responses are often large, messy JSON. Sending the WHOLE thing as a tool_result wastes tokens and can confuse the model. Trim to the top few results and extract just title/snippet — a clean, short, model-readable summary works far better than a data dump.",
+          "Raw search API responses are often large, messy JSON. Sending the WHOLE thing as a tool result wastes tokens and can confuse the model. Trim to the top few results and extract just title/snippet — a clean, short, model-readable summary works far better than a data dump.",
       },
       {
         heading: 'A note on real search APIs',
         body:
-          "This lesson's example targets a generic search API shape; in practice you'd use a real provider (many offer a search endpoint suited to AI agents). The IMPLEMENTATION details vary by provider, but the pattern — fetch, summarize, return as a tool_result — stays the same regardless of which one you pick.",
+          "This lesson's example targets a generic search API shape; in practice you'd use a real provider (many offer a search endpoint suited to AI agents). The IMPLEMENTATION details vary by provider, but the pattern — fetch, summarize, return as a tool result — stays the same regardless of which one you pick, and regardless of which model provider (OpenAI, Groq, Gemini) is answering the question.",
       },
     ],
     keyTerms: [
       { term: 'Knowledge cutoff', definition: "The point in time after which an LLM has no training data — it can't know about anything more recent without a tool." },
       { term: 'requests', definition: "Python's standard library for making HTTP calls, like fetching data from a search API." },
-      { term: 'Result summarization', definition: "Trimming a large/raw API response into a short, model-readable string before returning it as a tool_result." },
+      { term: 'Result summarization', definition: "Trimming a large/raw API response into a short, model-readable string before returning it as a tool result." },
     ],
     commonMistakes: [
-      "Sending an entire raw API response as the tool_result instead of a trimmed summary, wasting tokens and confusing the model.",
+      "Sending an entire raw API response as the tool result instead of a trimmed summary, wasting tokens and confusing the model.",
       "Not handling a failed search request (network error, bad API key) — the tool should return a clear error string, not raise uncaught.",
       "Forgetting a timeout on the requests.get call, letting a hung request block the whole agent indefinitely.",
       "Assuming a search tool makes Compass ALWAYS accurate — it still summarizes/interprets results, so occasional errors are still possible.",
@@ -70,7 +70,7 @@ export const lesson10: StructuredLesson = {
       "A search tool gives an agent access to current, real-world information beyond its training.",
       "Any external API can be wrapped as a tool using Python's requests library.",
       "requests.get is synchronous by default — no special async handling needed for this tool.",
-      "Summarize large API responses before returning them as a tool_result.",
+      "Summarize large API responses before returning them as a tool result.",
       "Always set a timeout on network calls so a hung request can't block the agent forever.",
     ],
   },
@@ -90,11 +90,11 @@ export const lesson10: StructuredLesson = {
         language: 'python',
         filename: 'mock_search.py',
         code:
-          "import time\n\ndef mock_search(query: str) -> str:\n    time.sleep(0.3)   # simulate network latency\n    return f'Mock result for \"{query}\": [this would be real search data from a live API].'\n\nweb_search_tool = {\n    \"name\": \"web_search\",\n    \"description\": \"Searches the web for current information. Use this for questions about recent events, facts you are unsure of, or anything requiring up-to-date data.\",\n    \"input_schema\": {\n        \"type\": \"object\",\n        \"properties\": {\"query\": {\"type\": \"string\", \"description\": \"The search query.\"}},\n        \"required\": [\"query\"],\n    },\n}\n\n# Wire it into a loop exactly like Lesson 9's, calling mock_search(...)\n# inside execute_tool.",
-      },
-    ],
+          "import time\n\ndef mock_search(query: str) -> str:\n    time.sleep(0.3)   # simulate network latency\n    return f'Mock result for \"{query}\": [this would be real search data from a live API].'\n\nweb_search_tool = {\n    \"type\": \"function\",\n    \"function\": {\n        \"name\": \"web_search\",\n        \"description\": \"Searches the web for current information. Use this for questions about recent events, facts you are unsure of, or anything requiring up-to-date data.\",\n        \"parameters\": {\n            \"type\": \"object\",\n            \"properties\": {\"query\": {\"type\": \"string\", \"description\": \"The search query.\"}},\n            \"required\": [\"query\"],\n        },\n    },\n}\n\n# Wire it into a loop exactly like Lesson 9's, calling mock_search(...)\n# inside execute_tool.",
+        },
+      ],
     explanation:
-      "mock_search deliberately includes a time.sleep(0.3), so wiring it in forces you to notice it behaves just like a real network call would (a small pause before returning) — even though the DATA is fake, the model's decision-making is real: asking something that plausibly needs current information should still trigger web_search based purely on its description, exactly as it would with a genuine search API behind it.",
+      "mock_search deliberately includes a time.sleep(0.3), so wiring it in forces you to notice it behaves just like a real network call would (a small pause before returning) — even though the DATA is fake, the model's decision-making is real: asking something that plausibly needs current information should still trigger web_search based purely on its description, exactly as it would with a genuine search API behind it. Note the tool definition's shape: a top-level {\"type\": \"function\", \"function\": {...}} wrapper is how the openai package expects every tool to be described, with \"parameters\" (not \"input_schema\") holding the JSON schema.",
     expectedOutput:
       "Asking something like 'What's the latest news about AI agents?' triggers the web_search tool, and the mock result flows through the loop into a final answer referencing the (fake) search content.",
     learned: [
@@ -116,7 +116,7 @@ export const lesson10: StructuredLesson = {
         language: 'python',
         filename: 'main.py (add the tool + implementation)',
         code:
-          "import os\nimport requests\n\nweb_search_tool = {\n    \"name\": \"web_search\",\n    \"description\": \"Searches the web for current information. Use this for recent events, facts you are unsure of, or anything requiring up-to-date data.\",\n    \"input_schema\": {\n        \"type\": \"object\",\n        \"properties\": {\"query\": {\"type\": \"string\", \"description\": \"The search query.\"}},\n        \"required\": [\"query\"],\n    },\n}\n\ndef run_web_search(query: str) -> str:\n    try:\n        res = requests.get(\n            \"https://api.example-search.com/search\",\n            params={\"q\": query},\n            headers={\"Authorization\": f\"Bearer {os.environ.get('SEARCH_API_KEY', '')}\"},\n            timeout=10,\n        )\n        if not res.ok:\n            return \"Error: search request failed.\"\n        data = res.json()\n        results = data.get(\"results\", [])[:3]\n        if not results:\n            return \"No results found.\"\n        return \"\\n\".join(f\"{r['title']}: {r['snippet']}\" for r in results)\n    except requests.RequestException:\n        return \"Error: could not reach the search service.\"\n\nTOOLS = [calculator_tool, get_word_count_tool, web_search_tool]",
+          "import os\nimport requests\n\nweb_search_tool = {\n    \"type\": \"function\",\n    \"function\": {\n        \"name\": \"web_search\",\n        \"description\": \"Searches the web for current information. Use this for recent events, facts you are unsure of, or anything requiring up-to-date data.\",\n        \"parameters\": {\n            \"type\": \"object\",\n            \"properties\": {\"query\": {\"type\": \"string\", \"description\": \"The search query.\"}},\n            \"required\": [\"query\"],\n        },\n    },\n}\n\ndef run_web_search(query: str) -> str:\n    try:\n        res = requests.get(\n            \"https://api.example-search.com/search\",\n            params={\"q\": query},\n            headers={\"Authorization\": f\"Bearer {os.environ.get('SEARCH_API_KEY', '')}\"},\n            timeout=10,\n        )\n        if not res.ok:\n            return \"Error: search request failed.\"\n        data = res.json()\n        results = data.get(\"results\", [])[:3]\n        if not results:\n            return \"No results found.\"\n        return \"\\n\".join(f\"{r['title']}: {r['snippet']}\" for r in results)\n    except requests.RequestException:\n        return \"Error: could not reach the search service.\"\n\nTOOLS = [calculator_tool, get_word_count_tool, web_search_tool]",
       },
       {
         language: 'python',
@@ -128,7 +128,7 @@ export const lesson10: StructuredLesson = {
     placement:
       "Add web_search_tool and run_web_search near your other tool definitions, and add web_search_tool to TOOLS. Add the web_search branch to execute_tool. Make sure requests is installed: pip install requests.",
     implementation:
-      "run_web_search follows the exact same defensive pattern as run_calculator: wrapped in try/except (catching requests.RequestException specifically, which covers network-level failures like timeouts or connection errors), checking res.ok before parsing, and handling an empty results list explicitly — never assuming the happy path. Slicing to the top 3 results and joining them into a short 'title: snippet' string keeps the tool_result compact and genuinely readable by the model, instead of dumping raw JSON. Since requests.get() is synchronous, execute_tool needs no special handling — it's dispatched exactly like the calculator and word-count tools.",
+      "run_web_search follows the exact same defensive pattern as run_calculator: wrapped in try/except (catching requests.RequestException specifically, which covers network-level failures like timeouts or connection errors), checking res.ok before parsing, and handling an empty results list explicitly — never assuming the happy path. Slicing to the top 3 results and joining them into a short 'title: snippet' string keeps the tool result compact and genuinely readable by the model, instead of dumping raw JSON. Since requests.get() is synchronous, execute_tool needs no special handling — it's dispatched exactly like the calculator and word-count tools, and the tool definition itself uses the openai package's {\"type\": \"function\", \"function\": {...}} shape rather than a flat schema.",
     expectedResult:
       "Asking Compass something requiring current information now correctly triggers web_search, and (once a real SEARCH_API_KEY and provider are configured) returns a genuinely researched, grounded answer instead of an outdated guess from training data.",
     connects:
@@ -138,7 +138,7 @@ export const lesson10: StructuredLesson = {
   quiz: [
     { id: 'c10q1', kind: 'concept', prompt: 'What does "knowledge cutoff" mean for an LLM?', options: ['A limit on conversation length', 'The point after which it has no training data and needs a tool for anything more recent', 'A billing threshold', 'A type of error'], answerIndex: 1, explanation: "Models don't know about events/facts after their training data ends, without external tools." },
     { id: 'c10q2', kind: 'application', prompt: 'Why does execute_tool need NO special handling for the web_search branch, unlike in some other ecosystems?', options: ['web_search doesn’t actually make a network call', 'requests.get() is synchronous by default in Python, so it’s dispatched just like any other function', 'Python can’t make network calls', 'It’s a coincidence with no real reason'], answerIndex: 1, explanation: "Python's requests library blocks and returns a result directly, unlike an async-only network API." },
-    { id: 'c10q3', kind: 'concept', prompt: 'Why summarize search results before sending them back as a tool_result?', options: ['It’s unnecessary, raw data is always better', 'Raw API responses can be large/messy and waste tokens; a trimmed summary is clearer for the model', 'Summarizing is required by the API', 'It disables the tool'], answerIndex: 1, explanation: "A concise, structured summary is more useful (and cheaper) than a raw data dump." },
+    { id: 'c10q3', kind: 'concept', prompt: 'Why summarize search results before sending them back as a tool result?', options: ['It’s unnecessary, raw data is always better', 'Raw API responses can be large/messy and waste tokens; a trimmed summary is clearer for the model', 'Summarizing is required by the API', 'It disables the tool'], answerIndex: 1, explanation: "A concise, structured summary is more useful (and cheaper) than a raw data dump." },
     { id: 'c10q4', kind: 'debug', prompt: 'A search request fails (network error) inside run_web_search with no try/except. What happens?', options: ['It silently returns an empty string', 'An unhandled exception can crash the whole tool-execution flow', 'It automatically retries', 'The model handles it gracefully regardless'], answerIndex: 1, explanation: "Without error handling, a raised exception propagates uncaught, breaking the flow." },
     { id: 'c10q5', kind: 'code_reading', prompt: 'What does the timeout=10 argument to requests.get do?', options: ['Limits the response to 10 results', 'Gives up and raises an exception if no response arrives within 10 seconds', 'Waits exactly 10 seconds before sending the request', 'Sets the search relevance threshold'], answerIndex: 1, explanation: "A timeout prevents a hung network request from blocking the program indefinitely." },
     { id: 'c10q6', kind: 'application', prompt: 'Why does the tool description mention "recent events" and "facts you are unsure of"?', options: ['Decoration only, no effect', 'To teach the model specifically WHEN this tool is the right choice versus answering directly', 'It’s required boilerplate', 'It changes the API endpoint'], answerIndex: 1, explanation: "Specific trigger conditions in the description improve when the model correctly reaches for this tool." },
@@ -164,7 +164,7 @@ export const lesson10: StructuredLesson = {
       hint: "Lesson 9 asked you to print the TOTAL number of turns a question took, to observe simple vs. multi-step questions differently.",
       steps: [
         "Inside the for loop in ask_compass(), increment a turn counter (e.g. turn_count = 0 before the loop, turn_count += 1 at the top of each iteration).",
-        "When returning the final answer (the branch where stop_reason != 'tool_use'), print f'[info] answered in {turn_count} turn(s)' right before returning.",
+        "When returning the final answer (the branch where message.tool_calls is empty), print f'[info] answered in {turn_count} turn(s)' right before returning.",
         "Test with a simple question (expect 1 turn) and a multi-tool question (expect 2+ turns).",
       ],
       codeGuidance: [
@@ -172,7 +172,7 @@ export const lesson10: StructuredLesson = {
           language: 'python',
           filename: 'main.py (inside ask_compass)',
           code:
-            "turn_count = 0\nfor _ in range(MAX_TURNS):\n    turn_count += 1\n    # ...existing loop body...\n    if response.stop_reason != \"tool_use\":\n        print(f\"[info] answered in {turn_count} turn(s)\")\n        return response.content[0].text\n    # ...",
+            "turn_count = 0\nfor _ in range(MAX_TURNS):\n    turn_count += 1\n    # ...existing loop body...\n    if not message.tool_calls:\n        print(f\"[info] answered in {turn_count} turn(s)\")\n        return message.content\n    # ...",
         },
       ],
     },

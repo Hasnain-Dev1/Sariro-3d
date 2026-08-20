@@ -39,13 +39,13 @@ export const lesson19: StructuredLesson = {
           "Making the model articulate its thought before acting isn't just for the user's benefit — it measurably improves the model's OWN behavior. Language models reason better when they generate reasoning tokens first, the same principle behind Lesson 3's structured prompting, now applied specifically to multi-step tool use.",
       },
       {
-        heading: 'Extracting the thought from Claude’s response',
+        heading: 'Extracting the thought from a response',
         body:
-          "With Claude's tool-use API, the model's `text` content blocks (returned alongside any `tool_use` blocks) naturally contain this reasoning when prompted for it — there's no special API flag, just a well-designed system prompt and reading the text blocks Claude already returns.",
+          "With the openai package's tool-calling shape, a plain (non-tool) reply's text sits directly at response.choices[0].message.content, so extracting it is a one-line check. But there's a real wrinkle worth understanding: when the model decides to call a tool, message.content is often None or empty, and the tool-call details live in message.tool_calls instead — the SDK doesn't reliably hand back reasoning text and a tool call in the same response the way some other providers' mixed content blocks do. The practical fix is to lean on the ReAct system prompt's own Thought → Action structure: prompt the model to write its Thought as plain text in one turn, THEN call the tool in the next turn. You still get the same visible reasoning-before-acting benefit — it just plays out turn-by-turn across the loop instead of inside a single response.",
         code: {
           language: 'python',
           code:
-            'def extract_thought(response) -> str | None:\n    for block in response.content:\n        if block.type == "text" and block.text.strip():\n            return block.text.strip()\n    return None',
+            'def extract_thought(response) -> str | None:\n    content = response.choices[0].message.content\n    return content.strip() if content and content.strip() else None',
         },
       },
     ],
@@ -54,15 +54,17 @@ export const lesson19: StructuredLesson = {
       { term: 'Reasoning trace', definition: "The visible sequence of Thought/Action/Observation steps a ReAct agent produces while working through a task." },
     ],
     commonMistakes: [
-      "Assuming ReAct requires a special API parameter — it's purely a prompting pattern using existing text + tool_use blocks.",
+      "Assuming ReAct requires a special API parameter — it's purely a prompting pattern built on the model's ordinary text replies and tool calls.",
       "Writing a ReAct system prompt but never actually surfacing the Thought text to the user, losing the transparency benefit.",
       "Expecting ReAct to eliminate all reasoning errors — it improves reliability, it doesn't guarantee correctness.",
+      "Assuming a single response will always carry BOTH a Thought and a tool call — with OpenAI-shape tool calling, reasoning text and a tool call often land in separate turns instead.",
       "Forcing ReAct-style thinking on every trivial question, adding unnecessary verbosity to simple requests.",
     ],
     takeaways: [
       "ReAct interleaves Thought, Action, and Observation instead of jumping straight to tool calls.",
       "Visible reasoning genuinely improves a model's own multi-step behavior, not just user-facing transparency.",
-      "Claude's text content blocks naturally carry this reasoning when the system prompt asks for it.",
+      "response.choices[0].message.content carries the reasoning text when the model isn't calling a tool that turn.",
+      "With OpenAI-shape tool calling, Thought and Action typically arrive as separate turns, not one mixed response — the ReAct prompt's structure is what makes that work.",
       "ReAct is a prompting pattern, not a special API feature.",
     ],
   },
@@ -70,26 +72,26 @@ export const lesson19: StructuredLesson = {
   miniProject: {
     durationMin: 15,
     title: 'Extracting and printing thoughts',
-    objective: "Practise pulling the reasoning text out of a Claude response alongside any tool_use blocks.",
+    objective: "Practise pulling the reasoning text out of a plain-text response before a tool call turn happens.",
     instructions: [
       "Write extract_thought(response) as shown in the concept section.",
-      "Given a mock response object with mixed text/tool_use blocks, verify it returns only the text.",
-      "Print the thought clearly labeled before showing the tool call that follows it.",
+      "Given a mock response object shaped like a real chat completion, verify it returns the message text.",
+      "Print the thought clearly labeled before showing the tool call that follows it on the next turn.",
     ],
     code: [
       {
         language: 'python',
         filename: 'thought_test.py',
         code:
-          'from types import SimpleNamespace\n\ndef extract_thought(response) -> str | None:\n    for block in response.content:\n        if block.type == "text" and block.text.strip():\n            return block.text.strip()\n    return None\n\nmock_response = SimpleNamespace(content=[\n    SimpleNamespace(type="text", text="I need to check today\'s date first."),\n    SimpleNamespace(type="tool_use", name="get_date", input={}),\n])\n\nthought = extract_thought(mock_response)\nprint(f"Thought: {thought}")',
+          'from types import SimpleNamespace\n\ndef extract_thought(response) -> str | None:\n    content = response.choices[0].message.content\n    return content.strip() if content and content.strip() else None\n\nmock_response = SimpleNamespace(choices=[\n    SimpleNamespace(message=SimpleNamespace(\n        content="I need to check today\'s date first.",\n        tool_calls=None,\n    ))\n])\n\nthought = extract_thought(mock_response)\nprint(f"Thought: {thought}")',
       },
     ],
     explanation:
-      "extract_thought() loops through response.content and returns the FIRST non-empty text block, ignoring tool_use blocks. This mirrors exactly how Claude structures a ReAct-style response: reasoning as text, then the tool call as a separate content block in the same message.",
+      "extract_thought() reads response.choices[0].message.content directly and returns it only if it's non-empty, stripped of whitespace. This mirrors how a ReAct-style loop actually behaves with the openai package: the model writes its Thought as plain text on one turn (content set, tool_calls empty), then calls a tool on the NEXT turn (content usually empty, tool_calls set) — extract_thought() just needs to recognize which kind of turn it's looking at.",
     expectedOutput: "Thought: I need to check today's date first.",
     learned: [
-      "How to separate reasoning text from tool-call content in a Claude response.",
-      "Why text and tool_use blocks coexist in the same API response.",
+      "How to pull reasoning text out of a chat completion response.",
+      "Why content and tool_calls tend to show up on separate turns rather than together.",
       "The mechanical foundation for surfacing ReAct-style thoughts to users.",
     ],
   },
@@ -105,12 +107,12 @@ export const lesson19: StructuredLesson = {
         language: 'python',
         filename: 'main.py',
         code:
-          'REACT_SYSTEM_PROMPT = """You are Compass, a careful reasoning assistant.\nFor any non-trivial request, think step by step BEFORE using a tool.\n\nFollow this pattern:\nThought: <what you need to figure out, and why>\nAction: <call the relevant tool>\n...repeat as needed...\nThought: I now have enough information to answer.\nFinal Answer: <your answer to the user>"""\n\n\ndef extract_thought(response) -> str | None:\n    for block in response.content:\n        if block.type == "text" and block.text.strip():\n            return block.text.strip()\n    return None\n\n\ndef run_agent_loop(user_message: str) -> str:\n    messages = [{"role": "user", "content": user_message}]\n\n    for _ in range(MAX_TURNS):\n        response = client.messages.create(\n            model="claude-sonnet-4-5",\n            system=build_system_prompt(user_message, base=REACT_SYSTEM_PROMPT),\n            max_tokens=1024,\n            tools=ALL_TOOLS,\n            messages=messages,\n        )\n\n        thought = extract_thought(response)\n        if thought:\n            print(f"\\n[thought] {thought}")\n\n        if response.stop_reason != "tool_use":\n            return thought or "(no answer)"\n\n        messages.append({"role": "assistant", "content": response.content})\n        tool_results = []\n        for block in response.content:\n            if block.type == "tool_use":\n                result = execute_tool(block.name, block.input)\n                tool_results.append({\n                    "type": "tool_result",\n                    "tool_use_id": block.id,\n                    "content": str(result),\n                })\n        messages.append({"role": "user", "content": tool_results})\n\n    return "I wasn\'t able to finish reasoning through this in time."',
+          'import json\nfrom openai import OpenAI\n\nclient = OpenAI()\nMODEL = "gpt-4o-mini"\n\nREACT_SYSTEM_PROMPT = """You are Compass, a careful reasoning assistant.\nFor any non-trivial request, think step by step BEFORE using a tool.\n\nFollow this pattern:\nThought: <what you need to figure out, and why>\nAction: <call the relevant tool>\n...repeat as needed...\nThought: I now have enough information to answer.\nFinal Answer: <your answer to the user>"""\n\n\ndef extract_thought(response) -> str | None:\n    content = response.choices[0].message.content\n    return content.strip() if content and content.strip() else None\n\n\ndef run_agent_loop(user_message: str) -> str:\n    messages = [\n        {"role": "system", "content": REACT_SYSTEM_PROMPT},\n        {"role": "user", "content": user_message},\n    ]\n\n    for _ in range(MAX_TURNS):\n        response = client.chat.completions.create(\n            model=MODEL, max_tokens=1024, tools=ALL_TOOLS, messages=messages,\n        )\n        message = response.choices[0].message\n        thought = extract_thought(response)\n        if thought:\n            print(f"\\n[thought] {thought}")\n\n        if not message.tool_calls:\n            return message.content or (thought or "(no answer)")\n\n        messages.append(message)\n        for tool_call in message.tool_calls:\n            args = json.loads(tool_call.function.arguments)\n            result = execute_tool(tool_call.function.name, args)\n            messages.append({"role": "tool", "tool_call_id": tool_call.id, "content": str(result)})\n\n    return "I wasn\'t able to finish reasoning through this in time."',
       },
     ],
     placement: "Add REACT_SYSTEM_PROMPT and extract_thought() near your other constants/helpers, then replace your Module 2 agent loop with run_agent_loop() above.",
     implementation:
-      "build_system_prompt() (from Lesson 17) gets a small signature change to accept a `base` prompt to layer memory context onto — here it's REACT_SYSTEM_PROMPT instead of the plain SYSTEM_PROMPT. Each turn through the loop, extract_thought() pulls out and prints any reasoning text BEFORE the tool call it precedes, giving a live, readable trace of Compass's reasoning as it works through a multi-step question.",
+      "REACT_SYSTEM_PROMPT leads off messages as the first, role:\"system\" entry — any memory context recalled earlier (Lesson 17) gets folded into that same system string before the loop starts, so ReAct reasoning and memory-awareness compose together rather than one replacing the other. Each turn through the loop, extract_thought() pulls out and prints any reasoning text; because the openai-shape API tends to separate a Thought turn (text, no tool_calls) from an Action turn (tool_calls, little or no text), the printed trace naturally shows a thought BEFORE the tool call it precedes, even though they arrive across two turns rather than one response.",
     expectedResult:
       "Asking a genuinely multi-part question now produces a visible sequence like '[thought] I need to check the weather in Tokyo first' → tool call → '[thought] Now I need NYC's weather too' → tool call → a final synthesized answer.",
     connects:
@@ -119,14 +121,14 @@ export const lesson19: StructuredLesson = {
 
   quiz: [
     { id: 'c19q1', kind: 'concept', prompt: 'What does ReAct stand for?', options: ['React and Act', 'Reasoning + Acting', 'Reactive Actions', 'Real Actions'], answerIndex: 1, explanation: 'ReAct interleaves explicit reasoning with tool actions.' },
-    { id: 'c19q2', kind: 'concept', prompt: 'Is ReAct a special API parameter or a prompting pattern?', options: ['A special API parameter', 'A prompting pattern using existing text + tool_use content blocks', 'A separate model', 'A Python library'], answerIndex: 1, explanation: 'ReAct is achieved purely through how the system prompt is written and how existing response content is read.' },
+    { id: 'c19q2', kind: 'concept', prompt: 'Is ReAct a special API parameter or a prompting pattern?', options: ['A special API parameter', 'A prompting pattern built on the model’s ordinary text replies and tool calls', 'A separate model', 'A Python library'], answerIndex: 1, explanation: 'ReAct is achieved purely through how the system prompt is written and how ordinary responses are read across turns.' },
     { id: 'c19q3', kind: 'application', prompt: 'Why does visible reasoning improve the MODEL’s own behavior, not just user trust?', options: ['It doesn’t, it’s purely cosmetic', 'Generating reasoning tokens first measurably improves the model’s own subsequent decisions', 'It slows down the model on purpose', 'It only affects formatting'], answerIndex: 1, explanation: "This mirrors the structured-prompting principle from Lesson 3 — reasoning-first genuinely changes output quality." },
-    { id: 'c19q4', kind: 'code_reading', prompt: 'What does extract_thought() return if response.content has no text blocks at all?', options: ['An empty string', 'None', 'Raises an exception', 'The tool name'], answerIndex: 1, explanation: 'The function falls through the loop and returns None if no non-empty text block is found.' },
+    { id: 'c19q4', kind: 'code_reading', prompt: 'What does extract_thought() return if response.choices[0].message.content is None or empty?', options: ['An empty string', 'None', 'Raises an exception', 'The tool name'], answerIndex: 1, explanation: 'The `content and content.strip()` check fails on None/empty, so the function returns None.' },
     { id: 'c19q5', kind: 'debug', prompt: 'A ReAct agent skips printing any thought for a simple factual question. What’s the likely cause?', options: ['A bug', 'The model reasonably judged the question trivial and answered directly without needing to reason first', 'The API is broken', 'Tools are misconfigured'], answerIndex: 1, explanation: 'Not every question needs multi-step reasoning; simple ones can be answered directly.' },
-    { id: 'c19q6', kind: 'output', prompt: 'In run_agent_loop, when is a thought printed relative to its corresponding tool call?', options: ['After the tool call', 'Before the tool call, since it’s extracted from the same response that requests the call', 'Never printed', 'Only at the very end'], answerIndex: 1, explanation: "The thought and the tool_use block arrive in the SAME response, and the thought is printed before executing the tool." },
+    { id: 'c19q6', kind: 'output', prompt: 'In run_agent_loop, when is a thought printed relative to its corresponding tool call?', options: ['After the tool call', 'Before the tool call, typically on the turn just before the model requests it', 'Never printed', 'Only at the very end'], answerIndex: 1, explanation: "With the openai-shape API, a Thought and its Action usually land on separate turns, and the thought is printed as soon as it's extracted, ahead of the tool call that follows." },
     { id: 'c19q7', kind: 'application', prompt: 'Why would forcing ReAct-style reasoning on every trivial question be a mistake?', options: ['It isn’t a mistake', 'It adds unnecessary verbosity and latency for questions that don’t need multi-step reasoning', 'ReAct only works on complex questions technically', 'It breaks the API'], answerIndex: 1, explanation: 'ReAct is most valuable for genuinely multi-part or ambiguous tasks, not simple lookups.' },
     { id: 'c19q8', kind: 'concept', prompt: 'What comes after Thought and Action in the ReAct pattern?', options: ['Reflection', 'Observation (the tool result)', 'Summary', 'Nothing'], answerIndex: 1, explanation: 'The loop is Thought -> Action -> Observation, repeating as needed.' },
-    { id: 'c19q9', kind: 'project', prompt: 'Why does build_system_prompt() need a `base` parameter now?', options: ['No reason', 'So it can layer memory context onto EITHER the plain SYSTEM_PROMPT or the new REACT_SYSTEM_PROMPT', 'To remove memory entirely', 'It’s unrelated to memory'], answerIndex: 1, explanation: 'This lets ReAct and memory-aware prompting compose together instead of one replacing the other.' },
+    { id: 'c19q9', kind: 'project', prompt: 'Why does the REACT_SYSTEM_PROMPT get combined with any recalled memory context into ONE system message?', options: ['No reason', 'So the messages list stays valid (one role:"system" entry) while still layering ReAct reasoning AND memory-awareness together', 'To remove memory entirely', 'It’s unrelated to memory'], answerIndex: 1, explanation: 'The openai-shape API expects the system prompt as a single leading message, so ReAct and memory content are combined into that one string.' },
     { id: 'c19q10', kind: 'concept', prompt: 'What does Lesson 20 build on top of ReAct?', options: ['Deployment', 'Chain-of-Thought prompting for pure step-by-step reasoning without tool calls', 'A user interface', 'Memory management'], answerIndex: 1, explanation: 'Chain-of-Thought is the next reasoning pattern, focused on non-tool reasoning.' },
   ],
 

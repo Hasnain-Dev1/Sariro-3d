@@ -26,7 +26,7 @@ export const lesson02: StructuredLesson = {
       {
         heading: 'The context window',
         body:
-          "Every model has a MAXIMUM number of tokens it can consider at once — the context window (covering the system prompt, conversation history, and the reply together). If a conversation grows past this limit, older messages must be trimmed or summarized, or the request fails. This is exactly why Module 3 (Memory) becomes necessary — Compass can't just keep every message forever.",
+          "Every model has a MAXIMUM number of tokens it can consider at once — the context window (covering the system message, conversation history, and the reply together). If a conversation grows past this limit, older messages must be trimmed or summarized, or the request fails. This is exactly why Module 3 (Memory) becomes necessary — Compass can't just keep every message forever.",
       },
       {
         heading: 'max_tokens — capping the reply',
@@ -41,17 +41,17 @@ export const lesson02: StructuredLesson = {
       {
         heading: 'Temperature — predictable vs creative',
         body:
-          "temperature (0 to 1) controls randomness in the model's word choices. Low (0-0.3) gives consistent, focused, repeatable-feeling answers — good for factual Q&A or code. Higher (0.7-1) gives more varied, creative phrasing — good for brainstorming or writing. Compass, as a research assistant, should lean LOW — users want reliable answers, not surprising ones.",
+          "temperature (0 to 1, sometimes up to 2 depending on provider) controls randomness in the model's word choices. Low (0-0.3) gives consistent, focused, repeatable-feeling answers — good for factual Q&A or code. Higher (0.7-1) gives more varied, creative phrasing — good for brainstorming or writing. Compass, as a research assistant, should lean LOW — users want reliable answers, not surprising ones.",
         code: {
           language: 'python',
           code:
-            "response = client.messages.create(\n    model=\"claude-sonnet-5\",\n    max_tokens=300,\n    temperature=0.2,   # Compass: focused, consistent answers\n    messages=[{\"role\": \"user\", \"content\": question}],\n)",
+            "response = client.chat.completions.create(\n    model=\"gpt-4o-mini\",\n    max_tokens=300,\n    temperature=0.2,   # Compass: focused, consistent answers\n    messages=[{\"role\": \"user\", \"content\": question}],\n)",
         },
       },
       {
-        heading: 'Choosing a model',
+        heading: 'Choosing a model — and staying provider-agnostic',
         body:
-          "Different models trade off speed, cost, and capability. A fast, cheaper model suits simple lookups; a more capable model suits complex reasoning or planning. Production agents often ROUTE between models by task difficulty — a technique you'll see named explicitly in later, more advanced material. For now, Compass uses one consistent model throughout.",
+          "Different models trade off speed, cost, and capability. A fast, cheaper model suits simple lookups; a more capable model suits complex reasoning or planning. Because Compass talks to any OpenAI-compatible provider through the same client shape, this choice is just a MODEL constant — swapping to a Groq-hosted open-weight model or a Gemini model for cost or speed reasons means changing one string, not rewriting logic. Production agents often ROUTE between models by task difficulty, a technique you'll see named explicitly in later, more advanced material. For now, Compass uses one consistent model throughout.",
       },
     ],
     keyTerms: [
@@ -92,7 +92,7 @@ export const lesson02: StructuredLesson = {
         language: 'python',
         filename: 'temperature_test.py',
         code:
-          "from dotenv import load_dotenv\nimport anthropic\n\nload_dotenv()\nclient = anthropic.Anthropic()\n\ndef ask(temperature: float) -> str:\n    response = client.messages.create(\n        model=\"claude-sonnet-5\",\n        max_tokens=100,\n        temperature=temperature,\n        messages=[{\"role\": \"user\", \"content\": \"Give me one creative name for a coffee shop.\"}],\n    )\n    return response.content[0].text\n\ndef main():\n    print(\"temp 0:  \", ask(0))\n    print(\"temp 0.9:\", ask(0.9))\n\nif __name__ == \"__main__\":\n    main()",
+          "from dotenv import load_dotenv\nfrom openai import OpenAI\n\nload_dotenv()\nclient = OpenAI()\n\ndef ask(temperature: float) -> str:\n    response = client.chat.completions.create(\n        model=\"gpt-4o-mini\",\n        max_tokens=100,\n        temperature=temperature,\n        messages=[{\"role\": \"user\", \"content\": \"Give me one creative name for a coffee shop.\"}],\n    )\n    return response.choices[0].message.content\n\ndef main():\n    print(\"temp 0:  \", ask(0))\n    print(\"temp 0.9:\", ask(0.9))\n\nif __name__ == \"__main__\":\n    main()",
       },
     ],
     explanation:
@@ -118,13 +118,13 @@ export const lesson02: StructuredLesson = {
         language: 'python',
         filename: 'main.py (update ask_compass)',
         code:
-          "def ask_compass(question: str) -> str:\n    response = client.messages.create(\n        model=\"claude-sonnet-5\",\n        max_tokens=400,\n        temperature=0.2,   # consistent, focused answers for a research assistant\n        system=SYSTEM_PROMPT,\n        messages=[{\"role\": \"user\", \"content\": question}],\n    )\n\n    # Cheap cost awareness: log token usage every call.\n    print(f\"[usage] input: {response.usage.input_tokens} tokens, output: {response.usage.output_tokens} tokens\")\n\n    return response.content[0].text",
+          "def ask_compass(question: str) -> str:\n    response = client.chat.completions.create(\n        model=MODEL,\n        max_tokens=400,\n        temperature=0.2,   # consistent, focused answers for a research assistant\n        messages=[\n            {\"role\": \"system\", \"content\": SYSTEM_PROMPT},\n            {\"role\": \"user\", \"content\": question},\n        ],\n    )\n\n    # Cheap cost awareness: log token usage every call.\n    usage = response.usage\n    print(f\"[usage] input: {usage.prompt_tokens} tokens, output: {usage.completion_tokens} tokens\")\n\n    return response.choices[0].message.content",
       },
     ],
     placement:
-      "In main.py, replace the client.messages.create call inside ask_compass() with the version above — add temperature=0.2 and the usage print line right after the response arrives, before returning the text.",
+      "In main.py, replace the client.chat.completions.create call inside ask_compass() with the version above — add temperature=0.2 and the usage print line right after the response arrives, before returning the text.",
     implementation:
-      "temperature=0.2 locks in the low-randomness behaviour a research assistant needs — the SAME question should get a similarly reliable answer each time, not a lottery. response.usage is returned by the API alongside the reply and reports exactly how many input and output tokens that specific call used; printing it gives you a real, visible sense of cost per interaction as you keep building Compass, instead of cost being an invisible abstraction.",
+      "temperature=0.2 locks in the low-randomness behaviour a research assistant needs — the SAME question should get a similarly reliable answer each time, not a lottery. response.usage is returned by the API alongside the reply and reports exactly how many prompt (input) and completion (output) tokens that specific call used; printing it gives you a real, visible sense of cost per interaction as you keep building Compass, instead of cost being an invisible abstraction.",
     expectedResult:
       "Running Compass now prints a usage line like '[usage] input: 42 tokens, output: 88 tokens' before every answer, and asking the same factual question twice in a row gives noticeably consistent responses.",
     connects:
@@ -135,8 +135,8 @@ export const lesson02: StructuredLesson = {
     { id: 'c2q1', kind: 'concept', prompt: 'What is a token, in the context of an LLM?', options: ['A billing currency only', 'The small text chunk (word/sub-word/punctuation) the model actually processes', 'A type of API key', 'A conversation ID'], answerIndex: 1, explanation: "Tokens are the units of text the model reads and generates; billing is a consequence of that, not the definition." },
     { id: 'c2q2', kind: 'concept', prompt: 'What does the context window limit?', options: ['How many API keys you can have', 'The total tokens (input + output) a model can consider in one request', 'The number of tools available', 'The temperature range'], answerIndex: 1, explanation: "The context window is a hard cap on total tokens per request." },
     { id: 'c2q3', kind: 'application', prompt: 'A student wants Compass to give the SAME reliable answer to a factual question every time. Which temperature fits best?', options: ['0.9', 'Close to 0 (e.g. 0.2)', '2.0', 'Temperature doesn’t affect consistency'], answerIndex: 1, explanation: "Low temperature reduces randomness, producing more consistent answers." },
-    { id: 'c2q4', kind: 'debug', prompt: "A reply keeps cutting off mid-sentence. Most likely fix?", options: ['Lower the temperature', 'Increase max_tokens', 'Change the model', 'Remove the system prompt'], answerIndex: 1, explanation: "max_tokens caps the reply length; too low truncates longer answers." },
-    { id: 'c2q5', kind: 'code_reading', prompt: 'What does response.usage.output_tokens tell you?', options: ['How many tokens were in the user’s question', 'How many tokens the MODEL’s reply used', 'The temperature setting', 'The model name'], answerIndex: 1, explanation: "usage.output_tokens reports the token count of the generated reply specifically." },
+    { id: 'c2q4', kind: 'debug', prompt: "A reply keeps cutting off mid-sentence. Most likely fix?", options: ['Lower the temperature', 'Increase max_tokens', 'Change the model', 'Remove the system message'], answerIndex: 1, explanation: "max_tokens caps the reply length; too low truncates longer answers." },
+    { id: 'c2q5', kind: 'code_reading', prompt: 'What does response.usage.completion_tokens tell you?', options: ['How many tokens were in the user’s question', 'How many tokens the MODEL’s reply used', 'The temperature setting', 'The model name'], answerIndex: 1, explanation: "usage.completion_tokens reports the token count of the generated reply specifically." },
     { id: 'c2q6', kind: 'concept', prompt: 'Why might a long-running conversation eventually fail or need trimming?', options: ['The API has a daily limit only', 'The accumulated tokens can exceed the context window', 'Temperature drifts over time', 'It never happens'], answerIndex: 1, explanation: "As conversation history grows, total tokens can exceed what the context window allows." },
     { id: 'c2q7', kind: 'application', prompt: 'Why does Compass use a LOWER max_tokens for a quick factual question than for a multi-step plan?', options: ['Random choice', 'To match the reply length to the task, avoiding cut-off answers or wasted cost', 'max_tokens must always be the same', 'It has no real effect on anything'], answerIndex: 1, explanation: "Scaling max_tokens to the expected answer length balances completeness and cost." },
     { id: 'c2q8', kind: 'output', prompt: 'Running the temperature mini-project TWICE at temperature 0, you should see…', options: ['Two wildly different names', 'Very similar or identical names both times', 'An error the second time', 'No output at all'], answerIndex: 1, explanation: "Near-zero temperature produces highly consistent output across repeated identical calls." },
@@ -149,7 +149,7 @@ export const lesson02: StructuredLesson = {
       "Add an ask_compass_with_budget(question, max_tokens) variant that lets the CALLER choose max_tokens per question, and test it with a short factual question (low budget) and an open-ended one (higher budget).",
     requirements: [
       "The function should accept question and max_tokens as parameters.",
-      "Keep temperature and the system prompt the same as ask_compass().",
+      "Keep temperature and the system message the same as ask_compass().",
       "Test with max_tokens=60 for a factual question and max_tokens=500 for something like 'explain how agents plan multi-step tasks'.",
     ],
     expectedOutcome:
@@ -161,7 +161,7 @@ export const lesson02: StructuredLesson = {
       steps: [
         "Add a second parameter: def ask_compass(question: str, style: str = 'brief') -> str:",
         "Build the system string conditionally: brief asks for 1-2 sentences; detailed asks for a fuller paragraph with an example.",
-        "Pass the chosen string as the system argument in the API call.",
+        "Pass the chosen string as the system-role message content in the messages list.",
         "Call ask_compass('Explain agents', 'brief') and ask_compass('Explain agents', 'detailed') and compare the output lengths.",
       ],
       codeGuidance: [
@@ -169,7 +169,7 @@ export const lesson02: StructuredLesson = {
           language: 'python',
           filename: 'main.py',
           code:
-            "def ask_compass(question: str, style: str = \"brief\") -> str:\n    if style == \"detailed\":\n        system = \"You are Compass, a helpful research assistant. Give a full, clear paragraph with an example.\"\n        max_tokens = 500\n    else:\n        system = \"You are Compass, a helpful research assistant. Answer in 1-2 sentences.\"\n        max_tokens = 150\n\n    response = client.messages.create(\n        model=\"claude-sonnet-5\",\n        max_tokens=max_tokens,\n        system=system,\n        messages=[{\"role\": \"user\", \"content\": question}],\n    )\n    return response.content[0].text",
+            "def ask_compass(question: str, style: str = \"brief\") -> str:\n    if style == \"detailed\":\n        system = \"You are Compass, a helpful research assistant. Give a full, clear paragraph with an example.\"\n        max_tokens = 500\n    else:\n        system = \"You are Compass, a helpful research assistant. Answer in 1-2 sentences.\"\n        max_tokens = 150\n\n    response = client.chat.completions.create(\n        model=MODEL,\n        max_tokens=max_tokens,\n        messages=[\n            {\"role\": \"system\", \"content\": system},\n            {\"role\": \"user\", \"content\": question},\n        ],\n    )\n    return response.choices[0].message.content",
         },
       ],
     },

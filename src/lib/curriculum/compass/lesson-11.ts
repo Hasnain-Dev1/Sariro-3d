@@ -21,7 +21,17 @@ export const lesson11: StructuredLesson = {
       {
         heading: 'The model’s tool arguments are still untrusted input',
         body:
-          "It's easy to assume that because the MODEL generated a tool call, its arguments are automatically safe — they aren't. The model is ultimately reflecting whatever the USER asked, and a user could phrase a request that leads to unexpected or malicious-looking input. Treat every tool_use input with the same care you'd give raw user input.",
+          "It's easy to assume that because the MODEL generated a tool call, its arguments are automatically safe — they aren't. The model is ultimately reflecting whatever the USER asked, and a user could phrase a request that leads to unexpected or malicious-looking input. Treat every tool call's arguments with the same care you'd give raw user input.",
+      },
+      {
+        heading: 'Arguments arrive as a JSON string — parse defensively',
+        body:
+          "Unlike some SDK shapes where tool arguments arrive already parsed, the openai package hands you tool_call.function.arguments as a raw JSON STRING. json.loads() can itself raise if the model produces malformed JSON (rare, but possible) — wrap the parse in a try/except so a single bad call can't crash the whole loop.",
+        code: {
+          language: 'python',
+          code:
+            "import json\n\ntry:\n    args = json.loads(tool_call.function.arguments)\nexcept (json.JSONDecodeError, TypeError):\n    args = {}",
+        },
       },
       {
         heading: 'The problem with run_calculator’s eval()',
@@ -46,7 +56,7 @@ export const lesson11: StructuredLesson = {
       {
         heading: 'Validating other tool inputs too',
         body:
-          "Safety isn't only about code execution — it also means bounding input SIZE (a huge query could waste tokens or hang a request) and checking TYPES even though input_schema describes them (the schema is a hint to the model, not a runtime guarantee your code can skip validating).",
+          "Safety isn't only about code execution — it also means bounding input SIZE (a huge query could waste tokens or hang a request) and checking TYPES even though the tool's parameters schema describes them (the schema is a hint to the model, not a runtime guarantee your code can skip validating).",
         code: {
           language: 'python',
           code:
@@ -64,19 +74,20 @@ export const lesson11: StructuredLesson = {
       { term: 'Allow-list', definition: "Validating input against a strict set of PERMITTED characters/values, rejecting anything else." },
       { term: 'Fail closed', definition: "When validation fails or is uncertain, reject the action rather than proceeding anyway." },
       { term: 're.fullmatch', definition: "Python's regex function checking that an ENTIRE string matches a pattern, not just part of it." },
+      { term: 'json.loads', definition: "Parses a JSON string (like tool_call.function.arguments) into a Python dict — can raise json.JSONDecodeError on malformed input." },
     ],
     commonMistakes: [
-      "Assuming a tool_use input is automatically safe because the model generated it.",
+      "Assuming a tool call's arguments are automatically safe because the model generated them.",
       "Using eval() on unvalidated input without an allow-list check first, allowing unexpected behaviour.",
       "Using re.match or re.search instead of re.fullmatch, which only check the START or ANY part of the string, not the whole thing.",
-      "Trusting input_schema alone as validation — it shapes the model's request but doesn't enforce anything at runtime.",
-      "Not bounding input SIZE, allowing an excessively long string to waste resources or tokens.",
+      "Trusting the tool's parameters schema alone as validation — it shapes the model's request but doesn't enforce anything at runtime.",
+      "Calling json.loads(tool_call.function.arguments) without a try/except, letting malformed JSON crash the loop.",
     ],
     takeaways: [
       "Treat every tool argument as untrusted input, just like raw user input.",
+      "tool_call.function.arguments is a JSON string — parse it defensively with json.loads() inside a try/except.",
       "An allow-list of permitted characters (checked with re.fullmatch) is a simple, effective validation technique.",
-      "input_schema doesn't runtime-validate anything — your tool code still must.",
-      "Bound input size, not just type/shape.",
+      "The tool's parameters schema doesn't runtime-validate anything — your tool code still must.",
       "Fail closed: reject uncertain or invalid input rather than proceeding.",
     ],
   },
@@ -97,8 +108,8 @@ export const lesson11: StructuredLesson = {
         filename: 'safe_calc_test.py',
         code:
           "import re\n\ndef unsafe_calculator(expression: str) -> str:\n    try:\n        return str(eval(expression, {\"__builtins__\": {}}, {}))\n    except Exception:\n        return \"Error\"\n\ndef safe_calculator(expression: str) -> str:\n    if not re.fullmatch(r\"[0-9+\\-*/(). ]+\", expression):\n        return \"Error: expression contains disallowed characters.\"\n    try:\n        return str(eval(expression, {\"__builtins__\": {}}, {}))\n    except Exception:\n        return \"Error: could not evaluate.\"\n\nweird_input = \"(lambda: [print('ran extra code!'), 1][1])()\"\n\nprint(\"unsafe, weird input:\", unsafe_calculator(weird_input))\nprint(\"safe, same input:   \", safe_calculator(weird_input))\nprint(\"safe, real math:    \", safe_calculator(\"12 * (4 + 3)\"))",
-      },
-    ],
+        },
+      ],
     explanation:
       "unsafe_calculator happily evaluates whatever Python expression is inside the string — the test input isn't arithmetic at all, it's a lambda that runs arbitrary code (here, just a harmless print, but the SAME mechanism could do worse). safe_calculator's re.fullmatch check rejects that same input immediately, because it contains characters (letters, parentheses used as function/lambda syntax) outside the allow-listed arithmetic set — the expression never even reaches eval(). The final line confirms real arithmetic still works fine through the safe version.",
     expectedOutput:
@@ -130,11 +141,17 @@ export const lesson11: StructuredLesson = {
         code:
           "def run_word_count(text: str) -> str:\n    if not isinstance(text, str) or len(text) > 5000:\n        return \"Error: invalid or too-large input.\"\n    return str(len(text.strip().split()))\n\ndef run_web_search(query: str) -> str:\n    if not isinstance(query, str) or len(query) == 0 or len(query) > 300:\n        return \"Error: invalid search query.\"\n    try:\n        res = requests.get(\n            \"https://api.example-search.com/search\",\n            params={\"q\": query},\n            headers={\"Authorization\": f\"Bearer {os.environ.get('SEARCH_API_KEY', '')}\"},\n            timeout=10,\n        )\n        if not res.ok:\n            return \"Error: search request failed.\"\n        data = res.json()\n        results = data.get(\"results\", [])[:3]\n        if not results:\n            return \"No results found.\"\n        return \"\\n\".join(f\"{r['title']}: {r['snippet']}\" for r in results)\n    except requests.RequestException:\n        return \"Error: could not reach the search service.\"",
       },
+      {
+        language: 'python',
+        filename: 'main.py (parse tool arguments defensively in the loop)',
+        code:
+          "try:\n    args = json.loads(tool_call.function.arguments)\nexcept (json.JSONDecodeError, TypeError):\n    args = {}\ntool_output = execute_tool(tool_call.function.name, args)",
+      },
     ],
     placement:
-      "Replace run_calculator, run_word_count, and run_web_search in main.py with the hardened versions above — each now validates type, size, and (for the calculator) character content BEFORE doing any real work.",
+      "Replace run_calculator, run_word_count, and run_web_search in main.py with the hardened versions above — each now validates type, size, and (for the calculator) character content BEFORE doing any real work. Also wrap the json.loads(tool_call.function.arguments) call inside ask_compass()'s loop in a try/except, as shown, so malformed arguments can't crash the loop.",
     implementation:
-      "Every tool now follows the same defensive shape: check the input is the right TYPE, check it's within a reasonable SIZE bound, and (for the calculator specifically) check it matches an allow-list pattern with re.fullmatch — all BEFORE the actual logic runs. This is fail-closed by construction: any input that doesn't pass validation returns an error string immediately, never reaching the potentially risky eval() call or an oversized network/processing operation. None of Compass's OTHER code (the loop, execute_tool, ask_compass) needs to change — validation lives entirely inside each tool's own implementation, which is exactly where it belongs.",
+      "Every tool now follows the same defensive shape: check the input is the right TYPE, check it's within a reasonable SIZE bound, and (for the calculator specifically) check it matches an allow-list pattern with re.fullmatch — all BEFORE the actual logic runs. This is fail-closed by construction: any input that doesn't pass validation returns an error string immediately, never reaching the potentially risky eval() call or an oversized network/processing operation. One level up, the loop itself now treats tool_call.function.arguments as untrusted too — a malformed JSON string from the model falls back to an empty dict rather than crashing. None of Compass's OTHER code (the loop's turn cap, execute_tool's routing) needs to change — validation lives entirely inside each tool's own implementation (and the argument-parsing step), which is exactly where it belongs.",
     expectedResult:
       "Compass's calculator now safely rejects anything that isn't real arithmetic while still correctly computing real expressions — and its other tools reject absurdly long or malformed input instead of processing it blindly.",
     connects:
@@ -142,15 +159,15 @@ export const lesson11: StructuredLesson = {
   },
 
   quiz: [
-    { id: 'c11q1', kind: 'concept', prompt: 'Why should tool_use arguments be treated as untrusted input?', options: ['They never need validation', 'Because they ultimately reflect user intent and could contain unexpected or crafted content', 'The model always sanitizes them first', 'Only user-typed text needs validation'], answerIndex: 1, explanation: "Model-generated tool arguments still originate from user-driven requests and shouldn't be blindly trusted." },
+    { id: 'c11q1', kind: 'concept', prompt: 'Why should a tool call’s arguments be treated as untrusted input?', options: ['They never need validation', 'Because they ultimately reflect user intent and could contain unexpected or crafted content', 'The model always sanitizes them first', 'Only user-typed text needs validation'], answerIndex: 1, explanation: "Model-generated tool arguments still originate from user-driven requests and shouldn't be blindly trusted." },
     { id: 'c11q2', kind: 'concept', prompt: 'What was the real risk in Lesson 8’s original run_calculator?', options: ['It was too slow', 'eval() could still be tricked into surprising behaviour, even with restricted builtins, if the input contained more than pure math', 'It used too many tokens', 'It didn’t support decimals'], answerIndex: 1, explanation: "An eval-based function is inherently risky unless input is first restricted to safe characters." },
     { id: 'c11q3', kind: 'application', prompt: 'What does an allow-list validation approach do?', options: ['Blocks a list of known-bad values', 'Permits ONLY a defined set of safe characters/values, rejecting everything else', 'Logs all input for review later', 'Encrypts the input'], answerIndex: 1, explanation: "An allow-list is a positive check — only explicitly permitted content passes." },
     { id: 'c11q4', kind: 'debug', prompt: 'A calculator input like "12 + 4" fails the allow-list check unexpectedly. What might be wrong?', options: ['Nothing, this should pass', 'The regex might be using re.match instead of re.fullmatch, or missing a required character (like space)', 'Regex can’t validate numbers', 'The input is too short'], answerIndex: 1, explanation: "re.match only checks the start of the string; re.fullmatch (or a missing allowed character) is the likely fix." },
-    { id: 'c11q5', kind: 'concept', prompt: 'Does input_schema runtime-enforce a tool’s argument types?', options: ['Yes, completely', 'No — it guides the model’s request shape but your code must still validate at runtime', 'Only for string types', 'Only if the model is instructed to enforce it'], answerIndex: 1, explanation: "input_schema is a hint for the model, not a runtime guarantee your tool code can rely on." },
+    { id: 'c11q5', kind: 'concept', prompt: 'Does the tool’s parameters schema runtime-enforce a tool’s argument types?', options: ['Yes, completely', 'No — it guides the model’s request shape but your code must still validate at runtime', 'Only for string types', 'Only if the model is instructed to enforce it'], answerIndex: 1, explanation: "The parameters schema is a hint for the model, not a runtime guarantee your tool code can rely on." },
     { id: 'c11q6', kind: 'application', prompt: 'Why bound a tool’s input SIZE (e.g. max length), not just its type?', options: ['No real reason', 'An excessively long input could waste tokens, processing time, or cause other issues', 'Size limits are required by Python', 'It only matters for numbers'], answerIndex: 1, explanation: "Size bounds prevent resource waste or unexpected behaviour from unusually large input." },
     { id: 'c11q7', kind: 'concept', prompt: 'What does "fail closed" mean?', options: ['Retry until it succeeds', 'When validation fails or is uncertain, reject the action rather than proceeding anyway', 'Always return a cached result', 'Close the whole program on any error'], answerIndex: 1, explanation: "Fail closed means uncertain or invalid input results in rejection, not a risky attempt to proceed." },
     { id: 'c11q8', kind: 'output', prompt: 'Given the hardened run_calculator, what does an expression like "print(1)" return?', options: ['It executes print(1)', 'An error string, since letters and parentheses-as-function-call fail the allow-list', 'None', 'A number'], answerIndex: 1, explanation: "The allow-list only permits digits/operators/parentheses/dots/spaces — letters like 'print' are rejected." },
-    { id: 'c11q9', kind: 'project', prompt: "Why doesn't hardening the tools require any changes to Compass's main loop or execute_tool dispatch?", options: ['It secretly does require changes', "Validation lives inside each tool's own implementation, which is exactly where input-specific safety belongs", 'The loop already validated everything', 'Dispatch functions can’t be changed'], answerIndex: 1, explanation: "Each tool owning its own validation keeps the dispatch/loop layer simple and unaffected by tool-specific rules." },
+    { id: 'c11q9', kind: 'debug', prompt: 'Why wrap json.loads(tool_call.function.arguments) in a try/except?', options: ['It never fails', 'The model can occasionally produce malformed JSON, which would otherwise raise and crash the loop', 'json.loads only works on lists', 'It’s required by the openai package syntax'], answerIndex: 1, explanation: "Arguments arrive as a raw string; parsing it defensively prevents a rare malformed response from crashing the whole flow." },
     { id: 'c11q10', kind: 'concept', prompt: 'Why does this safety discipline matter MORE as an agent gains more powerful tools later?', options: ['It doesn’t matter more, it’s the same at any scale', 'More powerful tools (with real-world side effects) make unsafe or unvalidated input increasingly risky', 'Safety only matters for calculators', 'Later tools are automatically safe by design'], answerIndex: 1, explanation: "As tools gain real consequences, the habit of validating and failing closed becomes increasingly important." },
   ],
 

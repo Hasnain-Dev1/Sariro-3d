@@ -33,7 +33,7 @@ import { lesson30 } from '@/lib/curriculum/compass/lesson-30';
 /**
  * Compass — the Agent Architect (Beginner, agent-101) flagship curriculum.
  * 30 structured lessons across 5 modules. Students build Compass, a personal
- * AI research/task agent, from a single Claude API call (M1) through tools,
+ * AI research/task agent, from a single OpenAI-compatible API call (M1) through tools,
  * memory, planning, to a deployed agent (M5). Lessons added here as authored.
  */
 const lessons: StructuredLesson[] = [

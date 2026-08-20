@@ -11,7 +11,7 @@ export const lesson20: StructuredLesson = {
   globalNumber: 20,
   name: 'Chain-of-thought reasoning',
   title: 'Chain-of-Thought — Step-by-Step Reasoning Without Tools',
-  subtitle: "Get more reliable answers on reasoning-heavy questions by asking Claude to think step by step, even with no tools involved.",
+  subtitle: "Get more reliable answers on reasoning-heavy questions by asking the model to think step by step, even with no tools involved.",
 
   concept: {
     durationMin: 15,
@@ -73,7 +73,7 @@ export const lesson20: StructuredLesson = {
     objective: "See the practical difference CoT makes on a multi-step logic problem versus a direct-answer prompt.",
     instructions: [
       "Pick a multi-step word problem (e.g. a simple age/math riddle).",
-      "Ask Claude the SAME question once with a direct-answer system prompt, once with the COT_SYSTEM_PROMPT.",
+      "Ask the model the SAME question once with a direct-answer system prompt, once with the COT_SYSTEM_PROMPT.",
       "Compare the two outputs and note which is more reliable.",
     ],
     code: [
@@ -81,7 +81,7 @@ export const lesson20: StructuredLesson = {
         language: 'python',
         filename: 'cot_test.py',
         code:
-          'question = (\n    "Sara is twice as old as her brother. In 6 years, she will be "\n    "1.5 times his age. How old is Sara now?"\n)\n\ndirect = client.messages.create(\n    model="claude-sonnet-4-5",\n    max_tokens=200,\n    system="Answer concisely with just the final answer.",\n    messages=[{"role": "user", "content": question}],\n)\n\ncot = client.messages.create(\n    model="claude-sonnet-4-5",\n    max_tokens=400,\n    system=COT_SYSTEM_PROMPT,\n    messages=[{"role": "user", "content": question}],\n)\n\nprint("Direct:", direct.content[0].text)\nprint("\\nCoT:", cot.content[0].text)',
+          'question = (\n    "Sara is twice as old as her brother. In 6 years, she will be "\n    "1.5 times his age. How old is Sara now?"\n)\n\ndirect = client.chat.completions.create(\n    model=MODEL,\n    max_tokens=200,\n    messages=[\n        {"role": "system", "content": "Answer concisely with just the final answer."},\n        {"role": "user", "content": question},\n    ],\n)\n\ncot = client.chat.completions.create(\n    model=MODEL,\n    max_tokens=400,\n    messages=[\n        {"role": "system", "content": COT_SYSTEM_PROMPT},\n        {"role": "user", "content": question},\n    ],\n)\n\nprint("Direct:", direct.choices[0].message.content)\nprint("\\nCoT:", cot.choices[0].message.content)',
       },
     ],
     explanation:
@@ -105,7 +105,7 @@ export const lesson20: StructuredLesson = {
         language: 'python',
         filename: 'main.py',
         code:
-          'import re\n\nCOT_SYSTEM_PROMPT = """When answering questions that involve multiple steps, logic, \nor arithmetic, think through the problem step by step BEFORE giving your final answer.\n\nFormat:\nReasoning: <your step-by-step thinking>\nAnswer: <your final, concise answer>"""\n\n\ndef extract_final_answer(text: str) -> str:\n    match = re.search(r"Answer:\\s*(.+)", text, re.DOTALL)\n    return match.group(1).strip() if match else text.strip()\n\n\ndef reason_through(question: str, show_reasoning: bool = True) -> str:\n    response = client.messages.create(\n        model="claude-sonnet-4-5",\n        max_tokens=600,\n        system=COT_SYSTEM_PROMPT,\n        messages=[{"role": "user", "content": question}],\n    )\n    full_text = response.content[0].text\n\n    if show_reasoning:\n        print(f"\\n{full_text}\\n")\n\n    return extract_final_answer(full_text)',
+          'import re\n\nCOT_SYSTEM_PROMPT = """When answering questions that involve multiple steps, logic, \nor arithmetic, think through the problem step by step BEFORE giving your final answer.\n\nFormat:\nReasoning: <your step-by-step thinking>\nAnswer: <your final, concise answer>"""\n\n\ndef extract_final_answer(text: str) -> str:\n    match = re.search(r"Answer:\\s*(.+)", text, re.DOTALL)\n    return match.group(1).strip() if match else text.strip()\n\n\ndef reason_through(question: str, show_reasoning: bool = True) -> str:\n    response = client.chat.completions.create(\n        model=MODEL,\n        max_tokens=600,\n        messages=[\n            {"role": "system", "content": COT_SYSTEM_PROMPT},\n            {"role": "user", "content": question},\n        ],\n    )\n    full_text = response.choices[0].message.content\n\n    if show_reasoning:\n        print(f"\\n{full_text}\\n")\n\n    return extract_final_answer(full_text)',
       },
     ],
     placement: "Add reason_through() alongside your other agent functions in main.py.",

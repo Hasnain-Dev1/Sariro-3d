@@ -111,7 +111,7 @@ export const lesson26: StructuredLesson = {
         language: 'python',
         filename: 'app.py',
         code:
-          'import streamlit as st\nfrom compass_agent import route_and_answer\n\nst.set_page_config(page_title="Compass", page_icon="🧭")\nst.title("🧭 Compass")\nst.caption("Your AI research and task agent — powered by Claude.")\n\nif "messages" not in st.session_state:\n    st.session_state.messages = []\n\nfor msg in st.session_state.messages:\n    with st.chat_message(msg["role"]):\n        st.write(msg["content"])\n\nif prompt := st.chat_input("Ask Compass something..."):\n    st.session_state.messages.append({"role": "user", "content": prompt})\n    with st.chat_message("user"):\n        st.write(prompt)\n\n    with st.chat_message("assistant"):\n        with st.spinner("Thinking..."):\n            try:\n                answer = route_and_answer(prompt)\n            except Exception as e:\n                answer = f"Something went wrong: {e}"\n        st.write(answer)\n    st.session_state.messages.append({"role": "assistant", "content": answer})',
+          'import streamlit as st\nfrom compass_agent import route_and_answer\n\nst.set_page_config(page_title="Compass", page_icon="🧭")\nst.title("🧭 Compass")\nst.caption("Your AI research and task agent — powered by an OpenAI-compatible model.")\n\nif "messages" not in st.session_state:\n    st.session_state.messages = []\n\nfor msg in st.session_state.messages:\n    with st.chat_message(msg["role"]):\n        st.write(msg["content"])\n\nif prompt := st.chat_input("Ask Compass something..."):\n    st.session_state.messages.append({"role": "user", "content": prompt})\n    with st.chat_message("user"):\n        st.write(prompt)\n\n    with st.chat_message("assistant"):\n        with st.spinner("Thinking..."):\n            try:\n                answer = route_and_answer(prompt)\n            except Exception as e:\n                answer = f"Something went wrong: {e}"\n        st.write(answer)\n    st.session_state.messages.append({"role": "assistant", "content": answer})',
       },
     ],
     placement: "Replace Lesson 25's app.py entirely with the version above.",
@@ -120,7 +120,7 @@ export const lesson26: StructuredLesson = {
     expectedResult:
       "Opening the app shows a chat interface; asking multiple questions in sequence shows a growing, correctly-ordered conversation with both user and Compass messages, surviving across every interaction within that browser session.",
     connects:
-      "The chat UI is real and functional. Lesson 27 handles configuration properly — moving the ANTHROPIC_API_KEY out of hardcoded values and into Streamlit's secrets system, plus showing Compass's tool/reasoning steps live in the UI instead of just the final answer.",
+      "The chat UI is real and functional. Lesson 27 handles configuration properly — moving the OPENAI_API_KEY out of hardcoded values and into Streamlit's secrets system, plus showing Compass's tool/reasoning steps live in the UI instead of just the final answer.",
   },
 
   quiz: [

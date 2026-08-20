@@ -24,9 +24,9 @@ export const lesson17: StructuredLesson = {
           "Wiring memory in fully means answering two questions automatically, every question: (1) is there anything RELEVANT already saved that would help answer this? (recall), and (2) does this exchange contain something worth REMEMBERING for next time? (save). These are independent — a question can trigger recall without a save, or vice versa.",
       },
       {
-        heading: 'Injecting recalled memories into the system prompt',
+        heading: 'Injecting recalled memories into the system message',
         body:
-          "Before calling the model, recall relevant memories and add them to the system prompt as context. The model can then naturally reference them.",
+          "Before calling the model, recall relevant memories and add them to the system message content as context. The model can then naturally reference them. build_system_prompt() builds a plain STRING here — it becomes the content of the first message (role 'system') in the messages list passed to chat.completions.create.",
         code: {
           language: 'python',
           code:
@@ -51,7 +51,7 @@ export const lesson17: StructuredLesson = {
       {
         heading: 'Putting it together in the loop',
         body:
-          "Before the API call: recall relevant memories, build the enriched system prompt. After getting the user's question: check should_remember() and, if true, save it. Both steps slot cleanly into ask_compass() without disrupting the tool-use loop or session-memory logic already built.",
+          "Before the API call: recall relevant memories, build the enriched system message string. After getting the user's question: check should_remember() and, if true, save it. Both steps slot cleanly into ask_compass() without disrupting the tool-use loop or session-memory logic already built.",
       },
     ],
     keyTerms: [
@@ -61,7 +61,7 @@ export const lesson17: StructuredLesson = {
       { term: 'any()', definition: "Python's built-in function returning True if ANY item in an iterable satisfies a condition." },
     ],
     commonMistakes: [
-      "Recalling memories but never actually injecting them into the prompt — retrieval alone does nothing without that step.",
+      "Recalling memories but never actually injecting them into the system message — retrieval alone does nothing without that step.",
       "Saving EVERY message as a memory, creating noise and diluting genuinely important facts.",
       "A memory-trigger list too narrow, missing common phrasings of the same intent.",
       "Not deduplicating — saving 'my name is Alex' five times across a long relationship with the same user.",
@@ -69,7 +69,7 @@ export const lesson17: StructuredLesson = {
     ],
     takeaways: [
       "Wiring memory in fully means automatic RECALL and automatic decide-to-SAVE, both per question.",
-      "Injecting recalled memories into the system prompt is what makes them actually usable.",
+      "Injecting recalled memories into the system message is what makes them actually usable.",
       "A trigger-phrase heuristic is a simple, free way to decide what's worth saving.",
       "A model-based save decision is more accurate but costs more.",
       "Both recall and save integrate directly into the existing ask_compass() flow.",
@@ -123,13 +123,13 @@ export const lesson17: StructuredLesson = {
         language: 'python',
         filename: 'main.py (wire both into ask_compass)',
         code:
-          "def ask_compass(question: str) -> str:\n    compress_history()\n    conversation_history.append({\"role\": \"user\", \"content\": question})\n\n    if should_remember(question):\n        save_memory(question)   # persists before the answer even comes back\n\n    system_prompt = build_system_prompt(question)\n\n    try:\n        for _ in range(MAX_TURNS):\n            response = with_retry(lambda: client.messages.create(\n                model=\"claude-sonnet-5\", max_tokens=400, temperature=0.2,\n                system=system_prompt, tools=TOOLS, messages=conversation_history,\n            ))\n            # ...rest of the loop is unchanged from Lesson 15...\n    except Exception as err:\n        # ...unchanged error handling...\n        pass",
+          "def ask_compass(question: str) -> str:\n    compress_history()\n    conversation_history.append({\"role\": \"user\", \"content\": question})\n\n    if should_remember(question):\n        save_memory(question)   # persists before the answer even comes back\n\n    system_prompt = build_system_prompt(question)\n\n    try:\n        for _ in range(MAX_TURNS):\n            response = with_retry(lambda: client.chat.completions.create(\n                model=MODEL, max_tokens=400, temperature=0.2,\n                tools=TOOLS,\n                messages=[{\"role\": \"system\", \"content\": system_prompt}, *conversation_history],\n            ))\n            # ...rest of the loop is unchanged from Lesson 15...\n    except Exception as err:\n        # ...unchanged error handling...\n        pass",
       },
     ],
     placement:
-      "Add should_remember() and build_system_prompt() near your existing memory functions. In ask_compass(), call should_remember(question) right after appending it to history, and save_memory(question) if True. Call build_system_prompt(question) once, and use its result as the system argument in EVERY API call inside the loop, replacing the plain SYSTEM_PROMPT constant.",
+      "Add should_remember() and build_system_prompt() near your existing memory functions. In ask_compass(), call should_remember(question) right after appending it to history, and save_memory(question) if True. Call build_system_prompt(question) once, and use its result as the FIRST message (role 'system') in EVERY API call inside the loop, replacing the plain SYSTEM_PROMPT constant.",
     implementation:
-      "build_system_prompt() calls recall_relevant() (Lesson 16) and, only if it found anything, APPENDS a labeled memory section to the base system prompt — leaving it completely unchanged when there's nothing relevant, avoiding prompt clutter for ordinary questions. should_remember() runs on every incoming question; when it matches, save_memory() writes the fact to disk BEFORE the API call proceeds — the user experiences no extra wait beyond the embedding call itself, and the save silently succeeds before the main answer flow continues. The tool-use loop's internal logic (turn cap, dispatch, tool_result handling) is completely untouched — only WHICH system prompt string gets used has changed.",
+      "build_system_prompt() calls recall_relevant() (Lesson 16) and, only if it found anything, APPENDS a labeled memory section to the base system prompt string — leaving it completely unchanged when there's nothing relevant, avoiding prompt clutter for ordinary questions. should_remember() runs on every incoming question; when it matches, save_memory() writes the fact to disk BEFORE the API call proceeds — the user experiences no extra wait beyond the embedding call itself, and the save silently succeeds before the main answer flow continues. The tool-use loop's internal logic (turn cap, dispatch, tool-result handling) is completely untouched — only WHICH string becomes the system message has changed.",
     expectedResult:
       "Telling Compass 'My name is Jordan, remember that' in one session, then asking (even in a LATER, separate run) 'What's my name?' now correctly answers 'Jordan' — memory recall and save both happened automatically, with no explicit commands needed.",
     connects:
@@ -138,14 +138,14 @@ export const lesson17: StructuredLesson = {
 
   quiz: [
     { id: 'c17q1', kind: 'concept', prompt: 'What TWO automatic decisions does full memory integration require, per question?', options: ['Only saving', 'Recalling relevant memories AND deciding whether to save something new', 'Only recalling', 'Neither — memory is fully manual'], answerIndex: 1, explanation: "Both recall and the save decision happen automatically for every question, independently." },
-    { id: 'c17q2', kind: 'application', prompt: 'Why append recalled memories to the SYSTEM prompt rather than, say, ignoring them after retrieval?', options: ['Retrieval alone is sufficient', 'The model can only use retrieved memories if they’re actually included in what it reads — the prompt', 'System prompts can’t contain memory content', 'It’s purely for logging'], answerIndex: 1, explanation: "Retrieved data has to be injected into the model's input to actually influence its answer." },
-    { id: 'c17q3', kind: 'concept', prompt: 'What is a "heuristic" in the context of should_remember()?', options: ['A type of API error', 'A simple, fast rule of thumb (trigger phrases) rather than a fully accurate model-based judgment', 'A vector database', 'A system prompt technique unrelated to memory'], answerIndex: 1, explanation: "A heuristic trades some accuracy for simplicity and zero extra cost." },
+    { id: 'c17q2', kind: 'application', prompt: 'Why append recalled memories to the SYSTEM message rather than, say, ignoring them after retrieval?', options: ['Retrieval alone is sufficient', 'The model can only use retrieved memories if they’re actually included in what it reads — the messages list', 'System messages can’t contain memory content', 'It’s purely for logging'], answerIndex: 1, explanation: "Retrieved data has to be injected into the model's input to actually influence its answer." },
+    { id: 'c17q3', kind: 'concept', prompt: 'What is a "heuristic" in the context of should_remember()?', options: ['A type of API error', 'A simple, fast rule of thumb (trigger phrases) rather than a fully accurate model-based judgment', 'A vector database', 'A system-message technique unrelated to memory'], answerIndex: 1, explanation: "A heuristic trades some accuracy for simplicity and zero extra cost." },
     { id: 'c17q4', kind: 'debug', prompt: 'A user says "Call me Alex" and Compass doesn’t save it. Likely cause?', options: ['save_memory is broken', '"call me" isn’t in the MEMORY_TRIGGERS list, so the heuristic misses this phrasing', 'The API is down', 'Embeddings failed silently'], answerIndex: 1, explanation: "A trigger-phrase heuristic only catches phrasings explicitly included in its list — a real, acknowledged limitation." },
-    { id: 'c17q5', kind: 'application', prompt: 'Why does build_system_prompt() return the PLAIN SYSTEM_PROMPT (unchanged) when relevant is empty?', options: ['A bug', 'To avoid cluttering the prompt with an empty/pointless memory section when nothing relevant was found', 'It always ignores memories', 'It disables tool use'], answerIndex: 1, explanation: "Only adding the memory section when there's genuinely something relevant keeps the prompt clean otherwise." },
+    { id: 'c17q5', kind: 'application', prompt: 'Why does build_system_prompt() return the PLAIN SYSTEM_PROMPT (unchanged) when relevant is empty?', options: ['A bug', 'To avoid cluttering the system message with an empty/pointless memory section when nothing relevant was found', 'It always ignores memories', 'It disables tool use'], answerIndex: 1, explanation: "Only adding the memory section when there's genuinely something relevant keeps the prompt clean otherwise." },
     { id: 'c17q6', kind: 'code_reading', prompt: 'Why is should_remember() checked BEFORE the main API call, not after?', options: ['No particular reason', 'So the fact can be saved without depending on how the conversation loop concludes', 'It changes the tool dispatch', 'It’s required to be synchronous'], answerIndex: 1, explanation: "Deciding to save based on the user's OWN message doesn't need to wait for the model's answer." },
     { id: 'c17q7', kind: 'concept', prompt: 'What is the tradeoff of a model-based save decision vs. the heuristic?', options: ['No tradeoff, model-based is strictly better with no cost', 'Better judgment/accuracy at the cost of an extra API call', 'It’s free and instant', 'It’s less accurate than the heuristic'], answerIndex: 1, explanation: "Asking the model to judge relevance is more nuanced but adds latency and cost." },
-    { id: 'c17q8', kind: 'output', prompt: 'After Compass recalls a memory like "user prefers concise answers," what should change about its NEXT reply?', options: ['Nothing, recall doesn’t affect output', 'It should tend toward a more concise style, since that context is now in its system prompt', 'It ignores memory entirely', 'It becomes less accurate'], answerIndex: 1, explanation: "Since the recalled fact is injected into the system prompt, the model can genuinely act on it." },
-    { id: 'c17q9', kind: 'project', prompt: "Why doesn't wiring in automatic memory require ANY changes to the tool-use loop's core logic (turn cap, dispatch)?", options: ['It secretly does require changes', 'Memory only changes WHICH system prompt is used and WHAT gets saved — the loop’s mechanics are unrelated and untouched', 'Tool use stops working once memory is added', 'The loop needs a complete rewrite'], answerIndex: 1, explanation: "Memory integration is additive and orthogonal to the existing tool-calling mechanics." },
+    { id: 'c17q8', kind: 'output', prompt: 'After Compass recalls a memory like "user prefers concise answers," what should change about its NEXT reply?', options: ['Nothing, recall doesn’t affect output', 'It should tend toward a more concise style, since that context is now in its system message', 'It ignores memory entirely', 'It becomes less accurate'], answerIndex: 1, explanation: "Since the recalled fact is injected into the system message, the model can genuinely act on it." },
+    { id: 'c17q9', kind: 'project', prompt: "Why doesn't wiring in automatic memory require ANY changes to the tool-use loop's core logic (turn cap, dispatch)?", options: ['It secretly does require changes', 'Memory only changes WHICH system message is used and WHAT gets saved — the loop’s mechanics are unrelated and untouched', 'Tool use stops working once memory is added', 'The loop needs a complete rewrite'], answerIndex: 1, explanation: "Memory integration is additive and orthogonal to the existing tool-calling mechanics." },
     { id: 'c17q10', kind: 'concept', prompt: 'What does Module 3 accomplish overall, by the end of this lesson?', options: ['Deployment to production', 'A complete memory system: session memory, bounded growth, summarization, and automatic long-term recall/save', 'Multi-agent orchestration', 'Fine-tuning a custom model'], answerIndex: 1, explanation: "This lesson completes the full memory arc built across Lessons 13-17." },
   ],
 
@@ -154,7 +154,7 @@ export const lesson17: StructuredLesson = {
       "Add basic deduplication to save_memory(): before saving a new fact, check if a very similar memory (cosine similarity above a high threshold, e.g. 0.95) already exists, and skip saving if so.",
     requirements: [
       "Before appending a new memory, embed the new text and compare it against all EXISTING memories' embeddings.",
-      "If any existing memory has similarity >= 0.95 with the new one, skip saving and print that it was a likely duplicate.",
+      "If any existing memory has similarity >= 0.95, skip saving and print that it was a likely duplicate.",
       "Test by saving 'My name is Alex' twice and confirming the second attempt is skipped.",
     ],
     expectedOutcome:

@@ -11,7 +11,7 @@ export const lesson15: StructuredLesson = {
   globalNumber: 15,
   name: 'Summarization',
   title: 'Summarization — Compressing Memory Without Losing Meaning',
-  subtitle: "Use Claude itself to compress old conversation history into a short summary instead of discarding it.",
+  subtitle: "Use the model itself to compress old conversation history into a short summary instead of discarding it.",
 
   concept: {
     durationMin: 15,
@@ -21,16 +21,16 @@ export const lesson15: StructuredLesson = {
       {
         heading: 'The idea: use the model to compress the model’s own conversation',
         body:
-          "Instead of just DROPPING old messages (Lesson 14's sliding window), ask Claude to read them and produce a short summary capturing the important facts. Replace the many original messages with ONE compact summary message — far fewer tokens, but the key information survives.",
+          "Instead of just DROPPING old messages (Lesson 14's sliding window), ask the model to read them and produce a short summary capturing the important facts. Replace the many original messages with ONE compact summary message — far fewer tokens, but the key information survives.",
       },
       {
         heading: 'A summarization call',
         body:
-          "This is a SEPARATE, focused API call — not part of the main conversation. You send the old messages and ask specifically for a factual summary, with its own tightly-scoped system prompt.",
+          "This is a SEPARATE, focused API call — not part of the main conversation. You send the old messages and ask specifically for a factual summary, with its own tightly-scoped system message.",
         code: {
           language: 'python',
           code:
-            "def summarize_messages(old_messages: list[dict]) -> str:\n    transcript = \"\\n\".join(\n        f\"{m['role']}: {m['content'] if isinstance(m['content'], str) else '[tool interaction]'}\"\n        for m in old_messages\n    )\n\n    response = client.messages.create(\n        model=\"claude-sonnet-5\",\n        max_tokens=200,\n        system=\"Summarize the key facts and topics from this conversation in 2-3 sentences. Be factual and concise.\",\n        messages=[{\"role\": \"user\", \"content\": transcript}],\n    )\n    return response.content[0].text",
+            "def summarize_messages(old_messages: list[dict]) -> str:\n    transcript = \"\\n\".join(\n        f\"{m['role']}: {m['content'] if isinstance(m['content'], str) else '[tool interaction]'}\"\n        for m in old_messages\n    )\n\n    response = client.chat.completions.create(\n        model=MODEL,\n        max_tokens=200,\n        messages=[\n            {\"role\": \"system\", \"content\": \"Summarize the key facts and topics from this conversation in 2-3 sentences. Be factual and concise.\"},\n            {\"role\": \"user\", \"content\": transcript},\n        ],\n    )\n    return response.choices[0].message.content",
         },
       },
       {
@@ -68,7 +68,7 @@ export const lesson15: StructuredLesson = {
     ],
     takeaways: [
       "Summarization uses the model itself to compress old history instead of discarding it.",
-      "It's a separate, focused API call with its own tight summarization prompt.",
+      "It's a separate, focused API call with its own tight summarization system message.",
       "Replace many old messages with one compact summary message.",
       "It costs extra tokens/latency but preserves meaning better than plain trimming.",
       "Summaries are lossy — some precision can be lost, a real tradeoff worth acknowledging.",
@@ -90,11 +90,11 @@ export const lesson15: StructuredLesson = {
         language: 'python',
         filename: 'summarize_test.py',
         code:
-          "from dotenv import load_dotenv\nimport anthropic\n\nload_dotenv()\nclient = anthropic.Anthropic()\n\nfake_convo = [\n    {\"role\": \"user\", \"content\": \"I'm planning a trip to Japan in April.\"},\n    {\"role\": \"assistant\", \"content\": \"Great choice! April is cherry blossom season.\"},\n    {\"role\": \"user\", \"content\": \"I'll be there for 10 days, starting in Tokyo.\"},\n    {\"role\": \"assistant\", \"content\": \"Tokyo is a great starting point. Any other cities?\"},\n    {\"role\": \"user\", \"content\": \"Maybe Kyoto and Osaka too. Budget is around $3000.\"},\n    {\"role\": \"assistant\", \"content\": \"That's a reasonable budget for a 10-day trip across those cities.\"},\n]\n\ndef summarize_messages(messages: list[dict]) -> str:\n    transcript = \"\\n\".join(f\"{m['role']}: {m['content']}\" for m in messages)\n    response = client.messages.create(\n        model=\"claude-sonnet-5\", max_tokens=150,\n        system=\"Summarize the key facts from this conversation in 2-3 sentences.\",\n        messages=[{\"role\": \"user\", \"content\": transcript}],\n    )\n    return response.content[0].text\n\nif __name__ == \"__main__\":\n    print(summarize_messages(fake_convo))",
+          "from dotenv import load_dotenv\nfrom openai import OpenAI\n\nload_dotenv()\nclient = OpenAI()\nMODEL = \"gpt-4o-mini\"\n\nfake_convo = [\n    {\"role\": \"user\", \"content\": \"I'm planning a trip to Japan in April.\"},\n    {\"role\": \"assistant\", \"content\": \"Great choice! April is cherry blossom season.\"},\n    {\"role\": \"user\", \"content\": \"I'll be there for 10 days, starting in Tokyo.\"},\n    {\"role\": \"assistant\", \"content\": \"Tokyo is a great starting point. Any other cities?\"},\n    {\"role\": \"user\", \"content\": \"Maybe Kyoto and Osaka too. Budget is around $3000.\"},\n    {\"role\": \"assistant\", \"content\": \"That's a reasonable budget for a 10-day trip across those cities.\"},\n]\n\ndef summarize_messages(messages: list[dict]) -> str:\n    transcript = \"\\n\".join(f\"{m['role']}: {m['content']}\" for m in messages)\n    response = client.chat.completions.create(\n        model=MODEL, max_tokens=150,\n        messages=[\n            {\"role\": \"system\", \"content\": \"Summarize the key facts from this conversation in 2-3 sentences.\"},\n            {\"role\": \"user\", \"content\": transcript},\n        ],\n    )\n    return response.choices[0].message.content\n\nif __name__ == \"__main__\":\n    print(summarize_messages(fake_convo))",
       },
     ],
     explanation:
-      "The transcript joins every message into one readable block of text — this is fed as a SINGLE user message to a fresh, separate API call with a system prompt narrowly focused on ONE job: factual summarization. The model reads the whole fake trip-planning exchange and condenses it, and a good summary should mention Japan, April, 10 days, Tokyo/Kyoto/Osaka, and the $3000 budget — the essential facts — in a fraction of the original word count.",
+      "The transcript joins every message into one readable block of text — this is fed as a SINGLE user message to a fresh, separate API call whose FIRST message (role 'system') is narrowly focused on ONE job: factual summarization. The model reads the whole fake trip-planning exchange and condenses it, and a good summary should mention Japan, April, 10 days, Tokyo/Kyoto/Osaka, and the $3000 budget — the essential facts — in a fraction of the original word count.",
     expectedOutput:
       "A 2-3 sentence summary capturing: trip to Japan in April, 10 days starting in Tokyo (plus Kyoto/Osaka), ~$3000 budget — far more compact than the original 6 messages.",
     learned: [
@@ -116,7 +116,7 @@ export const lesson15: StructuredLesson = {
         language: 'python',
         filename: 'main.py (add near conversation_history)',
         code:
-          "def summarize_messages(old_messages: list[dict]) -> str:\n    transcript = \"\\n\".join(\n        f\"{m['role']}: {m['content'] if isinstance(m['content'], str) else '[tool interaction]'}\"\n        for m in old_messages\n    )\n    response = client.messages.create(\n        model=\"claude-sonnet-5\", max_tokens=200,\n        system=\"Summarize the key facts and topics from this conversation in 2-3 sentences. Be factual and concise.\",\n        messages=[{\"role\": \"user\", \"content\": transcript}],\n    )\n    return response.content[0].text\n\ndef compress_history() -> None:\n    keep_recent = 10\n    if len(conversation_history) <= keep_recent + 6:\n        return   # not worth it yet\n\n    to_summarize = conversation_history[:-keep_recent]\n    recent = conversation_history[-keep_recent:]\n    summary = summarize_messages(to_summarize)\n\n    conversation_history[:] = [\n        {\"role\": \"user\", \"content\": f\"[Earlier conversation summary]: {summary}\"},\n        {\"role\": \"assistant\", \"content\": \"Understood, I have that context.\"},\n        *recent,\n    ]\n    print(\"[memory] summarized older history into a compact note\")",
+          "def summarize_messages(old_messages: list[dict]) -> str:\n    transcript = \"\\n\".join(\n        f\"{m['role']}: {m['content'] if isinstance(m['content'], str) else '[tool interaction]'}\"\n        for m in old_messages\n    )\n    response = client.chat.completions.create(\n        model=MODEL, max_tokens=200,\n        messages=[\n            {\"role\": \"system\", \"content\": \"Summarize the key facts and topics from this conversation in 2-3 sentences. Be factual and concise.\"},\n            {\"role\": \"user\", \"content\": transcript},\n        ],\n    )\n    return response.choices[0].message.content\n\ndef compress_history() -> None:\n    keep_recent = 10\n    if len(conversation_history) <= keep_recent + 6:\n        return   # not worth it yet\n\n    to_summarize = conversation_history[:-keep_recent]\n    recent = conversation_history[-keep_recent:]\n    summary = summarize_messages(to_summarize)\n\n    conversation_history[:] = [\n        {\"role\": \"user\", \"content\": f\"[Earlier conversation summary]: {summary}\"},\n        {\"role\": \"assistant\", \"content\": \"Understood, I have that context.\"},\n        *recent,\n    ]\n    print(\"[memory] summarized older history into a compact note\")",
       },
       {
         language: 'python',
@@ -128,7 +128,7 @@ export const lesson15: StructuredLesson = {
     placement:
       "Add summarize_messages() and compress_history() near your conversation_history declaration — they can replace (or sit alongside) Lesson 14's trim_history(). Update ask_compass() to call compress_history() instead of trim_history() at the start.",
     implementation:
-      "compress_history() checks whether there's enough OLD history to be worth summarizing (avoiding a wasted extra API call on short conversations), then splits off everything except the most recent 10 messages, sends just that older portion to summarize_messages(), and rebuilds conversation_history as: one synthetic summary message, a matching synthetic assistant acknowledgment (so the roles alternate correctly, as the API expects), then the preserved recent messages using the * unpacking operator. Because this is a plain function call (not awaited — Python's anthropic client is synchronous by default), ask_compass() simply calls it before proceeding — the SAME call-ordering principle as Lesson 14's trim, just with a smarter (if costlier) compression step.",
+      "compress_history() checks whether there's enough OLD history to be worth summarizing (avoiding a wasted extra API call on short conversations), then splits off everything except the most recent 10 messages, sends just that older portion to summarize_messages(), and rebuilds conversation_history as: one synthetic summary message, a matching synthetic assistant acknowledgment (so the roles alternate correctly, as chat.completions.create expects), then the preserved recent messages using the * unpacking operator. Because this is a plain function call (not awaited — the openai client is synchronous by default), ask_compass() simply calls it before proceeding — the SAME call-ordering principle as Lesson 14's trim, just with a smarter (if costlier) compression step.",
     expectedResult:
       "In a long Compass session, older exchanges get quietly compressed into a short summary note rather than vanishing outright — asking about something from much earlier in a long conversation still works, because the fact survived compression even though the exact original wording didn't.",
     connects:
@@ -137,7 +137,7 @@ export const lesson15: StructuredLesson = {
 
   quiz: [
     { id: 'c15q1', kind: 'concept', prompt: 'What does summarization do that a sliding window doesn’t?', options: ['Nothing different', 'Preserves the MEANING of older messages in compact form, instead of discarding them outright', 'Increases token usage without benefit', 'Deletes the whole conversation'], answerIndex: 1, explanation: "Summarization compresses rather than simply drops older content." },
-    { id: 'c15q2', kind: 'application', prompt: 'Why is summarize_messages() a SEPARATE API call from the main conversation?', options: ['It’s not actually separate', 'It has its own narrow, focused purpose (pure summarization) with a dedicated system prompt', 'The main conversation can’t use system prompts', 'It’s required to use a different model'], answerIndex: 1, explanation: "Isolating the summarization task keeps its prompt focused purely on producing a good summary." },
+    { id: 'c15q2', kind: 'application', prompt: 'Why is summarize_messages() a SEPARATE API call from the main conversation?', options: ['It’s not actually separate', 'It has its own narrow, focused purpose (pure summarization) with a dedicated system message', 'The main conversation can’t use a system message', 'It’s required to use a different model'], answerIndex: 1, explanation: "Isolating the summarization task keeps its system message focused purely on producing a good summary." },
     { id: 'c15q3', kind: 'concept', prompt: 'What is the main tradeoff of using summarization?', options: ['No tradeoff, it’s strictly better', 'It costs an extra API call/tokens and can lose some precision (lossy compression)', 'It’s free but less accurate', 'It only works for short conversations'], answerIndex: 1, explanation: "Summarization has real costs (extra call, potential loss of detail) weighed against its benefits." },
     { id: 'c15q4', kind: 'code_reading', prompt: 'Why does compress_history() check `if len(conversation_history) <= keep_recent + 6: return`?', options: ['Arbitrary, no real reason', 'To avoid an unnecessary summarization call when there isn’t enough old history to be worth compressing yet', 'It’s required syntax', 'It disables summarization permanently'], answerIndex: 1, explanation: "This guard avoids wasted API calls on conversations too short to benefit from summarization." },
     { id: 'c15q5', kind: 'application', prompt: 'Why insert a synthetic assistant "Understood, I have that context." message after the summary?', options: ['It’s unnecessary padding', 'To keep the conversation’s role alternation (user/assistant) consistent, as the API expects', 'It changes the model used', 'It’s required only for tool use'], answerIndex: 1, explanation: "Maintaining alternating roles keeps the message structure valid and natural for the model to continue from." },

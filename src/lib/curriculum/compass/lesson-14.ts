@@ -30,17 +30,17 @@ export const lesson14: StructuredLesson = {
         code: {
           language: 'python',
           code:
-            "MAX_HISTORY = 20   # keep the most recent 20 messages\n\ndef trim_history(history: list[dict]) -> None:\n    if len(history) > MAX_HISTORY:\n        del history[:-MAX_HISTORY]   # remove everything except the last MAX_HISTORY items",
+            "MAX_HISTORY = 20   # keep the most recent 20 messages\n\ndef trim_history(history: list) -> None:\n    if len(history) > MAX_HISTORY:\n        del history[:-MAX_HISTORY]   # remove everything except the last MAX_HISTORY items",
         },
       },
       {
-        heading: 'Strategy 2: keep the first message, slide the rest',
+        heading: 'Strategy 2: keep the system message and first exchange, slide the rest',
         body:
-          "A small improvement: ALWAYS keep the very first exchange (often containing the user's initial framing or key facts) plus a sliding window of the most recent ones — a cheap way to reduce (not eliminate) the 'forgot something important early on' problem.",
+          "A small improvement: ALWAYS keep the system message (index 0) plus the very first user+assistant exchange (often containing the user's initial framing or key facts), plus a sliding window of the most recent ones — a cheap way to reduce (not eliminate) the 'forgot something important early on' problem.",
         code: {
           language: 'python',
           code:
-            "def trim_history(history: list[dict]) -> None:\n    keep_recent = 18\n    if len(history) > keep_recent + 2:\n        first = history[:2]           # first user+assistant turn\n        recent = history[-keep_recent:]   # most recent turns\n        history[:] = first + recent",
+            "def trim_history(history: list) -> None:\n    keep_recent = 18\n    if len(history) > keep_recent + 3:\n        system = history[:1]              # the system message, always kept\n        first = history[1:3]              # first user+assistant turn\n        recent = history[-keep_recent:]   # most recent turns\n        history[:] = system + first + recent",
         },
       },
       {
@@ -62,16 +62,16 @@ export const lesson14: StructuredLesson = {
     commonMistakes: [
       "Never trimming at all, letting history grow until it approaches or exceeds the context window.",
       "Trimming too aggressively, losing genuinely important early context.",
-      "Trimming in the middle of a tool_use / tool_result pair, breaking the required pairing the API expects.",
+      "Trimming in the middle of a tool-call / tool-result pair, breaking the required pairing the API expects.",
       "Checking and trimming on EVERY message when it's only needed occasionally, adding unnecessary overhead.",
-      "Forgetting a sliding window still loses information — it doesn't preserve everything, just recency.",
+      "Accidentally trimming away the system message (index 0), losing Compass's identity and behaviour rules mid-session.",
     ],
     takeaways: [
       "A sliding window is the simplest history-management strategy, at the cost of losing old context.",
-      "Keeping the first exchange plus a recent window is a cheap partial improvement.",
+      "Keeping the system message plus the first exchange plus a recent window is a cheap partial improvement.",
       "Summarization (Lesson 15) is the most powerful but most complex approach.",
       "Trim only when needed (past a threshold), not on every single message.",
-      "Be careful not to split a tool_use/tool_result pair when trimming.",
+      "Be careful not to split a tool-call/tool-result pair when trimming, and never drop the system message.",
     ],
   },
 
@@ -91,8 +91,8 @@ export const lesson14: StructuredLesson = {
         filename: 'trim_test.py',
         code:
           "def trim_history(history: list, max_len: int) -> None:\n    if len(history) > max_len:\n        del history[:-max_len]\n\nfake_history = [f\"message {i + 1}\" for i in range(30)]\nprint(\"before:\", len(fake_history))\n\ntrim_history(fake_history, 10)\nprint(\"after:\", len(fake_history))\nprint(\"kept:\", fake_history)",
-      },
-    ],
+        },
+      ],
     explanation:
       "del history[:-max_len] removes everything from the START of the list UP TO (but not including) the last max_len items — leaving exactly the last max_len items in place, mutating the list directly rather than creating a new one. Running this on 30 fake messages trimmed to 10 shows 'message 21' through 'message 30' remain — proof the trim correctly keeps the MOST RECENT entries, not a random or oldest subset.",
     expectedOutput:
@@ -107,7 +107,7 @@ export const lesson14: StructuredLesson = {
 
   finalProject: {
     durationMin: 30,
-    feature: "Compass's conversation history is now bounded — a sliding window (with the first exchange preserved) keeps token usage under control in long sessions.",
+    feature: "Compass's conversation history is now bounded — a sliding window (with the system message and first exchange preserved) keeps token usage under control in long sessions.",
     why:
       "Without this, a long conversation with Compass would keep growing in cost and eventually risk exceeding the context window. This lesson makes long-running sessions genuinely sustainable.",
     fileLocation: "compass-agent/main.py (add trim_history + call it inside ask_compass)",
@@ -116,7 +116,7 @@ export const lesson14: StructuredLesson = {
         language: 'python',
         filename: 'main.py (add near conversation_history)',
         code:
-          "MAX_RECENT = 18\n\ndef trim_history() -> None:\n    if len(conversation_history) <= MAX_RECENT + 2:\n        return   # nothing to do yet\n\n    first = conversation_history[:2]        # preserve the opening exchange\n    recent = conversation_history[-MAX_RECENT:]   # keep the most recent turns\n    conversation_history[:] = first + recent\n    print(f\"[memory] trimmed conversation to {len(conversation_history)} messages\")",
+          "MAX_RECENT = 18\n\ndef trim_history() -> None:\n    if len(conversation_history) <= MAX_RECENT + 3:\n        return   # nothing to do yet\n\n    system = conversation_history[:1]              # always preserve the system message\n    first = conversation_history[1:3]              # preserve the opening exchange\n    recent = conversation_history[-MAX_RECENT:]    # keep the most recent turns\n    conversation_history[:] = system + first + recent\n    print(f\"[memory] trimmed conversation to {len(conversation_history)} messages\")",
       },
       {
         language: 'python',
@@ -128,9 +128,9 @@ export const lesson14: StructuredLesson = {
     placement:
       "Add the MAX_RECENT constant and trim_history() function near your conversation_history declaration. Call trim_history() as the FIRST line inside ask_compass(), before appending the new question — everything else in the function stays exactly as Lesson 13 left it.",
     implementation:
-      "trim_history() only does work once the list exceeds MAX_RECENT + 2 (the +2 accounts for the preserved first exchange), so short conversations are completely untouched — matching the 'trim only when needed' principle. When it DOES trim, it keeps the very first user+assistant exchange (often containing important initial context) plus the most recent MAX_RECENT messages, discarding everything in between. Calling it at the START of ask_compass(), before the new question is added, ensures the trim happens on the PRIOR history, then the fresh question is added to the now-bounded list.",
+      "trim_history() only does work once the list exceeds MAX_RECENT + 3 (the +3 accounts for the preserved system message plus the first exchange), so short conversations are completely untouched — matching the 'trim only when needed' principle. When it DOES trim, it keeps the system message (always index 0), the very first user+assistant exchange (often containing important initial context), plus the most recent MAX_RECENT messages, discarding everything in between. Calling it at the START of ask_compass(), before the new question is added, ensures the trim happens on the PRIOR history, then the fresh question is added to the now-bounded list.",
     expectedResult:
-      "A very long Compass session (many back-and-forth questions) now prints '[memory] trimmed conversation to N messages' periodically, keeping token usage from growing indefinitely, while the earliest stated context and recent exchanges both remain available.",
+      "A very long Compass session (many back-and-forth questions) now prints '[memory] trimmed conversation to N messages' periodically, keeping token usage from growing indefinitely, while Compass's identity, the earliest stated context, and recent exchanges all remain available.",
     connects:
       "This sliding-window approach is simple but lossy — genuinely important MIDDLE context can still get dropped. Lesson 15 builds a smarter approach: summarizing older messages with the model itself instead of just discarding them outright.",
   },
@@ -138,12 +138,12 @@ export const lesson14: StructuredLesson = {
   quiz: [
     { id: 'c14q1', kind: 'concept', prompt: 'What real problem does unbounded conversation history growth cause?', options: ['Nothing, it’s harmless', 'Growing token usage/cost per call, and eventually risking the context window limit', 'The API rejects long conversations immediately', 'It only affects the UI'], answerIndex: 1, explanation: "Every additional message increases the tokens sent (and possibly billed) on every future call." },
     { id: 'c14q2', kind: 'concept', prompt: 'What is a sliding window strategy?', options: ['Encrypting old messages', 'Keeping only the most recent N messages, dropping older ones', 'Summarizing every message', 'Deleting the whole conversation'], answerIndex: 1, explanation: "A sliding window is the simplest trimming approach: keep recent, drop old." },
-    { id: 'c14q3', kind: 'application', prompt: 'Why also preserve the FIRST exchange, not just a sliding window of recent messages?', options: ['No real benefit', 'Important context stated early (like a name or key fact) is otherwise silently lost once it slides out', 'It’s required by the API', 'It reduces token usage further'], answerIndex: 1, explanation: "Keeping the opening exchange cheaply mitigates (not eliminates) losing important early context." },
+    { id: 'c14q3', kind: 'application', prompt: 'Why also preserve the system message and FIRST exchange, not just a sliding window of recent messages?', options: ['No real benefit', 'Compass’s identity/rules and important context stated early are otherwise silently lost once they slide out', 'It’s required by the API', 'It reduces token usage further'], answerIndex: 1, explanation: "Keeping the system message and opening exchange cheaply mitigates (not eliminates) losing important early context." },
     { id: 'c14q4', kind: 'debug', prompt: 'A trim function runs on EVERY single message, even in short 3-message conversations. What’s the downside?', options: ['No downside at all', 'Unnecessary overhead/complexity for conversations that don’t need trimming yet', 'It breaks the API', 'It’s required regardless of length'], answerIndex: 1, explanation: "Checking and trimming only past a threshold avoids needless work on short conversations." },
     { id: 'c14q5', kind: 'code_reading', prompt: 'What does del history[:-max_len] remove?', options: ['The most recent items', 'The OLDEST items, however many exceed max_len', 'A random selection', 'Nothing, it’s read-only'], answerIndex: 1, explanation: "The negative slice targets everything before the last max_len items, i.e. the oldest ones." },
     { id: 'c14q6', kind: 'concept', prompt: 'What is the main downside of a pure sliding-window approach?', options: ['It’s too complex to implement', 'It can silently lose genuinely important context that falls outside the recent window', 'It increases token usage', 'It has no downsides'], answerIndex: 1, explanation: "Recency-based trimming doesn't distinguish important from unimportant older messages." },
     { id: 'c14q7', kind: 'application', prompt: 'Why call trim_history() BEFORE appending the new question, not after?', options: ['No real difference', 'So the new question always survives trimming and isn’t immediately at risk of being cut', 'It’s required syntax', 'It changes the tool dispatch logic'], answerIndex: 1, explanation: "Trimming first ensures the trim operates on prior history, guaranteeing the newest question is safely included afterward." },
-    { id: 'c14q8', kind: 'debug', prompt: 'A trim accidentally splits a tool_use message from its matching tool_result. What’s the risk?', options: ['No risk, they’re independent', 'The API can reject or misinterpret an incomplete tool_use/tool_result pairing', 'It automatically repairs itself', 'It only affects streaming'], answerIndex: 1, explanation: "Tool call pairs are expected to stay together; splitting them can cause API errors or confusion." },
+    { id: 'c14q8', kind: 'debug', prompt: 'A trim accidentally splits a tool-calling message from its matching tool-result message. What’s the risk?', options: ['No risk, they’re independent', 'The API can reject or misinterpret an incomplete tool-call/tool-result pairing', 'It automatically repairs itself', 'It only affects streaming'], answerIndex: 1, explanation: "Tool call pairs are expected to stay together; splitting them can cause API errors or confusion." },
     { id: 'c14q9', kind: 'project', prompt: "Why does Compass's final project print '[memory] trimmed conversation to N messages' when trimming happens?", options: ['Purely decorative, no purpose', 'Visibility into WHEN trimming occurs helps a developer understand and debug memory behavior over a long session', 'It’s required by the API', 'It replaces the need for testing'], answerIndex: 1, explanation: "Observable printing of internal behavior aids debugging and understanding, similar to the token-usage logging from Module 1." },
     { id: 'c14q10', kind: 'concept', prompt: 'What is the "smarter" alternative to plain trimming, built in the next lesson?', options: ['Deleting all history', 'Summarization — condensing older messages into a compact summary instead of discarding them', 'Using a bigger model', 'Ignoring the context window entirely'], answerIndex: 1, explanation: "Lesson 15 builds summarization, preserving meaning while still shrinking token count." },
   ],
@@ -160,10 +160,10 @@ export const lesson14: StructuredLesson = {
     extends: 'final',
     previousHomeworkHint: {
       forLessonNumber: 13,
-      hint: "Lesson 13 asked you to add a 'forget' command to the REPL that clears conversation_history entirely.",
+      hint: "Lesson 13 asked you to add a 'forget' command to the REPL that clears conversation_history back to just the system message.",
       steps: [
         "In the REPL loop, check the stripped/lowercased input for 'forget' alongside the existing 'exit' and 'help' checks.",
-        "On match, call conversation_history.clear() (clears the list in place) and print a confirmation message.",
+        "On match, trim the list to its first entry (conversation_history[:] = conversation_history[:1]) and print a confirmation message.",
         "Use continue to skip the rest of the loop body (no API call) and re-prompt.",
         "Test: state something, type 'forget', then ask about it again — it should no longer be remembered.",
       ],
@@ -172,7 +172,7 @@ export const lesson14: StructuredLesson = {
           language: 'python',
           filename: 'main.py (inside the REPL loop)',
           code:
-            "if question.lower() == \"forget\":\n    conversation_history.clear()\n    print(\"Compass: Okay, starting fresh!\\n\")\n    continue",
+            "if question.lower() == \"forget\":\n    conversation_history[:] = conversation_history[:1]   # keep only the system message\n    print(\"Compass: Okay, starting fresh!\\n\")\n    continue",
         },
       ],
     },

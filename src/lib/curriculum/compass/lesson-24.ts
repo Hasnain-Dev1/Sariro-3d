@@ -46,7 +46,7 @@ export const lesson24: StructuredLesson = {
       {
         heading: 'Reviewing Module 4 end to end',
         body:
-          "Module 4 built five genuinely distinct capabilities: ReAct (visible reasoning before acting), Chain-of-Thought (pure step-by-step logic), Plan+Execute (decomposing big tasks), self-reflection (checking and revising its own work), and error recovery (surviving a failed step gracefully). Together with Module 2's tools and Module 3's memory, Compass is now a genuinely capable reasoning agent — everything except getting it in front of real users.",
+          "Module 4 built five genuinely distinct capabilities: ReAct (visible reasoning before acting), Chain-of-Thought (pure step-by-step logic), Plan+Execute (decomposing big tasks), self-reflection (checking and revising its own work), and error recovery (surviving a failed step gracefully). Together with Module 2's tools and Module 3's memory, Compass is now a genuinely capable reasoning agent — everything except getting it in front of real users. And because every one of these patterns is built on the plain openai package's chat.completions shape, none of it is locked to one provider — the same router works unchanged if you point client at Groq or Gemini's OpenAI-compatible endpoint instead.",
       },
     ],
     keyTerms: [
@@ -63,7 +63,7 @@ export const lesson24: StructuredLesson = {
       "A router dispatches requests to the lightest pattern that will serve them well, not always the heaviest.",
       "Cheap heuristics (conjunction/question-mark counts) can approximate classification without an extra model call.",
       "Module 4 delivered five distinct reasoning capabilities: ReAct, CoT, Plan+Execute, self-reflection, error recovery.",
-      "Combined with Modules 2-3's tools and memory, Compass is now a complete reasoning agent.",
+      "Combined with Modules 2-3's tools and memory, Compass is now a complete reasoning agent — and it's still provider-agnostic, since everything runs on the openai package's chat.completions shape.",
     ],
   },
 
@@ -110,7 +110,7 @@ export const lesson24: StructuredLesson = {
     ],
     placement: "Add looks_multi_part() and route_and_answer() to main.py, and replace your existing REPL loop with the version above so it calls route_and_answer() as the single entry point.",
     implementation:
-      "route_and_answer() checks should_use_cot() FIRST (cheapest, most specific signal), then looks_multi_part() (broader, catches genuinely large tasks), and falls through to answer_with_reflection() — itself already ReAct-enabled and self-reflecting — as the sensible default for everything else. The REPL loop stays exactly as simple as Module 1's, but now every response silently benefits from FIVE modules of reasoning capability behind that one route_and_answer() call.",
+      "route_and_answer() checks should_use_cot() FIRST (cheapest, most specific signal), then looks_multi_part() (broader, catches genuinely large tasks), and falls through to answer_with_reflection() — itself already ReAct-enabled and self-reflecting — as the sensible default for everything else. The REPL loop stays exactly as simple as Module 1's, but now every response silently benefits from FIVE modules of reasoning capability behind that one route_and_answer() call, and every one of the client.chat.completions.create() calls underneath it would keep working unchanged if MODEL and client were pointed at a different OpenAI-compatible provider.",
     expectedResult:
       "Asking Compass a simple factual question routes to the standard agent and answers quickly. Asking a multi-step logic riddle routes to chain-of-thought with visible reasoning. Asking a genuinely multi-part request ('check the weather in two cities and recommend packing') routes to the full plan+execute+recovery pipeline, visibly printing its plan and progress.",
     connects:
@@ -126,7 +126,7 @@ export const lesson24: StructuredLesson = {
     { id: 'c24q6', kind: 'application', prompt: 'Why is answer_with_reflection() (not raw run_agent_loop()) used as the router’s default fallback?', options: ['No reason', 'It already includes ReAct reasoning AND a self-reflection quality check, making it a solid general-purpose default', 'It’s the cheapest option', 'It bypasses tools'], answerIndex: 1, explanation: 'answer_with_reflection() builds on run_agent_loop and adds the critique/revise step, making it a strong default.' },
     { id: 'c24q7', kind: 'output', prompt: 'What prints when the router routes a question to chain-of-thought?', options: ['Nothing', '"[router] routing to chain-of-thought reasoning"', 'An error', 'The full plan'], answerIndex: 1, explanation: 'Each routing branch prints a visible label, consistent with the course’s transparency principle.' },
     { id: 'c24q8', kind: 'project', prompt: 'In the final REPL loop, when is should_remember()/save_memory() called?', options: ['Never', 'After route_and_answer() returns, checking the user’s input for memory-worthy content', 'Before route_and_answer()', 'Only for CoT-routed questions'], answerIndex: 1, explanation: 'Memory saving happens after each turn, independent of which reasoning pattern handled the question.' },
-    { id: 'c24q9', kind: 'concept', prompt: 'Why is a perfect classifier NOT required for looks_multi_part()?', options: ['Perfection is required', 'A cheap, mostly-right heuristic is a reasonable tradeoff versus an expensive dedicated classification call for every request', 'It has no effect on behavior', 'The API enforces this'], answerIndex: 1, explanation: 'The router optimizes for being fast and mostly-correct rather than perfect and expensive.' },
+    { id: 'c24q9', kind: 'concept', prompt: 'Why does the whole Module 4 router still work unchanged if you swap providers (e.g. to Groq or Gemini)?', options: ['It doesn’t, it needs a rewrite', 'Every call underneath it uses the same client.chat.completions.create() shape from the openai package, so swapping base_url/api_key/model is enough', 'Only reason_through() is portable', 'Provider swapping requires special support in the router'], answerIndex: 1, explanation: 'The router and every pattern it calls are built on the provider-agnostic openai-package SDK shape established since Lesson 1.' },
     { id: 'c24q10', kind: 'concept', prompt: 'What is Module 5’s focus?', options: ['More reasoning patterns', 'Deployment — turning the working CLI agent into a real Streamlit web app', 'Removing memory', 'Adding more tools'], answerIndex: 1, explanation: 'Module 5 shifts from capability-building to shipping Compass as an actual deployed app.' },
   ],
 

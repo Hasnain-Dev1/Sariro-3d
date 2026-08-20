@@ -21,11 +21,11 @@ export const lesson28: StructuredLesson = {
       {
         heading: 'What Compass needs before deploying',
         body:
-          "Three things need to exist in the repo root: app.py (the entry point Streamlit runs), requirements.txt (every package Compass imports — streamlit, anthropic, voyageai, requests, python-dotenv), and a .gitignore excluding .streamlit/secrets.toml and any local memory.json/revisions.log files.",
+          "Three things need to exist in the repo root: app.py (the entry point Streamlit runs), requirements.txt (every package Compass imports — streamlit, openai, requests, python-dotenv; embeddings come from the same openai package, so no separate embeddings package is needed), and a .gitignore excluding .streamlit/secrets.toml and any local memory.json/revisions.log files.",
         code: {
           language: 'text',
           filename: 'requirements.txt',
-          code: 'streamlit\nanthropic\nvoyageai\nrequests\npython-dotenv',
+          code: 'streamlit\nopenai\nrequests\npython-dotenv',
         },
       },
       {
@@ -50,7 +50,7 @@ export const lesson28: StructuredLesson = {
         code: {
           language: 'toml',
           filename: 'Settings → Secrets (pasted into the web UI, not a file)',
-          code: 'ANTHROPIC_API_KEY = "sk-ant-your-key-here"',
+          code: 'OPENAI_API_KEY = "sk-your-key-here"',
         },
       },
       {
@@ -96,7 +96,7 @@ export const lesson28: StructuredLesson = {
       {
         language: 'text',
         filename: 'requirements.txt (example result)',
-        code: 'streamlit\nanthropic\nvoyageai\nrequests\npython-dotenv',
+        code: 'streamlit\nopenai\nrequests\npython-dotenv',
       },
     ],
     explanation:
@@ -131,12 +131,12 @@ export const lesson28: StructuredLesson = {
         language: 'text',
         filename: 'share.streamlit.io deployment steps',
         code:
-          '1. Sign in to share.streamlit.io with GitHub\n2. Click "New app"\n3. Select the compass-agent repository and main branch\n4. Set "Main file path" to app.py\n5. Click "Advanced settings" -> "Secrets" -> paste ANTHROPIC_API_KEY = "sk-ant-..."\n6. Click "Deploy"',
+          '1. Sign in to share.streamlit.io with GitHub\n2. Click "New app"\n3. Select the compass-agent repository and main branch\n4. Set "Main file path" to app.py\n5. Click "Advanced settings" -> "Secrets" -> paste OPENAI_API_KEY = "sk-..."\n6. Click "Deploy"',
       },
     ],
     placement: "Ensure app.py, compass_agent.py, requirements.txt, and .gitignore all exist at the repo root before pushing — Streamlit's deployment expects the main file at the path you specify relative to the repo root.",
     implementation:
-      "The .gitignore explicitly excludes BOTH secrets (secrets.toml, .env) AND local runtime files that shouldn't ship with the deployed code (memory.json, revisions.log — each deployed session should start fresh, not inherit your personal local memory). The Advanced settings step is where the deployed app gets its own copy of ANTHROPIC_API_KEY, entered directly through the web UI rather than any file — this is the deployed equivalent of the local secrets.toml from Lesson 27.",
+      "The .gitignore explicitly excludes BOTH secrets (secrets.toml, .env) AND local runtime files that shouldn't ship with the deployed code (memory.json, revisions.log — each deployed session should start fresh, not inherit your personal local memory). The Advanced settings step is where the deployed app gets its own copy of OPENAI_API_KEY, entered directly through the web UI rather than any file — this is the deployed equivalent of the local secrets.toml from Lesson 27.",
     expectedResult:
       "After deploying, visiting https://your-app-name.streamlit.app in any browser (even one that's never touched your local machine) loads a fully working Compass chat interface — tools, memory reasoning, and planning all functioning exactly as they did locally.",
     connects:
@@ -147,7 +147,7 @@ export const lesson28: StructuredLesson = {
     { id: 'c28q1', kind: 'concept', prompt: 'What three things does a repo need at minimum before deploying to Streamlit Community Cloud?', options: ['Only app.py', 'app.py, requirements.txt, and a proper .gitignore', 'A Dockerfile', 'A package.json'], answerIndex: 1, explanation: 'These are the essential pieces the platform needs to install dependencies and run the app.' },
     { id: 'c28q2', kind: 'application', prompt: 'What happens if a package is imported in code but missing from requirements.txt?', options: ['Nothing, it works fine', 'Deployment fails with a ModuleNotFoundError, since the platform only installs what’s listed', 'Streamlit installs it automatically anyway', 'It’s silently ignored'], answerIndex: 1, explanation: 'The deployment environment starts fresh and only has what requirements.txt specifies.' },
     { id: 'c28q3', kind: 'concept', prompt: 'How does Streamlit Community Cloud get the code to deploy?', options: ['A manual file upload', 'It deploys directly from a connected GitHub repository', 'Via FTP', 'Via a CLI push command'], answerIndex: 1, explanation: 'Unlike some platforms, Streamlit Community Cloud watches a connected GitHub repo rather than requiring a separate upload/build step.' },
-    { id: 'c28q4', kind: 'debug', prompt: 'The deployed app crashes with a KeyError looking for ANTHROPIC_API_KEY even though secrets.toml works locally. What’s the fix?', options: ['Nothing can be done', 'Add the secret through the deployed app’s Settings → Secrets panel — local secrets.toml doesn’t transfer automatically', 'Rewrite the whole app', 'Switch back to a .env file'], answerIndex: 1, explanation: 'Deployed secrets must be entered separately since the local file is git-ignored and never uploaded.' },
+    { id: 'c28q4', kind: 'debug', prompt: 'The deployed app crashes with a KeyError looking for OPENAI_API_KEY even though secrets.toml works locally. What’s the fix?', options: ['Nothing can be done', 'Add the secret through the deployed app’s Settings → Secrets panel — local secrets.toml doesn’t transfer automatically', 'Rewrite the whole app', 'Switch back to a .env file'], answerIndex: 1, explanation: 'Deployed secrets must be entered separately since the local file is git-ignored and never uploaded.' },
     { id: 'c28q5', kind: 'application', prompt: 'Why does the .gitignore exclude memory.json and revisions.log, not just secrets.toml?', options: ['No reason', 'These are local runtime files, not source code — each deployed session should start fresh, not inherit personal local data', 'They’re too large to upload', 'Streamlit forbids them'], answerIndex: 1, explanation: 'Shipping personal local runtime artifacts with the source code would be inappropriate and confusing for a fresh deployment.' },
     { id: 'c28q6', kind: 'output', prompt: 'What URL format does a deployed Streamlit Community Cloud app get?', options: ['A random IP address', 'something like your-app-name.streamlit.app', 'localhost:8501 (unchanged)', 'A .vercel.app domain'], answerIndex: 1, explanation: 'Streamlit Community Cloud apps are served under the streamlit.app domain.' },
     { id: 'c28q7', kind: 'concept', prompt: 'What happens when you push a new commit to the connected GitHub branch after deploying?', options: ['Nothing until you manually redeploy', 'The live app automatically redeploys with the new changes (continuous deployment)', 'The old deployment is permanently frozen', 'You must delete and recreate the app'], answerIndex: 1, explanation: 'Streamlit Community Cloud automatically redeploys on new pushes to the connected branch.' },

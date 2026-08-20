@@ -91,16 +91,16 @@ export const lesson03: StructuredLesson = {
         language: 'python',
         filename: 'prompt_compare.py',
         code:
-          "from dotenv import load_dotenv\nimport anthropic\n\nload_dotenv()\nclient = anthropic.Anthropic()\n\nVAGUE = \"You are a helpful assistant.\"\nSPECIFIC = \"\"\"You are a research assistant.\nAlways answer in exactly 2 sentences.\nIf you are not confident in an answer, say so explicitly.\"\"\"\n\ndef ask(system: str) -> str:\n    response = client.messages.create(\n        model=\"claude-sonnet-5\",\n        max_tokens=200,\n        temperature=0.2,\n        system=system,\n        messages=[{\"role\": \"user\", \"content\": \"What causes ocean tides?\"}],\n    )\n    return response.content[0].text\n\ndef main():\n    print(\"VAGUE:   \", ask(VAGUE))\n    print(\"SPECIFIC:\", ask(SPECIFIC))\n\nif __name__ == \"__main__\":\n    main()",
+          "from dotenv import load_dotenv\nfrom openai import OpenAI\n\nload_dotenv()\nclient = OpenAI()\nMODEL = \"gpt-4o-mini\"\n\nVAGUE = \"You are a helpful assistant.\"\nSPECIFIC = \"\"\"You are a research assistant.\nAlways answer in exactly 2 sentences.\nIf you are not confident in an answer, say so explicitly.\"\"\"\n\ndef ask(system: str) -> str:\n    response = client.chat.completions.create(\n        model=MODEL,\n        max_tokens=200,\n        temperature=0.2,\n        messages=[\n            {\"role\": \"system\", \"content\": system},\n            {\"role\": \"user\", \"content\": \"What causes ocean tides?\"},\n        ],\n    )\n    return response.choices[0].message.content\n\ndef main():\n    print(\"VAGUE:   \", ask(VAGUE))\n    print(\"SPECIFIC:\", ask(SPECIFIC))\n\nif __name__ == \"__main__\":\n    main()",
       },
     ],
     explanation:
-      "Both calls ask the identical question with identical temperature and max_tokens — the ONLY variable is the system prompt. The VAGUE reply could be any length or structure Claude judges reasonable. The SPECIFIC reply is constrained to exactly 2 sentences and carries an explicit honesty instruction — you can directly observe the prompt's wording shaping the output's shape, which is the clearest way to internalize why prompt engineering matters.",
+      "Both calls ask the identical question with identical temperature and max_tokens — the ONLY variable is the system message content. The VAGUE reply could be any length or structure the model judges reasonable. The SPECIFIC reply is constrained to exactly 2 sentences and carries an explicit honesty instruction — you can directly observe the prompt's wording shaping the output's shape, which is the clearest way to internalize why prompt engineering matters.",
     expectedOutput:
       "The vague reply is a normal, unconstrained-length explanation. The specific reply is exactly 2 sentences, noticeably more disciplined in structure.",
     learned: [
       "How prompt specificity directly shapes output format.",
-      "How to isolate ONE variable (the system prompt) in a comparison.",
+      "How to isolate ONE variable (the system message) in a comparison.",
       "The observable effect of a format instruction.",
       "Why writing precise prompts is a real, practiced skill.",
     ],
@@ -121,7 +121,7 @@ export const lesson03: StructuredLesson = {
       },
     ],
     placement:
-      "In main.py, replace the existing SYSTEM_PROMPT constant with the version above. No other code changes are needed — ask_compass() already reads this constant.",
+      "In main.py, replace the existing SYSTEM_PROMPT constant with the version above. No other code changes are needed — ask_compass() already sends this constant as the first, system-role message.",
     implementation:
       "The new prompt has four clearly separated directives, each addressing one concept from this lesson: a specific ROLE (research/task assistant, for a named audience), a FORMAT rule (length + a numbered-list exception for step-based answers), an HONESTY constraint (directly reducing hallucination risk), and a SCOPE constraint (keeping Compass focused and avoiding giving advice it shouldn't). Structuring the prompt as labeled sections (Format:, Honesty:, Scope:) — rather than one run-on paragraph — also tends to make instructions easier for the model to follow consistently.",
     expectedResult:
@@ -139,7 +139,7 @@ export const lesson03: StructuredLesson = {
     { id: 'c3q6', kind: 'code_reading', prompt: 'In the final project’s system prompt, what does the "Honesty" section accomplish?', options: ['Nothing measurable', 'Reduces the chance of confidently wrong (hallucinated) answers by permitting uncertainty', 'Increases response length', 'Changes the model used'], answerIndex: 1, explanation: "Explicitly permitting 'I'm not sure' reduces pressure on the model to fabricate confidence." },
     { id: 'c3q7', kind: 'application', prompt: 'Why label prompt sections (Format:, Honesty:, Scope:) instead of one long paragraph?', options: ['No real benefit', 'Clear structure tends to make multiple instructions easier for the model to follow consistently', 'It’s required syntax', 'It reduces token count significantly'], answerIndex: 1, explanation: "Structured, labeled instructions are a practical technique for improving instruction-following." },
     { id: 'c3q8', kind: 'output', prompt: 'With the engineered prompt, what should happen if you ask Compass a step-based question like "how do I set up a Python project"?', options: ['A single long paragraph', 'A short numbered list, per the format rule', 'A refusal', 'Exactly 2 sentences regardless'], answerIndex: 1, explanation: "The format rule explicitly carves out a numbered-list exception for step-based answers." },
-    { id: 'c3q9', kind: 'project', prompt: "Why is Compass's system prompt described as something later modules will EXTEND rather than replace?", options: ['It will be deleted eventually', 'Tool-use, memory, and planning instructions build on top of this same solid base rather than starting over', 'System prompts can only be set once', 'There’s no real reason'], answerIndex: 1, explanation: "Each module adds new directives to the same evolving system prompt, rather than redesigning it from scratch." },
+    { id: 'c3q9', kind: 'project', prompt: "Why is Compass's system prompt described as something later modules will EXTEND rather than replace?", options: ['It will be deleted eventually', 'Tool-use, memory, and planning instructions build on top of this same solid base rather than starting over', 'System prompts can only be set once', 'There’s no real reason'], answerIndex: 1, explanation: "Each module adds new directives to the same evolving system message, rather than redesigning it from scratch." },
     { id: 'c3q10', kind: 'concept', prompt: 'Is prompt engineering typically a one-shot or iterative process?', options: ['One-shot, never revisited', 'Iterative — write, test on real questions, refine', 'Random guessing', 'Irrelevant once the API key works'], answerIndex: 1, explanation: "Good prompts usually emerge from testing real outputs and refining based on what you observe." },
   ],
 
@@ -160,7 +160,7 @@ export const lesson03: StructuredLesson = {
       steps: [
         "Add a new function: def ask_compass_with_budget(question: str, max_tokens: int) -> str:",
         "Copy ask_compass's body, but use the max_tokens parameter instead of a fixed value.",
-        "Keep temperature and system the same as ask_compass.",
+        "Keep temperature and the system message the same as ask_compass.",
         "Call it once with max_tokens=60 (short question) and once with max_tokens=500 (open-ended question), and compare.",
       ],
       codeGuidance: [
@@ -168,7 +168,7 @@ export const lesson03: StructuredLesson = {
           language: 'python',
           filename: 'main.py',
           code:
-            "def ask_compass_with_budget(question: str, max_tokens: int) -> str:\n    response = client.messages.create(\n        model=\"claude-sonnet-5\",\n        max_tokens=max_tokens,\n        temperature=0.2,\n        system=SYSTEM_PROMPT,\n        messages=[{\"role\": \"user\", \"content\": question}],\n    )\n    return response.content[0].text",
+            "def ask_compass_with_budget(question: str, max_tokens: int) -> str:\n    response = client.chat.completions.create(\n        model=MODEL,\n        max_tokens=max_tokens,\n        temperature=0.2,\n        messages=[\n            {\"role\": \"system\", \"content\": SYSTEM_PROMPT},\n            {\"role\": \"user\", \"content\": question},\n        ],\n    )\n    return response.choices[0].message.content",
         },
       ],
     },

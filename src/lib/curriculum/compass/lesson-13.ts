@@ -30,7 +30,7 @@ export const lesson13: StructuredLesson = {
         code: {
           language: 'python',
           code:
-            "# Move this OUTSIDE ask_compass, at module level:\nconversation_history: list[dict] = []\n\ndef ask_compass(question: str) -> str:\n    conversation_history.append({\"role\": \"user\", \"content\": question})\n    # ...loop uses conversation_history instead of a fresh local list...",
+            "# Move this OUTSIDE ask_compass, at module level:\nconversation_history: list = [{\"role\": \"system\", \"content\": SYSTEM_PROMPT}]\n\ndef ask_compass(question: str) -> str:\n    conversation_history.append({\"role\": \"user\", \"content\": question})\n    # ...loop uses conversation_history instead of a fresh local list...",
         },
       },
       {
@@ -86,11 +86,11 @@ export const lesson13: StructuredLesson = {
         language: 'python',
         filename: 'memory_test.py',
         code:
-          "from dotenv import load_dotenv\nimport anthropic\n\nload_dotenv()\nclient = anthropic.Anthropic()\nhistory: list[dict] = []\n\ndef ask(question: str) -> str:\n    history.append({\"role\": \"user\", \"content\": question})\n    response = client.messages.create(\n        model=\"claude-sonnet-5\", max_tokens=200, messages=history,\n    )\n    text = response.content[0].text\n    history.append({\"role\": \"assistant\", \"content\": response.content})\n    return text\n\ndef main():\n    print(ask(\"My favorite color is blue.\"))\n    print(ask(\"What is my favorite color?\"))\n\nif __name__ == \"__main__\":\n    main()",
-      },
-    ],
+          "from dotenv import load_dotenv\nfrom openai import OpenAI\n\nload_dotenv()\nclient = OpenAI()\nMODEL = \"gpt-4o-mini\"\nhistory: list = []\n\ndef ask(question: str) -> str:\n    history.append({\"role\": \"user\", \"content\": question})\n    response = client.chat.completions.create(\n        model=MODEL, max_tokens=200, messages=history,\n    )\n    message = response.choices[0].message\n    history.append(message)\n    return message.content\n\ndef main():\n    print(ask(\"My favorite color is blue.\"))\n    print(ask(\"What is my favorite color?\"))\n\nif __name__ == \"__main__\":\n    main()",
+        },
+      ],
     explanation:
-      "history lives OUTSIDE ask(), so it survives between the two separate calls in main(). Each call appends the new user question, sends the WHOLE accumulated history (not just the latest message), reads the reply, and appends the assistant's response too — building a real, growing conversation. The second question, 'What is my favorite color?', has NO information on its own — the only reason the model can answer correctly is that the first exchange is still present in history when the second call is made.",
+      "history lives OUTSIDE ask(), so it survives between the two separate calls in main(). Each call appends the new user question, sends the WHOLE accumulated history (not just the latest message), reads the reply, and appends the assistant's message too — building a real, growing conversation. The second question, 'What is my favorite color?', has NO information on its own — the only reason the model can answer correctly is that the first exchange is still present in history when the second call is made.",
     expectedOutput:
       "First reply acknowledges the blue favorite color. Second reply correctly answers 'blue' — proof the model used the earlier context, not a coincidence or guess.",
     learned: [
@@ -112,19 +112,19 @@ export const lesson13: StructuredLesson = {
         language: 'python',
         filename: 'main.py (add at module level, above ask_compass)',
         code:
-          "conversation_history: list[dict] = []",
+          "conversation_history: list = [{\"role\": \"system\", \"content\": SYSTEM_PROMPT}]",
       },
       {
         language: 'python',
         filename: 'main.py (update ask_compass to use it)',
         code:
-          "def ask_compass(question: str) -> str:\n    conversation_history.append({\"role\": \"user\", \"content\": question})\n\n    try:\n        for _ in range(MAX_TURNS):\n            response = with_retry(lambda: client.messages.create(\n                model=\"claude-sonnet-5\", max_tokens=400, temperature=0.2,\n                system=SYSTEM_PROMPT, tools=TOOLS, messages=conversation_history,\n            ))\n            conversation_history.append({\"role\": \"assistant\", \"content\": response.content})\n\n            if response.stop_reason != \"tool_use\":\n                return response.content[0].text\n\n            tool_block = next((b for b in response.content if b.type == \"tool_use\"), None)\n            if not tool_block:\n                return \"Something went wrong reading the tool request.\"\n\n            print(TOOL_LABELS.get(tool_block.name, f\"Using {tool_block.name}...\"))\n            tool_output = execute_tool(tool_block.name, tool_block.input)\n            conversation_history.append({\"role\": \"user\", \"content\": [{\"type\": \"tool_result\", \"tool_use_id\": tool_block.id, \"content\": tool_output}]})\n\n        return \"That question needed more steps than I could complete.\"\n    except Exception as err:\n        print(f\"[error] Compass could not get a response: {err}\")\n        return \"Sorry, I'm having trouble right now. Please try again in a moment.\"",
+          "def ask_compass(question: str) -> str:\n    conversation_history.append({\"role\": \"user\", \"content\": question})\n\n    try:\n        for _ in range(MAX_TURNS):\n            response = with_retry(lambda: client.chat.completions.create(\n                model=MODEL, max_tokens=400, temperature=0.2,\n                tools=TOOLS, messages=conversation_history,\n            ))\n            message = response.choices[0].message\n            conversation_history.append(message)\n\n            if not message.tool_calls:\n                return message.content\n\n            tool_call = message.tool_calls[0]\n            try:\n                args = json.loads(tool_call.function.arguments)\n            except (json.JSONDecodeError, TypeError):\n                args = {}\n\n            print(TOOL_LABELS.get(tool_call.function.name, f\"Using {tool_call.function.name}...\"))\n            tool_output = execute_tool(tool_call.function.name, args)\n            conversation_history.append({\"role\": \"tool\", \"tool_call_id\": tool_call.id, \"content\": tool_output})\n\n        return \"That question needed more steps than I could complete.\"\n    except Exception as err:\n        print(f\"[error] Compass could not get a response: {err}\")\n        return \"Sorry, I'm having trouble right now. Please try again in a moment.\"",
       },
     ],
     placement:
-      "Add conversation_history: list[dict] = [] near your other module-level constants (SYSTEM_PROMPT, TOOLS). Replace ask_compass()'s internal local messages list with conversation_history everywhere it's used — the function's logic (turn cap, tool dispatch) stays identical, only the SCOPE of the list changes.",
+      "Add conversation_history: list = [{\"role\": \"system\", \"content\": SYSTEM_PROMPT}] near your other module-level constants (SYSTEM_PROMPT, TOOLS) — it now carries the system message as its permanent first entry. Replace ask_compass()'s internal local messages list with conversation_history everywhere it's used — the function's logic (turn cap, tool dispatch) stays identical, only the SCOPE of the list changes (and the system prompt moves from a per-call kwarg to a standing first message).",
     implementation:
-      "The key change is exactly ONE thing: messages moves from a local variable (recreated every call, as in Lesson 9) to a shared, module-level list that every call to ask_compass() appends to and reads from. This single change makes the WHOLE REPL session — every question asked in one run of the program — into one continuous conversation the model has full context of, including all past tool calls and results. No other logic (the loop, error handling, streaming path) needs to change.",
+      "The key change is exactly ONE thing: messages moves from a local variable (recreated every call, as in Lesson 9) to a shared, module-level list that every call to ask_compass() appends to and reads from. Because the openai package has no separate system= kwarg, SYSTEM_PROMPT is seeded as conversation_history's very first entry, once, and never re-added. This single change makes the WHOLE REPL session — every question asked in one run of the program — into one continuous conversation the model has full context of, including all past tool calls and results. No other logic (the loop, error handling, streaming path) needs to change.",
     expectedResult:
       "In one Compass session: asking 'What is 12 times 4?' then 'And what's that divided by 2?' now correctly returns 24 — Compass understood 'that' referred to the PREVIOUS answer, something impossible before this lesson.",
     connects:
@@ -137,30 +137,30 @@ export const lesson13: StructuredLesson = {
     { id: 'c13q3', kind: 'debug', prompt: 'A student keeps the messages list declared INSIDE ask_compass(). What happens to memory?', options: ['It works perfectly across calls', 'It resets to empty every single call — no memory persists', 'It only remembers tool calls', 'It causes a crash'], answerIndex: 1, explanation: "A local variable is recreated fresh every function call, discarding any prior history." },
     { id: 'c13q4', kind: 'concept', prompt: 'Why does a growing conversation cost more per call over time?', options: ['It doesn’t, cost stays fixed', 'The ENTIRE accumulated history is sent with every new request, using more input tokens each time', 'Longer conversations use a different model automatically', 'Cost only depends on the newest message'], answerIndex: 1, explanation: "Since the whole history is resent each call, token usage (and cost) grows as the conversation grows." },
     { id: 'c13q5', kind: 'application', prompt: 'Why is this called "short-term" or "session" memory specifically?', options: ['It’s a permanent database', 'It only lasts while the program is running — lost when it exits', 'It only remembers the last message', 'It’s the same as long-term memory'], answerIndex: 1, explanation: "This memory lives in a Python list, not persisted anywhere — it disappears when the process ends." },
-    { id: 'c13q6', kind: 'code_reading', prompt: 'In the mini-project, why does ask() append BOTH the user question and the assistant’s reply onto history?', options: ['Only the user message matters', 'Both turns are needed so future calls have the FULL exchange, not just half of it', 'It’s redundant, one would suffice', 'Assistant replies are never needed in history'], answerIndex: 1, explanation: "A complete conversation record needs both sides of every exchange for the model to reason about correctly." },
+    { id: 'c13q6', kind: 'code_reading', prompt: 'In the mini-project, why does ask() append BOTH the user question and the assistant’s message onto history?', options: ['Only the user message matters', 'Both turns are needed so future calls have the FULL exchange, not just half of it', 'It’s redundant, one would suffice', 'Assistant replies are never needed in history'], answerIndex: 1, explanation: "A complete conversation record needs both sides of every exchange for the model to reason about correctly." },
     { id: 'c13q7', kind: 'output', prompt: 'After asking "My favorite color is blue." then "What is my favorite color?", what should the second reply say?', options: ['"I don’t know"', '"Blue" (or similar), correctly referencing the earlier message', 'A random color', 'An error'], answerIndex: 1, explanation: "With session memory working, the model has direct access to the earlier statement." },
     { id: 'c13q8', kind: 'debug', prompt: 'Without session memory, what would Compass likely say if asked "What is my favorite color?" as a first, standalone question?', options: ['"Blue"', 'Something acknowledging it doesn’t know, since no prior context exists', 'It would crash', 'It would guess correctly every time'], answerIndex: 1, explanation: "With no memory and no context provided, the model has no information to answer from." },
-    { id: 'c13q9', kind: 'project', prompt: "Why does moving messages to module scope require NO changes to the tool-calling loop's internal logic (turn cap, dispatch)?", options: ['It secretly does require changes', 'The loop logic only cares about the LIST’s content, not where it’s declared — the scope change is purely structural', 'Tool calls stop working with session memory', 'The turn cap resets automatically'], answerIndex: 1, explanation: "The loop operates on whatever list it's given; changing its scope doesn't affect its internal behavior." },
+    { id: 'c13q9', kind: 'project', prompt: "Why is SYSTEM_PROMPT seeded as conversation_history's first entry instead of passed as a separate argument each call?", options: ['It’s just a style choice with no reason', 'The openai package has no separate system= kwarg — the system message is just the first item in the messages list', 'System messages are optional in this SDK', 'It must be re-added on every single call'], answerIndex: 1, explanation: "Unlike some other SDK shapes, a system role message is simply the first entry in the same messages list, added once." },
     { id: 'c13q10', kind: 'concept', prompt: 'What problem does Lesson 14 address, now that memory grows unboundedly?', options: ['Tool safety', 'Managing/trimming growing conversation history to control token usage', 'Deployment', 'Prompt engineering'], answerIndex: 1, explanation: "The very real growth-in-tokens issue from this lesson is the direct motivation for the next one." },
   ],
 
   homework: {
     task:
-      "Add a 'forget' command to the REPL that clears conversation_history (conversation_history.clear()), letting the user start a completely fresh conversation without restarting the program.",
+      "Add a 'forget' command to the REPL that clears conversation_history back to just the system message (keeping conversation_history[0], clearing the rest), letting the user start a completely fresh conversation without restarting the program.",
     requirements: [
       "Check for 'forget' the same way 'exit' and 'help' are checked in the REPL loop.",
-      "On match, clear the list and print a confirmation message, then continue the loop (no API call).",
+      "On match, trim the list back to only its first (system) entry and print a confirmation message, then continue the loop (no API call).",
       "Confirm a question asked AFTER 'forget' has no memory of anything said before it.",
     ],
     expectedOutcome:
-      "Typing 'forget' clears all prior context; asking a follow-up question referencing something from before 'forget' no longer works, proving the reset was real.",
+      "Typing 'forget' clears all prior context (except the system message); asking a follow-up question referencing something from before 'forget' no longer works, proving the reset was real.",
     extends: 'final',
     previousHomeworkHint: {
       forLessonNumber: 12,
       hint: "Lesson 12 asked you to print a '[used: ...]' summary of which tools were used for the current question, after the answer is determined.",
       steps: [
         "Declare used_tools = [] at the top of ask_compass() (reset per call).",
-        "Each time a tool is executed in the loop, append its name: used_tools.append(tool_block.name).",
+        "Each time a tool is executed in the loop, append its name: used_tools.append(tool_call.function.name).",
         "Right before returning the final answer, if used_tools is non-empty, print f\"[used: {', '.join(used_tools)}]\".",
         "Test with 0, 1, and 2-tool questions and confirm the summary matches.",
       ],
@@ -169,7 +169,7 @@ export const lesson13: StructuredLesson = {
           language: 'python',
           filename: 'main.py (inside ask_compass)',
           code:
-            "used_tools = []\n# ...inside the loop, when a tool is used:\nused_tools.append(tool_block.name)\n# ...right before the final return:\nif used_tools:\n    print(f\"[used: {', '.join(used_tools)}]\")\nreturn response.content[0].text",
+            "used_tools = []\n# ...inside the loop, when a tool is used:\nused_tools.append(tool_call.function.name)\n# ...right before the final return:\nif used_tools:\n    print(f\"[used: {', '.join(used_tools)}]\")\nreturn message.content",
         },
       ],
     },

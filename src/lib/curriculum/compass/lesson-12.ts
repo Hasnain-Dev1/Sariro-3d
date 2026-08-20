@@ -30,7 +30,7 @@ export const lesson12: StructuredLesson = {
         code: {
           language: 'python',
           code:
-            "TOOL_LABELS = {\n    \"calculator\": \"Calculating...\",\n    \"get_word_count\": \"Counting words...\",\n    \"web_search\": \"Searching...\",\n}\n\n# inside the loop, right before executing:\nprint(TOOL_LABELS.get(tool_block.name, \"Using a tool...\"))",
+            "TOOL_LABELS = {\n    \"calculator\": \"Calculating...\",\n    \"get_word_count\": \"Counting words...\",\n    \"web_search\": \"Searching...\",\n}\n\n# inside the loop, right before executing:\nprint(TOOL_LABELS.get(tool_call.function.name, \"Using a tool...\"))",
         },
       },
       {
@@ -86,8 +86,8 @@ export const lesson12: StructuredLesson = {
         filename: 'tool_label_test.py',
         code:
           "TOOL_LABELS = {\n    \"send_email\": \"Sending email...\",\n    \"check_weather\": \"Checking the weather...\",\n    \"book_meeting\": \"Booking your meeting...\",\n}\n\ndef announce_tool(name: str):\n    print(TOOL_LABELS.get(name, f\"Using {name}...\"))\n\nannounce_tool(\"check_weather\")\nannounce_tool(\"some_future_tool\")",
-      },
-    ],
+        },
+      ],
     explanation:
       "TOOL_LABELS is a simple lookup dict — adding a new tool later means adding one new key, with zero changes to announce_tool itself. dict.get(name, default) handles any tool name NOT in the dict gracefully, printing a generic-but-still-readable message instead of raising a KeyError. This tiny pattern is exactly what gets applied to Compass's real loop next: a small, isolated addition that doesn't touch the core execution logic.",
     expectedOutput:
@@ -117,9 +117,9 @@ export const lesson12: StructuredLesson = {
         language: 'python',
         filename: 'main.py (inside ask_compass, right before executing a tool)',
         code:
-          "tool_block = next((b for b in response.content if b.type == \"tool_use\"), None)\nif not tool_block:\n    return \"Something went wrong reading the tool request.\"\n\nprint(TOOL_LABELS.get(tool_block.name, f\"Using {tool_block.name}...\"))\ntool_output = execute_tool(tool_block.name, tool_block.input)\nprint(f\"[tool] {tool_block.name}({tool_block.input}) = {tool_output}\")\nmessages.append({\"role\": \"user\", \"content\": [{\"type\": \"tool_result\", \"tool_use_id\": tool_block.id, \"content\": tool_output}]})",
-      },
-    ],
+          "tool_call = message.tool_calls[0]\ntry:\n    args = json.loads(tool_call.function.arguments)\nexcept (json.JSONDecodeError, TypeError):\n    args = {}\n\nprint(TOOL_LABELS.get(tool_call.function.name, f\"Using {tool_call.function.name}...\"))\ntool_output = execute_tool(tool_call.function.name, args)\nprint(f\"[tool] {tool_call.function.name}({args}) = {tool_output}\")\nmessages.append({\"role\": \"tool\", \"tool_call_id\": tool_call.id, \"content\": tool_output})",
+        },
+      ],
     placement:
       "Add TOOL_LABELS near your TOOLS list. In ask_compass()'s loop, add the print(TOOL_LABELS.get(...)) line immediately BEFORE the execute_tool(...) call — so the announcement appears before the work happens, not after.",
     implementation:
@@ -132,7 +132,7 @@ export const lesson12: StructuredLesson = {
 
   quiz: [
     { id: 'c12q1', kind: 'concept', prompt: 'Why does the concept lesson distinguish "developer logs" from "user-facing" tool visibility?', options: ['They are the same thing', 'A developer console print isn’t seen by the actual person chatting with the agent — a separate, friendlier signal is needed for them', 'Users should never see anything about tools', 'Logging is unnecessary once tools work'], answerIndex: 1, explanation: "The two audiences (developer debugging vs. end user experience) need different kinds of visibility." },
-    { id: 'c12q2', kind: 'code_reading', prompt: 'What does TOOL_LABELS.get(tool_block.name, f"Using {tool_block.name}...") do?', options: ['Always uses the fallback', 'Looks up a friendly label, falling back to a generic message if the tool isn’t in the dict', 'Raises if the tool is unknown', 'Ignores the tool name entirely'], answerIndex: 1, explanation: "dict.get()'s second argument provides a safe default when the lookup misses." },
+    { id: 'c12q2', kind: 'code_reading', prompt: 'What does TOOL_LABELS.get(tool_call.function.name, f"Using {tool_call.function.name}...") do?', options: ['Always uses the fallback', 'Looks up a friendly label, falling back to a generic message if the tool isn’t in the dict', 'Raises if the tool is unknown', 'Ignores the tool name entirely'], answerIndex: 1, explanation: "dict.get()'s second argument provides a safe default when the lookup misses." },
     { id: 'c12q3', kind: 'application', prompt: 'Why print the tool label BEFORE calling execute_tool, not after?', options: ['No real difference either way', 'So the user sees the announcement WHILE the work happens, not only after it’s already done', 'It’s required by the API', 'It changes the tool’s result'], answerIndex: 1, explanation: "Announcing before execution gives real-time feedback rather than a delayed, less useful notice." },
     { id: 'c12q4', kind: 'concept', prompt: 'What FIVE capabilities did Module 2 give Compass overall?', options: ['Memory, planning, deployment, UI, and evals', 'Detecting, executing, chaining multiple, reaching external services, and validating tool input safely', 'Only a calculator', 'Streaming and error handling only (that was Module 1)'], answerIndex: 1, explanation: "These five map directly to Lessons 7 through 11 of this module." },
     { id: 'c12q5', kind: 'debug', prompt: 'A newly added tool has no entry in TOOL_LABELS. What happens when it’s used?', options: ['The program crashes with KeyError', 'A generic fallback message like "Using new_tool..." prints instead', 'Nothing prints at all', 'It raises a TypeError'], answerIndex: 1, explanation: "The .get() fallback ensures a reasonable message even for tools not explicitly labeled." },
