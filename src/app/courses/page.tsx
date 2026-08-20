@@ -13,7 +13,6 @@ import {
   Tag,
   Trophy,
   CheckCircle2,
-  Lock,
   RotateCw,
   X,
   BookOpen,
@@ -688,81 +687,23 @@ function CourseBack({
 /* Syllabus Modal — full module + lesson breakdown                 */
 /* --------------------------------------------------------------- */
 function SyllabusModal({ course, onClose }: { course: Course | null; onClose: () => void }) {
-  const { user, profile } = useAuth();
-  // What the user can see:
-  // - 'full' = all lessons (super admin, or teacher assigned to this course)
-  // - 'completed' = only lessons they've completed (enrolled student)
-  // - 'locked' = module names + projects only (not enrolled / not signed in)
-  const [accessLevel, setAccessLevel] = useState<'full' | 'completed' | 'locked'>('locked');
+  const { user } = useAuth();
+  // The full syllabus (module + lesson names) is PUBLIC — anyone can preview it
+  // before signing in or enrolling. For a signed-in, enrolled student we
+  // additionally fetch which lessons they've completed, to show green checks.
   const [completedKeys, setCompletedKeys] = useState<Set<string>>(new Set());
-  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
-    if (!course) {
-      Promise.resolve().then(() => setAccessLevel('locked'));
-      return;
-    }
-    if (!user) {
-      Promise.resolve().then(() => setAccessLevel('locked'));
+    if (!course || !user) {
+      setCompletedKeys(new Set());
       return;
     }
 
     let cancelled = false;
-    setChecking(true);
     (async () => {
       try {
         const supabase = createClient();
 
-        // Determine role
-        const role = profile?.role
-          ?? (profile?.is_super_admin ? 'super_admin'
-            : profile?.is_admin ? 'admin'
-            : profile?.is_teacher ? 'teacher'
-            : 'student');
-
-        // Super admin → full access to all courses
-        if (role === 'super_admin' || role === 'admin') {
-          if (!cancelled) setAccessLevel('full');
-          return;
-        }
-
-        // Teacher → full access if they have bookings in a cohort with this track + level
-        if (role === 'teacher') {
-          const { data: teacherBooking } = await supabase
-            .from('bookings')
-            .select('id')
-            .eq('teacher_id', user.id)
-            .limit(1)
-            .maybeSingle();
-
-          // Check if any of their bookings are in a cohort with this track + level
-          if (teacherBooking) {
-            const { data: cohortCheck } = await supabase
-              .from('bookings')
-              .select('cohort_id')
-              .eq('teacher_id', user.id);
-            const cohortIds = (cohortCheck ?? []).map((b) => b.cohort_id);
-            if (cohortIds.length > 0) {
-              const { data: matchingCohort } = await supabase
-                .from('cohorts')
-                .select('id')
-                .in('id', cohortIds)
-                .eq('track', course.trackId)
-                .eq('level', course.level)
-                .limit(1)
-                .maybeSingle();
-              if (matchingCohort) {
-                if (!cancelled) setAccessLevel('full');
-                return;
-              }
-            }
-          }
-          // Teacher not assigned → locked
-          if (!cancelled) setAccessLevel('locked');
-          return;
-        }
-
-        // Student → check enrollment + fetch completed lessons
         const { data: enrollment } = await supabase
           .from('enrollments')
           .select('id')
@@ -772,12 +713,8 @@ function SyllabusModal({ course, onClose }: { course: Course | null; onClose: ()
           .in('status', ['active', 'completed'])
           .maybeSingle();
 
-        if (!enrollment) {
-          if (!cancelled) setAccessLevel('locked');
-          return;
-        }
+        if (!enrollment) return;
 
-        // Enrolled — fetch completed lesson progress
         const { data: progressRows } = await supabase
           .from('lesson_progress')
           .select('module_num, lesson_name')
@@ -786,18 +723,13 @@ function SyllabusModal({ course, onClose }: { course: Course | null; onClose: ()
         const keys = new Set(
           (progressRows ?? []).map((r) => `${r.module_num}::${r.lesson_name}`)
         );
-        if (!cancelled) {
-          setCompletedKeys(keys);
-          setAccessLevel('completed');
-        }
+        if (!cancelled) setCompletedKeys(keys);
       } catch {
-        if (!cancelled) setAccessLevel('locked');
-      } finally {
-        if (!cancelled) setChecking(false);
+        // Non-fatal — the syllabus itself is still fully visible either way.
       }
     })();
     return () => { cancelled = true; };
-  }, [course, user, profile]);
+  }, [course, user]);
 
   /* ---------- Body scroll lock when modal is open ----------
      Same pattern as ChatBubble: lock body in place + pause Lenis
@@ -955,82 +887,43 @@ function SyllabusModal({ course, onClose }: { course: Course | null; onClose: ()
                         </p>
                       </div>
                     </div>
-                    {/* Lesson list — visibility based on role:
-                        - full: all lessons (super admin / assigned teacher)
-                        - completed: only completed lessons (enrolled student)
-                        - locked: no lessons, just module name + project */}
-                    {accessLevel === 'full' ? (
-                      <ol className="p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {mod.lessons.map((lesson, li) => {
-                          const name = typeof lesson === 'string' ? lesson : lesson.name;
-                          const topic = typeof lesson === 'string' ? null : lesson.topic;
-                          return (
+                    {/* Full lesson list is PUBLIC — anyone can preview the syllabus
+                        before signing in or enrolling. A signed-in, enrolled student
+                        additionally gets a green check on lessons they've completed. */}
+                    <ol className="p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {mod.lessons.map((lesson, li) => {
+                        const name = typeof lesson === 'string' ? lesson : lesson.name;
+                        const topic = typeof lesson === 'string' ? null : lesson.topic;
+                        const done = completedKeys.has(`${mod.num}::${name}`);
+                        return (
                           <li
                             key={li}
                             className="flex items-start gap-2 text-xs text-slate-700 leading-relaxed"
                           >
-                            <span
-                              className="shrink-0 w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold mt-0.5"
-                              style={{
-                                background: `${ACCENT_HEX[course.accent] ?? '#2563EB'}15`,
-                                color: ACCENT_HEX[course.accent] ?? '#2563EB',
-                                fontFamily: 'var(--font-grotesk)',
-                              }}
-                            >
-                            {li + 1}
-                          </span>
-                          <span>
-                            {name}
-                            {topic && (
-                              <span className="block text-[10px] text-slate-400 leading-tight mt-0.5">{topic}</span>
+                            {done ? (
+                              <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                            ) : (
+                              <span
+                                className="shrink-0 w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold mt-0.5"
+                                style={{
+                                  background: `${ACCENT_HEX[course.accent] ?? '#2563EB'}15`,
+                                  color: ACCENT_HEX[course.accent] ?? '#2563EB',
+                                  fontFamily: 'var(--font-grotesk)',
+                                }}
+                              >
+                                {li + 1}
+                              </span>
                             )}
-                          </span>
-                        </li>
+                            <span>
+                              {name}
+                              {topic && (
+                                <span className="block text-[10px] text-slate-400 leading-tight mt-0.5">{topic}</span>
+                              )}
+                            </span>
+                          </li>
                         );
                       })}
                     </ol>
-                    ) : accessLevel === 'completed' ? (
-                      /* Student view — only show completed lessons */
-                      <div className="p-4 sm:p-5">
-                        {(() => {
-                          const completedInModule = mod.lessons.filter((lesson) => {
-                            const name = typeof lesson === 'string' ? lesson : lesson.name;
-                            return completedKeys.has(`${mod.num}::${name}`);
-                          });
-                          if (completedInModule.length === 0) {
-                            return (
-                              <p className="text-xs text-slate-400 italic">
-                                No lessons completed in this module yet.
-                              </p>
-                            );
-                          }
-                          return (
-                            <ol className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              {completedInModule.map((lesson, li) => {
-                                const name = typeof lesson === 'string' ? lesson : lesson.name;
-                                return (
-                                  <li
-                                    key={li}
-                                    className="flex items-start gap-2 text-xs text-slate-700 leading-relaxed"
-                                  >
-                                    <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
-                                    <span>{name}</span>
-                                  </li>
-                                );
-                              })}
-                            </ol>
-                          );
-                        })()}
-                      </div>
-                    ) : (
-                      /* Locked state — not enrolled / not assigned */
-                      <div className="p-4 sm:p-5 bg-slate-50 flex items-center justify-center gap-2">
-                        <Lock className="w-4 h-4 text-slate-400 shrink-0" />
-                        <p className="text-xs text-slate-500 font-bold">
-                          {user ? 'Enroll to view lessons' : 'Sign in & enroll to view full syllabus'}
-                        </p>
-                      </div>
-                    )}
                   </motion.div>
                 ))}
             </div>
