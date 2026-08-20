@@ -1,7 +1,7 @@
 import type { StructuredLesson } from '@/lib/curriculum/types';
 
 /**
- * Compass · Lesson 29 — Launch + Demo
+ * Compass · Lesson 29 — Production Polish for Real Users
  * Module 5 (Deploy + Capstone) · Lesson 29 of 30
  */
 export const lesson29: StructuredLesson = {
@@ -9,152 +9,152 @@ export const lesson29: StructuredLesson = {
   moduleNum: 5,
   lessonIndex: 4,
   globalNumber: 29,
-  name: 'Launch + demo',
-  title: 'Launch Day — Compass Goes Public',
-  subtitle: "Share Compass publicly and prepare a confident live demo.",
+  name: 'Production polish for real users',
+  title: 'Production Polish — Ready for Strangers',
+  subtitle: "Add per-session rate limiting, cleaner error handling, and small UI refinements now that real people can reach Compass.",
 
   concept: {
     durationMin: 15,
     summary:
-      "Learn how to prepare and deliver a confident live demo of an agent, and what 'launching' means for a personal AI project.",
+      "Learn why a deployed public app needs safeguards a personal CLI tool didn't — rate limiting, cost control, and graceful handling of real-world failure modes.",
     sections: [
       {
-        heading: 'What launching Compass actually means',
+        heading: 'A public URL changes the risk profile',
         body:
-          "Same as any personal project in this course: launching doesn't require thousands of users. It means Compass is genuinely live, public, and something you can confidently show anyone — a friend, a classmate, an interviewer — at any time.",
+          "Locally, Compass only ever ran when YOU typed something. Deployed at a public URL, anyone can send unlimited requests — each one a real, billed API call. A simple per-session rate limit protects both cost and the app's stability without needing a full auth system.",
+        code: {
+          language: 'python',
+          code:
+            'import time\n\nMAX_REQUESTS_PER_SESSION = 20\nMIN_SECONDS_BETWEEN_REQUESTS = 2\n\nif "request_count" not in st.session_state:\n    st.session_state.request_count = 0\n    st.session_state.last_request_time = 0.0',
+        },
       },
       {
-        heading: 'Preparing a demo — script the HAPPY PATH, know the edges',
+        heading: 'Enforcing the limit',
         body:
-          "For a live demo, plan 2-3 SPECIFIC things to show: a simple question (proves it works), a tool-using question (proves it can act), and a complex multi-part question (proves planning + reflection). Rehearse these exact examples beforehand — a live demo is not the moment to discover your calculator tool has a bug.",
+          "Both checks run right before calling route_and_answer(): a hard cap on total requests for this session, and a minimum gap between consecutive requests to prevent rapid-fire spamming.",
+        code: {
+          language: 'python',
+          code:
+            'def can_make_request() -> tuple[bool, str]:\n    if st.session_state.request_count >= MAX_REQUESTS_PER_SESSION:\n        return False, "You\'ve reached this session\'s question limit. Refresh to start a new session."\n    elapsed = time.time() - st.session_state.last_request_time\n    if elapsed < MIN_SECONDS_BETWEEN_REQUESTS:\n        return False, "Please wait a moment before asking another question."\n    return True, ""',
+        },
       },
       {
-        heading: 'What to do if something breaks live',
+        heading: 'Handling real Anthropic API errors gracefully',
         body:
-          "It will, eventually — that's normal, not a catastrophe. Having a calm, prepared response ('let me try that again' or 'here's what's happening — this is actually the retry logic kicking in') turns a hiccup into a chance to show you understand your own system, rather than a moment of panic.",
+          "Module 1's with_retry() (Lesson 4) already handles transient errors internally, but the UI itself should also distinguish between error TYPES for a genuinely helpful message — a rate-limit error and an invalid-request error mean very different things to a user.",
+        code: {
+          language: 'python',
+          code:
+            'import anthropic\n\ndef safe_answer(prompt: str, on_step=print) -> str:\n    try:\n        return route_and_answer(prompt, on_step=on_step)\n    except anthropic.RateLimitError:\n        return "Compass is getting a lot of requests right now — please try again in a moment."\n    except anthropic.APIStatusError:\n        return "Compass hit a temporary issue reaching Claude. Please try again."\n    except Exception:\n        return "Something unexpected went wrong. Please try again or rephrase your question."',
+        },
       },
       {
-        heading: 'Explaining WHAT makes Compass interesting',
+        heading: 'Small UI refinements that matter for real users',
         body:
-          "For someone watching a demo, the impressive part usually isn't 'it answers questions' — it's the VISIBLE reasoning (tool announcements, '[reasoning]' logs if shown), the planning breakdown for a complex task, and the fact it remembers things across the conversation. Point these out explicitly; they're easy to miss if you don't call them out.",
-      },
-      {
-        heading: 'Sharing it for real',
-        body:
-          "The actual launch action: share the live URL somewhere real — a message, a post, a portfolio link. Optionally, ask someone to genuinely try it and give you their honest first impression, which is often more valuable feedback than anything you'd notice yourself.",
+          "A sidebar with a few genuinely useful controls — remaining question count, a model/temperature note, and a way to download the conversation — makes the difference between a demo and something that feels like a real product.",
+        code: {
+          language: 'python',
+          code:
+            'st.sidebar.metric("Questions used", f"{st.session_state.request_count}/{MAX_REQUESTS_PER_SESSION}")\n\nif st.session_state.messages:\n    transcript = "\\n\\n".join(f"{m[\'role\'].upper()}: {m[\'content\']}" for m in st.session_state.messages)\n    st.sidebar.download_button("Download conversation", transcript, file_name="compass_conversation.txt")',
+        },
       },
     ],
     keyTerms: [
-      { term: 'Launch (personal project)', definition: "Making a project publicly visible and usable — not a threshold of user count." },
-      { term: 'Happy path demo', definition: "A rehearsed set of examples chosen to reliably showcase a system's real capabilities." },
+      { term: 'Per-session rate limiting', definition: "Capping the number/rate of requests a single user session can make, without requiring full user accounts or authentication." },
+      { term: 'st.download_button', definition: "A Streamlit widget that lets a user download generated content (like a conversation transcript) as a file." },
     ],
     commonMistakes: [
-      "Improvising a live demo with untested examples instead of rehearsing specific, known-good ones.",
-      "Panicking or apologizing excessively when something breaks live, instead of calmly explaining what's happening.",
-      "Only showing the simplest capability (a plain Q&A) and never demonstrating tools, planning, or memory.",
-      "Never actually sharing the live link with anyone — the project stays 'launched' only in theory.",
-      "Not asking anyone else to genuinely try it before considering the demo 'ready'.",
+      "Deploying a public agent with NO usage limits, exposing the API key's billing to unlimited use by strangers.",
+      "Showing the same generic error message for every failure type, when the API distinguishes rate limits from actual invalid requests.",
+      "Rate-limiting so aggressively that normal, well-intentioned use gets blocked.",
+      "Forgetting the rate limit counters need st.session_state, or they'll reset on every rerun like any other unguarded variable.",
     ],
     takeaways: [
-      "Launching means making the project genuinely public and shareable, not reaching a user-count milestone.",
-      "Rehearse 2-3 specific demo examples covering simple, tool-using, and complex/planned questions.",
-      "A calm, prepared response to a live failure demonstrates understanding, not weakness.",
-      "Explicitly point out what's actually interesting — visible reasoning, planning, memory.",
-      "Actually share the link and get real feedback from someone else.",
+      "A public deployment needs rate limiting to protect cost and stability — the CLI version never needed this.",
+      "Distinguishing error types (rate limit vs. general API error vs. unexpected) gives users genuinely useful feedback.",
+      "Small sidebar refinements (usage counter, download button) meaningfully improve the real-user experience.",
+      "Rate-limit state must live in st.session_state, same as chat history.",
     ],
   },
 
   miniProject: {
     durationMin: 15,
-    title: 'Script your 3-example demo',
-    objective:
-      "Prepare and test the exact three examples you'd use in a live demo, confirming each one works reliably.",
+    title: 'Testing the rate limiter in isolation',
+    objective: "Practise can_make_request()'s logic with simulated rapid calls before wiring it into the full app.",
     instructions: [
-      "Choose one simple question, one tool-requiring question, and one genuinely complex multi-part question.",
-      "Run each one against your deployed Compass and confirm they behave as expected.",
-      "Write one sentence for each explaining WHAT it demonstrates.",
+      "Write can_make_request() and the session_state initialization as shown in the concept section.",
+      "Simulate several rapid calls in a row and observe when it starts blocking.",
+      "Simulate waiting past MIN_SECONDS_BETWEEN_REQUESTS and confirm it allows a request again.",
     ],
     code: [
       {
-        language: 'text',
+        language: 'python',
+        filename: 'rate_limit_test.py',
         code:
-          "DEMO SCRIPT (fill in with your own tested examples):\n\n1. SIMPLE: \"What is the capital of Japan?\"\n   Demonstrates: basic Q&A, streaming response.\n\n2. TOOL USE: \"What is 847 times 23?\"\n   Demonstrates: real tool calling, grounded (not guessed) answers, visible reasoning.\n\n3. COMPLEX: \"Research three note-taking apps, compare their features, and recommend one for students.\"\n   Demonstrates: planning, multi-step execution, self-reflection, synthesis.",
+          'import time\n\nMAX_REQUESTS_PER_SESSION = 3\nMIN_SECONDS_BETWEEN_REQUESTS = 1\n\nstate = {"request_count": 0, "last_request_time": 0.0}\n\ndef can_make_request() -> tuple[bool, str]:\n    if state["request_count"] >= MAX_REQUESTS_PER_SESSION:\n        return False, "Session limit reached."\n    if time.time() - state["last_request_time"] < MIN_SECONDS_BETWEEN_REQUESTS:\n        return False, "Too fast, please wait."\n    return True, ""\n\nfor i in range(5):\n    ok, msg = can_make_request()\n    print(f"attempt {i+1}: allowed={ok} {msg}")\n    if ok:\n        state["request_count"] += 1\n        state["last_request_time"] = time.time()\n    time.sleep(0.3)',
       },
     ],
     explanation:
-      "Testing each example AHEAD of time, against the real deployed system, is what separates a confident demo from a risky improvisation — you already know these three specific questions work, so a live audience sees exactly the capabilities you intend to show. Writing one sentence per example forces clarity on WHY each one matters, which is exactly what you'll say out loud while demoing — turning a vague 'watch this' into a specific, confident narration of what's actually happening.",
-    expectedOutput:
-      "A written 3-example script, each one pre-tested against your live deployment and confirmed working, with a clear one-sentence explanation of what it demonstrates.",
+      "This mocks st.session_state with a plain dict to test the rate-limiting LOGIC in isolation from Streamlit itself — a useful technique in general, since pure logic is far easier to test outside a framework's execution model. The rapid-fire loop should show early attempts blocked by the too-fast check, then eventually blocked by the session cap.",
+    expectedOutput: "The first request succeeds; several immediately following ones are blocked as 'too fast'; once MAX_REQUESTS_PER_SESSION is reached, all further ones are blocked as 'limit reached'.",
     learned: [
-      "How to prepare a rehearsed, reliable demo script.",
-      "Why testing examples ahead of time matters for confidence.",
-      "How to articulate WHY a capability is interesting, not just show it.",
-      "The concrete preparation step behind a good live demo.",
+      "How to test session-state-dependent logic by mocking it with a plain dict.",
+      "The interaction between a rate cap and a minimum-interval check.",
+      "Why testing rate limiting logic in isolation is easier than testing it inside the full running app.",
     ],
   },
 
   finalProject: {
     durationMin: 30,
-    feature: "Compass is genuinely launched — shared publicly for the first time, with a rehearsed demo ready to show anyone.",
+    feature: "Compass's deployed app gains per-session rate limiting, error-type-aware messaging, and a sidebar with usage tracking and conversation download.",
     why:
-      "This is the actual moment 30 lessons of building becomes real: not just deployed, but SHOWN to real people, with you confidently able to explain what it does and why.",
-    fileLocation: "No new code — this lesson is about the launch ACTION itself",
+      "This is what separates a working demo from something genuinely ready to be shared publicly — real safeguards for real, unpredictable usage.",
+    fileLocation: 'compass-agent/app.py',
     code: [
       {
-        language: 'text',
-        filename: 'Launch checklist',
+        language: 'python',
+        filename: 'app.py',
         code:
-          "[ ] Confirm the live URL works end-to-end (ask a real question right now)\n[ ] Have your 3 demo examples ready (from the mini-project)\n[ ] Know what to say if something breaks live (calm, specific explanation)\n[ ] Share the live URL somewhere real: a message, a post, a portfolio entry\n[ ] Ask at least one other person to try it and give honest first-impression feedback\n[ ] Note their feedback — even one sentence of what surprised or confused them is valuable",
+          'import time\nimport streamlit as st\nimport anthropic\nfrom compass_agent import route_and_answer\n\nMAX_REQUESTS_PER_SESSION = 20\nMIN_SECONDS_BETWEEN_REQUESTS = 2\n\nst.set_page_config(page_title="Compass", page_icon="🧭")\nst.title("🧭 Compass")\n\nif "messages" not in st.session_state:\n    st.session_state.messages = []\n    st.session_state.request_count = 0\n    st.session_state.last_request_time = 0.0\n\ndef can_make_request() -> tuple[bool, str]:\n    if st.session_state.request_count >= MAX_REQUESTS_PER_SESSION:\n        return False, "You\'ve reached this session\'s question limit. Refresh to start a new session."\n    if time.time() - st.session_state.last_request_time < MIN_SECONDS_BETWEEN_REQUESTS:\n        return False, "Please wait a moment before asking another question."\n    return True, ""\n\ndef safe_answer(prompt: str, on_step=print) -> str:\n    try:\n        return route_and_answer(prompt, on_step=on_step)\n    except anthropic.RateLimitError:\n        return "Compass is getting a lot of requests right now — please try again in a moment."\n    except anthropic.APIStatusError:\n        return "Compass hit a temporary issue reaching Claude. Please try again."\n    except Exception:\n        return "Something unexpected went wrong. Please try again or rephrase your question."\n\nst.sidebar.metric("Questions used", f"{st.session_state.request_count}/{MAX_REQUESTS_PER_SESSION}")\nif st.session_state.messages:\n    transcript = "\\n\\n".join(f"{m[\'role\'].upper()}: {m[\'content\']}" for m in st.session_state.messages)\n    st.sidebar.download_button("Download conversation", transcript, file_name="compass_conversation.txt")\n\nfor msg in st.session_state.messages:\n    with st.chat_message(msg["role"]):\n        st.write(msg["content"])\n\nif prompt := st.chat_input("Ask Compass something..."):\n    allowed, reason = can_make_request()\n    st.session_state.messages.append({"role": "user", "content": prompt})\n    with st.chat_message("user"):\n        st.write(prompt)\n\n    with st.chat_message("assistant"):\n        if not allowed:\n            answer = reason\n            st.warning(answer)\n        else:\n            st.session_state.request_count += 1\n            st.session_state.last_request_time = time.time()\n            with st.status("Compass is working...", expanded=False) as status:\n                answer = safe_answer(prompt, on_step=st.write)\n                status.update(label="Done", state="complete")\n            st.write(answer)\n    st.session_state.messages.append({"role": "assistant", "content": answer})',
       },
     ],
-    placement:
-      "This is an action-oriented final project, not a code change. Work through the checklist directly: confirm the deployment, rehearse the demo, then actually share the link and gather feedback.",
+    placement: "Replace Lesson 27's app.py entirely with the version above.",
     implementation:
-      "There's no code to write here — the 'implementation' is doing the launch itself: verifying the live system one more time, being ready to narrate your 3 rehearsed examples confidently, and following through on actually sharing the URL rather than just having it exist. The feedback-gathering step matters more than it might seem: a fresh pair of eyes on Compass will notice something you've become blind to after 29 lessons of close familiarity — genuinely useful signal for any final polish.",
+      "can_make_request() is checked BEFORE incrementing counters or calling the agent — a blocked request costs nothing and shows a clear st.warning() instead of silently failing or (worse) still calling the paid API. safe_answer() wraps route_and_answer() specifically to translate raw Anthropic exceptions into messages a non-technical user can actually understand, rather than a stack trace or a generic failure. The sidebar's metric and download_button are placed above the chat history so they're immediately visible without scrolling.",
     expectedResult:
-      "A real, live, working Compass, shared publicly for the first time, with real feedback from at least one other person — the actual launch, not just a deployment.",
+      "Asking Compass more than 20 questions in one session shows a clear limit-reached warning instead of another API call; asking two questions within 2 seconds of each other shows a 'please wait' message; the sidebar shows a live usage counter and lets the visitor download their conversation as a text file at any point.",
     connects:
-      "Compass is live and shared. Lesson 30, the course finale, is about writing the portfolio case study — turning this entire 30-lesson build into a story you can tell clearly, in an interview or on a resume.",
+      "Compass is now genuinely production-ready: secure, transparent, and safeguarded. Lesson 30, the Module 5 build, brings the ENTIRE course together — every module, every lesson — into one final capstone review of the complete, deployed Compass agent.",
   },
 
   quiz: [
-    { id: 'c29q1', kind: 'concept', prompt: 'What does "launching" a personal AI project actually require?', options: ['Thousands of users', 'Making it genuinely public and shareable — a real, live thing anyone can try', 'A funding round', 'A dedicated marketing campaign'], answerIndex: 1, explanation: "Launch here means real, public availability — not a user-count milestone." },
-    { id: 'c29q2', kind: 'application', prompt: 'Why rehearse specific demo examples ahead of time instead of improvising live?', options: ['Improvisation is always better', 'Pre-tested examples are known to work, giving confidence instead of risking an untested question failing live', 'Rehearsal is unnecessary for a working system', 'It’s required by the course'], answerIndex: 1, explanation: "Testing examples in advance removes the risk of an untested question failing during a live demo." },
-    { id: 'c29q3', kind: 'concept', prompt: 'What SHOULD you do if something breaks during a live demo?', options: ['Panic and apologize repeatedly', 'Calmly explain what’s happening (e.g. retry logic in action) and try again', 'End the demo immediately', 'Pretend it didn’t happen'], answerIndex: 1, explanation: "A calm, informed response demonstrates genuine understanding of your own system rather than distress." },
-    { id: 'c29q4', kind: 'application', prompt: 'What are the THREE example types recommended for a demo script?', options: ['Only simple questions, repeated three times', 'A simple question, a tool-using question, and a complex multi-part question', 'Three identical questions', 'Only failure scenarios'], answerIndex: 1, explanation: "These three cover the range of Compass's real capabilities: basic Q&A, tool use, and planning." },
-    { id: 'c29q5', kind: 'concept', prompt: 'Why explicitly POINT OUT things like visible reasoning or planning during a demo?', options: ['They’re self-explanatory and don’t need mentioning', 'These details are easy for a viewer to miss if not called out, even though they’re genuinely impressive', 'It’s unnecessary showmanship with no real value', 'Only the final answer matters, nothing else'], answerIndex: 1, explanation: "Narrating what's actually happening helps a viewer appreciate capabilities they might otherwise overlook." },
-    { id: 'c29q6', kind: 'application', prompt: 'Why is asking someone else to try Compass valuable, beyond your own testing?', options: ['It isn’t valuable, self-testing is sufficient', 'A fresh perspective often notices something you’ve become blind to after extended close familiarity', 'Other people always find more bugs than you', 'It’s only useful for marketing purposes'], answerIndex: 1, explanation: "Fresh eyes provide genuinely different, useful feedback that self-testing after long familiarity often misses." },
-    { id: 'c29q7', kind: 'output', prompt: 'What should you confirm FIRST, before starting a live demo?', options: ['Nothing, just start talking', 'That the live URL actually works end-to-end right now', 'That you have exactly 10 minutes', 'That the audience has read the source code'], answerIndex: 1, explanation: "A last-moment sanity check of the live deployment avoids demoing against something that's currently broken." },
-    { id: 'c29q8', kind: 'debug', prompt: 'A demo audience member asks a question NOT in your rehearsed script and Compass handles it oddly. What’s the reasonable response?', options: ['Refuse to answer any unscripted questions', 'Acknowledge it honestly as an edge case and move on, or explain what might be happening', 'End the demo immediately', 'Claim it’s working perfectly regardless'], answerIndex: 1, explanation: "Honest, calm handling of an unexpected result is more credible than pretending everything is flawless." },
-    { id: 'c29q9', kind: 'project', prompt: "Why does this lesson's final project have no code to write?", options: ['An error in the course', 'Because the actual deliverable is the ACTION of launching — verifying, demoing, and sharing — not new functionality', 'Code is optional in this course', 'It’s a placeholder lesson with no real content'], answerIndex: 1, explanation: "This lesson deliberately focuses on the real-world action of launching, distinct from a coding task." },
-    { id: 'c29q10', kind: 'concept', prompt: 'What is the final lesson of the course (30) about?', options: ['Adding a new feature', 'Writing the portfolio case study documenting the entire build', 'Redeploying to a different platform', 'Starting a new project from scratch'], answerIndex: 1, explanation: "Lesson 30 closes the course with the written reflection/case study, the course finale." },
+    { id: 'c29q1', kind: 'concept', prompt: 'Why does a deployed public Compass need rate limiting when the CLI version never did?', options: ['No real reason', 'A public URL means anyone can send unlimited, real, billed API requests, unlike a personal CLI tool only you run', 'Rate limiting is required by Streamlit', 'It makes the app run faster'], answerIndex: 1, explanation: 'Public reachability changes the risk profile around cost and abuse.' },
+    { id: 'c29q2', kind: 'application', prompt: 'What two checks does can_make_request() perform?', options: ['Only a total session cap', 'A total session request cap, and a minimum time gap between consecutive requests', 'Only a time-based check', 'A check on message length'], answerIndex: 1, explanation: 'Both a hard cap and a minimum interval protect against different abuse patterns.' },
+    { id: 'c29q3', kind: 'code_reading', prompt: 'What does safe_answer() do differently for anthropic.RateLimitError versus a generic Exception?', options: ['Nothing, they’re treated identically', 'It returns a specific, user-understandable message tailored to that error type, rather than one generic message for everything', 'It crashes the app for RateLimitError specifically', 'It retries automatically for both'], answerIndex: 1, explanation: 'Distinguishing error types gives more genuinely useful feedback to the user.' },
+    { id: 'c29q4', kind: 'debug', prompt: 'A blocked request (rate-limited) still shows up incrementing request_count. What’s wrong with that implementation?', options: ['Nothing, it’s correct', 'A blocked request should NOT increment the counter or call the paid API — only allowed requests should', 'The counter should always increment', 'It’s a Streamlit bug'], answerIndex: 1, explanation: 'can_make_request() is checked BEFORE incrementing, so blocked requests cost nothing.' },
+    { id: 'c29q5', kind: 'application', prompt: 'Why mock st.session_state with a plain dict in the mini-project instead of running inside real Streamlit?', options: ['No reason', 'It isolates and tests the pure rate-limiting LOGIC without needing the full Streamlit execution model', 'Streamlit can’t be tested at all', 'Dicts are required by the API'], answerIndex: 1, explanation: 'Testing pure logic independent of a framework is generally simpler and faster.' },
+    { id: 'c29q6', kind: 'output', prompt: 'What does the sidebar show once a few questions have been asked?', options: ['Nothing', 'A "Questions used X/20" metric and a download button for the conversation transcript', 'The raw API key', 'A billing invoice'], answerIndex: 1, explanation: 'These are the two sidebar refinements added in the final project.' },
+    { id: 'c29q7', kind: 'project', prompt: 'Why is can_make_request() checked BEFORE calling route_and_answer(), not after?', options: ['No particular reason', 'To avoid making (and paying for) an API call that would be denied anyway', 'It’s required syntax', 'To make the app slower on purpose'], answerIndex: 1, explanation: 'Checking first avoids wasted cost on requests that will be blocked.' },
+    { id: 'c29q8', kind: 'concept', prompt: 'What happens to request_count and last_request_time across a rerun within the SAME browser session?', options: ['They reset to 0 every time', 'They persist, since they live in st.session_state, same as chat history', 'They’re stored in a database', 'They’re lost after 5 minutes'], answerIndex: 1, explanation: 'Rate-limit state needs the same persistence mechanism as chat history to work correctly.' },
+    { id: 'c29q9', kind: 'application', prompt: 'Why include a download_button for the conversation transcript?', options: ['No real benefit', 'It gives real users a genuinely useful way to save their conversation, a small but meaningful product-quality touch', 'It’s required by Streamlit', 'To reduce API costs'], answerIndex: 1, explanation: 'Small, genuinely useful features like this distinguish a polished app from a bare demo.' },
+    { id: 'c29q10', kind: 'concept', prompt: 'What does Lesson 30 (the Module 5 build) bring together?', options: ['Only Module 5', 'The ENTIRE course — every module and lesson — into one final capstone review of the complete deployed Compass agent', 'Only the rate-limiting logic', 'A brand-new unrelated feature'], answerIndex: 1, explanation: 'Lesson 30 is the full course capstone, reviewing everything built across all 30 lessons.' },
   ],
 
   homework: {
-    task:
-      "Record (even just for yourself) a 2-3 minute practice run of your demo script, timing it, and note one thing you'd improve about your delivery or the examples chosen.",
+    task: "Add a friendly cooldown countdown: when a request is blocked by the minimum-interval check, show exactly how many seconds remain instead of a generic 'please wait' message.",
     requirements: [
-      "Run through your 3 demo examples out loud, as if presenting to someone.",
-      "Time the full run — aim for roughly 2-3 minutes.",
-      "Write one honest note about what you'd improve (pacing, example choice, explanation clarity).",
+      "Calculate the remaining wait time (MIN_SECONDS_BETWEEN_REQUESTS - elapsed).",
+      "Round it to a whole number of seconds for the message.",
+      "Test by sending two questions in quick succession and confirming the countdown number looks correct.",
     ],
-    expectedOutcome:
-      "A timed, practiced run-through of your demo, with one genuine self-identified improvement — real preparation, not just a mental plan.",
+    expectedOutcome: "A blocked request shows a message like 'Please wait 1 more second before asking another question' instead of a generic wait message.",
     extends: 'final',
     previousHomeworkHint: {
       forLessonNumber: 28,
-      hint: "Lesson 28 asked you to complete the full capstone checklist against your live Compass, documenting at least 3 real findings and fixes.",
+      hint: "Lesson 28 asked you to write a README.md covering what Compass is, setup instructions, and a link to the live app.",
       steps: [
-        "Work through each section (tool safety, memory, planning, cost, resilience, UI) against your actual deployed URL.",
-        "For each section, try to break something on purpose (adversarial tool input, two browser sessions, a forced tool failure, etc.).",
-        "Document at least 3 genuine findings with a short before/after note for each, redeploying and re-verifying as you go.",
-      ],
-      codeGuidance: [
-        {
-          language: 'text',
-          code:
-            "Example finding log entry:\n\nISSUE: Calculator tool error message included the raw regex pattern, confusing to a user.\nFIX: Changed the error string to a plain-language message: \"That doesn't look like a valid math expression.\"\nVERIFIED: Tested with a non-arithmetic input on the live site — clean, user-friendly error now shows.",
-        },
+        "Create README.md at the repo root with a description, setup steps (clone, venv, pip install, secrets.toml), and the live URL once deployed.",
+        "Keep it concise enough that a stranger could follow it without asking questions.",
       ],
     },
   },

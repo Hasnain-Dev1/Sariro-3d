@@ -1,7 +1,7 @@
 import type { StructuredLesson } from '@/lib/curriculum/types';
 
 /**
- * Compass · Lesson 26 — Agent UI Patterns
+ * Compass · Lesson 26 — A Real Chat UI with st.session_state
  * Module 5 (Deploy + Capstone) · Lesson 26 of 30
  */
 export const lesson26: StructuredLesson = {
@@ -9,182 +9,148 @@ export const lesson26: StructuredLesson = {
   moduleNum: 5,
   lessonIndex: 1,
   globalNumber: 26,
-  name: 'Agent UI patterns',
-  title: 'A Real Chat UI — Compass on the Web',
-  subtitle: "Build a React chat interface with per-session memory, so multiple people can use Compass at once.",
+  name: 'A real chat UI',
+  title: 'A Real Chat UI — Compass with Conversation History',
+  subtitle: "Use Streamlit's chat components and st.session_state to give Compass a proper multi-turn interface.",
 
   concept: {
     durationMin: 15,
     summary:
-      "Learn how to build a chat UI for an agent, and how to keep each web visitor's conversation separate using a session id.",
+      "Learn Streamlit's chat-specific components (st.chat_message, st.chat_input) and st.session_state, the mechanism that lets state survive across Streamlit's constant script reruns.",
     sections: [
       {
-        heading: 'The multi-user memory problem',
+        heading: 'The problem: reruns wipe out normal variables',
         body:
-          "Lesson 25 flagged it: a module-level messages array or a single memory.json file assumes ONE user. On the web, EVERY visitor needs their own separate conversation history and (ideally) their own memory. The fix: identify each visitor with a session id, and key stored data by that id.",
+          "Lesson 25's rerun model means a plain Python list defined inside app.py would be RECREATED EMPTY every single time the script reruns — which happens on every message. Without a way to persist state ACROSS reruns, there's no way to keep a running conversation history.",
       },
       {
-        heading: 'A session id via a cookie',
+        heading: 'st.session_state: the fix',
         body:
-          "A simple approach: generate a random id for a new visitor, store it in a cookie, and use it as a key. Next.js Route Handlers can read/set cookies directly.",
+          "st.session_state is a dict-like object that Streamlit preserves for a given user's session across reruns. Anything stored there survives, letting you build genuinely stateful apps despite the rerun-everything execution model.",
         code: {
-          language: 'typescript',
+          language: 'python',
           code:
-            "import { cookies } from 'next/headers';\nimport { randomUUID } from 'crypto';\n\nasync function getSessionId(): Promise<string> {\n  const cookieStore = await cookies();\n  let sessionId = cookieStore.get('compass-session')?.value;\n  if (!sessionId) {\n    sessionId = randomUUID();\n    cookieStore.set('compass-session', sessionId);\n  }\n  return sessionId;\n}",
+            'if "messages" not in st.session_state:\n    st.session_state.messages = []  # only runs on the FIRST load of a session\n\n# on every rerun after that, st.session_state.messages already has the history',
         },
       },
       {
-        heading: 'Keying conversation state by session',
+        heading: "Streamlit's chat components",
         body:
-          "Instead of ONE module-level messages array, use a Map keyed by session id — each visitor gets their own isolated conversation history, all served by the same running server.",
+          "st.chat_message(role) renders a styled chat bubble (with an avatar) for 'user' or 'assistant', and st.chat_input() renders a chat-style input box pinned to the bottom of the page — purpose-built for exactly this kind of interface.",
         code: {
-          language: 'typescript',
+          language: 'python',
           code:
-            "const sessionHistories = new Map<string, Anthropic.MessageParam[]>();\n\nfunction getHistory(sessionId: string): Anthropic.MessageParam[] {\n  if (!sessionHistories.has(sessionId)) sessionHistories.set(sessionId, []);\n  return sessionHistories.get(sessionId)!;\n}",
+            'for msg in st.session_state.messages:\n    with st.chat_message(msg["role"]):\n        st.write(msg["content"])\n\nif prompt := st.chat_input("Ask Compass something..."):\n    st.session_state.messages.append({"role": "user", "content": prompt})\n    with st.chat_message("user"):\n        st.write(prompt)',
         },
       },
       {
-        heading: 'A React chat component',
+        heading: 'Wiring Compass into the chat loop',
         body:
-          "The UI itself follows the exact chat-thread pattern used elsewhere in this course's AI features: a messages array in state, a controlled input, streaming or non-streaming replies rendered as a growing thread.",
+          "After appending the user's message, the SAME route_and_answer() logic runs, and its result is appended back into session_state as an assistant message — displayed the same way the history is.",
         code: {
-          language: 'tsx',
+          language: 'python',
           code:
-            "'use client';\nimport { useState } from 'react';\n\ninterface ChatMessage { role: 'user' | 'assistant'; content: string }\n\nexport function CompassChat() {\n  const [messages, setMessages] = useState<ChatMessage[]>([]);\n  const [input, setInput] = useState('');\n  const [loading, setLoading] = useState(false);\n\n  async function send() {\n    if (!input.trim()) return;\n    setMessages((prev) => [...prev, { role: 'user', content: input }]);\n    setLoading(true);\n    const res = await fetch('/api/compass', {\n      method: 'POST', headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({ question: input }), credentials: 'include',\n    });\n    const { reply } = await res.json();\n    setMessages((prev) => [...prev, { role: 'assistant', content: reply }]);\n    setInput('');\n    setLoading(false);\n  }\n\n  return (\n    <div>\n      {messages.map((m, i) => <p key={i}><b>{m.role}:</b> {m.content}</p>)}\n      <input value={input} onChange={(e) => setInput(e.target.value)} />\n      <button onClick={send} disabled={loading}>Send</button>\n    </div>\n  );\n}",
+            'if prompt := st.chat_input("Ask Compass something..."):\n    st.session_state.messages.append({"role": "user", "content": prompt})\n    with st.chat_message("user"):\n        st.write(prompt)\n\n    with st.chat_message("assistant"):\n        with st.spinner("Thinking..."):\n            answer = route_and_answer(prompt)\n        st.write(answer)\n    st.session_state.messages.append({"role": "assistant", "content": answer})',
         },
-      },
-      {
-        heading: 'credentials: \'include\' matters',
-        body:
-          "For the browser to actually SEND the session cookie with each fetch, the request needs credentials: 'include' — an easy detail to miss that silently breaks per-user session continuity.",
       },
     ],
     keyTerms: [
-      { term: 'Session id', definition: "A unique identifier for one visitor's browsing session, used to separate their data from others'." },
-      { term: 'Cookie', definition: "A small piece of data stored in the browser and sent with requests, commonly used to identify a session." },
-      { term: 'Per-session state', definition: "Data (like conversation history) scoped to one specific user's session, not shared globally." },
+      { term: 'st.session_state', definition: "A dict-like Streamlit object that persists per-user data across the script's constant reruns." },
+      { term: 'st.chat_message', definition: "A Streamlit component rendering a styled chat bubble for a given role ('user' or 'assistant')." },
+      { term: 'st.chat_input', definition: "A Streamlit component rendering a chat-style text input pinned to the bottom of the page, returning the submitted text (or None)." },
     ],
     commonMistakes: [
-      "Keeping a single module-level messages array on the server, causing every visitor to see and pollute the same conversation.",
-      "Forgetting credentials: 'include' on the fetch call, so the session cookie never actually gets sent.",
-      "Not generating a NEW session id for a first-time visitor with no existing cookie.",
-      "Storing sensitive data in a Map that grows forever with no cleanup — a real production concern beyond this course's scope, worth being aware of.",
-      "Building the chat UI without a loading/disabled state, allowing duplicate rapid submissions.",
+      "Using a plain Python list/variable for chat history instead of st.session_state — it gets wiped on every rerun.",
+      "Re-initializing st.session_state.messages = [] unconditionally instead of only when the key doesn't exist yet, which would erase history every rerun.",
+      "Forgetting to append BOTH the user message and the assistant's reply into session_state.",
+      "Confusing st.chat_input (bottom-pinned, chat-specific) with st.text_input (a regular form field) from Lesson 25.",
     ],
     takeaways: [
-      "Multiple web users need separated conversation state, not one shared array.",
-      "A session cookie is a simple way to identify and key each visitor's data.",
-      "A Map keyed by session id cleanly isolates each user's conversation history.",
-      "The chat UI itself follows the same pattern used for AI features throughout this course.",
-      "credentials: 'include' is required for session cookies to actually work.",
+      "st.session_state persists data across Streamlit's constant script reruns — the fix for Lesson 25's stateless problem.",
+      "Initialize session_state keys with an `if key not in st.session_state:` guard, not unconditionally.",
+      "st.chat_message and st.chat_input are purpose-built chat UI components.",
+      "Both the user's message and Compass's reply must be appended to session_state to build real history.",
     ],
   },
 
   miniProject: {
     durationMin: 15,
-    title: 'A session-aware counter API',
-    objective:
-      "Practise the session-id-plus-Map pattern with a simple per-visitor counter before applying it to Compass's real conversation history.",
+    title: 'A session-aware counter',
+    objective: "Practise st.session_state in isolation with a simple persistent counter before applying it to full chat history.",
     instructions: [
-      "Create app/api/counter/route.ts using the getSessionId() cookie pattern.",
-      "Keep a Map<string, number> of per-session counts.",
-      "Each GET request increments and returns that session's OWN count.",
+      "Create counter_app.py using st.session_state to track a count.",
+      "Add a button that increments it.",
+      "Verify the count persists across button clicks (reruns) instead of resetting to 0 each time.",
     ],
     code: [
       {
-        language: 'typescript',
-        filename: 'app/api/counter/route.ts',
+        language: 'python',
+        filename: 'counter_app.py',
         code:
-          "import { NextResponse } from 'next/server';\nimport { cookies } from 'next/headers';\nimport { randomUUID } from 'crypto';\n\nconst counts = new Map<string, number>();\n\nexport async function GET() {\n  const cookieStore = await cookies();\n  let sessionId = cookieStore.get('counter-session')?.value;\n  if (!sessionId) {\n    sessionId = randomUUID();\n    cookieStore.set('counter-session', sessionId);\n  }\n\n  const current = (counts.get(sessionId) ?? 0) + 1;\n  counts.set(sessionId, current);\n  return NextResponse.json({ count: current });\n}",
+          'import streamlit as st\n\nif "count" not in st.session_state:\n    st.session_state.count = 0\n\nst.write(f"Count: {st.session_state.count}")\n\nif st.button("Increment"):\n    st.session_state.count += 1\n    st.rerun()',
       },
     ],
     explanation:
-      "The first visit has no cookie, so a new sessionId is generated and set. Every subsequent visit (from the same browser) sends that SAME cookie back, so the counts.get(sessionId) lookup correctly finds and increments the SAME entry. Opening this endpoint in two different browsers (or an incognito window) proves isolation: each gets its own count starting from 1, never seeing or affecting the other's number — exactly the separation Compass's real conversation history needs.",
-    expectedOutput:
-      "Refreshing the endpoint in ONE browser shows count: 1, 2, 3... incrementing. Opening it in a DIFFERENT browser/incognito window shows its own separate count: 1, 2, 3... starting fresh.",
+      "Without st.session_state, `count = 0` would reset to 0 on EVERY rerun (i.e. every button click), making increments impossible to observe. The `if \"count\" not in st.session_state` guard ensures initialization happens exactly once per session, while every subsequent rerun reads and updates the SAME persisted value.",
+    expectedOutput: "Clicking Increment repeatedly increases the displayed count: 0, 1, 2, 3... instead of staying stuck at 0 or 1.",
     learned: [
-      "How to read and set a cookie in a Next.js Route Handler.",
-      "How a Map keyed by session id isolates per-visitor state.",
-      "How to verify session isolation with two different browser contexts.",
-      "The exact pattern Compass's web conversation history will use.",
+      "Why st.session_state is necessary for any state that must survive Streamlit's rerun model.",
+      "The guarded-initialization pattern for session state.",
+      "How st.rerun() can be used to immediately reflect a state change.",
     ],
   },
 
   finalProject: {
     durationMin: 30,
-    feature: "Compass gets a real chat interface AND per-session conversation isolation — multiple people can use it simultaneously without their conversations mixing.",
+    feature: "Compass's Streamlit app becomes a real multi-turn chat interface with visible conversation history, using st.chat_message, st.chat_input, and st.session_state.",
     why:
-      "This is what makes Compass a genuinely usable web PRODUCT, not just a working API — a real chat experience that correctly separates every visitor's conversation.",
-    fileLocation: "lib/compass.ts (session-aware history), app/api/compass/route.ts (use session id), components/CompassChat.tsx (new)",
+      "This is the interface Compass deserves — matching how people actually expect to talk to an AI agent, with full context of the conversation so far, not a single question-answer box.",
+    fileLocation: 'compass-agent/app.py',
     code: [
       {
-        language: 'typescript',
-        filename: 'lib/compass.ts (session-aware history)',
+        language: 'python',
+        filename: 'app.py',
         code:
-          "const sessionHistories = new Map<string, Anthropic.MessageParam[]>();\n\nfunction getHistory(sessionId: string): Anthropic.MessageParam[] {\n  if (!sessionHistories.has(sessionId)) sessionHistories.set(sessionId, []);\n  return sessionHistories.get(sessionId)!;\n}\n\nexport async function askCompass(sessionId: string, question: string): Promise<string> {\n  const history = getHistory(sessionId);\n  history.push({ role: 'user', content: question });\n  // ...the existing tool-use loop, using `history` instead of a module-level array...\n  return 'reply';\n}",
-      },
-      {
-        language: 'typescript',
-        filename: 'app/api/compass/route.ts (pass the session id through)',
-        code:
-          "import { cookies } from 'next/headers';\nimport { randomUUID } from 'crypto';\n\nexport async function POST(req: NextRequest) {\n  const cookieStore = await cookies();\n  let sessionId = cookieStore.get('compass-session')?.value;\n  if (!sessionId) {\n    sessionId = randomUUID();\n    cookieStore.set('compass-session', sessionId);\n  }\n\n  const { question } = await req.json();\n  if (!question || typeof question !== 'string') {\n    return NextResponse.json({ error: 'A question is required.' }, { status: 400 });\n  }\n\n  const reply = await askCompass(sessionId, question);\n  return NextResponse.json({ reply });\n}",
-      },
-      {
-        language: 'tsx',
-        filename: 'components/CompassChat.tsx',
-        code:
-          "'use client';\nimport { useState } from 'react';\n\ninterface ChatMessage { role: 'user' | 'assistant'; content: string }\n\nexport function CompassChat() {\n  const [messages, setMessages] = useState<ChatMessage[]>([]);\n  const [input, setInput] = useState('');\n  const [loading, setLoading] = useState(false);\n\n  async function send() {\n    if (!input.trim() || loading) return;\n    const question = input;\n    setMessages((prev) => [...prev, { role: 'user', content: question }]);\n    setInput(''); setLoading(true);\n\n    const res = await fetch('/api/compass', {\n      method: 'POST', headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({ question }), credentials: 'include',\n    });\n    const data = await res.json();\n    setMessages((prev) => [...prev, { role: 'assistant', content: data.reply ?? data.error }]);\n    setLoading(false);\n  }\n\n  return (\n    <div className=\"max-w-xl mx-auto p-4\">\n      <div className=\"space-y-2 mb-3\">\n        {messages.map((m, i) => (\n          <p key={i} className={m.role === 'user' ? 'font-semibold' : 'bg-slate-100 rounded-lg p-2'}>\n            {m.role === 'user' ? '🧑 ' : '🧭 '}{m.content}\n          </p>\n        ))}\n      </div>\n      <div className=\"flex gap-2\">\n        <input value={input} onChange={(e) => setInput(e.target.value)}\n          onKeyDown={(e) => e.key === 'Enter' && send()}\n          className=\"flex-1 border rounded-lg px-3 py-2\" />\n        <button onClick={send} disabled={loading} className=\"bg-violet-600 text-white px-4 rounded-lg\">\n          {loading ? '...' : 'Send'}\n        </button>\n      </div>\n    </div>\n  );\n}",
+          'import streamlit as st\nfrom compass_agent import route_and_answer\n\nst.set_page_config(page_title="Compass", page_icon="🧭")\nst.title("🧭 Compass")\nst.caption("Your AI research and task agent — powered by Claude.")\n\nif "messages" not in st.session_state:\n    st.session_state.messages = []\n\nfor msg in st.session_state.messages:\n    with st.chat_message(msg["role"]):\n        st.write(msg["content"])\n\nif prompt := st.chat_input("Ask Compass something..."):\n    st.session_state.messages.append({"role": "user", "content": prompt})\n    with st.chat_message("user"):\n        st.write(prompt)\n\n    with st.chat_message("assistant"):\n        with st.spinner("Thinking..."):\n            try:\n                answer = route_and_answer(prompt)\n            except Exception as e:\n                answer = f"Something went wrong: {e}"\n        st.write(answer)\n    st.session_state.messages.append({"role": "assistant", "content": answer})',
       },
     ],
-    placement:
-      "Update lib/compass.ts's askCompass() to accept a sessionId parameter and use getHistory(sessionId) instead of a module-level array. Update the API route to generate/read the session cookie and pass it through. Create components/CompassChat.tsx and render it on your home page (app/page.tsx).",
+    placement: "Replace Lesson 25's app.py entirely with the version above.",
     implementation:
-      "sessionHistories is a Map, not a single array — every distinct sessionId gets its OWN entry, created lazily on first use via getHistory()'s guard. The API route handles the cookie logic ONCE per request (read existing or generate new), then passes just the resulting sessionId string into askCompass(), keeping the agent logic itself simple and testable independent of HTTP/cookie concerns. CompassChat.tsx follows the established chat-UI pattern from elsewhere in this course: controlled input, a growing messages array, a disabled-while-loading Send button, and crucially credentials: 'include' so the session cookie actually round-trips with every request.",
+      "The `if 'messages' not in st.session_state:` guard runs exactly once per browser session, giving each visitor their OWN independent history (solving the multi-user memory concern that a shared memory.json file would have created). The history loop redisplays every past message on each rerun (necessary, since Streamlit reruns the whole script), while the `if prompt := st.chat_input(...)` walrus-operator pattern only fires the block when the user actually submits a new message, appending both sides of the exchange into session_state so the next rerun's history loop includes them.",
     expectedResult:
-      "Opening Compass in two different browser tabs (or incognito windows) and chatting in both shows each conversation staying completely separate — proof multiple simultaneous users are correctly isolated, with a real, usable chat interface for each.",
+      "Opening the app shows a chat interface; asking multiple questions in sequence shows a growing, correctly-ordered conversation with both user and Compass messages, surviving across every interaction within that browser session.",
     connects:
-      "Compass is now a real, multi-user, deployable web product. Lesson 27 adds monitoring and logging so you can actually observe how it's being used and catch problems in production, ahead of the final capstone review and launch.",
+      "The chat UI is real and functional. Lesson 27 handles configuration properly — moving the ANTHROPIC_API_KEY out of hardcoded values and into Streamlit's secrets system, plus showing Compass's tool/reasoning steps live in the UI instead of just the final answer.",
   },
 
   quiz: [
-    { id: 'c26q1', kind: 'concept', prompt: 'Why does a single module-level messages array break on the web?', options: ['It doesn’t break, it works fine', 'Multiple simultaneous visitors would all share and pollute the SAME conversation history', 'Arrays can’t be used in Next.js', 'It’s too slow'], answerIndex: 1, explanation: "Shared global state mixes conversations across unrelated visitors, which is incorrect behavior." },
-    { id: 'c26q2', kind: 'application', prompt: 'What is a session id used for?', options: ['Encrypting the API key', 'Uniquely identifying one visitor so their data can be kept separate from others', 'Speeding up the API', 'Replacing the need for a database entirely'], answerIndex: 1, explanation: "A session id is the key that isolates per-visitor state." },
-    { id: 'c26q3', kind: 'code_reading', prompt: 'What does cookieStore.get(\'compass-session\')?.value return for a first-time visitor?', options: ['A new random id automatically', 'undefined, since no cookie has been set yet', 'An error', 'The string "undefined"'], answerIndex: 1, explanation: "A brand-new visitor has no existing cookie, so the lookup returns undefined until one is generated and set." },
-    { id: 'c26q4', kind: 'debug', prompt: 'A chat UI’s fetch call omits credentials: \'include\'. What breaks?', options: ['Nothing, cookies always work', 'The session cookie may not be sent with the request, breaking conversation continuity', 'The API key stops working', 'The UI fails to render'], answerIndex: 1, explanation: "Without explicitly including credentials, the browser may not send the session cookie, breaking the session link." },
-    { id: 'c26q5', kind: 'concept', prompt: 'Why use a Map<string, ...> keyed by session id instead of separate named variables?', options: ['No real reason', 'A Map scales naturally to any number of visitors, each getting their own isolated entry', 'Maps are required by TypeScript', 'It’s faster to type'], answerIndex: 1, explanation: "A Map handles an arbitrary, dynamic number of sessions cleanly, unlike hard-coded variables." },
-    { id: 'c26q6', kind: 'application', prompt: 'Why does getHistory() check `if (!sessionHistories.has(sessionId))` before returning?', options: ['It’s unnecessary', 'To lazily create a NEW, empty history for a session seen for the first time', 'It deletes old sessions', 'It’s required syntax'], answerIndex: 1, explanation: "This guard initializes a fresh conversation array the first time a given session is encountered." },
-    { id: 'c26q7', kind: 'output', prompt: 'Chatting with Compass in two different incognito windows (different sessions) should result in…', options: ['Both sharing the exact same conversation', 'Two completely separate, isolated conversations', 'An error in one of them', 'The second window overwriting the first'], answerIndex: 1, explanation: "Correct session isolation means each browser context maintains its own independent history." },
-    { id: 'c26q8', kind: 'concept', prompt: 'Why does the API route handle cookie logic, while askCompass() just takes a plain sessionId string?', options: ['No real reason for the split', 'Keeps the agent logic simple and testable, independent of HTTP/cookie concerns — a separation of responsibilities', 'askCompass can’t accept parameters', 'Cookies must be handled inside the agent logic'], answerIndex: 1, explanation: "Separating HTTP-specific concerns (cookies) from the core agent logic keeps each piece focused and simpler to reason about." },
-    { id: 'c26q9', kind: 'project', prompt: "Why does CompassChat's send() function check `if (!input.trim() || loading) return;`?", options: ['No real purpose', 'To prevent sending an empty message AND to prevent duplicate submissions while a request is already in flight', 'It’s required by React', 'It disables the chat entirely'], answerIndex: 1, explanation: "This guard combines two defensive checks familiar from earlier lessons: empty-input validation and duplicate-submission prevention." },
-    { id: 'c26q10', kind: 'concept', prompt: 'What does Lesson 27 add on top of this working multi-user chat?', options: ['A new tool', 'Monitoring and logging, so you can observe real usage and catch problems in production', 'Long-term memory (already built)', 'Deployment (already done)'], answerIndex: 1, explanation: "Observability is the next lesson's focus, building on this now-functional multi-user product." },
+    { id: 'c26q1', kind: 'concept', prompt: 'Why does a plain Python list fail to hold chat history across interactions in Streamlit?', options: ['Lists are too slow', 'The whole script reruns on every interaction, recreating a plain list as empty each time', 'Lists can’t hold dicts', 'Streamlit doesn’t support lists'], answerIndex: 1, explanation: 'Streamlit’s rerun model wipes ordinary local variables; only st.session_state persists.' },
+    { id: 'c26q2', kind: 'application', prompt: 'Why guard session_state initialization with `if "messages" not in st.session_state:`?', options: ['No reason', 'So messages isn’t reset to an empty list on every single rerun, which would erase history', 'It’s required syntax', 'To make the app slower'], answerIndex: 1, explanation: 'Without the guard, history would be wiped every rerun, defeating the purpose of session_state.' },
+    { id: 'c26q3', kind: 'concept', prompt: 'What does st.chat_input() return when the user hasn’t submitted anything yet?', options: ['An empty string', 'None (which is falsy, so the `if prompt := ...` block is skipped)', 'Raises an exception', 'The previous message again'], answerIndex: 1, explanation: 'The walrus-operator pattern relies on None being falsy to skip the block until real input arrives.' },
+    { id: 'c26q4', kind: 'code_reading', prompt: 'What does the `for msg in st.session_state.messages:` loop do on every rerun?', options: ['Nothing, it only runs once', 'Redisplays the ENTIRE conversation history so far, since Streamlit reruns the whole script', 'Deletes old messages', 'Sends messages to the API again'], answerIndex: 1, explanation: 'Because the whole script reruns, redisplaying history each time is necessary to keep it visible.' },
+    { id: 'c26q5', kind: 'debug', prompt: 'Two different browser tabs open the same Compass app and see SEPARATE conversation histories. Is this expected?', options: ['No, it’s a bug', 'Yes — st.session_state is per-session, so each browser session gets its own independent history', 'Only if using incognito mode', 'Only on localhost'], answerIndex: 1, explanation: 'Session state is scoped per user session, which is exactly the multi-user isolation the app needs.' },
+    { id: 'c26q6', kind: 'application', prompt: 'Why append BOTH the user prompt and Compass’s answer to st.session_state.messages?', options: ['Only the answer matters', 'So the next rerun’s history loop displays the complete back-and-forth exchange, not just one side', 'It’s required by the API', 'To reduce memory usage'], answerIndex: 1, explanation: 'Both sides must be stored for the history to render a genuine conversation.' },
+    { id: 'c26q7', kind: 'output', prompt: 'What renders for each message in the history loop?', options: ['Plain unstyled text only', 'A styled chat bubble via st.chat_message(role), with an avatar matching the role', 'A popup window', 'Nothing until the page refreshes'], answerIndex: 1, explanation: 'st.chat_message renders role-appropriate styled chat bubbles.' },
+    { id: 'c26q8', kind: 'project', prompt: 'Why is route_and_answer() wrapped in try/except inside the chat loop?', options: ['No reason', 'So a failure shows an inline error message in the chat instead of crashing the whole app mid-conversation', 'It’s required by Streamlit', 'To slow down responses'], answerIndex: 1, explanation: 'A defensive boundary keeps one failed response from breaking the entire session.' },
+    { id: 'c26q9', kind: 'concept', prompt: 'What existing Compass function powers the actual reply inside the chat loop?', options: ['A brand-new function written just for Streamlit', 'route_and_answer() from Lesson 24, reused unchanged', 'save_memory() alone', 'reflect_on_answer() alone'], answerIndex: 1, explanation: 'The full Module 1-4 reasoning pipeline is reused via route_and_answer().' },
+    { id: 'c26q10', kind: 'concept', prompt: 'What does Lesson 27 address next?', options: ['Nothing further', 'Proper configuration (secrets) and showing live tool/reasoning steps in the UI', 'Removing the chat interface', 'Switching away from Streamlit'], answerIndex: 1, explanation: 'Lesson 27 covers secrets management and surfacing live agent activity in the interface.' },
   ],
 
   homework: {
-    task:
-      "Add a 'New conversation' button to CompassChat that clears the LOCAL messages state AND calls a new API endpoint (or reuses /api/compass with a special flag) to clear that session's server-side history too.",
+    task: "Add a 'Clear conversation' button that resets st.session_state.messages back to an empty list.",
     requirements: [
-      "Add a button that resets the messages state to an empty array.",
-      "Add server-side support to clear a session's history (e.g. a DELETE handler on /api/compass, or a special body flag).",
-      "Confirm that after clicking it, a follow-up question has no memory of the prior conversation.",
+      "Place the button somewhere sensible (e.g. the sidebar).",
+      "On click, reset st.session_state.messages = [] and call st.rerun() so the UI updates immediately.",
+      "Test that a fresh conversation genuinely starts empty after clicking it.",
     ],
-    expectedOutcome:
-      "Clicking 'New conversation' visibly clears the chat AND genuinely resets the server-side session history — a follow-up question behaves like a brand-new conversation, not just a visually cleared one.",
+    expectedOutcome: "A working 'Clear conversation' control that fully resets the visible chat history on demand.",
     extends: 'final',
     previousHomeworkHint: {
       forLessonNumber: 25,
-      hint: "Lesson 25 asked you to add a health-check endpoint at /api/health returning { status: 'ok', hasApiKey: boolean }.",
+      hint: "Lesson 25 asked you to add a sidebar with an 'About Compass' description and a GitHub link.",
       steps: [
-        "Create app/api/health/route.ts with a simple GET handler.",
-        "Return NextResponse.json({ status: 'ok', hasApiKey: Boolean(process.env.ANTHROPIC_API_KEY) }).",
-        "Test locally, then after deploying, visit the live URL's /api/health to confirm hasApiKey is true once the Vercel environment variable is set.",
-      ],
-      codeGuidance: [
-        {
-          language: 'typescript',
-          filename: 'app/api/health/route.ts',
-          code:
-            "import { NextResponse } from 'next/server';\n\nexport async function GET() {\n  return NextResponse.json({\n    status: 'ok',\n    hasApiKey: Boolean(process.env.ANTHROPIC_API_KEY),\n  });\n}",
-        },
+        "Use st.sidebar.title('About Compass') and st.sidebar.markdown() with a short description.",
+        "Include a markdown link to your repo, e.g. st.sidebar.markdown('[GitHub](https://github.com/your-username/compass-agent)').",
       ],
     },
   },

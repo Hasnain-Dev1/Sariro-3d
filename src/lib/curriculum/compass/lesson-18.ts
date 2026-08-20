@@ -23,15 +23,15 @@ export const lesson18: StructuredLesson = {
         body:
           "Module 2's Lesson 12 made tool use transparent to the user ('Calculating...'). Memory deserves the same treatment: when Compass recalls something relevant, a brief note ('Remembering something about you...') builds the same trust and removes the black-box feeling.",
         code: {
-          language: 'typescript',
+          language: 'python',
           code:
-            "async function buildSystemPrompt(question: string): Promise<string> {\n  const relevant = await recallRelevant(question);\n  if (relevant.length === 0) return SYSTEM_PROMPT;\n  console.log('[memory] recalling relevant context...');\n  return `${SYSTEM_PROMPT}\\n\\nRelevant things you remember about this user: ${relevant.join('; ')}`;\n}",
+            "def build_system_prompt(question: str) -> str:\n    relevant = recall_relevant(question)\n    if not relevant:\n        return SYSTEM_PROMPT\n    print(\"[memory] recalling relevant context...\")\n    return f\"{SYSTEM_PROMPT}\\n\\nRelevant things you remember about this user: {'; '.join(relevant)}\"",
         },
       },
       {
         heading: 'Reviewing Module 3’s full architecture',
         body:
-          "Compass's memory now has FOUR layers working together: session memory (a shared array across a conversation), bounded growth (trimming or summarizing so it doesn't grow forever), long-term storage (a file-based vector store surviving across runs), and automatic recall/save (deciding when to use each, without manual commands). This layered design — not one giant memory system, but several focused pieces — is a pattern worth recognising as reusable far beyond this course.",
+          "Compass's memory now has FOUR layers working together: session memory (a shared list across a conversation), bounded growth (trimming or summarizing so it doesn't grow forever), long-term storage (a file-based vector store surviving across runs), and automatic recall/save (deciding when to use each, without manual commands). This layered design — not one giant memory system, but several focused pieces — is a pattern worth recognising as reusable far beyond this course.",
       },
       {
         heading: 'A genuine end-to-end memory test',
@@ -70,20 +70,20 @@ export const lesson18: StructuredLesson = {
     objective:
       "Practise the transparency pattern with a small standalone example showing conditional status messaging.",
     instructions: [
-      "Write a function that takes a 'found' boolean and prints a status message accordingly.",
-      "Test both the true and false cases.",
-      "Extend it to show HOW MANY items were found, if any.",
+      "Write a function that takes a found_count int and prints a status message accordingly.",
+      "Test both the zero and non-zero cases.",
+      "Handle correct singular/plural wording for the count.",
     ],
     code: [
       {
-        language: 'typescript',
-        filename: 'status-test.ts',
+        language: 'python',
+        filename: 'status_test.py',
         code:
-          "function announceRecall(foundCount: number) {\n  if (foundCount === 0) return;   // silent when there's nothing to report\n  const plural = foundCount === 1 ? 'memory' : 'memories';\n  console.log(`[memory] found ${foundCount} relevant ${plural}`);\n}\n\nannounceRecall(0);\nannounceRecall(1);\nannounceRecall(3);",
+          "def announce_recall(found_count: int) -> None:\n    if found_count == 0:\n        return   # silent when there's nothing to report\n    plural = \"memory\" if found_count == 1 else \"memories\"\n    print(f\"[memory] found {found_count} relevant {plural}\")\n\nannounce_recall(0)\nannounce_recall(1)\nannounce_recall(3)",
       },
     ],
     explanation:
-      "announceRecall stays SILENT when foundCount is 0 — an important UX choice: announcing 'found 0 memories' every single time would be noise, not useful signal. The plural handling (memory vs. memories) is a small but genuine polish detail. This exact pattern — informative when there's something to say, quiet otherwise — is what gets applied to Compass's real recall announcement in the final project.",
+      "announce_recall stays SILENT when found_count is 0 — an important UX choice: announcing 'found 0 memories' every single time would be noise, not useful signal. The plural handling (memory vs. memories) is a small but genuine polish detail. This exact pattern — informative when there's something to say, quiet otherwise — is what gets applied to Compass's real recall announcement in the final project.",
     expectedOutput:
       "First call prints nothing. Second prints '[memory] found 1 relevant memory'. Third prints '[memory] found 3 relevant memories'.",
     learned: [
@@ -99,19 +99,19 @@ export const lesson18: StructuredLesson = {
     feature: "Compass's memory recall becomes visible to the user, and Module 3's complete memory system is verified end to end — the 'memory agent' milestone.",
     why:
       "This is the Module 3 payoff: a fully working, transparent, multi-layered memory system that makes Compass feel like it genuinely knows the person it's talking to, across time.",
-    fileLocation: "compass-agent/index.ts (update buildSystemPrompt with visible recall)",
+    fileLocation: "compass-agent/main.py (update build_system_prompt with visible recall)",
     code: [
       {
-        language: 'typescript',
-        filename: 'index.ts (update buildSystemPrompt)',
+        language: 'python',
+        filename: 'main.py (update build_system_prompt)',
         code:
-          "async function buildSystemPrompt(question: string): Promise<string> {\n  const relevant = await recallRelevant(question);\n  if (relevant.length === 0) return SYSTEM_PROMPT;\n\n  const plural = relevant.length === 1 ? 'memory' : 'memories';\n  console.log(`[memory] found ${relevant.length} relevant ${plural}`);\n\n  return `${SYSTEM_PROMPT}\\n\\nRelevant things you remember about this user: ${relevant.join('; ')}`;\n}",
+          "def build_system_prompt(question: str) -> str:\n    relevant = recall_relevant(question)\n    if not relevant:\n        return SYSTEM_PROMPT\n\n    plural = \"memory\" if len(relevant) == 1 else \"memories\"\n    print(f\"[memory] found {len(relevant)} relevant {plural}\")\n\n    return f\"{SYSTEM_PROMPT}\\n\\nRelevant things you remember about this user: {'; '.join(relevant)}\"",
       },
     ],
     placement:
-      "Replace your existing buildSystemPrompt() (from Lesson 17) with the version above — it's the same logic, with one added status line before returning the enriched prompt.",
+      "Replace your existing build_system_prompt() (from Lesson 17) with the version above — it's the same logic, with one added status line before returning the enriched prompt.",
     implementation:
-      "The function behaves exactly as before functionally — recall, then enrich the system prompt if anything relevant was found — but now announces, with correct singular/plural phrasing, HOW MANY memories were considered relevant, right before that context gets used. Staying silent when relevant.length === 0 (the early return) keeps ordinary questions completely unaffected by this addition, exactly matching the mini-project's principle. This is a genuinely tiny code change delivering real user-facing trust, closing out Module 3's polish pass the same way Lesson 12 closed out Module 2's.",
+      "The function behaves exactly as before functionally — recall, then enrich the system prompt if anything relevant was found — but now announces, with correct singular/plural phrasing, HOW MANY memories were considered relevant, right before that context gets used. Staying silent when relevant is empty (the early return) keeps ordinary questions completely unaffected by this addition, exactly matching the mini-project's principle. This is a genuinely tiny code change delivering real user-facing trust, closing out Module 3's polish pass the same way Lesson 12 closed out Module 2's.",
     expectedResult:
       "Running the full test arc — state a fact, ask a same-session follow-up, have a long conversation trigger compression, restart the program, ask about the original fact again — now works end to end, with '[memory] found N relevant memories' visibly confirming exactly when Compass is drawing on what it remembers.",
     connects:
@@ -119,12 +119,12 @@ export const lesson18: StructuredLesson = {
   },
 
   quiz: [
-    { id: 'c18q1', kind: 'concept', prompt: 'Why does buildSystemPrompt() stay silent (no log) when relevant.length === 0?', options: ['A bug', 'Announcing "found 0 memories" every time would be noise, not useful signal', 'Logging is disabled entirely', 'It’s required by the API'], answerIndex: 1, explanation: "Silence in the common no-recall case keeps the transparency feature genuinely useful rather than noisy." },
+    { id: 'c18q1', kind: 'concept', prompt: 'Why does build_system_prompt() stay silent (no print) when relevant is empty?', options: ['A bug', 'Announcing "found 0 memories" every time would be noise, not useful signal', 'Printing is disabled entirely', 'It’s required by the API'], answerIndex: 1, explanation: "Silence in the common no-recall case keeps the transparency feature genuinely useful rather than noisy." },
     { id: 'c18q2', kind: 'concept', prompt: 'What are the FOUR layers of Compass’s Module 3 memory architecture?', options: ['Streaming, tools, prompts, errors', 'Session memory, bounded growth, long-term storage, automatic recall/save', 'Only long-term memory', 'Planning, reflection, execution, evaluation'], answerIndex: 1, explanation: "These four focused pieces, built across Lessons 13-17, together form the complete memory system." },
     { id: 'c18q3', kind: 'application', prompt: 'Why test the FULL memory arc (session + compression + cross-run) rather than each piece alone?', options: ['It’s unnecessary if each piece passed its own lesson’s test', 'Individually-working pieces don’t guarantee they integrate correctly as one coherent system', 'Only cross-run memory needs testing', 'Session memory doesn’t need testing'], answerIndex: 1, explanation: "Integration testing catches issues that isolated per-lesson tests might miss, same principle as Module 2's final review." },
-    { id: 'c18q4', kind: 'debug', prompt: 'A test restarts the program but forgets to actually close and relaunch the process (just resets a variable instead). What does this fail to verify?', options: ['Nothing, it’s equivalent', 'True LONG-TERM persistence — resetting a variable doesn’t test the case memory.json survives across real separate runs', 'Session memory', 'Tool use'], answerIndex: 1, explanation: "A genuine process restart is required to validate that memory persists beyond the current run, not just within it." },
+    { id: 'c18q4', kind: 'debug', prompt: 'A test just resets a Python variable to simulate a restart instead of actually re-running the script. What does this fail to verify?', options: ['Nothing, it’s equivalent', 'True LONG-TERM persistence — resetting a variable doesn’t test the case memory.json survives across real separate runs', 'Session memory', 'Tool use'], answerIndex: 1, explanation: "A genuine process restart is required to validate that memory persists beyond the current run, not just within it." },
     { id: 'c18q5', kind: 'concept', prompt: 'What is Compass still missing at the end of Module 3?', options: ['Memory', 'The ability to plan and work through a genuinely complex, multi-step task', 'Tool use', 'A system prompt'], answerIndex: 1, explanation: "Compass still reasons one step/question at a time — planning is Module 4's distinct focus." },
-    { id: 'c18q6', kind: 'code_reading', prompt: 'Why does the status message use `foundCount === 1 ? \'memory\' : \'memories\'`?', options: ['No real reason', 'Correct singular/plural grammar for a polished, natural-reading message', 'It changes the recall logic', 'It’s required syntax'], answerIndex: 1, explanation: "This is a small grammar-correctness detail that improves message quality." },
+    { id: 'c18q6', kind: 'code_reading', prompt: 'Why does the status message use `"memory" if len(relevant) == 1 else "memories"`?', options: ['No real reason', 'Correct singular/plural grammar for a polished, natural-reading message', 'It changes the recall logic', 'It’s required syntax'], answerIndex: 1, explanation: "This is a small grammar-correctness detail that improves message quality." },
     { id: 'c18q7', kind: 'application', prompt: 'Why is transparency described as building the "same trust" tool-use transparency (Module 2) provided?', options: ['They’re unrelated concepts', 'Both make an otherwise-invisible internal decision visible to the user, reducing the black-box feeling', 'Transparency only matters for tools, not memory', 'It’s a coincidental parallel with no real connection'], answerIndex: 1, explanation: "Both features apply the same underlying UX principle — surfacing what the agent is doing internally." },
     { id: 'c18q8', kind: 'output', prompt: 'If Compass recalls exactly 2 relevant memories for a question, what should print?', options: ['"[memory] found 2 relevant memory"', '"[memory] found 2 relevant memories"', 'Nothing', 'An error'], answerIndex: 1, explanation: "2 is plural, so the correctly pluralized message should print." },
     { id: 'c18q9', kind: 'project', prompt: "Why is this lesson's final code change described as 'genuinely tiny' yet still worth its own dedicated lesson?", options: ['It isn’t actually tiny', 'Small, deliberate polish that meaningfully improves trust/UX is worth calling out and practicing explicitly, not treated as an afterthought', 'All lessons must be equally large', 'It’s filler with no real value'], answerIndex: 1, explanation: "The lesson emphasizes that thoughtful small changes are a real, worthwhile part of building quality software." },
@@ -144,19 +144,19 @@ export const lesson18: StructuredLesson = {
     extends: 'final',
     previousHomeworkHint: {
       forLessonNumber: 17,
-      hint: "Lesson 17 asked you to add deduplication to saveMemory(), skipping a save if a very similar memory (similarity >= 0.95) already exists.",
+      hint: "Lesson 17 asked you to add deduplication to save_memory(), skipping a save if a very similar memory (similarity >= 0.95) already exists.",
       steps: [
-        "Inside saveMemory(), after computing the new embedding, loop through loaded memories and compute cosineSimilarity against each existing embedding.",
-        "If any existing memory has similarity >= 0.95, log that it's a likely duplicate and return WITHOUT appending or writing the file.",
+        "Inside save_memory(), after computing the new embedding, loop through loaded memories and compute cosine_similarity against each existing embedding.",
+        "If any existing memory has similarity >= 0.95, print that it's a likely duplicate and return WITHOUT appending or writing the file.",
         "Otherwise, proceed with the normal append + write as before.",
         "Test by saving the same fact twice in a row and confirming only one entry ends up in memory.json.",
       ],
       codeGuidance: [
         {
-          language: 'typescript',
-          filename: 'index.ts',
+          language: 'python',
+          filename: 'main.py',
           code:
-            "async function saveMemory(text: string) {\n  const memories = await loadMemories();\n  const embedding = await getEmbedding(text);\n\n  const isDuplicate = memories.some((m) => cosineSimilarity(embedding, m.embedding) >= 0.95);\n  if (isDuplicate) {\n    console.log(`[memory] skipped likely duplicate: \"${text}\"`);\n    return;\n  }\n\n  memories.push({ text, embedding });\n  await fs.writeFile(MEMORY_FILE, JSON.stringify(memories, null, 2));\n  console.log(`[memory] saved: \"${text}\"`);\n}",
+            "def save_memory(text: str) -> None:\n    memories = load_memories()\n    embedding = get_embedding(text)\n\n    is_duplicate = any(\n        cosine_similarity(embedding, m[\"embedding\"]) >= 0.95 for m in memories\n    )\n    if is_duplicate:\n        print(f'[memory] skipped likely duplicate: \"{text}\"')\n        return\n\n    memories.append({\"text\": text, \"embedding\": embedding})\n    with open(MEMORY_FILE, \"w\") as f:\n        json.dump(memories, f, indent=2)\n    print(f'[memory] saved: \"{text}\"')",
         },
       ],
     },

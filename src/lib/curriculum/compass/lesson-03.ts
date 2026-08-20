@@ -88,10 +88,10 @@ export const lesson03: StructuredLesson = {
     ],
     code: [
       {
-        language: 'typescript',
-        filename: 'prompt-compare.ts',
+        language: 'python',
+        filename: 'prompt_compare.py',
         code:
-          "import 'dotenv/config';\nimport Anthropic from '@anthropic-ai/sdk';\n\nconst anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });\n\nconst VAGUE = 'You are a helpful assistant.';\nconst SPECIFIC = `You are a research assistant.\nAlways answer in exactly 2 sentences.\nIf you are not confident in an answer, say so explicitly.`;\n\nasync function ask(system: string) {\n  const response = await anthropic.messages.create({\n    model: 'claude-sonnet-5',\n    max_tokens: 200,\n    temperature: 0.2,\n    system,\n    messages: [{ role: 'user', content: 'What causes ocean tides?' }],\n  });\n  return response.content[0].type === 'text' ? response.content[0].text : '';\n}\n\nasync function main() {\n  console.log('VAGUE:   ', await ask(VAGUE));\n  console.log('SPECIFIC:', await ask(SPECIFIC));\n}\n\nmain();",
+          "from dotenv import load_dotenv\nimport anthropic\n\nload_dotenv()\nclient = anthropic.Anthropic()\n\nVAGUE = \"You are a helpful assistant.\"\nSPECIFIC = \"\"\"You are a research assistant.\nAlways answer in exactly 2 sentences.\nIf you are not confident in an answer, say so explicitly.\"\"\"\n\ndef ask(system: str) -> str:\n    response = client.messages.create(\n        model=\"claude-sonnet-5\",\n        max_tokens=200,\n        temperature=0.2,\n        system=system,\n        messages=[{\"role\": \"user\", \"content\": \"What causes ocean tides?\"}],\n    )\n    return response.content[0].text\n\ndef main():\n    print(\"VAGUE:   \", ask(VAGUE))\n    print(\"SPECIFIC:\", ask(SPECIFIC))\n\nif __name__ == \"__main__\":\n    main()",
       },
     ],
     explanation:
@@ -111,17 +111,17 @@ export const lesson03: StructuredLesson = {
     feature: "Compass's system prompt is properly engineered — a specific role, a consistent answer format, and real constraints.",
     why:
       "Lesson 1's system prompt was a good start but vague. A production-quality agent needs a DELIBERATELY engineered prompt so its behaviour stays consistent no matter what a user asks.",
-    fileLocation: "compass-agent/index.ts (replace SYSTEM_PROMPT)",
+    fileLocation: "compass-agent/main.py (replace SYSTEM_PROMPT)",
     code: [
       {
-        language: 'typescript',
-        filename: 'index.ts (replace SYSTEM_PROMPT)',
+        language: 'python',
+        filename: 'main.py (replace SYSTEM_PROMPT)',
         code:
-          "const SYSTEM_PROMPT = `You are Compass, a research and task assistant for students and professionals.\n\nFormat: Answer in 2-4 sentences. If the question calls for steps, use a short numbered list instead.\n\nHonesty: If you are not confident in an answer, or it requires current/live information you don't have, say so plainly rather than guessing.\n\nScope: If a question is unrelated to research, learning, or tasks (e.g. personal medical or legal advice), politely decline and suggest a more appropriate resource.`;",
+          "SYSTEM_PROMPT = \"\"\"You are Compass, a research and task assistant for students and professionals.\n\nFormat: Answer in 2-4 sentences. If the question calls for steps, use a short numbered list instead.\n\nHonesty: If you are not confident in an answer, or it requires current/live information you don't have, say so plainly rather than guessing.\n\nScope: If a question is unrelated to research, learning, or tasks (e.g. personal medical or legal advice), politely decline and suggest a more appropriate resource.\"\"\"",
       },
     ],
     placement:
-      "In index.ts, replace the existing SYSTEM_PROMPT constant with the version above. No other code changes are needed — askCompass() already reads this constant.",
+      "In main.py, replace the existing SYSTEM_PROMPT constant with the version above. No other code changes are needed — ask_compass() already reads this constant.",
     implementation:
       "The new prompt has four clearly separated directives, each addressing one concept from this lesson: a specific ROLE (research/task assistant, for a named audience), a FORMAT rule (length + a numbered-list exception for step-based answers), an HONESTY constraint (directly reducing hallucination risk), and a SCOPE constraint (keeping Compass focused and avoiding giving advice it shouldn't). Structuring the prompt as labeled sections (Format:, Honesty:, Scope:) — rather than one run-on paragraph — also tends to make instructions easier for the model to follow consistently.",
     expectedResult:
@@ -138,7 +138,7 @@ export const lesson03: StructuredLesson = {
     { id: 'c3q5', kind: 'debug', prompt: "Compass sometimes answers a personal medical question it shouldn't. What's the fix?", options: ['Lower the temperature', 'Add an explicit scope constraint declining that category of question', 'Increase max_tokens', 'Remove the role statement'], answerIndex: 1, explanation: "A scope constraint tells the model explicitly to decline categories outside its intended use." },
     { id: 'c3q6', kind: 'code_reading', prompt: 'In the final project’s system prompt, what does the "Honesty" section accomplish?', options: ['Nothing measurable', 'Reduces the chance of confidently wrong (hallucinated) answers by permitting uncertainty', 'Increases response length', 'Changes the model used'], answerIndex: 1, explanation: "Explicitly permitting 'I'm not sure' reduces pressure on the model to fabricate confidence." },
     { id: 'c3q7', kind: 'application', prompt: 'Why label prompt sections (Format:, Honesty:, Scope:) instead of one long paragraph?', options: ['No real benefit', 'Clear structure tends to make multiple instructions easier for the model to follow consistently', 'It’s required syntax', 'It reduces token count significantly'], answerIndex: 1, explanation: "Structured, labeled instructions are a practical technique for improving instruction-following." },
-    { id: 'c3q8', kind: 'output', prompt: 'With the engineered prompt, what should happen if you ask Compass a step-based question like "how do I set up a Node project"?', options: ['A single long paragraph', 'A short numbered list, per the format rule', 'A refusal', 'Exactly 2 sentences regardless'], answerIndex: 1, explanation: "The format rule explicitly carves out a numbered-list exception for step-based answers." },
+    { id: 'c3q8', kind: 'output', prompt: 'With the engineered prompt, what should happen if you ask Compass a step-based question like "how do I set up a Python project"?', options: ['A single long paragraph', 'A short numbered list, per the format rule', 'A refusal', 'Exactly 2 sentences regardless'], answerIndex: 1, explanation: "The format rule explicitly carves out a numbered-list exception for step-based answers." },
     { id: 'c3q9', kind: 'project', prompt: "Why is Compass's system prompt described as something later modules will EXTEND rather than replace?", options: ['It will be deleted eventually', 'Tool-use, memory, and planning instructions build on top of this same solid base rather than starting over', 'System prompts can only be set once', 'There’s no real reason'], answerIndex: 1, explanation: "Each module adds new directives to the same evolving system prompt, rather than redesigning it from scratch." },
     { id: 'c3q10', kind: 'concept', prompt: 'Is prompt engineering typically a one-shot or iterative process?', options: ['One-shot, never revisited', 'Iterative — write, test on real questions, refine', 'Random guessing', 'Irrelevant once the API key works'], answerIndex: 1, explanation: "Good prompts usually emerge from testing real outputs and refining based on what you observe." },
   ],
@@ -156,19 +156,19 @@ export const lesson03: StructuredLesson = {
     extends: 'final',
     previousHomeworkHint: {
       forLessonNumber: 2,
-      hint: "Lesson 2 asked you to add askCompassWithBudget(question, maxTokens), letting the caller control max_tokens per call.",
+      hint: "Lesson 2 asked you to add ask_compass_with_budget(question, max_tokens), letting the caller control max_tokens per call.",
       steps: [
-        "Add a new function with signature async function askCompassWithBudget(question: string, maxTokens: number).",
-        "Copy askCompass's body, but use the maxTokens parameter for max_tokens instead of a fixed value.",
-        "Keep temperature and system the same as askCompass.",
-        "Call it once with maxTokens: 60 (short question) and once with maxTokens: 500 (open-ended question), and compare.",
+        "Add a new function: def ask_compass_with_budget(question: str, max_tokens: int) -> str:",
+        "Copy ask_compass's body, but use the max_tokens parameter instead of a fixed value.",
+        "Keep temperature and system the same as ask_compass.",
+        "Call it once with max_tokens=60 (short question) and once with max_tokens=500 (open-ended question), and compare.",
       ],
       codeGuidance: [
         {
-          language: 'typescript',
-          filename: 'index.ts',
+          language: 'python',
+          filename: 'main.py',
           code:
-            "async function askCompassWithBudget(question: string, maxTokens: number): Promise<string> {\n  const response = await anthropic.messages.create({\n    model: 'claude-sonnet-5',\n    max_tokens: maxTokens,\n    temperature: 0.2,\n    system: SYSTEM_PROMPT,\n    messages: [{ role: 'user', content: question }],\n  });\n  return response.content[0].type === 'text' ? response.content[0].text : '';\n}",
+            "def ask_compass_with_budget(question: str, max_tokens: int) -> str:\n    response = client.messages.create(\n        model=\"claude-sonnet-5\",\n        max_tokens=max_tokens,\n        temperature=0.2,\n        system=SYSTEM_PROMPT,\n        messages=[{\"role\": \"user\", \"content\": question}],\n    )\n    return response.content[0].text",
         },
       ],
     },

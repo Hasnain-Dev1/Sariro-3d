@@ -33,19 +33,19 @@ export const lesson02: StructuredLesson = {
         body:
           "max_tokens limits how long the MODEL's reply can be (not the input). Too low and Compass gets cut off mid-sentence; too high wastes cost on a short answer that didn't need the room. A good default scales with the task: ~150-300 for a quick answer, more for something like a written plan.",
         code: {
-          language: 'typescript',
+          language: 'python',
           code:
-            "// A short factual question doesn't need much room:\nmax_tokens: 150\n\n// A multi-step plan needs more:\nmax_tokens: 800",
+            "# A short factual question doesn't need much room:\nmax_tokens = 150\n\n# A multi-step plan needs more:\nmax_tokens = 800",
         },
       },
       {
         heading: 'Temperature — predictable vs creative',
         body:
-          "temperature (0 to 1, sometimes higher) controls randomness in the model's word choices. Low (0-0.3) gives consistent, focused, repeatable-feeling answers — good for factual Q&A or code. Higher (0.7-1) gives more varied, creative phrasing — good for brainstorming or writing. Compass, as a research assistant, should lean LOW — users want reliable answers, not surprising ones.",
+          "temperature (0 to 1) controls randomness in the model's word choices. Low (0-0.3) gives consistent, focused, repeatable-feeling answers — good for factual Q&A or code. Higher (0.7-1) gives more varied, creative phrasing — good for brainstorming or writing. Compass, as a research assistant, should lean LOW — users want reliable answers, not surprising ones.",
         code: {
-          language: 'typescript',
+          language: 'python',
           code:
-            "const response = await anthropic.messages.create({\n  model: 'claude-sonnet-5',\n  max_tokens: 300,\n  temperature: 0.2,   // Compass: focused, consistent answers\n  messages: [{ role: 'user', content: question }],\n});",
+            "response = client.messages.create(\n    model=\"claude-sonnet-5\",\n    max_tokens=300,\n    temperature=0.2,   # Compass: focused, consistent answers\n    messages=[{\"role\": \"user\", \"content\": question}],\n)",
         },
       },
       {
@@ -89,10 +89,10 @@ export const lesson02: StructuredLesson = {
     ],
     code: [
       {
-        language: 'typescript',
-        filename: 'temperature-test.ts',
+        language: 'python',
+        filename: 'temperature_test.py',
         code:
-          "import 'dotenv/config';\nimport Anthropic from '@anthropic-ai/sdk';\n\nconst anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });\n\nasync function ask(temperature: number) {\n  const response = await anthropic.messages.create({\n    model: 'claude-sonnet-5',\n    max_tokens: 100,\n    temperature,\n    messages: [{ role: 'user', content: 'Give me one creative name for a coffee shop.' }],\n  });\n  return response.content[0].type === 'text' ? response.content[0].text : '';\n}\n\nasync function main() {\n  console.log('temp 0:  ', await ask(0));\n  console.log('temp 0.9:', await ask(0.9));\n}\n\nmain();",
+          "from dotenv import load_dotenv\nimport anthropic\n\nload_dotenv()\nclient = anthropic.Anthropic()\n\ndef ask(temperature: float) -> str:\n    response = client.messages.create(\n        model=\"claude-sonnet-5\",\n        max_tokens=100,\n        temperature=temperature,\n        messages=[{\"role\": \"user\", \"content\": \"Give me one creative name for a coffee shop.\"}],\n    )\n    return response.content[0].text\n\ndef main():\n    print(\"temp 0:  \", ask(0))\n    print(\"temp 0.9:\", ask(0.9))\n\nif __name__ == \"__main__\":\n    main()",
       },
     ],
     explanation:
@@ -111,20 +111,20 @@ export const lesson02: StructuredLesson = {
     durationMin: 30,
     feature: "Compass's API call gets tuned parameters — a sensible temperature and a task-aware max_tokens — plus a token-usage log for cost awareness.",
     why:
-      "Lesson 1's askCompass() used defaults. A real agent tunes these deliberately: Compass should feel consistent and reliable, and a developer should be able to SEE roughly what each call costs.",
-    fileLocation: "compass-agent/index.ts (update askCompass)",
+      "Lesson 1's ask_compass() used defaults. A real agent tunes these deliberately: Compass should feel consistent and reliable, and a developer should be able to SEE roughly what each call costs.",
+    fileLocation: "compass-agent/main.py (update ask_compass)",
     code: [
       {
-        language: 'typescript',
-        filename: 'index.ts (update askCompass)',
+        language: 'python',
+        filename: 'main.py (update ask_compass)',
         code:
-          "async function askCompass(question: string): Promise<string> {\n  const response = await anthropic.messages.create({\n    model: 'claude-sonnet-5',\n    max_tokens: 400,\n    temperature: 0.2,   // consistent, focused answers for a research assistant\n    system: SYSTEM_PROMPT,\n    messages: [{ role: 'user', content: question }],\n  });\n\n  // Cheap cost awareness: log token usage every call.\n  console.log(\n    `[usage] input: ${response.usage.input_tokens} tokens, output: ${response.usage.output_tokens} tokens`\n  );\n\n  return response.content[0].type === 'text' ? response.content[0].text : '';\n}",
+          "def ask_compass(question: str) -> str:\n    response = client.messages.create(\n        model=\"claude-sonnet-5\",\n        max_tokens=400,\n        temperature=0.2,   # consistent, focused answers for a research assistant\n        system=SYSTEM_PROMPT,\n        messages=[{\"role\": \"user\", \"content\": question}],\n    )\n\n    # Cheap cost awareness: log token usage every call.\n    print(f\"[usage] input: {response.usage.input_tokens} tokens, output: {response.usage.output_tokens} tokens\")\n\n    return response.content[0].text",
       },
     ],
     placement:
-      "In index.ts, replace the messages.create call inside askCompass() with the version above — add temperature: 0.2 and the usage log line right after the response arrives, before returning the text.",
+      "In main.py, replace the client.messages.create call inside ask_compass() with the version above — add temperature=0.2 and the usage print line right after the response arrives, before returning the text.",
     implementation:
-      "temperature: 0.2 locks in the low-randomness behaviour a research assistant needs — the SAME question should get a similarly reliable answer each time, not a lottery. response.usage is returned by the API alongside the reply and reports exactly how many input and output tokens that specific call used; logging it gives you a real, visible sense of cost per interaction as you keep building Compass, instead of cost being an invisible abstraction.",
+      "temperature=0.2 locks in the low-randomness behaviour a research assistant needs — the SAME question should get a similarly reliable answer each time, not a lottery. response.usage is returned by the API alongside the reply and reports exactly how many input and output tokens that specific call used; printing it gives you a real, visible sense of cost per interaction as you keep building Compass, instead of cost being an invisible abstraction.",
     expectedResult:
       "Running Compass now prints a usage line like '[usage] input: 42 tokens, output: 88 tokens' before every answer, and asking the same factual question twice in a row gives noticeably consistent responses.",
     connects:
@@ -146,30 +146,30 @@ export const lesson02: StructuredLesson = {
 
   homework: {
     task:
-      "Add a askCompassWithBudget(question, maxTokens) variant that lets the CALLER choose max_tokens per question, and test it with a short factual question (low budget) and an open-ended one (higher budget).",
+      "Add an ask_compass_with_budget(question, max_tokens) variant that lets the CALLER choose max_tokens per question, and test it with a short factual question (low budget) and an open-ended one (higher budget).",
     requirements: [
-      "The function should accept question and maxTokens as parameters, passing maxTokens through as max_tokens.",
-      "Keep temperature and the system prompt the same as askCompass().",
-      "Test with maxTokens: 60 for a factual question and maxTokens: 500 for something like 'explain how agents plan multi-step tasks'.",
+      "The function should accept question and max_tokens as parameters.",
+      "Keep temperature and the system prompt the same as ask_compass().",
+      "Test with max_tokens=60 for a factual question and max_tokens=500 for something like 'explain how agents plan multi-step tasks'.",
     ],
     expectedOutcome:
       "The low-budget call returns a short, complete answer (not cut off); the high-budget call returns a fuller explanation, both using the same reliable temperature.",
     extends: 'final',
     previousHomeworkHint: {
       forLessonNumber: 1,
-      hint: "Lesson 1 asked you to extend askCompass() with a style parameter ('brief' | 'detailed') that changes the system prompt accordingly.",
+      hint: "Lesson 1 asked you to extend ask_compass() with a style parameter ('brief' | 'detailed') that changes the system prompt accordingly.",
       steps: [
-        "Add a second parameter to askCompass: async function askCompass(question: string, style: 'brief' | 'detailed' = 'brief').",
+        "Add a second parameter: def ask_compass(question: str, style: str = 'brief') -> str:",
         "Build the system string conditionally: brief asks for 1-2 sentences; detailed asks for a fuller paragraph with an example.",
-        "Pass the chosen string as the system field in the API call.",
-        "Call askCompass('Explain agents', 'brief') and askCompass('Explain agents', 'detailed') and compare the output lengths.",
+        "Pass the chosen string as the system argument in the API call.",
+        "Call ask_compass('Explain agents', 'brief') and ask_compass('Explain agents', 'detailed') and compare the output lengths.",
       ],
       codeGuidance: [
         {
-          language: 'typescript',
-          filename: 'index.ts',
+          language: 'python',
+          filename: 'main.py',
           code:
-            "async function askCompass(question: string, style: 'brief' | 'detailed' = 'brief'): Promise<string> {\n  const system = style === 'detailed'\n    ? 'You are Compass, a helpful research assistant. Give a full, clear paragraph with an example.'\n    : 'You are Compass, a helpful research assistant. Answer in 1-2 sentences.';\n\n  const response = await anthropic.messages.create({\n    model: 'claude-sonnet-5',\n    max_tokens: style === 'detailed' ? 500 : 150,\n    system,\n    messages: [{ role: 'user', content: question }],\n  });\n  return response.content[0].type === 'text' ? response.content[0].text : '';\n}",
+            "def ask_compass(question: str, style: str = \"brief\") -> str:\n    if style == \"detailed\":\n        system = \"You are Compass, a helpful research assistant. Give a full, clear paragraph with an example.\"\n        max_tokens = 500\n    else:\n        system = \"You are Compass, a helpful research assistant. Answer in 1-2 sentences.\"\n        max_tokens = 150\n\n    response = client.messages.create(\n        model=\"claude-sonnet-5\",\n        max_tokens=max_tokens,\n        system=system,\n        messages=[{\"role\": \"user\", \"content\": question}],\n    )\n    return response.content[0].text",
         },
       ],
     },

@@ -1,7 +1,7 @@
 import type { StructuredLesson } from '@/lib/curriculum/types';
 
 /**
- * Compass · Lesson 27 — Monitoring & Logging
+ * Compass · Lesson 27 — Secrets, Config, and Live Reasoning Display
  * Module 5 (Deploy + Capstone) · Lesson 27 of 30
  */
 export const lesson27: StructuredLesson = {
@@ -9,177 +9,169 @@ export const lesson27: StructuredLesson = {
   moduleNum: 5,
   lessonIndex: 2,
   globalNumber: 27,
-  name: 'Monitoring + logging',
-  title: 'Monitoring — Seeing What Compass Is Actually Doing in Production',
-  subtitle: "Add structured logging so you can observe real usage, costs, and failures once Compass is live.",
+  name: 'Secrets, config, and live reasoning display',
+  title: 'Secrets, Config, and Showing Compass Think',
+  subtitle: "Move the API key into st.secrets, and surface Compass's tool calls and reasoning live in the chat UI.",
 
   concept: {
     durationMin: 15,
     summary:
-      "Learn why console.log alone isn't enough in production, and build structured logging that tracks usage, cost, tool calls, and errors.",
+      "Learn Streamlit's secrets management for API keys, and how to surface an agent's internal reasoning/tool activity as live UI updates instead of print() statements.",
     sections: [
       {
-        heading: 'Why console.log worked for the CLI but isn’t enough now',
+        heading: 'st.secrets: never hardcode an API key',
         body:
-          "Every earlier lesson's console.log was perfect for a LOCAL terminal you're watching directly. On a deployed server, logs typically flow into a platform's log viewer (Vercel's dashboard, for example) — readable, but hard to SEARCH or ANALYZE at scale without more structure than a plain sentence.",
-      },
-      {
-        heading: 'Structured logging: objects, not sentences',
-        body:
-          "Instead of a free-text message, log a consistent OBJECT with named fields — event type, timestamp, relevant data. This makes logs filterable and analyzable (e.g. 'show me every tool_call event where tool = web_search').",
+          "Every course so far has used a .env file with python-dotenv for local secrets. Streamlit has its own equivalent: a local .streamlit/secrets.toml file (git-ignored, same as .env) read via st.secrets, which becomes the SAME mechanism used for secrets once deployed to Streamlit Community Cloud.",
         code: {
-          language: 'typescript',
-          code:
-            "function logEvent(event: string, data: Record<string, unknown> = {}) {\n  console.log(JSON.stringify({ event, timestamp: new Date().toISOString(), ...data }));\n}\n\n// usage:\nlogEvent('question_received', { sessionId, questionLength: question.length });\nlogEvent('tool_called', { tool: toolBlock.name });\nlogEvent('answer_sent', { sessionId, tokensUsed: response.usage.output_tokens });",
+          language: 'toml',
+          filename: '.streamlit/secrets.toml (local only, git-ignored)',
+          code: 'ANTHROPIC_API_KEY = "sk-ant-..."',
         },
       },
       {
-        heading: 'What’s actually worth logging for an agent',
+        heading: 'Reading secrets in code',
         body:
-          "A useful minimum: every question received (with session id, not the raw content for privacy), every tool call (which tool, not necessarily its full arguments), token usage per response (for cost tracking), and every error (with enough detail to diagnose it later). Logging the raw question/answer content raises privacy considerations worth being thoughtful about.",
-      },
-      {
-        heading: 'Tracking cost over time',
-        body:
-          "Since token usage is already available on every response (Lesson 2), accumulating it into a running total (even a simple in-memory counter, reset on each deploy) gives a rough sense of usage-driven cost — genuinely useful for noticing if something's using far more than expected.",
+          "st.secrets behaves like a dict, and is the natural place to construct the Anthropic client so it works identically locally and once deployed.",
         code: {
-          language: 'typescript',
+          language: 'python',
           code:
-            "let totalTokensToday = 0;\n\nfunction trackUsage(inputTokens: number, outputTokens: number) {\n  totalTokensToday += inputTokens + outputTokens;\n  logEvent('usage_tracked', { inputTokens, outputTokens, totalTokensToday });\n}",
+            'import streamlit as st\nimport anthropic\n\nclient = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])',
         },
       },
       {
-        heading: 'A simple stats endpoint',
+        heading: 'print() doesn’t work the way you’d expect in a web app',
         body:
-          "Exposing a lightweight /api/stats endpoint (admin-only in a real product, but fine for a learning project) that reports total questions, total tokens, and error count gives an at-a-glance view without digging through raw logs.",
+          "All of Compass's transparency features so far (Lessons 12, 18, 19, 21, 23, 24) used print() — visible in a terminal, but INVISIBLE to someone using the deployed web app, since print() output goes to the server's logs, not the browser. Streamlit needs its own equivalent: st.status() as a live-updating container.",
+      },
+      {
+        heading: 'st.status: a live reasoning panel',
+        body:
+          "st.status() creates an expandable container that can be updated WHILE code runs inside it — a natural home for showing 'Thought: ...', '[step 2/4] ...', or '[router] routing to...' messages live, instead of them disappearing into server logs.",
+        code: {
+          language: 'python',
+          code:
+            'with st.status("Compass is working...", expanded=True) as status:\n    st.write("Thought: I need to check the weather in Tokyo first.")\n    # ... tool call happens here ...\n    st.write("Observation: Tokyo is 22°C and sunny.")\n    status.update(label="Done", state="complete")',
+        },
+      },
+      {
+        heading: 'Bridging print() calls into the UI',
+        body:
+          "Rather than rewriting every print() across Modules 1-4, a small helper collects a callback that agent functions can call INSTEAD of print(), letting the same core logic feed either the terminal (CLI) or a live st.status() panel (web), depending on which interface is running.",
+        code: {
+          language: 'python',
+          code:
+            'def route_and_answer(question: str, on_step=print) -> str:\n    if should_use_cot(question):\n        on_step("[router] routing to chain-of-thought reasoning")\n        return reason_through(question)\n    # ...same routing logic, using on_step(...) instead of print(...) throughout...',
+        },
       },
     ],
     keyTerms: [
-      { term: 'Structured logging', definition: "Logging consistent, named-field objects instead of free-text sentences, making logs searchable/analyzable." },
-      { term: 'Observability', definition: "The general practice of being able to understand a running system's behavior from its outputs (logs, metrics)." },
-      { term: 'Usage tracking', definition: "Accumulating token counts over time to monitor cost and usage patterns." },
+      { term: 'st.secrets', definition: "Streamlit's secrets-management system, reading from a local .streamlit/secrets.toml file or the deployed platform's secrets store." },
+      { term: 'st.status', definition: "A Streamlit container that can be updated live while code runs inside it, ideal for showing an agent's step-by-step progress." },
+      { term: 'on_step callback', definition: "A function parameter (defaulting to print) that lets shared agent logic report progress to either a terminal or a Streamlit UI." },
     ],
     commonMistakes: [
-      "Logging raw user questions/answers indiscriminately, without considering privacy implications.",
-      "Free-text log messages that are hard to search or aggregate at scale.",
-      "Not logging errors with enough context (session id, what was being attempted) to actually diagnose them later.",
-      "Building an elaborate custom logging/metrics system when a project's actual scale doesn't need it yet.",
-      "Forgetting that an in-memory counter (like totalTokensToday) resets on every server restart/redeploy — a real limitation worth knowing.",
+      "Hardcoding the API key directly in app.py instead of using st.secrets — a real security risk if the code is ever pushed publicly.",
+      "Forgetting .streamlit/secrets.toml needs to be added to .gitignore, same as .env.",
+      "Assuming print() statements from Modules 1-4 will show up in the deployed Streamlit UI — they go to server logs instead.",
+      "Rewriting all of Compass's core logic to use st.write() directly, coupling agent logic to a specific UI framework instead of using a swappable callback.",
     ],
     takeaways: [
-      "Structured, object-based logs are far more useful than free-text ones at any real scale.",
-      "Log questions received, tool calls, token usage, and errors — thoughtfully, with privacy in mind.",
-      "Token usage accumulation gives a rough, useful cost signal.",
-      "A simple stats endpoint offers an at-a-glance view without raw log digging.",
-      "Match logging effort to actual project scale — simple and useful beats elaborate and unused.",
+      "st.secrets reads from .streamlit/secrets.toml locally and the platform's secrets store once deployed — never hardcode keys.",
+      "print() output is invisible to users of a deployed web app; it only reaches server logs.",
+      "st.status() provides a live-updating panel, the Streamlit equivalent of print()-based transparency.",
+      "An on_step callback (defaulting to print) lets the SAME agent logic serve both the CLI and the web UI.",
     ],
   },
 
   miniProject: {
     durationMin: 15,
-    title: 'A structured event logger',
-    objective:
-      "Practise structured logging with a few different event types before wiring it into Compass's real routes.",
+    title: 'A live progress panel',
+    objective: "Practise st.status() with a simulated multi-step process before wiring it into Compass's real reasoning.",
     instructions: [
-      "Write logEvent(event, data) as shown in the concept lesson.",
-      "Log 3 different event types with different data shapes.",
-      "Confirm each log line is valid, parseable JSON.",
+      "Create a Streamlit app with a button that triggers a simulated 3-step process.",
+      "Use st.status() to show each step as it 'completes' (use time.sleep to simulate work).",
+      "Mark the status complete at the end.",
     ],
     code: [
       {
-        language: 'typescript',
-        filename: 'log-test.ts',
+        language: 'python',
+        filename: 'status_demo.py',
         code:
-          "function logEvent(event: string, data: Record<string, unknown> = {}) {\n  console.log(JSON.stringify({ event, timestamp: new Date().toISOString(), ...data }));\n}\n\nlogEvent('server_started', { port: 3000 });\nlogEvent('question_received', { sessionId: 'abc123', questionLength: 42 });\nlogEvent('error_occurred', { sessionId: 'abc123', message: 'Simulated failure' });\n\n// Prove it's real, parseable JSON:\nconst line = JSON.stringify({ event: 'test', timestamp: new Date().toISOString() });\nconsole.log('Parsed back:', JSON.parse(line));",
+          'import time\nimport streamlit as st\n\nif st.button("Run process"):\n    with st.status("Working...", expanded=True) as status:\n        st.write("Step 1: gathering data")\n        time.sleep(1)\n        st.write("Step 2: processing")\n        time.sleep(1)\n        st.write("Step 3: finalizing")\n        time.sleep(1)\n        status.update(label="Done!", state="complete")',
       },
     ],
     explanation:
-      "Each logEvent call produces ONE line of valid JSON with a consistent shape: event name, timestamp, plus whatever extra fields are relevant to that specific event. This consistency is what makes structured logs useful at scale — a log-search tool (or even a simple grep + JSON.parse pipeline) can reliably extract 'timestamp' or 'sessionId' from EVERY line, regardless of event type, something impossible with free-text sentences that each have their own ad-hoc format.",
-    expectedOutput:
-      "Three JSON lines, each with 'event' and 'timestamp' fields plus event-specific data, followed by 'Parsed back:' showing the JSON successfully round-trips through parse.",
+      "This isolates the st.status() pattern from any real agent logic — each st.write() call inside the `with` block appears live in the expandable panel AS it executes, and status.update() at the end changes both the label and the collapsed/complete visual state, exactly the mechanism used for Compass's real reasoning trace in the final project.",
+    expectedOutput: "Clicking 'Run process' shows an expanding status panel with each step appearing one at a time, roughly a second apart, ending with a 'Done!' label.",
     learned: [
-      "How to build a consistent, structured logging function.",
-      "Why consistent field names matter for searchability.",
-      "How to verify logs are genuinely valid, parseable JSON.",
-      "The foundation for real production observability.",
+      "How st.status() provides live progress feedback during a running process.",
+      "The difference between print() (server-only) and Streamlit UI updates (visible to the actual user).",
+      "How status.update() changes the panel's final label and state.",
     ],
   },
 
   finalProject: {
     durationMin: 30,
-    feature: "Compass's API route logs structured events for every question, tool call, and error, plus a simple stats endpoint reporting aggregate usage.",
+    feature: "Compass reads its API key from st.secrets, and the chat UI shows Compass's live reasoning (thoughts, routing decisions, tool calls) in an expandable status panel for each response.",
     why:
-      "Once Compass is live and used by real people, you need visibility into what's actually happening — this lesson gives you exactly that, without over-engineering a full observability platform.",
-    fileLocation: "lib/logging.ts (new), lib/compass.ts (add logEvent calls), app/api/stats/route.ts (new)",
+      "This makes Compass's deployed version properly secure AND properly transparent — matching, in the browser, the same visibility print() gave the CLI version throughout Modules 1-4.",
+    fileLocation: 'compass-agent/app.py + compass_agent.py (on_step callback)',
     code: [
       {
-        language: 'typescript',
-        filename: 'lib/logging.ts',
-        code:
-          "export function logEvent(event: string, data: Record<string, unknown> = {}) {\n  console.log(JSON.stringify({ event, timestamp: new Date().toISOString(), ...data }));\n}\n\nexport const stats = {\n  totalQuestions: 0,\n  totalTokens: 0,\n  totalErrors: 0,\n};\n\nexport function trackQuestion() { stats.totalQuestions += 1; }\nexport function trackTokens(input: number, output: number) { stats.totalTokens += input + output; }\nexport function trackError() { stats.totalErrors += 1; }",
+        language: 'toml',
+        filename: '.streamlit/secrets.toml',
+        code: 'ANTHROPIC_API_KEY = "sk-ant-your-key-here"',
       },
       {
-        language: 'typescript',
-        filename: 'lib/compass.ts (add logging calls at key points)',
+        language: 'python',
+        filename: 'compass_agent.py (client + on_step threaded through)',
         code:
-          "import { logEvent, trackQuestion, trackTokens, trackError } from '@/lib/logging';\n\nexport async function askCompass(sessionId: string, question: string): Promise<string> {\n  trackQuestion();\n  logEvent('question_received', { sessionId, questionLength: question.length });\n\n  try {\n    // ...existing loop, calling anthropic.messages.create...\n    // after each successful response:\n    trackTokens(response.usage.input_tokens, response.usage.output_tokens);\n\n    // when a tool is called:\n    logEvent('tool_called', { sessionId, tool: toolBlock.name });\n\n    return finalText;\n  } catch (err) {\n    trackError();\n    logEvent('error_occurred', { sessionId, message: (err as Error).message });\n    return \"Sorry, I'm having trouble right now.\";\n  }\n}",
+          'import streamlit as st\nimport anthropic\n\nclient = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])\n\n\ndef route_and_answer(question: str, on_step=print) -> str:\n    if should_use_cot(question):\n        on_step("Routing to chain-of-thought reasoning")\n        return reason_through(question)\n    if looks_multi_part(question):\n        on_step("Routing to plan+execute")\n        return plan_execute_and_recover(question, on_step=on_step)\n    on_step("Routing to standard reasoning agent")\n    return answer_with_reflection(question, on_step=on_step)',
       },
       {
-        language: 'typescript',
-        filename: 'app/api/stats/route.ts',
+        language: 'python',
+        filename: 'app.py',
         code:
-          "import { NextResponse } from 'next/server';\nimport { stats } from '@/lib/logging';\n\nexport async function GET() {\n  return NextResponse.json(stats);\n}",
+          'import streamlit as st\nfrom compass_agent import route_and_answer\n\nst.set_page_config(page_title="Compass", page_icon="🧭")\nst.title("🧭 Compass")\n\nif "messages" not in st.session_state:\n    st.session_state.messages = []\n\nfor msg in st.session_state.messages:\n    with st.chat_message(msg["role"]):\n        st.write(msg["content"])\n\nif prompt := st.chat_input("Ask Compass something..."):\n    st.session_state.messages.append({"role": "user", "content": prompt})\n    with st.chat_message("user"):\n        st.write(prompt)\n\n    with st.chat_message("assistant"):\n        with st.status("Compass is working...", expanded=False) as status:\n            answer = route_and_answer(prompt, on_step=st.write)\n            status.update(label="Done", state="complete")\n        st.write(answer)\n    st.session_state.messages.append({"role": "assistant", "content": answer})',
       },
     ],
-    placement:
-      "Create lib/logging.ts with the shown functions. Import and call them at the relevant points inside lib/compass.ts's askCompass() (question received, tool called, tokens tracked, errors caught). Create app/api/stats/route.ts to expose the aggregate counts.",
+    placement: "Create .streamlit/secrets.toml locally (and add it to .gitignore). Update compass_agent.py to build the client from st.secrets and accept on_step in route_and_answer() (and the functions it calls). Update app.py's chat loop as shown.",
     implementation:
-      "logEvent() gives every significant moment in Compass's request lifecycle a consistent, structured log line — question_received, tool_called, error_occurred — each carrying a sessionId for correlation but deliberately NOT the raw question/answer text, respecting the privacy consideration from the concept lesson. The stats object accumulates simple running totals in memory; trackQuestion/trackTokens/trackError update it at the right moments, and the /api/stats route exposes a quick JSON snapshot — genuinely useful for a learning project's scale, with the explicit caveat (worth remembering) that these numbers reset on every server restart.",
+      "Passing `on_step=st.write` means every progress message Compass's routing/reasoning logic reports flows directly into the live st.status() panel instead of a terminal — the SAME agent code, just fed a different reporting function. Defaulting on_step to print() keeps the CLI version (main.py from Module 4) working completely unchanged, since it never passes on_step explicitly. expanded=False keeps the reasoning trace tucked away by default (viewable by clicking to expand), so the chat stays clean for users who just want the answer.",
     expectedResult:
-      "Chatting with the deployed Compass now produces structured log lines viewable in Vercel's dashboard, and visiting /api/stats shows real, accumulating totals — e.g. { totalQuestions: 12, totalTokens: 4831, totalErrors: 0 } — reflecting actual usage.",
+      "Asking Compass a multi-part question shows a collapsed 'Compass is working...' panel that, when expanded, reveals the live routing decision, plan steps, and tool activity — then collapses to 'Done' with the final answer shown below it in the chat.",
     connects:
-      "Compass is now observable in production. Lesson 28 (the capstone build sprint) does a full end-to-end review of the ENTIRE deployed product — code, UI, and now these very logs/stats — before the final launch in Lessons 29-30.",
+      "Compass is now secure and properly transparent. Lesson 28 covers actually DEPLOYING this app to Streamlit Community Cloud so it's reachable by anyone with a link, not just on your own machine.",
   },
 
   quiz: [
-    { id: 'c27q1', kind: 'concept', prompt: 'Why is structured logging (objects) preferred over free-text log messages in production?', options: ['No real difference', 'Consistent, named fields make logs searchable and analyzable at scale', 'Free-text logs are technically impossible on Vercel', 'Structured logs are always shorter'], answerIndex: 1, explanation: "Structured logs let you reliably filter/search by field, unlike ad-hoc free-text messages." },
-    { id: 'c27q2', kind: 'application', prompt: 'Why does logEvent() log a sessionId but deliberately NOT the raw question/answer text?', options: ['It’s a technical limitation', 'A privacy consideration — avoiding indiscriminately logging potentially sensitive user content', 'sessionId is required, text is optional randomly', 'Text logging is slower'], answerIndex: 1, explanation: "Being thoughtful about what user content gets logged is a genuine, worthwhile consideration." },
-    { id: 'c27q3', kind: 'concept', prompt: 'What does the stats object track?', options: ['Only errors', 'Total questions, total tokens, and total errors — a rough usage/cost signal', 'The full conversation history', 'API keys'], answerIndex: 1, explanation: "These three running totals give a simple, useful overview of aggregate usage." },
-    { id: 'c27q4', kind: 'debug', prompt: 'After a server restart, /api/stats shows totalQuestions: 0 even though many questions were asked before. Why?', options: ['A bug that must be fixed immediately', 'The in-memory counter resets on restart — a known limitation of this simple approach', 'Stats are corrupted', 'The API route is broken'], answerIndex: 1, explanation: "In-memory state doesn't survive a process restart — this is an acknowledged tradeoff of the simple approach used here." },
-    { id: 'c27q5', kind: 'application', prompt: 'Why log a tool_called event separately from question_received?', options: ['No real reason', 'To specifically track which tools are being used and how often, distinct from overall question volume', 'Tool calls don’t need logging', 'They must always be logged together as one event'], answerIndex: 1, explanation: "Separate, specific event types let you analyze tool usage independently of general question volume." },
-    { id: 'c27q6', kind: 'code_reading', prompt: 'What does JSON.stringify({ event, timestamp: ..., ...data }) produce?', options: ['An error', 'A single JSON string combining the event name, timestamp, and any extra fields from data', 'A plain sentence', 'An empty object'], answerIndex: 1, explanation: "The spread of data merges event-specific fields into the same consistent JSON structure." },
-    { id: 'c27q7', kind: 'output', prompt: 'What should GET /api/stats return after 5 questions with no errors?', options: ['An empty object', 'Something like { totalQuestions: 5, totalTokens: N, totalErrors: 0 }', 'A 404 error', 'The raw conversation text'], answerIndex: 1, explanation: "The stats object accumulates exactly these running totals as questions are processed." },
-    { id: 'c27q8', kind: 'application', prompt: 'Why track tokens via trackTokens(input, output) right after a successful API response?', options: ['No particular timing matters', 'response.usage is only available once the response has actually arrived', 'It should happen before the request is sent', 'Token tracking is unrelated to responses'], answerIndex: 1, explanation: "Usage data comes back WITH the response, so tracking happens after it's received." },
-    { id: 'c27q9', kind: 'project', prompt: "Why does this lesson avoid building an elaborate custom logging/metrics platform?", options: ['It’s technically impossible in Next.js', 'Matching effort to actual project scale — simple, useful logging beats an elaborate system nobody uses yet', 'Logging isn’t important', 'Vercel doesn’t support any logging'], answerIndex: 1, explanation: "The concept lesson explicitly advises against over-engineering observability beyond what the project's scale actually needs." },
-    { id: 'c27q10', kind: 'concept', prompt: 'What does Lesson 28 do with the logging/stats built here?', options: ['Removes them', 'Uses them (along with a full review of the deployed product) as part of the capstone build sprint before launch', 'Ignores them entirely', 'Rebuilds them from scratch'], answerIndex: 1, explanation: "The capstone review in Lesson 28 builds directly on having real observability already in place." },
+    { id: 'c27q1', kind: 'concept', prompt: 'Where should the Anthropic API key be stored for a Streamlit app?', options: ['Hardcoded in app.py', 'st.secrets, backed by .streamlit/secrets.toml locally', 'In a public GitHub repo', 'In the URL'], answerIndex: 1, explanation: 'st.secrets is Streamlit’s secure secrets mechanism, matching the .env pattern used elsewhere in the course.' },
+    { id: 'c27q2', kind: 'concept', prompt: 'Why don’t Compass’s existing print() statements show up in the deployed web app?', options: ['print() is broken in Streamlit', 'print() output goes to the server’s logs, not the browser the user sees', 'Streamlit disables print() entirely', 'It’s a Python 3 limitation'], answerIndex: 1, explanation: 'Server-side print output never reaches the client browser in a deployed web context.' },
+    { id: 'c27q3', kind: 'application', prompt: 'What does st.status() provide that a plain print() can’t, in a Streamlit app?', options: ['Nothing different', 'A live-updating UI panel visible to the actual user in their browser', 'Faster execution', 'Automatic error handling'], answerIndex: 1, explanation: 'st.status() is a UI-visible container updated live while code inside it runs.' },
+    { id: 'c27q4', kind: 'code_reading', prompt: 'What does `on_step=print` as a default parameter achieve in route_and_answer()?', options: ['Nothing, it’s unused', 'The CLI version keeps working unchanged (using print), while the web version passes on_step=st.write instead', 'It disables all output', 'It’s required syntax'], answerIndex: 1, explanation: 'The default lets the SAME function serve both interfaces without the CLI code needing any changes.' },
+    { id: 'c27q5', kind: 'debug', prompt: 'A deployed Compass app crashes with a KeyError on st.secrets["ANTHROPIC_API_KEY"]. What’s the likely cause?', options: ['The code is wrong', 'The secret wasn’t configured in the deployment platform’s secrets settings (or the local secrets.toml is missing/misnamed)', 'Streamlit is broken', 'The API key format is wrong'], answerIndex: 1, explanation: 'A missing secrets.toml (locally) or unconfigured platform secret (deployed) is the most common cause of this error.' },
+    { id: 'c27q6', kind: 'application', prompt: 'Why pass on_step=st.write instead of rewriting Compass’s core logic to call st.write() directly?', options: ['No real reason', 'It keeps the agent logic decoupled from any specific UI framework, reusable by both the CLI and web interfaces', 'st.write() only works inside app.py', 'It’s required by the API'], answerIndex: 1, explanation: 'A swappable callback avoids coupling core agent logic to Streamlit specifically.' },
+    { id: 'c27q7', kind: 'output', prompt: 'What does status.update(label="Done", state="complete") change?', options: ['Nothing visible', 'The status panel’s displayed label and its visual complete/collapsed state', 'The chat history', 'The API key'], answerIndex: 1, explanation: 'update() lets you change the container’s label and completion state once its work is done.' },
+    { id: 'c27q8', kind: 'project', prompt: 'Why does the final project use expanded=False for the status panel by default?', options: ['No reason', 'To keep the chat visually clean for users who just want the answer, while still letting them expand to see the reasoning', 'It’s required syntax', 'To hide errors'], answerIndex: 1, explanation: 'Collapsed-by-default balances transparency (available on demand) with a clean default chat experience.' },
+    { id: 'c27q9', kind: 'concept', prompt: 'What must be added to .gitignore alongside .env?', options: ['app.py', '.streamlit/secrets.toml', 'requirements.txt', 'compass_agent.py'], answerIndex: 1, explanation: 'secrets.toml contains the real API key and must never be committed, same as .env.' },
+    { id: 'c27q10', kind: 'concept', prompt: 'What does Lesson 28 cover next?', options: ['More reasoning patterns', 'Actually deploying the app to Streamlit Community Cloud so it’s reachable by anyone with a link', 'Removing the chat UI', 'Adding new tools'], answerIndex: 1, explanation: 'Lesson 28 covers the real deployment process.' },
   ],
 
   homework: {
-    task:
-      "Add response-time tracking: log how long each askCompass() call took (in milliseconds), and add an averageResponseTimeMs field to the stats object.",
+    task: "Thread the on_step callback through plan_execute_and_recover() and answer_with_reflection() (from Module 4) so their internal print() calls also become on_step() calls, matching route_and_answer()'s pattern.",
     requirements: [
-      "Record a start time at the beginning of askCompass() and compute elapsed time before returning.",
-      "Log it as part of an event (e.g. answer_sent with a durationMs field).",
-      "Maintain a running average in the stats object, updated after each call.",
+      "Add on_step=print as a default parameter to both functions.",
+      "Replace their internal print(...) calls with on_step(...).",
+      "Verify the CLI version (main.py) still works unchanged, since it never passes on_step explicitly.",
     ],
-    expectedOutcome:
-      "The /api/stats endpoint now includes an averageResponseTimeMs field that updates realistically as more questions are processed, giving visibility into Compass's actual performance.",
+    expectedOutcome: "Every layer of Compass's reasoning (routing, planning, reflection) reports through the same swappable on_step mechanism, so the Streamlit status panel shows the FULL trace, not just the top-level routing decision.",
     extends: 'final',
     previousHomeworkHint: {
       forLessonNumber: 26,
-      hint: "Lesson 26 asked you to add a 'New conversation' button clearing both local UI state and the server-side session history.",
+      hint: "Lesson 26 asked you to add a 'Clear conversation' button resetting st.session_state.messages.",
       steps: [
-        "Add a DELETE handler (or a special { clear: true } flag in the POST body) on /api/compass that removes the session's entry from sessionHistories.",
-        "In CompassChat.tsx, add a button calling this endpoint, then also call setMessages([]) to clear the visible UI.",
-        "Test: chat a bit, click 'New conversation', then ask a follow-up that would only make sense with the old context — confirm it no longer does.",
-      ],
-      codeGuidance: [
-        {
-          language: 'typescript',
-          filename: 'app/api/compass/route.ts (add a DELETE handler)',
-          code:
-            "export async function DELETE() {\n  const cookieStore = await cookies();\n  const sessionId = cookieStore.get('compass-session')?.value;\n  if (sessionId) sessionHistories.delete(sessionId);\n  return NextResponse.json({ ok: true });\n}",
-        },
+        "Add the button inside st.sidebar, e.g. st.sidebar.button('Clear conversation').",
+        "On click, set st.session_state.messages = [] and call st.rerun() so the cleared UI shows immediately.",
       ],
     },
   },

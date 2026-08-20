@@ -1,179 +1,151 @@
 import type { StructuredLesson } from '@/lib/curriculum/types';
 
 /**
- * Compass · Lesson 24 — Module 4 Build: The Planning Agent
+ * Compass · Lesson 24 — Module 4 Build: The Reasoning Agent
  * Module 4 (Planning + Reasoning) · Lesson 24 of 30
  */
 export const lesson24: StructuredLesson = {
   courseId: 'agent-101',
   moduleNum: 4,
-  lessonIndex: 5,
+  lessonIndex: 6,
   globalNumber: 24,
-  name: 'Module 4 build — the planning agent',
-  title: 'Module 4 Build — Compass, a Real Planning Agent',
-  subtitle: "Wire complex-task detection into the REPL, and review Compass's complete reasoning system.",
+  name: 'Module 4 build — the reasoning agent',
+  title: 'Module 4 Build — Compass, a Full Reasoning Agent',
+  subtitle: "Wire ReAct, Chain-of-Thought, Plan+Execute, self-reflection, and error recovery into one router.",
 
   concept: {
     durationMin: 15,
     summary:
-      "Learn how to detect when a request needs the full planning pipeline vs. a direct answer, and review everything Module 4 built.",
+      "Review Module 4's five reasoning patterns and build a router that picks the right one for a given request, instead of forcing everything through the heaviest pipeline.",
     sections: [
       {
-        heading: 'Automatically choosing the right path',
+        heading: 'A router, not a single pipeline',
         body:
-          "Right now, the REPL always calls askCompassStreaming() (the direct path) — a user would have to somehow manually invoke askCompassWithPlan() for a complex task. A real agent should DETECT which path fits and choose automatically, the same way earlier heuristics decided on memory-saving and Chain of Thought.",
+          "Running EVERY question through the full plan_execute_and_recover() + self-reflection pipeline would be wasteful — a simple factual question doesn't need a 6-step plan and two rounds of critique. A router function looks at the incoming request and picks the lightest pattern that will genuinely serve it well.",
       },
       {
-        heading: 'A complexity heuristic',
+        heading: 'The routing decision',
         body:
-          "Signals a task likely needs full planning: multiple distinct verbs/requests joined by 'and', explicit multi-part phrasing ('research X, then compare Y'), or simply being unusually long. A simple heuristic: count coordinating conjunctions and request-like verbs.",
+          "Three simple signals are usually enough: does the question look reasoning-heavy but tool-free (from Lesson 20's should_use_cot heuristic) → reason_through(); does it look like it needs multiple distinct sub-tasks (multiple 'and's, multiple questions in one message) → plan_execute_and_recover(); otherwise → the standard ReAct-enabled run_agent_loop() from Lesson 19, optionally with a lightweight self-reflection pass.",
         code: {
-          language: 'typescript',
+          language: 'python',
           code:
-            "function needsPlanning(task: string): boolean {\n  const conjunctionCount = (task.match(/\\band\\b/gi) ?? []).length;\n  const isLong = task.length > 150;\n  const hasSequenceWords = /\\bthen\\b|\\bafter that\\b|\\bfinally\\b/i.test(task);\n  return conjunctionCount >= 2 || isLong || hasSequenceWords;\n}",
+            'def route_and_answer(question: str) -> str:\n    if should_use_cot(question):\n        print("[router] routing to chain-of-thought reasoning")\n        return reason_through(question)\n\n    if looks_multi_part(question):\n        print("[router] routing to plan+execute")\n        return plan_execute_and_recover(question)\n\n    print("[router] routing to standard reasoning agent")\n    return answer_with_reflection(question)',
         },
       },
       {
-        heading: 'Wiring the choice into the REPL',
+        heading: 'Detecting multi-part requests',
         body:
-          "The REPL simply checks needsPlanning() and routes to the appropriate function — a small, clean addition that doesn't disturb any of the underlying pipeline logic already built.",
+          "A simple heuristic — counting coordinating conjunctions and question marks — is enough to catch the common cases without needing a separate model call just to classify the request.",
         code: {
-          language: 'typescript',
+          language: 'python',
           code:
-            "const answer = needsPlanning(trimmed)\n  ? await askCompassWithPlan(trimmed)\n  : await askCompassStreaming(trimmed);",
+            'def looks_multi_part(question: str) -> bool:\n    lower = question.lower()\n    conjunction_count = lower.count(" and ") + lower.count(" then ")\n    question_mark_count = question.count("?")\n    return conjunction_count >= 2 or question_mark_count >= 2',
         },
       },
       {
-        heading: 'Reviewing Module 4',
+        heading: 'Reviewing Module 4 end to end',
         body:
-          "In six lessons, Compass gained real reasoning depth: explicit tool-decision reasoning (ReAct, L19), step-by-step problem reasoning (Chain of Thought, L20), genuine task decomposition (Plan + Execute, L21), self-checking (Reflection, L22), and resilience to a failing step (Error Recovery, L23). This lesson (L24) makes all of it automatically accessible from the REPL, without the user needing to know which internal pipeline is running.",
-      },
-      {
-        heading: 'What’s next for Compass',
-        body:
-          "Compass is now a genuinely capable, reasoning, memory-aware agent — running entirely on YOUR machine. Module 5 takes this exact agent and deploys it to the internet with a real UI, so anyone can use it, not just you in a terminal.",
+          "Module 4 built five genuinely distinct capabilities: ReAct (visible reasoning before acting), Chain-of-Thought (pure step-by-step logic), Plan+Execute (decomposing big tasks), self-reflection (checking and revising its own work), and error recovery (surviving a failed step gracefully). Together with Module 2's tools and Module 3's memory, Compass is now a genuinely capable reasoning agent — everything except getting it in front of real users.",
       },
     ],
     keyTerms: [
-      { term: 'Complexity heuristic', definition: "A rule of thumb for detecting whether a request likely needs the full planning pipeline vs. a direct answer." },
-      { term: 'Routing', definition: "Automatically choosing which internal function/pipeline handles a request based on its characteristics." },
+      { term: 'Router', definition: "A function that inspects an incoming request and dispatches it to the most appropriate reasoning pattern, rather than always using the heaviest one." },
+      { term: 'Multi-part detection', definition: "A lightweight heuristic (conjunctions, question marks) used to guess whether a request needs decomposition into multiple steps." },
     ],
     commonMistakes: [
-      "Requiring the user to manually specify which pipeline to use, instead of detecting it automatically.",
-      "A complexity heuristic too aggressive, routing simple questions through the expensive full planning pipeline unnecessarily.",
-      "A heuristic too conservative, missing genuinely complex requests that would benefit from planning.",
-      "Not testing BOTH paths (direct and planned) after wiring in the routing logic.",
-      "Forgetting streaming (Module 1) only applies to the direct path — askCompassWithPlan() doesn't stream its intermediate steps the same way.",
+      "Routing every question through the heaviest available pipeline (Plan+Execute + reflection), wasting cost and latency.",
+      "Using a full model call just to CLASSIFY a request, when a cheap heuristic would work almost as well.",
+      "Forgetting the router itself needs testing against a range of question types, not just the happy path.",
+      "Treating the router's heuristics as perfect — they're approximations, and edge cases will occasionally route 'wrong' without being catastrophic.",
     ],
     takeaways: [
-      "A complexity heuristic can automatically route a request to the right pipeline.",
-      "Routing logic is a small, clean addition on top of already-built pipelines.",
-      "Module 4 gave Compass ReAct, Chain of Thought, Plan + Execute, self-reflection, and error recovery.",
-      "The REPL now transparently uses the right level of reasoning for each request.",
-      "Module 5 deploys this complete agent to the web for real, wider use.",
+      "A router dispatches requests to the lightest pattern that will serve them well, not always the heaviest.",
+      "Cheap heuristics (conjunction/question-mark counts) can approximate classification without an extra model call.",
+      "Module 4 delivered five distinct reasoning capabilities: ReAct, CoT, Plan+Execute, self-reflection, error recovery.",
+      "Combined with Modules 2-3's tools and memory, Compass is now a complete reasoning agent.",
     ],
   },
 
   miniProject: {
     durationMin: 15,
-    title: 'A complexity classifier test',
-    objective:
-      "Practise the needsPlanning() heuristic against a mix of simple and complex example requests.",
+    title: 'Testing the multi-part detector',
+    objective: "Verify looks_multi_part() correctly distinguishes simple from multi-part questions.",
     instructions: [
-      "Write needsPlanning() as shown in the concept lesson.",
-      "Test it against 3 simple questions and 3 genuinely multi-part requests.",
-      "Confirm the classification matches your expectations for each.",
+      "Write looks_multi_part() as shown in the concept section.",
+      "Test it against 3 simple questions and 3 genuinely multi-part ones.",
+      "Print the result for each.",
     ],
     code: [
       {
-        language: 'typescript',
-        filename: 'classify-test.ts',
+        language: 'python',
+        filename: 'router_test.py',
         code:
-          "function needsPlanning(task: string): boolean {\n  const conjunctionCount = (task.match(/\\band\\b/gi) ?? []).length;\n  const isLong = task.length > 150;\n  const hasSequenceWords = /\\bthen\\b|\\bafter that\\b|\\bfinally\\b/i.test(task);\n  return conjunctionCount >= 2 || isLong || hasSequenceWords;\n}\n\nconst tests = [\n  'What is 12 times 4?',\n  'What is the capital of Japan?',\n  'Explain what a variable is.',\n  'Research three programming languages, compare their learning curves, and recommend one for a beginner.',\n  'First find the population of France, then calculate what 10% of that number is, and finally explain why that matters.',\n  'Plan a study schedule for the week and suggest three resources for learning React.',\n];\n\nfor (const t of tests) console.log(needsPlanning(t), '-', t);",
+          'simple = ["What\'s the capital of France?", "Convert 10 miles to km.", "Define recursion."]\nmulti_part = [\n    "Check the weather in Tokyo and NYC, and tell me which is better for a trip, and suggest what to pack.",\n    "Research three job candidates and then write a comparison summary.",\n    "What\'s the population of Japan, and what\'s the population of Germany?",\n]\n\nfor q in simple + multi_part:\n    print(f"{looks_multi_part(q)}: {q}")',
       },
     ],
     explanation:
-      "The three simple questions each have zero or one 'and', are short, and have no sequence words — all correctly classify as false (direct path). The three complex requests each hit at least one trigger: multiple 'and's, explicit 'then'/'finally' sequencing, or simple length — correctly classifying as true (planning path). This confirms the heuristic draws a reasonable line between 'answerable in one shot' and 'genuinely needs decomposition', using only cheap, local string checks — no extra API call required just to DECIDE which pipeline to use.",
-    expectedOutput:
-      "false, false, false for the three simple questions; true, true, true for the three complex ones — a clean split matching intuitive expectations.",
+      "This test directly checks the router's most subjective heuristic. It's expected to be imperfect at the margins — the goal is a heuristic that's RIGHT MOST OF THE TIME cheaply, not a perfect classifier, which is exactly the tradeoff the concept section calls out.",
+    expectedOutput: "The three simple questions print False; the three multi-part ones print True.",
     learned: [
-      "How to build a lightweight complexity-detection heuristic.",
-      "How to validate a heuristic against a deliberately mixed test set.",
-      "Why routing decisions should be cheap (no extra API call) where possible.",
-      "The final piece connecting Module 4's pipelines to real user input.",
+      "How to build and test a cheap text-based heuristic.",
+      "Why an approximate, fast heuristic can be preferable to a perfect but expensive one.",
+      "How to design a test set covering both the intended-pass and intended-fail cases.",
     ],
   },
 
   finalProject: {
     durationMin: 30,
-    feature: "Compass's REPL automatically routes every question to the right pipeline — direct streaming for simple questions, full Plan + Execute + Reflection for complex ones — the Module 4 milestone.",
+    feature: "Compass gains route_and_answer() — a single entry point that automatically picks the right reasoning pattern for any given request, completing Module 4.",
     why:
-      "This is what makes Module 4's powerful capabilities actually USABLE day to day: the user just talks to Compass naturally, and it quietly picks the right level of reasoning for each request.",
-    fileLocation: "compass-agent/index.ts (add needsPlanning + update the REPL loop)",
+      "This is the Module 4 payoff: instead of the user (or calling code) needing to know which of five patterns to invoke, Compass decides for itself, making the whole reasoning system usable through one simple function call.",
+    fileLocation: 'compass-agent/main.py',
     code: [
       {
-        language: 'typescript',
-        filename: 'index.ts (add near other heuristics)',
+        language: 'python',
+        filename: 'main.py',
         code:
-          "function needsPlanning(task: string): boolean {\n  const conjunctionCount = (task.match(/\\band\\b/gi) ?? []).length;\n  const isLong = task.length > 150;\n  const hasSequenceWords = /\\bthen\\b|\\bafter that\\b|\\bfinally\\b/i.test(task);\n  return conjunctionCount >= 2 || isLong || hasSequenceWords;\n}",
-      },
-      {
-        language: 'typescript',
-        filename: 'index.ts (update the REPL loop’s question-handling branch)',
-        code:
-          "if (needsPlanning(trimmed)) {\n  console.log('[routing] this looks like a multi-part task — planning it out');\n  const answer = await askCompassWithPlan(trimmed);\n  console.log(`Compass: ${answer}\\n`);\n} else {\n  process.stdout.write('Compass: ');\n  await askCompassStreaming(trimmed);\n  console.log();\n}",
+          'def looks_multi_part(question: str) -> bool:\n    lower = question.lower()\n    conjunction_count = lower.count(" and ") + lower.count(" then ")\n    question_mark_count = question.count("?")\n    return conjunction_count >= 2 or question_mark_count >= 2\n\n\ndef route_and_answer(question: str) -> str:\n    if should_use_cot(question):\n        print("[router] routing to chain-of-thought reasoning")\n        return reason_through(question)\n\n    if looks_multi_part(question):\n        print("[router] routing to plan+execute")\n        return plan_execute_and_recover(question)\n\n    print("[router] routing to standard reasoning agent")\n    return answer_with_reflection(question)\n\n\nif __name__ == "__main__":\n    print("Compass is ready. Type \'exit\' to quit.\\n")\n    while True:\n        user_input = input("You: ").strip()\n        if user_input.lower() in ("exit", "quit"):\n            break\n        if not user_input:\n            continue\n\n        answer = route_and_answer(user_input)\n        print(f"\\nCompass: {answer}\\n")\n\n        if should_remember(user_input):\n            save_memory(user_input)',
       },
     ],
-    placement:
-      "Add needsPlanning() near your other heuristic functions (shouldRemember, needsChainOfThought). In the REPL loop, replace the single 'always call askCompassStreaming' branch with the if/else routing shown — everything else in the loop (exit, help, forget, memories commands) stays exactly as built in earlier lessons.",
+    placement: "Add looks_multi_part() and route_and_answer() to main.py, and replace your existing REPL loop with the version above so it calls route_and_answer() as the single entry point.",
     implementation:
-      "The routing check happens BEFORE any API call — needsPlanning() is pure local string analysis, so choosing a path costs nothing extra. Complex requests get logged as routed to planning, then call askCompassWithPlan() (which internally uses generatePlan, executePlan with per-step recovery, synthesizeResults, and the reflect/revise loop — everything from Lessons 21-23) and print the final answer as one block, since that pipeline doesn't stream intermediate text the way the direct path does. Simple requests still get the full Module 1 streaming experience, completely unaffected by any of Module 4's additions.",
+      "route_and_answer() checks should_use_cot() FIRST (cheapest, most specific signal), then looks_multi_part() (broader, catches genuinely large tasks), and falls through to answer_with_reflection() — itself already ReAct-enabled and self-reflecting — as the sensible default for everything else. The REPL loop stays exactly as simple as Module 1's, but now every response silently benefits from FIVE modules of reasoning capability behind that one route_and_answer() call.",
     expectedResult:
-      "Asking Compass 'What is 15% of 200?' streams a quick direct answer as before. Asking 'Research three note-taking apps, compare their features, and recommend one for students' now logs '[routing] this looks like a multi-part task...', works through a visible plan with progress logging, and returns one coherent, synthesized (and self-reviewed) recommendation.",
+      "Asking Compass a simple factual question routes to the standard agent and answers quickly. Asking a multi-step logic riddle routes to chain-of-thought with visible reasoning. Asking a genuinely multi-part request ('check the weather in two cities and recommend packing') routes to the full plan+execute+recovery pipeline, visibly printing its plan and progress.",
     connects:
-      "Module 4 is complete: Compass reasons explicitly, plans complex tasks, checks its own work, and recovers from step failures — all automatically routed based on what each request actually needs. Module 5 (Deploy + Capstone) takes this complete, capable agent and puts it on the real internet.",
+      "Module 4 is complete — Compass reasons, plans, checks itself, and recovers from failures, all through one router. Module 5 shifts focus entirely to DEPLOYMENT: taking this working command-line agent and turning it into a real Streamlit web app other people can actually use.",
   },
 
   quiz: [
-    { id: 'c24q1', kind: 'concept', prompt: 'What does needsPlanning() decide?', options: ['Whether to save a memory', 'Whether a request should use the direct path or the full Plan + Execute pipeline', 'Whether to use a tool', 'Whether to retry a failed call'], answerIndex: 1, explanation: "This heuristic routes between the simple and complex-task pipelines." },
-    { id: 'c24q2', kind: 'application', prompt: 'Why is needsPlanning() implemented as local string checks rather than an API call?', options: ['API calls are impossible here', 'It keeps the routing decision itself free and instant, before any real work begins', 'It’s required by TypeScript', 'It disables planning entirely'], answerIndex: 1, explanation: "A cheap, local heuristic avoids spending an API call just to decide which pipeline to use." },
-    { id: 'c24q3', kind: 'debug', prompt: 'A genuinely complex, multi-part request gets answered directly instead of being planned. Likely cause?', options: ['askCompassWithPlan is broken', 'The request’s phrasing didn’t trigger any of needsPlanning’s heuristics (conjunctions, length, sequence words)', 'Planning is disabled by default', 'The API rejected the request'], answerIndex: 1, explanation: "A heuristic can miss cases that don't match its specific trigger conditions — a real, acknowledged limitation." },
-    { id: 'c24q4', kind: 'concept', prompt: 'Why does the routed "planning" branch print the final answer as one block instead of streaming it?', options: ['A bug that should be fixed', 'The Plan + Execute pipeline (multiple internal calls, synthesis, reflection) doesn’t stream its intermediate text the same way a single direct call does', 'Streaming is disabled entirely in Module 4', 'It’s slower on purpose'], answerIndex: 1, explanation: "The multi-step pipeline's final output comes from a synthesis call, which this lesson doesn't wire into the streaming display." },
-    { id: 'c24q5', kind: 'application', prompt: 'What FIVE capabilities did Module 4 add to Compass overall?', options: ['Streaming, tools, memory, deployment, and evals', 'ReAct reasoning, Chain of Thought, Plan + Execute, self-reflection, and error recovery', 'Only planning, nothing else', 'A user interface and a database'], answerIndex: 1, explanation: "These five map directly to Lessons 19 through 23." },
-    { id: 'c24q6', kind: 'code_reading', prompt: 'What does `(task.match(/\\band\\b/gi) ?? []).length` count?', options: ['The number of words in the task', 'The number of times the word "and" appears in the task', 'The number of tools available', 'The task’s character length'], answerIndex: 1, explanation: "This counts occurrences of the word 'and', used as one signal of multi-part phrasing." },
-    { id: 'c24q7', kind: 'output', prompt: 'Given the mini-project’s test set, what should "What is the capital of Japan?" classify as?', options: ['Needs planning (true)', 'Direct path (false)', 'An error', 'Both simultaneously'], answerIndex: 1, explanation: "A short, single-part factual question shouldn't trigger any of the complexity heuristics." },
-    { id: 'c24q8', kind: 'application', prompt: 'Why keep the direct path (askCompassStreaming) fully unaffected by Module 4’s additions?', options: ['It shouldn’t be unaffected', 'Simple questions should stay fast, cheap, and streaming — Module 4’s overhead is reserved for genuinely complex requests', 'The direct path no longer works', 'They must always behave identically'], answerIndex: 1, explanation: "Preserving the efficient direct path for simple questions is a deliberate design choice, not an oversight." },
-    { id: 'c24q9', kind: 'project', prompt: "Why does this lesson's routing logic require NO changes to generatePlan, executePlan, synthesizeResults, or reflect?", options: ['It secretly requires rewriting all of them', 'Routing only decides WHICH already-built pipeline to call — the pipelines themselves are untouched', 'Those functions were deleted', 'Routing and planning are unrelated'], answerIndex: 1, explanation: "This lesson is purely additive glue code connecting existing, already-tested pipelines to real user input." },
-    { id: 'c24q10', kind: 'concept', prompt: 'What is Module 5 about to do with this complete agent?', options: ['Rebuild it in a different language', 'Deploy it to the internet with a real UI, so anyone can use it', 'Delete the planning pipeline', 'Add more tools only'], answerIndex: 1, explanation: "Module 5 (Deploy + Capstone) is the final module, taking Compass from a local terminal tool to a live, public agent." },
+    { id: 'c24q1', kind: 'concept', prompt: 'What is the purpose of route_and_answer()?', options: ['To generate plans only', 'To dispatch each request to the lightest reasoning pattern that will genuinely serve it well', 'To replace all previous patterns entirely', 'To handle only errors'], answerIndex: 1, explanation: 'The router avoids running every question through the heaviest possible pipeline.' },
+    { id: 'c24q2', kind: 'application', prompt: 'Why check should_use_cot() before looks_multi_part() in the router?', options: ['No particular order matters', 'It’s the cheapest, most specific signal, checked first before broader/more expensive routing', 'Order is random', 'looks_multi_part() must always run first'], answerIndex: 1, explanation: 'Checking cheap, specific signals before broader ones is a sensible ordering.' },
+    { id: 'c24q3', kind: 'code_reading', prompt: 'What does looks_multi_part() count to decide if a question needs decomposition?', options: ['Only word count', 'Coordinating conjunctions (" and ", " then ") and question marks', 'API response time', 'Number of tool calls'], answerIndex: 1, explanation: 'These are the two cheap textual signals used by the heuristic.' },
+    { id: 'c24q4', kind: 'debug', prompt: 'A genuinely simple question gets routed to plan_execute_and_recover() unnecessarily. What’s the likely cause?', options: ['A crash', 'The question happened to contain 2+ "and"s or "?"s despite being conceptually simple — a heuristic false positive', 'The API is broken', 'should_use_cot() is broken'], answerIndex: 1, explanation: 'The heuristic is approximate by design; occasional false positives are an accepted tradeoff for being cheap and fast.' },
+    { id: 'c24q5', kind: 'concept', prompt: 'Which five capabilities did Module 4 build across Lessons 19-23?', options: ['Only memory features', 'ReAct, Chain-of-Thought, Plan+Execute, self-reflection, error recovery', 'Only deployment features', 'Only tool-calling features'], answerIndex: 1, explanation: 'These are the five distinct reasoning patterns covered across the module.' },
+    { id: 'c24q6', kind: 'application', prompt: 'Why is answer_with_reflection() (not raw run_agent_loop()) used as the router’s default fallback?', options: ['No reason', 'It already includes ReAct reasoning AND a self-reflection quality check, making it a solid general-purpose default', 'It’s the cheapest option', 'It bypasses tools'], answerIndex: 1, explanation: 'answer_with_reflection() builds on run_agent_loop and adds the critique/revise step, making it a strong default.' },
+    { id: 'c24q7', kind: 'output', prompt: 'What prints when the router routes a question to chain-of-thought?', options: ['Nothing', '"[router] routing to chain-of-thought reasoning"', 'An error', 'The full plan'], answerIndex: 1, explanation: 'Each routing branch prints a visible label, consistent with the course’s transparency principle.' },
+    { id: 'c24q8', kind: 'project', prompt: 'In the final REPL loop, when is should_remember()/save_memory() called?', options: ['Never', 'After route_and_answer() returns, checking the user’s input for memory-worthy content', 'Before route_and_answer()', 'Only for CoT-routed questions'], answerIndex: 1, explanation: 'Memory saving happens after each turn, independent of which reasoning pattern handled the question.' },
+    { id: 'c24q9', kind: 'concept', prompt: 'Why is a perfect classifier NOT required for looks_multi_part()?', options: ['Perfection is required', 'A cheap, mostly-right heuristic is a reasonable tradeoff versus an expensive dedicated classification call for every request', 'It has no effect on behavior', 'The API enforces this'], answerIndex: 1, explanation: 'The router optimizes for being fast and mostly-correct rather than perfect and expensive.' },
+    { id: 'c24q10', kind: 'concept', prompt: 'What is Module 5’s focus?', options: ['More reasoning patterns', 'Deployment — turning the working CLI agent into a real Streamlit web app', 'Removing memory', 'Adding more tools'], answerIndex: 1, explanation: 'Module 5 shifts from capability-building to shipping Compass as an actual deployed app.' },
   ],
 
   homework: {
-    task:
-      "Add a manual override: if a user's message starts with '/plan ', strip that prefix and force the planning pipeline regardless of what needsPlanning() would decide — useful for a simple question the user WANTS broken down anyway.",
+    task: "Add a --verbose flag (via sys.argv) that, when passed, prints which router branch was chosen for EVERY question during a session, plus a running tally at exit (counts per branch).",
     requirements: [
-      "Check if the trimmed input starts with '/plan ' before the automatic needsPlanning() check.",
-      "If so, strip the prefix and call askCompassWithPlan() directly on the remaining text.",
-      "Confirm a normally-simple question forced with '/plan' now goes through the full pipeline.",
+      "Check sys.argv for '--verbose' at startup.",
+      "Track a dict of branch -> count, incrementing it inside route_and_answer() (or by having it return which branch it used).",
+      "Print the tally when the REPL loop exits.",
     ],
-    expectedOutcome:
-      "Typing '/plan What is 12 times 4?' forces the full planning pipeline even though the automatic heuristic would normally route it directly — giving the user manual control when they want it.",
+    expectedOutcome: "Running `python main.py --verbose` shows a routing summary (e.g. 'cot: 2, plan_execute: 1, standard: 4') when you exit the session.",
     extends: 'final',
     previousHomeworkHint: {
       forLessonNumber: 23,
-      hint: "Lesson 23 asked you to add a retry (up to 2 attempts) for a failing plan step before recording it as failed.",
+      hint: "Lesson 23 asked you to print a per-plan failure summary: succeeded, succeeded-after-retry, and failed counts.",
       steps: [
-        "Inside executePlan()'s loop, wrap each step's execution in its own small retry loop (e.g. for (let attempt = 0; attempt < 2; attempt++)).",
-        "On success, push the result and break out of the retry loop immediately.",
-        "Only push the '[This step could not be completed]' placeholder after BOTH attempts have failed.",
-        "Log which attempt succeeded, or that both failed, for visibility.",
-      ],
-      codeGuidance: [
-        {
-          language: 'typescript',
-          filename: 'index.ts (inside executePlan, per step)',
-          code:
-            "let succeeded = false;\nfor (let attempt = 0; attempt < 2 && !succeeded; attempt++) {\n  try {\n    const result = await askCompass(step);\n    results.push(result);\n    succeeded = true;\n    console.log(`[plan] step ${i + 1} succeeded on attempt ${attempt + 1}`);\n  } catch (err) {\n    console.warn(`[plan] step ${i + 1} attempt ${attempt + 1} failed:`, err);\n  }\n}\nif (!succeeded) results.push(`[This step could not be completed: \"${step}\"]`);",
-        },
+        "Track three counters inside execute_plan_with_recovery(): first_try, after_retry, failed.",
+        "Increment the right one at each stage of the retry logic.",
+        "Print a one-line summary after the loop finishes.",
       ],
     },
   },

@@ -1,178 +1,151 @@
 import type { StructuredLesson } from '@/lib/curriculum/types';
 
 /**
- * Compass · Lesson 20 — Chain of Thought
+ * Compass · Lesson 20 — Chain-of-Thought Reasoning
  * Module 4 (Planning + Reasoning) · Lesson 20 of 30
  */
 export const lesson20: StructuredLesson = {
   courseId: 'agent-101',
   moduleNum: 4,
-  lessonIndex: 1,
+  lessonIndex: 2,
   globalNumber: 20,
-  name: 'Chain of thought',
-  title: 'Chain of Thought — Step-by-Step Reasoning Without Tools',
-  subtitle: "Improve Compass's accuracy on tricky reasoning questions, even ones that need no tool at all.",
+  name: 'Chain-of-thought reasoning',
+  title: 'Chain-of-Thought — Step-by-Step Reasoning Without Tools',
+  subtitle: "Get more reliable answers on reasoning-heavy questions by asking Claude to think step by step, even with no tools involved.",
 
   concept: {
     durationMin: 15,
     summary:
-      "Learn Chain of Thought (CoT) prompting — asking the model to work through a problem step by step — and when it genuinely improves accuracy.",
+      "Learn Chain-of-Thought (CoT) prompting: explicitly asking a model to reason step by step before giving a final answer, and when this technique helps most.",
     sections: [
       {
-        heading: 'What Chain of Thought is',
+        heading: 'What Chain-of-Thought is',
         body:
-          "Chain of Thought means instructing the model to work through a problem in explicit STEPS before giving a final answer, rather than jumping straight to a conclusion. For genuinely tricky reasoning (logic puzzles, multi-part word problems, anything requiring several dependent deductions), this measurably improves accuracy — the model is less likely to skip a step or make an unjustified leap.",
-      },
-      {
-        heading: 'CoT vs. ReAct — related but different',
-        body:
-          "ReAct (Lesson 19) is about reasoning specifically BEFORE deciding whether to use a TOOL. Chain of Thought is broader: reasoning through the PROBLEM ITSELF, step by step, whether or not any tool is involved at all. A logic puzzle needs CoT but no tool; a live-data question needs ReAct's tool-decision reasoning. They complement each other.",
-      },
-      {
-        heading: 'Prompting for Chain of Thought',
-        body:
-          "A simple, effective instruction: ask the model to 'think through this step by step' before answering, for reasoning-heavy questions specifically — not necessarily every single question, since it adds length/tokens for simple ones that don't need it.",
+          "Chain-of-Thought prompting simply asks the model to show its work — 'think step by step' — before answering. Unlike ReAct (Lesson 19), CoT doesn't necessarily involve any tool calls at all; it's about the model reasoning through logic, arithmetic, or multi-step deduction purely in text.",
         code: {
-          language: 'text',
+          language: 'python',
           code:
-            "For questions requiring multi-step reasoning or logic, work through the problem\nstep by step BEFORE giving your final answer. For simple factual questions,\nanswer directly without extra steps.",
+            'COT_SYSTEM_PROMPT = """When answering questions that involve multiple steps, logic, \nor arithmetic, think through the problem step by step BEFORE giving your final answer.\n\nFormat:\nReasoning: <your step-by-step thinking>\nAnswer: <your final, concise answer>"""',
         },
       },
       {
-        heading: 'Detecting when CoT applies',
+        heading: 'Why it works',
         body:
-          "Rather than force every question through elaborate reasoning, a simple heuristic (similar to Lesson 17's memory triggers) can detect likely-reasoning-heavy questions — phrases like 'how many', 'if...then', 'explain why', or multi-clause questions — and only THEN explicitly request step-by-step reasoning.",
-        code: {
-          language: 'typescript',
-          code:
-            "const REASONING_TRIGGERS = ['how many', 'if ', 'why', 'explain', 'compare', 'which is'];\n\nfunction needsChainOfThought(question: string): boolean {\n  const lower = question.toLowerCase();\n  return REASONING_TRIGGERS.some((t) => lower.includes(t));\n}",
-        },
+          "Models generate text one token at a time, using everything generated so far as context for what comes next. Skipping straight to a final answer means the model has to get a multi-step problem right 'in one shot' with no intermediate work to build on. Generating reasoning FIRST gives it scratch space — much like a person working through a math problem on paper rather than in their head.",
       },
       {
-        heading: 'A worked example: why CoT helps',
+        heading: 'When CoT helps — and when it doesn’t',
         body:
-          "Consider: 'A bakery sells 3 cakes for every 5 loaves of bread. If they sold 40 loaves yesterday, how many cakes did they sell?' Jumping straight to an answer risks arithmetic slips; working step by step — set up the ratio, compute 40 ÷ 5 = 8, then 8 × 3 = 24 — makes each step checkable and the final answer far more reliable.",
+          "CoT gives its biggest boost on problems with multiple logical/arithmetic steps, ambiguous wording that benefits from being worked through, or classification/multi-criteria decisions. For simple factual lookups ('what's the capital of France'), it adds nothing but latency and length — recognizing which category a question falls into is itself a useful judgment call, not something to apply blindly everywhere.",
+      },
+      {
+        heading: 'Parsing out just the final answer',
+        body:
+          "When Compass needs the ANSWER programmatically (not just to show the user the full reasoning), a simple parse of the 'Answer:' line does the job without needing structured output APIs.",
+        code: {
+          language: 'python',
+          code:
+            'import re\n\ndef extract_final_answer(text: str) -> str:\n    match = re.search(r"Answer:\\s*(.+)", text, re.DOTALL)\n    return match.group(1).strip() if match else text.strip()',
+        },
       },
     ],
     keyTerms: [
-      { term: 'Chain of Thought (CoT)', definition: "Prompting the model to work through a problem in explicit steps before answering." },
-      { term: 'Reasoning trigger', definition: "A phrase pattern suggesting a question likely needs step-by-step reasoning." },
+      { term: 'Chain-of-Thought (CoT)', definition: "A prompting technique asking a model to reason step by step in text before giving a final answer." },
+      { term: 'Scratch space', definition: "Intermediate reasoning text a model generates that becomes context for its own next tokens, improving multi-step accuracy." },
     ],
     commonMistakes: [
-      "Forcing elaborate step-by-step reasoning on every question, even simple factual ones — wastes tokens and adds unnecessary length.",
-      "Confusing CoT (reasoning through the PROBLEM) with ReAct (reasoning about whether to use a TOOL) — related but distinct.",
-      "Not detecting WHEN CoT is actually needed, missing the chance to keep simple answers snappy.",
-      "Assuming CoT guarantees a correct answer — it improves ODDS of correctness by making steps checkable, not a guarantee.",
-      "Writing a reasoning-trigger list too narrow to catch common question phrasings.",
+      "Applying CoT to every question regardless of complexity, adding unnecessary length to simple answers.",
+      "Confusing CoT with ReAct — CoT is pure reasoning, ReAct interleaves reasoning WITH tool calls.",
+      "Forgetting to parse out just the final answer when the reasoning text itself shouldn't be shown to the user.",
+      "Assuming CoT guarantees a correct answer — it improves reliability on complex problems, it isn't a correctness guarantee.",
     ],
     takeaways: [
-      "Chain of Thought asks the model to reason step by step before answering.",
-      "It measurably improves accuracy on multi-step reasoning/logic questions specifically.",
-      "CoT and ReAct are complementary but distinct — problem reasoning vs. tool-decision reasoning.",
-      "A trigger heuristic can detect likely-reasoning-heavy questions to apply CoT selectively.",
-      "CoT improves reliability by making steps checkable — it doesn't guarantee a correct answer.",
+      "Chain-of-Thought asks a model to reason step by step in text before answering, no tools required.",
+      "It works because generated reasoning becomes context for the model's own next tokens.",
+      "CoT helps most on multi-step, logical, or ambiguous problems — not simple factual lookups.",
+      "A simple regex can parse out just the final answer when only that's needed programmatically.",
     ],
   },
 
   miniProject: {
     durationMin: 15,
-    title: 'A word-problem accuracy test',
-    objective:
-      "Compare accuracy on a genuinely tricky word problem with and without an explicit Chain of Thought instruction.",
+    title: 'Comparing CoT vs. direct answers',
+    objective: "See the practical difference CoT makes on a multi-step logic problem versus a direct-answer prompt.",
     instructions: [
-      "Pick (or write) a multi-step word problem with a specific correct numeric answer.",
-      "Ask it with a plain system prompt, and separately with a CoT-instructing one.",
-      "Compare both answers against the actual correct answer.",
+      "Pick a multi-step word problem (e.g. a simple age/math riddle).",
+      "Ask Claude the SAME question once with a direct-answer system prompt, once with the COT_SYSTEM_PROMPT.",
+      "Compare the two outputs and note which is more reliable.",
     ],
     code: [
       {
-        language: 'typescript',
-        filename: 'cot-test.ts',
+        language: 'python',
+        filename: 'cot_test.py',
         code:
-          "import 'dotenv/config';\nimport Anthropic from '@anthropic-ai/sdk';\n\nconst anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });\nconst PROBLEM = 'A train travels 60 miles in the first hour and 45 miles in the second hour. If it continues at the average of those two speeds for a third hour, how many total miles will it have traveled after 3 hours?';\n\nasync function ask(system: string) {\n  const response = await anthropic.messages.create({\n    model: 'claude-sonnet-5', max_tokens: 400, system,\n    messages: [{ role: 'user', content: PROBLEM }],\n  });\n  return response.content[0].type === 'text' ? response.content[0].text : '';\n}\n\nasync function main() {\n  console.log('PLAIN:\\n', await ask('Answer the question directly.'));\n  console.log('\\nCOT:\\n', await ask('Work through this step by step before giving your final answer.'));\n}\n\nmain();",
+          'question = (\n    "Sara is twice as old as her brother. In 6 years, she will be "\n    "1.5 times his age. How old is Sara now?"\n)\n\ndirect = client.messages.create(\n    model="claude-sonnet-4-5",\n    max_tokens=200,\n    system="Answer concisely with just the final answer.",\n    messages=[{"role": "user", "content": question}],\n)\n\ncot = client.messages.create(\n    model="claude-sonnet-4-5",\n    max_tokens=400,\n    system=COT_SYSTEM_PROMPT,\n    messages=[{"role": "user", "content": question}],\n)\n\nprint("Direct:", direct.content[0].text)\nprint("\\nCoT:", cot.content[0].text)',
       },
     ],
     explanation:
-      "The problem requires TWO dependent calculations: the average speed (60+45)/2 = 52.5, then total distance 60+45+52.5 = 157.5 miles — a genuinely easy place to slip up if rushed. The PLAIN prompt encourages jumping straight to a number; the COT prompt encourages laying out each calculation explicitly, which both makes the final answer more reliable AND lets you (or the model itself) catch a mistake by re-checking a specific step, rather than only having a bare final number to trust or distrust.",
-    expectedOutput:
-      "The COT response shows explicit steps (average speed calculation, then total) leading to 157.5 miles. The PLAIN response MAY reach the same answer but with no visible working — harder to verify, and empirically more error-prone on trickier problems.",
+      "This side-by-side comparison makes the CoT effect concrete rather than theoretical: the direct-answer version has to produce the correct number immediately, while the CoT version sets up an equation, solves it step by step, then states the answer — visibly showing the 'scratch space' benefit in action.",
+    expectedOutput: "Both attempt an answer; the CoT version shows visible algebra steps (e.g. defining variables, an equation, solving) before its final answer line.",
     learned: [
-      "How to construct a genuinely multi-step reasoning test question.",
-      "How to compare plain vs. CoT prompting directly.",
-      "Why visible steps make answers easier to verify.",
-      "That CoT's benefit is most visible on genuinely multi-step problems, not trivial ones.",
+      "How to structure a direct comparison test between two prompting strategies.",
+      "What a CoT response actually looks like versus a direct one.",
+      "Why multi-step word problems are a good testbed for this technique.",
     ],
   },
 
   finalProject: {
     durationMin: 30,
-    feature: "Compass automatically detects reasoning-heavy questions and applies Chain of Thought prompting selectively — better accuracy on tricky questions, without unnecessary verbosity on simple ones.",
+    feature: "Compass gains a reason_through() helper that applies Chain-of-Thought specifically for complex/logical questions, separate from its normal tool-use loop.",
     why:
-      "This directly improves the RELIABILITY of Compass's answers on exactly the kind of question where it previously might have jumped to a wrong conclusion — logic, multi-step word problems, and 'why' questions.",
-    fileLocation: "compass-agent/index.ts (add needsChainOfThought + wire into buildSystemPrompt)",
+      "Not every hard question needs a tool — some just need careful step-by-step reasoning. Giving Compass this as a distinct capability rounds out its reasoning toolkit.",
+    fileLocation: 'compass-agent/main.py',
     code: [
       {
-        language: 'typescript',
-        filename: 'index.ts (add near shouldRemember)',
+        language: 'python',
+        filename: 'main.py',
         code:
-          "const REASONING_TRIGGERS = ['how many', 'if ', 'why', 'explain', 'compare', 'which is'];\n\nfunction needsChainOfThought(question: string): boolean {\n  const lower = question.toLowerCase();\n  return REASONING_TRIGGERS.some((t) => lower.includes(t));\n}",
-      },
-      {
-        language: 'typescript',
-        filename: 'index.ts (update buildSystemPrompt to add CoT conditionally)',
-        code:
-          "async function buildSystemPrompt(question: string): Promise<string> {\n  const relevant = await recallRelevant(question);\n  let prompt = SYSTEM_PROMPT;\n\n  if (relevant.length > 0) {\n    const plural = relevant.length === 1 ? 'memory' : 'memories';\n    console.log(`[memory] found ${relevant.length} relevant ${plural}`);\n    prompt += `\\n\\nRelevant things you remember about this user: ${relevant.join('; ')}`;\n  }\n\n  if (needsChainOfThought(question)) {\n    console.log('[reasoning] this looks like a multi-step question — thinking it through');\n    prompt += `\\n\\nThis question may need multi-step reasoning. Work through it step by step before giving your final answer.`;\n  }\n\n  return prompt;\n}",
+          'import re\n\nCOT_SYSTEM_PROMPT = """When answering questions that involve multiple steps, logic, \nor arithmetic, think through the problem step by step BEFORE giving your final answer.\n\nFormat:\nReasoning: <your step-by-step thinking>\nAnswer: <your final, concise answer>"""\n\n\ndef extract_final_answer(text: str) -> str:\n    match = re.search(r"Answer:\\s*(.+)", text, re.DOTALL)\n    return match.group(1).strip() if match else text.strip()\n\n\ndef reason_through(question: str, show_reasoning: bool = True) -> str:\n    response = client.messages.create(\n        model="claude-sonnet-4-5",\n        max_tokens=600,\n        system=COT_SYSTEM_PROMPT,\n        messages=[{"role": "user", "content": question}],\n    )\n    full_text = response.content[0].text\n\n    if show_reasoning:\n        print(f"\\n{full_text}\\n")\n\n    return extract_final_answer(full_text)',
       },
     ],
-    placement:
-      "Add needsChainOfThought() near your other heuristic functions (shouldRemember). Update buildSystemPrompt() to check it and conditionally append a CoT instruction — the memory-recall logic from Lesson 18 stays exactly as it was, this is purely an ADDITION.",
+    placement: "Add reason_through() alongside your other agent functions in main.py.",
     implementation:
-      "needsChainOfThought() runs the same lightweight substring-check pattern as shouldRemember() — cheap, fast, no extra API call. buildSystemPrompt() now conditionally builds up its final string: base prompt, PLUS memory context if relevant, PLUS a CoT instruction if the question looks reasoning-heavy — each addition independent of the others, so a question can trigger any combination (or none) of them. The console log makes this selective behavior visible too, consistent with the transparency principle from Lessons 12 and 18.",
+      "reason_through() is deliberately kept SEPARATE from the main tool-use loop — it's a focused, single-purpose call for when a question is purely a reasoning problem with no need for external information. show_reasoning defaults to True so the user sees Compass's full working, matching the transparency principle established across Modules 2 and 3; setting it False lets calling code get back just the clean final answer via extract_final_answer().",
     expectedResult:
-      "Asking Compass a simple factual question gets a normal, quick answer as before. Asking a genuinely multi-step word problem now logs '[reasoning] this looks like a multi-step question...' and the response visibly works through the steps before concluding — noticeably more reliable on exactly this kind of question.",
+      "Calling reason_through('If a train travels 60 mph for 2.5 hours, how far does it go?') prints the full Reasoning/Answer breakdown and returns just '150 miles' as the clean extracted answer.",
     connects:
-      "Compass now reasons well for BOTH tool decisions (ReAct) and standalone problems (CoT). Lesson 21 (Plan + Execute) goes one level further: breaking a genuinely large, multi-PART task into an explicit plan with multiple steps, each potentially needing its own tool calls and reasoning.",
+      "CoT gives Compass focused step-by-step reasoning for logic-heavy questions. Lesson 21 combines this kind of reasoning WITH multi-step task decomposition — the Plan+Execute pattern — for tasks too large to reason through in a single pass.",
   },
 
   quiz: [
-    { id: 'c20q1', kind: 'concept', prompt: 'What does Chain of Thought prompting ask the model to do?', options: ['Skip straight to an answer', 'Work through a problem in explicit steps before giving a final answer', 'Use more tools', 'Ignore the system prompt'], answerIndex: 1, explanation: "CoT is about explicit, step-by-step reasoning through the problem itself." },
-    { id: 'c20q2', kind: 'concept', prompt: 'How does Chain of Thought differ from ReAct?', options: ['They are identical', 'CoT reasons through the PROBLEM itself; ReAct reasons about whether to use a TOOL — complementary, not the same', 'ReAct is only for math', 'CoT requires a different API'], answerIndex: 1, explanation: "The two techniques address different aspects of an agent's reasoning." },
-    { id: 'c20q3', kind: 'application', prompt: 'Why NOT apply Chain of Thought to every single question, even simple ones?', options: ['It’s technically impossible for simple questions', 'It adds unnecessary length/tokens for questions that don’t benefit from it', 'CoT only works with tools', 'Simple questions can’t use CoT at all'], answerIndex: 1, explanation: "Selective application avoids wasted verbosity on questions that don't need extended reasoning." },
-    { id: 'c20q4', kind: 'application', prompt: 'What is needsChainOfThought() an example of?', options: ['A tool definition', 'A trigger-phrase heuristic, similar in spirit to shouldRemember()', 'An embedding function', 'A retry mechanism'], answerIndex: 1, explanation: "It follows the same lightweight substring-matching heuristic pattern used for memory-save detection." },
-    { id: 'c20q5', kind: 'debug', prompt: 'A genuinely tricky multi-step word problem gets a quick, unreliable answer. Likely cause?', options: ['The API is broken', 'The question phrasing didn’t match any REASONING_TRIGGERS, so CoT wasn’t applied', 'Chain of Thought is disabled entirely', 'The temperature is too low'], answerIndex: 1, explanation: "A heuristic-based trigger can miss questions phrased in ways not covered by its trigger list." },
-    { id: 'c20q6', kind: 'concept', prompt: 'Why does working through explicit steps make an answer more reliable?', options: ['It doesn’t actually help', 'Each step becomes individually checkable, reducing the chance of an unnoticed leap or arithmetic slip', 'It uses a different, smarter model', 'It bypasses the system prompt'], answerIndex: 1, explanation: "Visible, verifiable steps reduce the risk of an unjustified or incorrect jump to a conclusion." },
-    { id: 'c20q7', kind: 'output', prompt: 'For the train mileage problem in the mini-project, what is the mathematically correct total?', options: ['105 miles', '157.5 miles', '120 miles', '210 miles'], answerIndex: 1, explanation: "Average speed (60+45)/2 = 52.5, so total = 60 + 45 + 52.5 = 157.5 miles." },
-    { id: 'c20q8', kind: 'application', prompt: 'How does buildSystemPrompt() combine memory recall and Chain of Thought?', options: ['They’re mutually exclusive, only one can apply', 'Each addition (memory context, CoT instruction) is independent — a question can trigger any combination', 'CoT disables memory recall', 'Memory recall disables CoT'], answerIndex: 1, explanation: "The two features are additive and independent, each checked and appended separately." },
-    { id: 'c20q9', kind: 'project', prompt: "Why does the final project log '[reasoning] this looks like a multi-step question...' when CoT is applied?", options: ['Purely decorative with no purpose', 'Consistent with the transparency principle from earlier lessons — showing the user/developer WHEN and WHY extra reasoning is being applied', 'It’s required by the API', 'It replaces the actual reasoning'], answerIndex: 1, explanation: "This log follows the same visibility pattern established for tool use and memory recall." },
-    { id: 'c20q10', kind: 'concept', prompt: 'What does Lesson 21 build on top of ReAct and Chain of Thought?', options: ['Deployment', 'Breaking a large, multi-PART task into an explicit plan with several steps', 'A new embedding model', 'Fine-tuning'], answerIndex: 1, explanation: "Plan + Execute extends single-question reasoning into genuine multi-step task decomposition." },
+    { id: 'c20q1', kind: 'concept', prompt: 'What is Chain-of-Thought prompting?', options: ['A tool-calling pattern', 'Asking a model to reason step by step in text before giving a final answer', 'A memory technique', 'A deployment strategy'], answerIndex: 1, explanation: 'CoT is purely about eliciting step-by-step reasoning text before the answer.' },
+    { id: 'c20q2', kind: 'concept', prompt: 'How does CoT differ from ReAct?', options: ['They’re identical', 'CoT is pure reasoning with no tools; ReAct interleaves reasoning WITH tool calls', 'ReAct never involves reasoning', 'CoT requires an API flag'], answerIndex: 1, explanation: "ReAct's Action step specifically involves tool calls; CoT is reasoning alone." },
+    { id: 'c20q3', kind: 'application', prompt: 'Why does generating reasoning text FIRST improve a model’s final answer?', options: ['It doesn’t', 'The reasoning becomes context for the model’s own subsequent tokens, like scratch work', 'It only affects formatting', 'It slows the model down on purpose with no benefit'], answerIndex: 1, explanation: 'Models predict tokens using everything generated so far, so visible reasoning genuinely informs the answer that follows.' },
+    { id: 'c20q4', kind: 'application', prompt: 'When does CoT add little value?', options: ['Multi-step logic problems', 'Simple factual lookups like "what’s the capital of France"', 'Ambiguous wording', 'Multi-criteria decisions'], answerIndex: 1, explanation: 'Simple factual questions don’t benefit from step-by-step reasoning and just gain unnecessary length/latency.' },
+    { id: 'c20q5', kind: 'code_reading', prompt: 'What does extract_final_answer() do if no "Answer:" line is found?', options: ['Raises an exception', 'Falls back to returning the full stripped text', 'Returns an empty string', 'Returns None'], answerIndex: 1, explanation: 'The `if match else text.strip()` fallback handles the case where the pattern isn’t found.' },
+    { id: 'c20q6', kind: 'debug', prompt: 'reason_through() returns a full paragraph including "Reasoning:" text instead of just the final answer. What’s the likely cause?', options: ['The API is broken', 'The response text doesn’t match the expected "Answer:" format, so the regex fails and falls back to the full text', 'show_reasoning is set wrong', 'It’s intended behavior'], answerIndex: 1, explanation: "If the model doesn't follow the requested Reasoning/Answer format exactly, the regex won't find a match." },
+    { id: 'c20q7', kind: 'project', prompt: 'Why does reason_through() default show_reasoning to True?', options: ['No particular reason', 'To match the transparency principle used throughout the course (tool use, memory recall)', 'It’s required by the API', 'To make responses slower'], answerIndex: 1, explanation: 'Showing the reasoning by default is consistent with the transparency pattern from Modules 2 and 3.' },
+    { id: 'c20q8', kind: 'output', prompt: 'For "If a train travels 60 mph for 2.5 hours, how far does it go?", what should reason_through() return?', options: ['The full reasoning paragraph', "'150 miles' (or equivalent), the extracted final answer", 'An error', 'Nothing'], answerIndex: 1, explanation: '60 * 2.5 = 150, and extract_final_answer() pulls just that final line.' },
+    { id: 'c20q9', kind: 'concept', prompt: 'Is reason_through() part of the main tool-use loop?', options: ['Yes, always', 'No, it’s deliberately kept separate for pure reasoning questions with no external info needed', 'It replaces the tool-use loop', 'It requires tools to function'], answerIndex: 1, explanation: 'reason_through() is a focused, standalone function for logic-only questions.' },
+    { id: 'c20q10', kind: 'concept', prompt: 'What does Lesson 21 combine with this kind of reasoning?', options: ['Deployment', 'Multi-step task decomposition — the Plan+Execute pattern', 'A user interface', 'Voice input'], answerIndex: 1, explanation: 'Plan+Execute breaks a large task into steps, building on reasoning covered here.' },
   ],
 
   homework: {
-    task:
-      "Extend REASONING_TRIGGERS with at least 3 additional phrases you think are commonly used in multi-step questions (e.g. 'what percentage', 'in total', 'step by step'), and test that a previously-missed question now correctly triggers CoT.",
+    task: "Add a should_use_cot(question) heuristic that decides whether a question is reasoning-heavy enough to warrant reason_through(), versus being answered directly.",
     requirements: [
-      "Add at least 3 new trigger phrases to the REASONING_TRIGGERS array.",
-      "Find (or write) a reasoning-heavy question that was previously missed by the original trigger list.",
-      "Confirm it now correctly triggers the '[reasoning] this looks like a multi-step question...' log.",
+      "Use simple signals: presence of numbers plus comparison words ('twice', 'more than'), multi-clause sentences, or question words like 'how many' combined with a calculation.",
+      "Return a bool.",
+      "Test it against at least 3 reasoning-heavy and 3 simple factual questions.",
     ],
-    expectedOutcome:
-      "A previously-missed reasoning-heavy question now correctly triggers Chain of Thought, without breaking detection for questions that already worked before.",
+    expectedOutcome: "A should_use_cot() function that correctly routes reasoning-heavy questions to reason_through() and simple ones to a direct answer.",
     extends: 'final',
     previousHomeworkHint: {
       forLessonNumber: 19,
-      hint: "Lesson 19 asked you to log a note when NO tool is needed — the model answered directly — for consistent reasoning visibility.",
+      hint: "Lesson 19 asked you to add a turn counter to printed thoughts, like '[thought 1] ...', '[thought 2] ...'.",
       steps: [
-        "In askCompass()'s loop, find the branch where response.stop_reason !== 'tool_use' (the final-answer path).",
-        "Right before returning the text, add console.log('[reasoning] Answered directly, no tool needed.').",
-        "Test with a plain factual question (should show this log) and a tool-requiring question (should show the tool/reasoning logs instead).",
-      ],
-      codeGuidance: [
-        {
-          language: 'typescript',
-          filename: 'index.ts (inside askCompass, final-answer branch)',
-          code:
-            "if (response.stop_reason !== 'tool_use') {\n  console.log('[reasoning] Answered directly, no tool needed.');\n  return response.content[0].type === 'text' ? response.content[0].text : '';\n}",
-        },
+        "Initialize turn = 1 before the loop in run_agent_loop.",
+        "Include it in the print: print(f\"\\n[thought {turn}] {thought}\").",
+        "Increment turn at the end of each loop iteration.",
       ],
     },
   },

@@ -16,7 +16,7 @@ export const lesson05: StructuredLesson = {
   concept: {
     durationMin: 15,
     summary:
-      "Understand why AI replies stream token-by-token, and learn to read a streamed response from the Claude API in real time.",
+      "Understand why AI replies stream token-by-token, and learn to read a streamed response from the API in real time using Python.",
     sections: [
       {
         heading: 'The problem with waiting for the full reply',
@@ -24,29 +24,29 @@ export const lesson05: StructuredLesson = {
           "Every call so far waits for Claude's ENTIRE answer before showing anything — for a longer response, that's a multi-second silent pause. Real AI products stream: text appears progressively as it's generated, which feels faster and lets the user start reading immediately, even though the total generation time is similar.",
       },
       {
-        heading: 'Streaming with the Anthropic SDK',
+        heading: 'Streaming with the Python SDK',
         body:
-          "Instead of messages.create, use messages.stream(...) — it returns an async iterable you loop over with for await...of, receiving small pieces of text (deltas) as Claude generates them.",
+          "Instead of client.messages.create, use client.messages.stream(...) as a context manager (a with block) — it gives you a stream object you iterate over with for text in stream.text_stream, receiving small pieces of text as Claude generates them.",
         code: {
-          language: 'typescript',
+          language: 'python',
           code:
-            "const stream = anthropic.messages.stream({\n  model: 'claude-sonnet-5',\n  max_tokens: 400,\n  system: SYSTEM_PROMPT,\n  messages: [{ role: 'user', content: question }],\n});\n\nfor await (const event of stream) {\n  if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {\n    process.stdout.write(event.delta.text);   // print each piece as it arrives\n  }\n}",
+            "with client.messages.stream(\n    model=\"claude-sonnet-5\",\n    max_tokens=400,\n    system=SYSTEM_PROMPT,\n    messages=[{\"role\": \"user\", \"content\": question}],\n) as stream:\n    for text in stream.text_stream:\n        print(text, end=\"\", flush=True)   # print each piece as it arrives, no newline",
         },
       },
       {
         heading: 'Reading events vs collecting the final text',
         body:
-          "The stream emits several event TYPES as it works (message start, content block deltas, message stop). For a simple CLI, you can just print every text_delta as it arrives. If you also need the FULL final text afterward (to save, log, or return), accumulate each delta into a string as you go.",
+          "text_stream gives you just the new text chunks — simplest for a live-printing use case. If you also need the FULL final text afterward (to save, log, or return), accumulate each chunk into a string as you go, or use stream.get_final_text() once the with block completes.",
         code: {
-          language: 'typescript',
+          language: 'python',
           code:
-            "let fullText = '';\nfor await (const event of stream) {\n  if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {\n    process.stdout.write(event.delta.text);\n    fullText += event.delta.text;\n  }\n}\n// fullText now holds the complete reply, after the loop finishes",
+            "full_text = \"\"\nwith client.messages.stream(...) as stream:\n    for text in stream.text_stream:\n        print(text, end=\"\", flush=True)\n        full_text += text\n# full_text now holds the complete reply, after the `with` block finishes",
         },
       },
       {
         heading: 'Streaming vs the retry logic from Lesson 4',
         body:
-          "A stream can also fail mid-way (network drop, server error). Wrap the WHOLE streaming loop in try/catch so a failure partway through still ends gracefully rather than hanging — the retry-with-backoff pattern from Lesson 4 is harder to apply mid-stream, so for now Compass's streaming path uses a simpler 'catch and report' approach.",
+          "A stream can also fail mid-way (network drop, server error). Wrap the WHOLE streaming block in try/except so a failure partway through still ends gracefully rather than hanging — the retry-with-backoff pattern from Lesson 4 is harder to apply mid-stream, so for now Compass's streaming path uses a simpler 'catch and report' approach.",
       },
       {
         heading: 'When NOT to stream',
@@ -56,22 +56,22 @@ export const lesson05: StructuredLesson = {
     ],
     keyTerms: [
       { term: 'Streaming', definition: "Receiving a response in small pieces as it's generated, instead of waiting for the whole thing." },
-      { term: 'messages.stream()', definition: "The Anthropic SDK method returning an async iterable of streaming events." },
-      { term: 'text_delta', definition: "A streaming event containing one small piece of newly generated text." },
-      { term: 'for await...of', definition: "JavaScript syntax for looping over an async iterable, like a stream, one item at a time." },
+      { term: 'client.messages.stream()', definition: "The Python SDK's context-manager method for reading a streaming response." },
+      { term: 'text_stream', definition: "An iterator on the stream object yielding each new piece of generated text." },
+      { term: 'Context manager (with block)', definition: "Python syntax that sets up and automatically cleans up a resource, like a stream connection." },
     ],
     commonMistakes: [
-      "Using messages.create (non-streaming) when a live-typing UX is actually wanted.",
-      "Forgetting to accumulate the deltas if the full final text is needed afterward, not just printed.",
-      "Not wrapping the streaming loop in error handling, leaving it able to hang or crash mid-stream.",
+      "Using client.messages.create (non-streaming) when a live-typing UX is actually wanted.",
+      "Forgetting to accumulate the chunks if the full final text is needed afterward, not just printed.",
+      "Not wrapping the streaming block in error handling, leaving it able to hang or crash mid-stream.",
       "Streaming for a background task where nothing is actually watching — unnecessary complexity.",
-      "Checking only event.type without also checking event.delta.type, missing that deltas come in different kinds.",
+      "Forgetting flush=True on print(), which can delay output appearing due to Python's stdout buffering.",
     ],
     takeaways: [
       "Streaming shows text progressively, improving PERCEIVED responsiveness.",
-      "messages.stream() + for await...of is the SDK pattern for reading a stream.",
-      "Accumulate deltas into a string if you need the full final text afterward.",
-      "Wrap the whole streaming loop in try/catch — a stream can fail mid-way too.",
+      "client.messages.stream() as a with block is the SDK pattern for reading a stream in Python.",
+      "Accumulate chunks into a string if you need the full final text afterward.",
+      "Wrap the whole streaming block in try/except — a stream can fail mid-way too.",
       "Streaming is a UX choice for live-reading scenarios, not a universal default.",
     ],
   },
@@ -83,25 +83,25 @@ export const lesson05: StructuredLesson = {
       "Practise reading a real stream and printing it live in the terminal, proving the effect end-to-end.",
     instructions: [
       "Write a script that streams a reply to a simple question.",
-      "Print each text_delta as it arrives, with no newline, so it appears to type itself.",
+      "Print each text chunk as it arrives, with no newline, so it appears to type itself.",
       "Print a newline once the stream finishes.",
     ],
     code: [
       {
-        language: 'typescript',
-        filename: 'stream-test.ts',
+        language: 'python',
+        filename: 'stream_test.py',
         code:
-          "import 'dotenv/config';\nimport Anthropic from '@anthropic-ai/sdk';\n\nconst anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });\n\nasync function main() {\n  const stream = anthropic.messages.stream({\n    model: 'claude-sonnet-5',\n    max_tokens: 200,\n    messages: [{ role: 'user', content: 'Explain streaming in one short paragraph.' }],\n  });\n\n  for await (const event of stream) {\n    if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {\n      process.stdout.write(event.delta.text);\n    }\n  }\n  process.stdout.write('\\n');\n}\n\nmain();",
+          "from dotenv import load_dotenv\nimport anthropic\n\nload_dotenv()\nclient = anthropic.Anthropic()\n\ndef main():\n    with client.messages.stream(\n        model=\"claude-sonnet-5\",\n        max_tokens=200,\n        messages=[{\"role\": \"user\", \"content\": \"Explain streaming in one short paragraph.\"}],\n    ) as stream:\n        for text in stream.text_stream:\n            print(text, end=\"\", flush=True)\n    print()\n\nif __name__ == \"__main__\":\n    main()",
       },
     ],
     explanation:
-      "process.stdout.write (unlike console.log) doesn't add a newline after each call, so writing each small text_delta directly next to the last one produces a genuine live-typing effect in the terminal — you watch the sentence build itself in real time rather than appearing all at once. The final process.stdout.write('\\n') just tidies up the terminal after the stream ends.",
+      "print(text, end=\"\") (unlike the default print()) doesn't add a newline after each call, so printing each small chunk directly next to the last one produces a genuine live-typing effect in the terminal — you watch the sentence build itself in real time rather than appearing all at once. flush=True forces Python to write immediately instead of buffering output, which matters for a smooth live effect. The final bare print() just adds a tidy newline after the stream ends.",
     expectedOutput:
-      "Running the script shows a short explanation of streaming appearing progressively, character-chunk by character-chunk, in your terminal.",
+      "Running the script shows a short explanation of streaming appearing progressively, chunk by chunk, in your terminal.",
     learned: [
-      "How to start and read a real Claude stream.",
-      "The difference between console.log and process.stdout.write for this effect.",
-      "How to detect and handle text_delta events specifically.",
+      "How to start and read a real Claude stream in Python.",
+      "Why end=\"\" and flush=True matter for a live-typing effect.",
+      "How to iterate over stream.text_stream.",
       "What a genuine streaming effect looks like end-to-end.",
     ],
   },
@@ -111,70 +111,70 @@ export const lesson05: StructuredLesson = {
     feature: "Compass streams its answers live in the terminal, with the same error handling and usage logging from earlier lessons.",
     why:
       "A CLI research assistant that visibly 'thinks out loud' as it answers feels far more responsive and alive than one that pauses silently for several seconds.",
-    fileLocation: "compass-agent/index.ts (add a streaming askCompassStreaming variant)",
+    fileLocation: "compass-agent/main.py (add a streaming ask_compass_streaming variant)",
     code: [
       {
-        language: 'typescript',
-        filename: 'index.ts (add alongside askCompass)',
+        language: 'python',
+        filename: 'main.py (add alongside ask_compass)',
         code:
-          "async function askCompassStreaming(question: string): Promise<string> {\n  let fullText = '';\n  try {\n    const stream = anthropic.messages.stream({\n      model: 'claude-sonnet-5',\n      max_tokens: 400,\n      temperature: 0.2,\n      system: SYSTEM_PROMPT,\n      messages: [{ role: 'user', content: question }],\n    });\n\n    for await (const event of stream) {\n      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {\n        process.stdout.write(event.delta.text);\n        fullText += event.delta.text;\n      }\n    }\n    process.stdout.write('\\n');\n    return fullText;\n  } catch (err) {\n    console.error('\\n[error] Compass lost connection mid-answer:', err);\n    return fullText || \"Sorry, I couldn't finish that answer. Please try again.\";\n  }\n}",
+          "def ask_compass_streaming(question: str) -> str:\n    full_text = \"\"\n    try:\n        with client.messages.stream(\n            model=\"claude-sonnet-5\",\n            max_tokens=400,\n            temperature=0.2,\n            system=SYSTEM_PROMPT,\n            messages=[{\"role\": \"user\", \"content\": question}],\n        ) as stream:\n            for text in stream.text_stream:\n                print(text, end=\"\", flush=True)\n                full_text += text\n        print()\n        return full_text\n    except Exception as err:\n        print(f\"\\n[error] Compass lost connection mid-answer: {err}\")\n        return full_text or \"Sorry, I couldn't finish that answer. Please try again.\"",
       },
       {
-        language: 'typescript',
-        filename: 'index.ts (update main to use it)',
+        language: 'python',
+        filename: 'main.py (update main to use it)',
         code:
-          "async function main() {\n  const question = process.argv[2] ?? 'What can you help me with?';\n  console.log(`You: ${question}`);\n  process.stdout.write('Compass: ');\n  await askCompassStreaming(question);\n}\n\nmain();",
+          "def main():\n    question = sys.argv[1] if len(sys.argv) > 1 else \"What can you help me with?\"\n    print(f\"You: {question}\")\n    print(\"Compass: \", end=\"\")\n    ask_compass_streaming(question)\n\nif __name__ == \"__main__\":\n    main()",
       },
     ],
     placement:
-      "Add askCompassStreaming alongside your existing askCompass() function (keep both — the non-streaming version is still useful when you just need a return value with no live output, like in an automated test). Update main() to call the streaming version and print 'Compass: ' before it starts.",
+      "Add ask_compass_streaming alongside your existing ask_compass() function (keep both — the non-streaming version is still useful when you just need a return value with no live output, like in an automated test). Update main() to call the streaming version and print 'Compass: ' before it starts.",
     implementation:
-      "askCompassStreaming mirrors askCompass()'s structure (same model, temperature, system prompt) but reads the response via messages.stream() and a for await loop instead of a single messages.create call. It accumulates every text_delta into fullText AS it prints them live — so by the time the loop ends, you have both the live terminal effect AND a complete string to return, useful for later logging or saving. The try/catch wraps the entire streaming loop, so a mid-stream failure still returns something usable (whatever text streamed successfully, or a fallback message) instead of crashing.",
+      "ask_compass_streaming mirrors ask_compass()'s structure (same model, temperature, system prompt) but reads the response via client.messages.stream() and a for loop instead of a single messages.create call. It accumulates every chunk into full_text AS it prints them live — so by the time the with block ends, you have both the live terminal effect AND a complete string to return, useful for later logging or saving. The try/except wraps the entire streaming block, so a mid-stream failure still returns something usable (whatever text streamed successfully, or a fallback message) instead of crashing.",
     expectedResult:
       "Running Compass now shows 'Compass: ' followed by the answer typing itself out live in the terminal, word by word, rather than appearing all at once after a pause.",
     connects:
-      "This streaming pattern — accumulate deltas while printing live — is exactly what a real chat UI (built much later in this course, when Compass gets deployed) will do in the browser instead of the terminal. The underlying technique is identical.",
+      "This streaming pattern — accumulate chunks while printing live — is exactly what a real Streamlit app (built in Module 5, when Compass gets deployed) will do in the browser instead of the terminal. The underlying technique is identical.",
   },
 
   quiz: [
     { id: 'c5q1', kind: 'concept', prompt: 'What does streaming change about an AI response?', options: ['It makes the model think faster', 'Text arrives progressively instead of all at once at the end', 'It removes the need for an API key', 'It changes the model’s actual answer'], answerIndex: 1, explanation: "Streaming is about DELIVERY timing, not the content or speed of generation itself." },
-    { id: 'c5q2', kind: 'code_reading', prompt: 'What does for await (const event of stream) do?', options: ['Loops once and stops', 'Iterates over each streaming event as it arrives, asynchronously', 'Immediately collects the full response', 'Throws an error by default'], answerIndex: 1, explanation: "for await...of consumes an async iterable one item (event) at a time, as each becomes available." },
-    { id: 'c5q3', kind: 'application', prompt: 'Why use process.stdout.write instead of console.log for a live-typing effect?', options: ['No real difference', 'stdout.write doesn’t add a newline after each call, letting text append smoothly', 'console.log is slower', 'stdout.write is required by the SDK'], answerIndex: 1, explanation: "console.log adds a newline every call, breaking the continuous live-typing appearance." },
-    { id: 'c5q4', kind: 'code_reading', prompt: 'What does accumulating deltas into fullText achieve?', options: ['Nothing useful', 'Preserves the COMPLETE final text for later use (saving, logging, returning), not just live display', 'Slows down the stream', 'Prevents errors'], answerIndex: 1, explanation: "The live print shows text as it comes; a separate accumulated string lets you use the full answer afterward." },
-    { id: 'c5q5', kind: 'debug', prompt: 'A stream fails partway through with no try/catch. What happens?', options: ['Nothing, streams can’t fail', 'The program can crash or hang, losing whatever was streamed so far', 'It automatically retries', 'The terminal clears'], answerIndex: 1, explanation: "Without error handling around the loop, a mid-stream failure is unhandled and can crash the process." },
+    { id: 'c5q2', kind: 'code_reading', prompt: 'What does `for text in stream.text_stream:` do?', options: ['Loops once and stops', 'Iterates over each new chunk of generated text as it arrives', 'Immediately collects the full response', 'Throws an error by default'], answerIndex: 1, explanation: "text_stream is an iterator yielding each new text chunk as it becomes available." },
+    { id: 'c5q3', kind: 'application', prompt: 'Why use print(text, end="") instead of the default print(text) for a live-typing effect?', options: ['No real difference', 'The default print() adds a newline after every call, breaking the continuous live-typing appearance', 'print() is slower with end=""', 'end="" is required by the SDK'], answerIndex: 1, explanation: "Suppressing the default newline lets consecutive chunks visually append to the same line." },
+    { id: 'c5q4', kind: 'code_reading', prompt: 'What does accumulating chunks into full_text achieve?', options: ['Nothing useful', 'Preserves the COMPLETE final text for later use (saving, logging, returning), not just live display', 'Slows down the stream', 'Prevents errors'], answerIndex: 1, explanation: "The live print shows text as it comes; a separate accumulated string lets you use the full answer afterward." },
+    { id: 'c5q5', kind: 'debug', prompt: 'A stream fails partway through with no try/except. What happens?', options: ['Nothing, streams can’t fail', 'The program can crash or hang, losing whatever was streamed so far', 'It automatically retries', 'The terminal clears'], answerIndex: 1, explanation: "Without error handling around the block, a mid-stream failure is unhandled and can crash the process." },
     { id: 'c5q6', kind: 'concept', prompt: 'When is streaming LESS necessary?', options: ['Always necessary, no exceptions', 'For a background task where no one is watching live', 'For any user-facing chat', 'Never necessary'], answerIndex: 1, explanation: "Streaming's main benefit is perceived responsiveness for a live viewer — unneeded for silent background work." },
-    { id: 'c5q7', kind: 'output', prompt: 'What event.type + event.delta.type combination indicates actual new text arrived?', options: ['message_start', 'content_block_delta with delta.type text_delta', 'message_stop', 'content_block_start'], answerIndex: 1, explanation: "That specific combination marks a piece of generated text, distinct from other stream lifecycle events." },
-    { id: 'c5q8', kind: 'application', prompt: 'Why does askCompassStreaming still wrap the whole loop in try/catch, similar to Lesson 4’s pattern?', options: ['It’s unnecessary here', 'A stream can also fail mid-way, and the function should still return something usable', 'Streams never fail', 'It replaces the need for a system prompt'], answerIndex: 1, explanation: "The same reliability principle from Lesson 4 applies to streaming — failures need graceful handling too." },
-    { id: 'c5q9', kind: 'project', prompt: "Why does Compass keep BOTH askCompass and askCompassStreaming instead of replacing one with the other?", options: ['A mistake that should be fixed', 'Different use cases need different shapes — a plain return value vs. a live, in-progress effect', 'TypeScript requires both', 'They do the exact same thing'], answerIndex: 1, explanation: "A non-streaming call suits automated/background use; streaming suits an interactive, watched interaction." },
-    { id: 'c5q10', kind: 'concept', prompt: 'Where will this exact streaming technique reappear later in the course?', options: ['Nowhere else', 'In a real chat UI once Compass is deployed, reading the stream in the browser instead of the terminal', 'Only in Module 1', 'It’s a one-off exercise with no reuse'], answerIndex: 1, explanation: "The accumulate-while-displaying pattern is the same one a web chat interface uses, just rendered differently." },
+    { id: 'c5q7', kind: 'application', prompt: 'Why does the with client.messages.stream(...) as stream: pattern matter?', options: ['It’s optional boilerplate', 'It’s a context manager that properly sets up and cleans up the streaming connection', 'It has no real function', 'It only works with retries'], answerIndex: 1, explanation: "Python's with statement (context manager) ensures the stream connection is properly closed even if an error occurs." },
+    { id: 'c5q8', kind: 'application', prompt: 'Why does ask_compass_streaming still wrap the whole block in try/except, similar to Lesson 4’s pattern?', options: ['It’s unnecessary here', 'A stream can also fail mid-way, and the function should still return something usable', 'Streams never fail', 'It replaces the need for a system prompt'], answerIndex: 1, explanation: "The same reliability principle from Lesson 4 applies to streaming — failures need graceful handling too." },
+    { id: 'c5q9', kind: 'project', prompt: "Why does Compass keep BOTH ask_compass and ask_compass_streaming instead of replacing one with the other?", options: ['A mistake that should be fixed', 'Different use cases need different shapes — a plain return value vs. a live, in-progress effect', 'TypeScript requires both', 'They do the exact same thing'], answerIndex: 1, explanation: "A non-streaming call suits automated/background use; streaming suits an interactive, watched interaction." },
+    { id: 'c5q10', kind: 'concept', prompt: 'Where will this exact streaming technique reappear later in the course?', options: ['Nowhere else', 'In the real Streamlit app once Compass is deployed, reading the stream in the browser instead of the terminal', 'Only in Module 1', 'It’s a one-off exercise with no reuse'], answerIndex: 1, explanation: "The accumulate-while-displaying pattern is the same one the Module 5 Streamlit app uses, just rendered differently." },
   ],
 
   homework: {
     task:
-      "Add a visual 'thinking' indicator that prints '...' before the stream starts and gets erased the moment the first real text_delta arrives, so there's clear feedback during the brief gap before streaming begins.",
+      "Add a visual 'thinking' indicator that prints '...' before the stream starts and gets erased the moment the first real chunk arrives, so there's clear feedback during the brief gap before streaming begins.",
     requirements: [
       "Print '...' (or similar) immediately after 'Compass: ' but before starting the stream loop.",
-      "On receiving the FIRST text_delta, erase the '...' (e.g. using \\r and spaces, or a similar terminal trick) before printing the real text.",
-      "Subsequent deltas print normally with no further erasing needed.",
+      "On receiving the FIRST chunk, erase the '...' (e.g. using \\r and spaces) before printing the real text.",
+      "Subsequent chunks print normally with no further erasing needed.",
     ],
     expectedOutcome:
       "Running Compass briefly shows 'Compass: ...' then the '...' cleanly disappears and is replaced by the real answer typing itself out.",
     extends: 'final',
     previousHomeworkHint: {
       forLessonNumber: 4,
-      hint: "Lesson 4 asked you to make withRetry only retry a SPECIFIC error type (a custom RateLimitError), re-throwing anything else immediately.",
+      hint: "Lesson 4 asked you to make with_retry only retry a SPECIFIC error type (anthropic.RateLimitError), re-throwing anything else immediately.",
       steps: [
-        "Define class RateLimitError extends Error {} as a simple custom error type.",
-        "In withRetry's catch block, check if (!(err instanceof RateLimitError)) throw err; BEFORE the retry-budget check, so non-rate-limit errors fail immediately.",
-        "Test with a function throwing RateLimitError twice then succeeding (should eventually succeed via retries).",
-        "Test with a SEPARATE function throwing a plain Error once (should fail immediately, no retries attempted).",
+        "Import anthropic if not already imported.",
+        "In with_retry's except block, check if not isinstance(err, anthropic.RateLimitError): raise BEFORE the retry-budget check, so non-rate-limit errors fail immediately.",
+        "Test with a function raising anthropic.RateLimitError twice then succeeding (should eventually succeed via retries).",
+        "Test with a SEPARATE function raising a plain Exception once (should fail immediately, no retries attempted).",
       ],
       codeGuidance: [
         {
-          language: 'typescript',
-          filename: 'index.ts',
+          language: 'python',
+          filename: 'main.py',
           code:
-            "class RateLimitError extends Error {}\n\nasync function withRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> {\n  for (let attempt = 0; attempt <= retries; attempt++) {\n    try {\n      return await fn();\n    } catch (err) {\n      if (!(err instanceof RateLimitError) || attempt === retries) throw err;\n      const waitMs = 1000 * 2 ** attempt;\n      await new Promise((r) => setTimeout(r, waitMs));\n    }\n  }\n  throw new Error('unreachable');\n}",
+            "def with_retry(fn, retries=3):\n    for attempt in range(retries + 1):\n        try:\n            return fn()\n        except Exception as err:\n            if not isinstance(err, anthropic.RateLimitError) or attempt == retries:\n                raise\n            time.sleep(2 ** attempt)",
         },
       ],
     },
