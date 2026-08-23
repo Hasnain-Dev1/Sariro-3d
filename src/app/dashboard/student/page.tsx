@@ -888,80 +888,64 @@ function StudentDashboardInner() {
     setLoading(true);
     setError(null);
     try {
-      // 1. Fetch user's enrollments
-      const { data: enrollmentsData, error: enrollmentsErr } = await supabase
-        .from('enrollments')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+      // 1. Enrollments + credits fire together — credits don't depend on
+      //    enrollments, so there's no reason to make them wait on each other.
+      //    (Previously these were 2+ sequential round trips before anything
+      //    else could even start.)
+      const [enrollmentsResult, myCredits, myTx] = await Promise.all([
+        supabase.from('enrollments').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+        fetchMyCredits(),
+        fetchMyCreditTransactions(20),
+      ]);
+      const { data: enrollmentsData, error: enrollmentsErr } = enrollmentsResult;
 
       if (enrollmentsErr) throw enrollmentsErr;
       if (cancelledRef.current) return;
 
       const enrollmentList = (enrollmentsData || []) as Enrollment[];
       Promise.resolve().then(() => setEnrollments(enrollmentList));
+      Promise.resolve().then(() => setCredits(myCredits));
+      Promise.resolve().then(() => setCreditTransactions(myTx));
 
-      // 2. Fetch cohort IDs from active enrollments
+      // 2. Cohort IDs from active enrollments
       const cohortIds = enrollmentList
         .map(e => e.cohort_id)
         .filter((id): id is string => id !== null);
 
+      // 3. Everything that only depends on cohortIds (not on each other's
+      //    results) fires together instead of as 4 sequential round trips:
+      //    cohorts, upcoming bookings, past bookings, classmates' enrollments.
+      const now = new Date().toISOString();
       let cohortMap: Record<string, Cohort> = {};
+      let classmateEnrollments: Array<{ user_id: string; track: string; level: string; status: string }> = [];
       if (cohortIds.length > 0) {
-        const { data: cohortData, error: cohortErr } = await supabase
-          .from('cohorts')
-          .select('*')
-          .in('id', cohortIds);
-        if (cohortErr) throw cohortErr;
+        const [cohortsResult, upcomingResult, pastResult, classmateEnrResult] = await Promise.all([
+          supabase.from('cohorts').select('*').in('id', cohortIds),
+          supabase.from('bookings').select('*').in('cohort_id', cohortIds).gte('slot_start', now).order('slot_start', { ascending: true }).limit(5),
+          supabase.from('bookings').select('*').in('cohort_id', cohortIds).lt('slot_start', now).order('slot_start', { ascending: false }).limit(20),
+          supabase.from('enrollments').select('user_id, track, level, status').in('cohort_id', cohortIds).neq('user_id', user.id).neq('status', 'dropped'),
+        ]);
         if (cancelledRef.current) return;
-        cohortMap = (cohortData || []).reduce((acc, c) => {
+
+        if (cohortsResult.error) throw cohortsResult.error;
+        cohortMap = (cohortsResult.data || []).reduce((acc, c) => {
           acc[c.id] = c as Cohort;
           return acc;
         }, {} as Record<string, Cohort>);
         Promise.resolve().then(() => setCohorts(cohortMap));
+
+        if (upcomingResult.error) throw upcomingResult.error;
+        Promise.resolve().then(() => setBookings((upcomingResult.data || []) as Booking[]));
+
+        if (pastResult.error) throw pastResult.error;
+        Promise.resolve().then(() => setPastBookings((pastResult.data || []) as Booking[]));
+
+        if (classmateEnrResult.error) throw classmateEnrResult.error;
+        classmateEnrollments = classmateEnrResult.data || [];
       } else {
         Promise.resolve().then(() => setCohorts({}));
-      }
-
-      // 3. Fetch upcoming bookings for those cohorts
-      if (cohortIds.length > 0) {
-        const now = new Date().toISOString();
-        const { data: bookingData, error: bookingErr } = await supabase
-          .from('bookings')
-          .select('*')
-          .in('cohort_id', cohortIds)
-          .gte('slot_start', now)
-          .order('slot_start', { ascending: true })
-          .limit(5);
-        if (bookingErr) throw bookingErr;
-        if (cancelledRef.current) return;
-        Promise.resolve().then(() => setBookings((bookingData || []) as Booking[]));
-
-        // 3b. Capstone system: fetch PAST bookings (completed classes) for
-        // the "Class Notes & Projects" section. These link to the submission page.
-        const { data: pastBookingData, error: pastErr } = await supabase
-          .from('bookings')
-          .select('*')
-          .in('cohort_id', cohortIds)
-          .lt('slot_start', now)
-          .order('slot_start', { ascending: false })
-          .limit(20);
-        if (pastErr) throw pastErr;
-        if (cancelledRef.current) return;
-        Promise.resolve().then(() => setPastBookings((pastBookingData || []) as Booking[]));
-      } else {
         Promise.resolve().then(() => setBookings([]));
         Promise.resolve().then(() => setPastBookings([]));
-      }
-
-      // 3c. Credit system: fetch student's balance + transaction history
-      const [myCredits, myTx] = await Promise.all([
-        fetchMyCredits(),
-        fetchMyCreditTransactions(20),
-      ]);
-      if (!cancelledRef.current) {
-        Promise.resolve().then(() => setCredits(myCredits));
-        Promise.resolve().then(() => setCreditTransactions(myTx));
       }
 
       // 4. Find a completed enrollment to build the "Recommended next" card
@@ -988,17 +972,10 @@ function StudentDashboardInner() {
         Promise.resolve().then(() => setRecommendation(null));
       }
 
-      // 5. v2 — Classmates: other students in the same cohorts (excludes self + dropped)
+      // 5. v2 — Classmates: other students in the same cohorts (excludes self +
+      //    dropped). classmateEnrollments was already fetched in the parallel
+      //    batch above — only the dependent profiles lookup happens here.
       if (cohortIds.length > 0) {
-        const { data: classmateEnrollments, error: ceErr } = await supabase
-          .from('enrollments')
-          .select('user_id, track, level, status')
-          .in('cohort_id', cohortIds)
-          .neq('user_id', user.id)
-          .neq('status', 'dropped');
-        if (ceErr) throw ceErr;
-        if (cancelledRef.current) return;
-
         type PeerEnrollment = { user_id: string; track: string; level: string; status: string };
         const peerRows = (classmateEnrollments || []) as PeerEnrollment[];
         const userIds = Array.from(new Set(peerRows.map(e => e.user_id)));
