@@ -12,6 +12,7 @@ import ChapterNav, { ScrollHueShift } from '@/components/sariro-3d/chapter-nav';
 import SmoothScrollProvider from '@/components/sariro-3d/smooth-scroll-provider';
 import CookieConsent from '@/components/brand/cookie-consent';
 import ChatBubble from '@/components/sariro-3d/chat-bubble';
+import ServiceWorkerRegistration from '@/components/sariro-3d/service-worker-registration';
 import { useAuth } from '@/components/auth/auth-provider';
 
 /* These three are the ONLY things in the app that pull in `three` /
@@ -467,6 +468,7 @@ function PageTransition({ children }: { children: ReactNode }) {
 export default function BrandLayout({ children }: { children: ReactNode }) {
   return (
     <SmoothScrollProvider>
+      <ServiceWorkerRegistration />
       <CinematicIntro />
       <CustomCursor />
       <BackgroundParticles3D />

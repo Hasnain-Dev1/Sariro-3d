@@ -7,20 +7,25 @@ import { useRef } from 'react';
 import { ArrowRight, Sparkles, Rocket } from 'lucide-react';
 import { BRAND, HERO_STATS, TRUSTED_BY } from '@/lib/sariro-data';
 import BrandLayout from '@/components/brand/brand-layout';
-import Tracks3D from '@/components/sariro-3d/tracks-3d';
-import Stats3D from '@/components/sariro-3d/stats-3d';
-import Courses3D from '@/components/sariro-3d/courses-3d';
-import Philosophy3D from '@/components/sariro-3d/philosophy-3d';
-import Events3D from '@/components/sariro-3d/events-3d';
-import Testimonials3D from '@/components/sariro-3d/testimonials-3d';
-import Pricing3D from '@/components/sariro-3d/pricing-3d';
-import CTA3D from '@/components/sariro-3d/cta-3d';
 import { WaveDivider3D } from '@/components/sariro-3d/kit-3d';
 
 const NeuralNetworkScene = dynamic(() => import('@/components/brand/neural-scene'), { ssr: false });
 // Bottom-of-page section, uses three.js — deferred so it never competes with
 // the hero for initial load weight.
 const OryzoSection = dynamic(() => import('@/components/brand/oryzo-section'), { ssr: false });
+
+// Below-the-fold sections — none of these use three.js, so they still
+// server-render (good for SEO/first paint of their content), but splitting
+// them out of the hero's own JS chunk means a first-time visitor only has to
+// download/parse the hero's code before it's interactive, not the whole page.
+const Tracks3D = dynamic(() => import('@/components/sariro-3d/tracks-3d'));
+const Stats3D = dynamic(() => import('@/components/sariro-3d/stats-3d'));
+const Courses3D = dynamic(() => import('@/components/sariro-3d/courses-3d'));
+const Philosophy3D = dynamic(() => import('@/components/sariro-3d/philosophy-3d'));
+const Events3D = dynamic(() => import('@/components/sariro-3d/events-3d'));
+const Testimonials3D = dynamic(() => import('@/components/sariro-3d/testimonials-3d'));
+const Pricing3D = dynamic(() => import('@/components/sariro-3d/pricing-3d'));
+const CTA3D = dynamic(() => import('@/components/sariro-3d/cta-3d'));
 
 export default function Home() {
   const heroRef = useRef<HTMLElement>(null);
