@@ -7,7 +7,6 @@ import { useRef } from 'react';
 import { ArrowRight, Sparkles, Rocket } from 'lucide-react';
 import { BRAND, HERO_STATS, TRUSTED_BY } from '@/lib/sariro-data';
 import BrandLayout from '@/components/brand/brand-layout';
-import OryzoSection from '@/components/brand/oryzo-section';
 import Tracks3D from '@/components/sariro-3d/tracks-3d';
 import Stats3D from '@/components/sariro-3d/stats-3d';
 import Courses3D from '@/components/sariro-3d/courses-3d';
@@ -19,6 +18,9 @@ import CTA3D from '@/components/sariro-3d/cta-3d';
 import { WaveDivider3D } from '@/components/sariro-3d/kit-3d';
 
 const NeuralNetworkScene = dynamic(() => import('@/components/brand/neural-scene'), { ssr: false });
+// Bottom-of-page section, uses three.js — deferred so it never competes with
+// the hero for initial load weight.
+const OryzoSection = dynamic(() => import('@/components/brand/oryzo-section'), { ssr: false });
 
 export default function Home() {
   const heroRef = useRef<HTMLElement>(null);

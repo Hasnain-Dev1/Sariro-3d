@@ -3,17 +3,27 @@
 import { motion, useScroll, useSpring, AnimatePresence } from 'framer-motion';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useEffect, useState, useRef, ReactNode } from 'react';
 import { Menu, X, GraduationCap, Sparkles, Mail, LifeBuoy, Briefcase, Handshake, MapPin } from 'lucide-react';
 import { BRAND, EMAILS } from '@/lib/sariro-data';
 import { CustomCursor } from '@/components/sariro-3d/scroll-effects';
-import { CompanionOrb3D, BackgroundParticles3D } from '@/components/sariro-3d/persistent-3d';
 import ChapterNav, { ScrollHueShift } from '@/components/sariro-3d/chapter-nav';
 import SmoothScrollProvider from '@/components/sariro-3d/smooth-scroll-provider';
-import CinematicIntro from '@/components/brand/cinematic-intro';
 import CookieConsent from '@/components/brand/cookie-consent';
 import ChatBubble from '@/components/sariro-3d/chat-bubble';
 import { useAuth } from '@/components/auth/auth-provider';
+
+/* These three are the ONLY things in the app that pull in `three` /
+ * @react-three/fiber+drei — a ~950KB (raw) dependency. Statically importing
+ * them here used to put that weight in EVERY public page's initial JS,
+ * including /privacy, /checkout, /payment-success — pages with no WebGL
+ * content at all. Loading them via next/dynamic (ssr:false) keeps the exact
+ * same visuals but fetches that weight in its own chunk, off the critical
+ * path, instead of blocking first paint/interactivity on every page. */
+const CinematicIntro = dynamic(() => import('@/components/brand/cinematic-intro'), { ssr: false });
+const CompanionOrb3D = dynamic(() => import('@/components/sariro-3d/persistent-3d').then(m => m.CompanionOrb3D), { ssr: false });
+const BackgroundParticles3D = dynamic(() => import('@/components/sariro-3d/persistent-3d').then(m => m.BackgroundParticles3D), { ssr: false });
 
 /* Map the icon name string from EMAILS data to a real icon component. */
 const EMAIL_ICONS: Record<string, React.ComponentType<{ className?: string; strokeWidth?: number; style?: React.CSSProperties }>> = {
