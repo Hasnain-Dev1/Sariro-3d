@@ -164,11 +164,20 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ── Class must be finished before attendance can be marked ──────────
-  const slotEnd = (booking as BookingRow).slot_end;
-  if (slotEnd && Date.now() < new Date(slotEnd).getTime()) {
+  // ── Attendance unlocks 25 minutes after the class STARTS — not after it
+  //    fully ends. Waiting for slot_end (often a full hour) left teachers
+  //    unable to mark attendance for far too long; 25 minutes in is enough
+  //    to know who showed up. ──────────────────────────────────────────
+  const ATTENDANCE_UNLOCK_MIN = 25;
+  const slotStart = (booking as BookingRow).slot_start;
+  const unlocksAt = new Date(slotStart).getTime() + ATTENDANCE_UNLOCK_MIN * 60_000;
+  if (Date.now() < unlocksAt) {
+    const mins = Math.ceil((unlocksAt - Date.now()) / 60_000);
     return NextResponse.json(
-      { ok: false, error: 'class_not_finished', message: 'Attendance can only be marked after the class has finished.' },
+      {
+        ok: false, error: 'class_not_finished',
+        message: `Attendance unlocks ${ATTENDANCE_UNLOCK_MIN} minutes after the class starts — about ${mins} minute${mins === 1 ? '' : 's'} left.`,
+      },
       { status: 409 }
     );
   }

@@ -161,6 +161,7 @@ export function TeacherCalendar({ bookings, timezone, onSelectBooking, onChanged
   const [cancelTarget, setCancelTarget] = useState<TeacherBookingRow | null>(null);
   const [doubtBusyId, setDoubtBusyId] = useState<string | null>(null);
   const [doubtRequested, setDoubtRequested] = useState<Set<string>>(new Set());
+  const [joinedIds, setJoinedIds] = useState<Set<string>>(new Set());
 
   const requestDoubt = useCallback(async (bookingId: string) => {
     setDoubtBusyId(bookingId);
@@ -173,6 +174,23 @@ export function TeacherCalendar({ bookings, timezone, onSelectBooking, onChanged
       if (j.ok) setDoubtRequested((prev) => new Set(prev).add(bookingId));
       else alert(j.message || j.error || 'Could not request doubt session.');
     } finally { setDoubtBusyId(null); }
+  }, []);
+
+  // Join → records the join time (so the teacher is never falsely flagged
+  // as a no-show/late-join once they've actually clicked in), then opens the
+  // meet link — same fix as the main schedule list's Join Meet. Only marks
+  // "Joined" on a confirmed success — a rejected too-early attempt (outside
+  // the 5-min window) must stay retryable, not get stuck disabled.
+  const handleJoin = useCallback(async (bookingId: string, meetUrl: string) => {
+    try {
+      const res = await fetch('/api/teacher/start-class', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId }),
+      });
+      const json = await res.json();
+      if (json.ok) setJoinedIds((prev) => new Set(prev).add(bookingId));
+    } catch { /* a transient failure to record the join should never block joining */ }
+    window.open(meetUrl, '_blank', 'noopener,noreferrer');
   }, []);
 
   // Group bookings by day key for O(1) lookup
@@ -405,14 +423,24 @@ export function TeacherCalendar({ bookings, timezone, onSelectBooking, onChanged
                   >
                     <div className={`w-1 h-10 rounded-full ${colors.dot}`} />
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-0.5">
+                      <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                         <span className="text-sm font-bold text-slate-900 truncate" style={{ fontFamily: 'var(--font-jakarta)' }}>
                           {getTrackName(b.cohort_track)}
                         </span>
                         <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${colors.chip} border`} style={{ fontFamily: 'var(--font-grotesk)' }}>
                           {colors.label.toUpperCase()}
                         </span>
+                        {b.batch_code && (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-slate-900 text-white tracking-wider">
+                            {b.batch_code}
+                          </span>
+                        )}
                       </div>
+                      {b.student_names && b.student_names.length > 0 && (
+                        <div className="text-[11px] font-bold text-slate-700 mb-0.5 truncate">
+                          {b.student_names.join(', ')}
+                        </div>
+                      )}
                       <div className="flex items-center gap-2 text-[11px] text-slate-500 flex-wrap">
                         <Clock className="w-3 h-3" />
                         <span>{formatTime(b.slot_start, timezone)} → {formatTime(b.slot_end, timezone)}</span>
@@ -424,15 +452,15 @@ export function TeacherCalendar({ bookings, timezone, onSelectBooking, onChanged
                       </div>
                     </div>
                     {meetUrl && (
-                      <a
-                        href={meetUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-green-50 hover:bg-green-100 text-green-700 text-[10px] font-bold transition-colors"
+                      <button
+                        type="button"
+                        onClick={() => handleJoin(b.id, meetUrl)}
+                        disabled={joinedIds.has(b.id)}
+                        className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-green-50 hover:bg-green-100 text-green-700 text-[10px] font-bold transition-colors disabled:opacity-60"
                         style={{ fontFamily: 'var(--font-grotesk)' }}
                       >
-                        <Video className="w-3 h-3" /> Join
-                      </a>
+                        <Video className="w-3 h-3" /> {joinedIds.has(b.id) ? 'Joined ✓' : 'Join'}
+                      </button>
                     )}
                     {b.status === 'scheduled' && (
                       <>

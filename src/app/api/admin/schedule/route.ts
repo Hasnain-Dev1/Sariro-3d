@@ -3,6 +3,7 @@ import { createServerClientHelper, createServiceClient } from '@/lib/supabase/se
 import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import { generateOccurrences } from '@/lib/dashboard/schedule-generation';
+import { teacherHasConflict } from '@/lib/dashboard/schedule-ops-server';
 
 /**
  * SARIRO — POST /api/admin/schedule
@@ -153,6 +154,28 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // ── 0b. Generate the horizon FIRST and check for teacher double-booking
+  //        before creating anything, so a conflict rejects cleanly. ──
+  const slots = generateOccurrences(
+    {
+      startDate: body.startDate!,
+      daysOfWeek,
+      timeLocal: timeLocalFallback,
+      durationMin,
+      timezone: body.timezone!,
+      perDay,
+    },
+    count
+  );
+  for (const s of slots) {
+    if (await teacherHasConflict(admin, body.teacherId!, s.slotStart, s.slotEnd)) {
+      return NextResponse.json(
+        { ok: false, error: 'teacher_conflict', message: `This teacher already has another class scheduled at ${new Date(s.slotStart).toLocaleString()}.` },
+        { status: 409 }
+      );
+    }
+  }
+
   // ── 1. Create the schedule rule ──
   const { data: schedule, error: sErr } = await admin
     .from('cohort_schedules')
@@ -188,19 +211,7 @@ export async function POST(req: NextRequest) {
     console.warn('[admin/schedule] cohort_schedule_days insert failed:', dErr.message);
   }
 
-  // ── 2. Generate the first horizon of bookings (per-day times honored) ──
-  const slots = generateOccurrences(
-    {
-      startDate: body.startDate!,
-      daysOfWeek,
-      timeLocal: timeLocalFallback,
-      durationMin,
-      timezone: body.timezone!,
-      perDay,
-    },
-    count
-  );
-
+  // ── 2. Insert the (already-generated + conflict-checked) horizon ──
   if (slots.length > 0) {
     const rows = slots.map((s) => ({
       cohort_id: body.cohortId,

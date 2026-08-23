@@ -3,7 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import { generateOccurrences } from '@/lib/dashboard/schedule-generation';
-import { resolveActor } from '@/lib/dashboard/schedule-ops-server';
+import { resolveActor, teacherHasConflict } from '@/lib/dashboard/schedule-ops-server';
 
 /**
  * SARIRO — POST /api/schedule/reschedule-batch
@@ -84,6 +84,23 @@ export async function POST(req: NextRequest) {
 
   const nowIso = new Date().toISOString();
 
+  // Generate the new horizon FIRST (before any mutation) so we can check for
+  // teacher double-booking conflicts and reject cleanly, leaving nothing
+  // changed if the new cadence would overlap another of this teacher's classes.
+  const slots = generateOccurrences({
+    startDate: effectiveFrom, daysOfWeek, timeLocal: timeLocalFallback,
+    durationMin: sched.duration_min ?? 60, timezone: sched.timezone, perDay,
+  }, HORIZON);
+
+  for (const s of slots) {
+    if (await teacherHasConflict(admin, sched.teacher_id, s.slotStart, s.slotEnd, { excludeScheduleId: sched.id })) {
+      return NextResponse.json(
+        { ok: false, error: 'teacher_conflict', message: `The new schedule would overlap another class this teacher already has at ${new Date(s.slotStart).toLocaleString()}.` },
+        { status: 409 }
+      );
+    }
+  }
+
   // 1. Update the recurring rule.
   await admin.from('cohort_schedules').update({
     days_of_week: daysOfWeek, time_local: timeLocalFallback,
@@ -103,11 +120,7 @@ export async function POST(req: NextRequest) {
     await admin.from('bookings').update({ status: 'cancelled', cancel_actor_role: actor.isAdmin ? 'admin' : 'teacher', cancel_type: 'admin', pay_status: 'zero', cancelled_at: nowIso, cancelled_by: actor.userId }).in('id', future.map((b) => b.id));
   }
 
-  // 4. Regenerate the horizon from the effective date with the new cadence.
-  const slots = generateOccurrences({
-    startDate: effectiveFrom, daysOfWeek, timeLocal: timeLocalFallback,
-    durationMin: sched.duration_min ?? 60, timezone: sched.timezone, perDay,
-  }, HORIZON);
+  // 4. Insert the (already-generated + conflict-checked) horizon.
   if (slots.length) {
     await admin.from('bookings').insert(slots.map((s) => ({
       cohort_id: sched.cohort_id, teacher_id: sched.teacher_id, schedule_id: sched.id,

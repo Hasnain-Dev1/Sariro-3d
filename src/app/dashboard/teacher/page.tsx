@@ -178,21 +178,14 @@ function BookingCard({
     setProcessing(false);
   };
 
-  // Guarded join: opens the Meet only inside the 5-min window; otherwise warns.
-  const handleJoin = () => {
+  // Join Meet → records the join time FIRST (so the teacher is never
+  // falsely flagged as a no-show/late-join once they've actually clicked in),
+  // then opens the meet link. Registering the join and opening the call
+  // happen together — there is no separate "Start Class" step to forget.
+  const handleJoin = async () => {
     if (Date.now() < joinOpensMs) {
       const mins = Math.ceil((joinOpensMs - Date.now()) / 60_000);
       setEarlyMsg(`You can join this class 5 minutes before it starts — please come back in about ${mins} minute${mins === 1 ? '' : 's'}.`);
-      return;
-    }
-    if (meetUrl) window.open(meetUrl, '_blank', 'noopener,noreferrer');
-  };
-
-  // Start Class → records join time (source of truth for the late-join penalty).
-  const handleStart = async () => {
-    if (Date.now() < joinOpensMs) {
-      const mins = Math.ceil((joinOpensMs - Date.now()) / 60_000);
-      setEarlyMsg(`You can start this class 5 minutes before it begins — please come back in about ${mins} minute${mins === 1 ? '' : 's'}.`);
       return;
     }
     setProcessing(true);
@@ -204,24 +197,39 @@ function BookingCard({
       const json = await res.json();
       if (json.ok) {
         setStarted(true);
-        setStartInfo(json.late_minutes > 3 ? `Started ${json.late_minutes} min late` : 'Started on time');
+        setStartInfo(json.late_minutes > 3 ? `Joined ${json.late_minutes} min late` : 'Joined on time');
       } else if (json.error === 'too_early') {
         setEarlyMsg(json.message);
       }
+      // A transient failure to record the join should never block the
+      // teacher from actually getting into the call.
     } catch { /* transient */ }
     setProcessing(false);
+    if (meetUrl) window.open(meetUrl, '_blank', 'noopener,noreferrer');
   };
 
   return (
     <div className="card-3d p-5">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="min-w-0 flex-1">
-          <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-green-600 mb-1" style={{ fontFamily: 'var(--font-grotesk)' }}>
-            {levelDisplay(booking.cohort_level)} · {booking.cohort_ratio} · {formatDuration(booking.slot_start, booking.slot_end)}
+          <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-green-600" style={{ fontFamily: 'var(--font-grotesk)' }}>
+              {levelDisplay(booking.cohort_level)} · {booking.cohort_ratio} · {formatDuration(booking.slot_start, booking.slot_end)}
+            </span>
+            {booking.batch_code && (
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-slate-900 text-white tracking-wider">
+                {booking.batch_code}
+              </span>
+            )}
           </div>
           <h4 className="font-extrabold text-slate-900 text-base leading-tight" style={{ fontFamily: 'var(--font-jakarta)' }}>
             {trackName}
           </h4>
+          {booking.student_names.length > 0 && (
+            <div className="text-xs font-bold text-slate-600 mt-0.5 truncate">
+              {booking.student_names.join(', ')}
+            </div>
+          )}
           <div className="text-xs text-slate-500 mt-0.5">
             {formatSessionTime(booking.slot_start, timezone)}
           </div>
@@ -237,10 +245,12 @@ function BookingCard({
           <button
             type="button"
             onClick={handleJoin}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-green-50 hover:bg-green-100 text-green-700 text-xs font-bold transition-colors min-h-[40px]"
+            disabled={processing}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-green-50 hover:bg-green-100 text-green-700 text-xs font-bold transition-colors disabled:opacity-50 min-h-[40px]"
             style={{ fontFamily: 'var(--font-grotesk)' }}
           >
-            <Video className="w-4 h-4" /> Join Meet
+            {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Video className="w-4 h-4" />}
+            {started ? (startInfo ?? 'Joined ✓') : 'Join Meet'}
           </button>
         )}
 
@@ -278,14 +288,6 @@ function BookingCard({
         {/* Action buttons — only show for past scheduled sessions */}
         {booking.status === 'scheduled' && isPast && (
           <>
-            <button
-              onClick={handleStart}
-              disabled={processing || started}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold disabled:opacity-50 min-h-[40px]"
-              style={{ fontFamily: 'var(--font-grotesk)' }}
-            >
-              {started ? (startInfo ?? 'Started') : 'Start Class'}
-            </button>
             <button
               onClick={() => handleStatus('completed')}
               disabled={processing}

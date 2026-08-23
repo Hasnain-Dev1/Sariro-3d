@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
-import { resolveActor, cohortTimeline } from '@/lib/dashboard/schedule-ops-server';
+import { resolveActor, cohortTimeline, teacherHasConflict } from '@/lib/dashboard/schedule-ops-server';
 
 /**
  * SARIRO — POST /api/schedule/reschedule
@@ -89,6 +89,19 @@ export async function POST(req: NextRequest) {
     if (next && newEnd.getTime() >= new Date(next.slot_start).getTime()) {
       return NextResponse.json({ ok: false, error: 'past_next_class', message: 'A class cannot be rescheduled past the next class — lesson order must hold.' }, { status: 409 });
     }
+  }
+
+  // Double-booking guard: the teacher can't end up in two overlapping
+  // classes, regardless of which cohort each belongs to. Applies to every
+  // actor (including admin) — this is a hard scheduling constraint, not a
+  // policy preference, and excluding this booking's own current slot means
+  // a same-slot "reschedule" (e.g. just changing something else) never
+  // false-flags against itself.
+  if (await teacherHasConflict(admin, booking.teacher_id, newStart.toISOString(), newEnd.toISOString(), { excludeBookingId: booking.id })) {
+    return NextResponse.json(
+      { ok: false, error: 'teacher_conflict', message: 'This teacher already has another class scheduled during that time.' },
+      { status: 409 }
+    );
   }
 
   const nowIso = new Date().toISOString();

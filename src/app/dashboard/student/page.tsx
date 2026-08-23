@@ -67,6 +67,7 @@ interface Cohort {
   ratio: string;
   status: string;
   google_meet_url: string | null;
+  batch_code: string | null;
   // Optional single-URL materials column (added by student-v2-migration).
   // Falls back to cohort_materials table rows when absent.
   materials_url?: string | null;
@@ -524,6 +525,11 @@ function ScheduleCard({ booking, cohort, timezone, credits }: { booking: Booking
             {booking.lesson_name && (
               <span className="text-[10px] font-bold text-slate-500 truncate" style={{ fontFamily: 'var(--font-grotesk)' }}>
                 {booking.lesson_name}
+              </span>
+            )}
+            {cohort?.batch_code && (
+              <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-slate-900 text-white tracking-wider">
+                {cohort.batch_code}
               </span>
             )}
           </div>

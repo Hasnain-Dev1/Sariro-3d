@@ -89,3 +89,32 @@ export async function teacherCancelCountThisMonth(admin: ReturnType<typeof creat
     .gte('cancelled_at', monthStart.toISOString());
   return count ?? 0;
 }
+
+/**
+ * True if the given teacher already has an active (scheduled/completed)
+ * booking that overlaps [slotStart, slotEnd) — same teacher can't be in two
+ * classes at once. Standard interval-overlap test: existing.start < new.end
+ * AND existing.end > new.start. Pass excludeBookingId when checking a
+ * reschedule so the booking's own current slot doesn't conflict with itself.
+ */
+export async function teacherHasConflict(
+  admin: ReturnType<typeof createServiceClient>,
+  teacherId: string,
+  slotStart: string,
+  slotEnd: string,
+  opts?: { excludeBookingId?: string; excludeScheduleId?: string }
+): Promise<boolean> {
+  let query = admin.from('bookings')
+    .select('id', { count: 'exact', head: true })
+    .eq('teacher_id', teacherId)
+    .in('status', ['scheduled', 'completed'])
+    .lt('slot_start', slotEnd)
+    .gt('slot_end', slotStart);
+  if (opts?.excludeBookingId) query = query.neq('id', opts.excludeBookingId);
+  // Exclude a whole recurring schedule's own bookings — used when regenerating
+  // that same schedule's slots, so its own (soon-to-be-replaced) bookings
+  // never conflict with themselves.
+  if (opts?.excludeScheduleId) query = query.or(`schedule_id.is.null,schedule_id.neq.${opts.excludeScheduleId}`);
+  const { count } = await query;
+  return (count ?? 0) > 0;
+}

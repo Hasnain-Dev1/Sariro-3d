@@ -31,6 +31,10 @@ export interface TeacherBookingRow {
   cohort_ratio: string;
   cohort_status: string;
   cohort_meet_url: string | null;
+  batch_code: string | null;
+  // Names of the (active) students enrolled in this booking's cohort — the
+  // roster, so a teacher can tell whose class this is at a glance.
+  student_names: string[];
 }
 
 export interface TeacherStudentRow {
@@ -162,6 +166,32 @@ export async function fetchTeacherBookings(filter: 'upcoming' | 'past' | 'all' =
     if (error) throw error;
     if (!data || data.length === 0) return [];
 
+    // Roster — fetch active students for every distinct cohort in this batch
+    // of bookings, so each booking can show whose class it is.
+    const cohortIds = [...new Set(data.map(b => b.cohort_id).filter((id): id is string => !!id))];
+    const rosterMap = new Map<string, string[]>();
+    if (cohortIds.length > 0) {
+      const { data: enrollments } = await supabase
+        .from('enrollments')
+        .select('cohort_id, user_id')
+        .in('cohort_id', cohortIds)
+        .eq('status', 'active');
+      const userIds = [...new Set((enrollments ?? []).map(e => e.user_id))];
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .in('id', userIds);
+        const profileMap = new Map((profiles ?? []).map(p => [p.id, p]));
+        for (const e of enrollments ?? []) {
+          const name = profileMap.get(e.user_id)?.full_name ?? profileMap.get(e.user_id)?.email ?? 'Unknown student';
+          const list = rosterMap.get(e.cohort_id) ?? [];
+          list.push(name);
+          rosterMap.set(e.cohort_id, list);
+        }
+      }
+    }
+
     return data.map(b => {
       const cohort = b.cohort as Record<string, unknown> | null;
       return {
@@ -177,6 +207,8 @@ export async function fetchTeacherBookings(filter: 'upcoming' | 'past' | 'all' =
         cohort_ratio: (cohort?.ratio as string) ?? '',
         cohort_status: (cohort?.status as string) ?? '',
         cohort_meet_url: (cohort?.google_meet_url as string) ?? null,
+        batch_code: (cohort?.batch_code as string) ?? null,
+        student_names: rosterMap.get(b.cohort_id) ?? [],
       };
     });
   } catch (err) {
@@ -527,6 +559,19 @@ export async function createBooking(params: {
     const teacherId = user?.id;
     if (!teacherId) {
       return { success: false, error: 'No authenticated teacher' };
+    }
+
+    // ── Double-booking guard: this teacher can't be in two overlapping
+    //    classes, even across different cohorts. ──
+    const { count: conflictCount } = await supabase
+      .from('bookings')
+      .select('id', { count: 'exact', head: true })
+      .eq('teacher_id', teacherId)
+      .in('status', ['scheduled', 'completed'])
+      .lt('slot_start', params.slotEnd)
+      .gt('slot_end', params.slotStart);
+    if ((conflictCount ?? 0) > 0) {
+      return { success: false, error: 'You already have another class scheduled during that time.' };
     }
 
     // Fetch the cohort's google_meet_url + track + level (for syllabus lookup).
