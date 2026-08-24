@@ -921,7 +921,7 @@ function StudentDashboardInner() {
       if (cohortIds.length > 0) {
         const [cohortsResult, upcomingResult, pastResult, classmateEnrResult] = await Promise.all([
           supabase.from('cohorts').select('*').in('id', cohortIds),
-          supabase.from('bookings').select('*').in('cohort_id', cohortIds).gte('slot_start', now).order('slot_start', { ascending: true }).limit(5),
+          supabase.from('bookings').select('*').in('cohort_id', cohortIds).gte('slot_start', now).order('slot_start', { ascending: true }).limit(1),
           supabase.from('bookings').select('*').in('cohort_id', cohortIds).lt('slot_start', now).order('slot_start', { ascending: false }).limit(20),
           supabase.from('enrollments').select('user_id, track, level, status').in('cohort_id', cohortIds).neq('user_id', user.id).neq('status', 'dropped'),
         ]);
@@ -1108,10 +1108,11 @@ function StudentDashboardInner() {
               )}
             </div>
 
-            {/* My Schedule */}
+            {/* Next Class — only the single next upcoming session (not the whole
+                course schedule), so students always see exactly what's next. */}
             <div className="mb-10" id="schedule">
               <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-jakarta)' }}>
-                <Calendar className="w-5 h-5 text-blue-600" /> Upcoming Sessions
+                <Calendar className="w-5 h-5 text-blue-600" /> Next Class
               </h2>
               {bookings.length === 0 ? (
                 <div className="card-3d p-6 text-center">
@@ -1121,16 +1122,14 @@ function StudentDashboardInner() {
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {bookings.map((b) => (
-                    <ScheduleCard
-                      key={b.id}
-                      booking={b}
-                      cohort={b.cohort_id ? cohorts[b.cohort_id] : undefined}
-                      timezone={userTimezone}
-                      credits={credits}
-                    />
-                  ))}
+                <div className="max-w-md">
+                  <ScheduleCard
+                    key={bookings[0].id}
+                    booking={bookings[0]}
+                    cohort={bookings[0].cohort_id ? cohorts[bookings[0].cohort_id] : undefined}
+                    timezone={userTimezone}
+                    credits={credits}
+                  />
                 </div>
               )}
             </div>

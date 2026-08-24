@@ -28,6 +28,10 @@ export interface Profile {
   is_super_admin: boolean;
   is_seller: boolean;
   is_hr: boolean;
+  /* When true, an admin has locked this user's name — they can't change it
+     themselves from Settings. Optional so older cached sessions / pre-migration
+     rows default to editable. */
+  name_locked?: boolean;
   /* New fields added in v1.0 batch-management migration */
   timezone?: string | null;
   track?: string | null;

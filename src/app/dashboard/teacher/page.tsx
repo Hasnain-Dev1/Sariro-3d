@@ -534,22 +534,41 @@ function SessionDetailsModal({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {/* End Class button — marks booking completed → triggers credit deduction */}
+            {/* End Class + Student no-show — both fire the earning/credit flow.
+                These moved here from the removed schedule list, so completion and
+                student-no-show stay reachable after selecting a class. */}
             {booking.status === 'scheduled' && (
-              <button
-                onClick={async () => {
-                  setEndingClass(true);
-                  await onStatusChange(booking.id, 'completed');
-                  setEndingClass(false);
-                }}
-                disabled={endingClass}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-bold disabled:opacity-50 min-h-[44px] touch-manipulation"
-                style={{ fontFamily: 'var(--font-grotesk)' }}
-              >
-                {endingClass ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                <span className="hidden sm:inline">End Class</span>
-                <span className="sm:hidden">End</span>
-              </button>
+              <>
+                <button
+                  onClick={async () => {
+                    setEndingClass(true);
+                    await onStatusChange(booking.id, 'completed');
+                    setEndingClass(false);
+                  }}
+                  disabled={endingClass}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-bold disabled:opacity-50 min-h-[44px] touch-manipulation"
+                  style={{ fontFamily: 'var(--font-grotesk)' }}
+                >
+                  {endingClass ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                  <span className="hidden sm:inline">End Class</span>
+                  <span className="sm:hidden">End</span>
+                </button>
+                <button
+                  onClick={async () => {
+                    setEndingClass(true);
+                    await onStatusChange(booking.id, 'no_show');
+                    setEndingClass(false);
+                  }}
+                  disabled={endingClass}
+                  title="Student didn't show — completes the class and withholds half pay"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold disabled:opacity-50 min-h-[44px] touch-manipulation"
+                  style={{ fontFamily: 'var(--font-grotesk)' }}
+                >
+                  <UserX className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Student no-show</span>
+                  <span className="sm:hidden">No-show</span>
+                </button>
+              </>
             )}
             <button
               onClick={onClose}
@@ -1380,10 +1399,9 @@ function TeacherDashboardInner() {
 
   const [stats, setStats] = useState<TeacherStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
-  const [bookings, setBookings] = useState<TeacherBookingRow[]>([]);
-  const [bookingsLoading, setBookingsLoading] = useState(true);
-  const [bookingFilter, setBookingFilter] = useState<'upcoming' | 'past' | 'all'>('upcoming');
-  // All bookings (unfiltered) — used by the calendar so it always shows the full picture
+  // All bookings (unfiltered) — the calendar is now the single source for the
+  // schedule; the separate upcoming/past/all list was removed, and with it a
+  // duplicate fetchTeacherBookings call every load.
   const [allBookings, setAllBookings] = useState<TeacherBookingRow[]>([]);
   const [students, setStudents] = useState<TeacherStudentRow[]>([]);
   const [studentsLoading, setStudentsLoading] = useState(true);
@@ -1402,20 +1420,17 @@ function TeacherDashboardInner() {
   }, []);
 
   const loadAll = useCallback(async () => {
-    const [s, b, st, allB] = await Promise.all([
+    const [s, st, allB] = await Promise.all([
       fetchTeacherStats(),
-      fetchTeacherBookings(bookingFilter),
       fetchTeacherStudents(),
       fetchTeacherBookings('all'),
     ]);
     setStats(s);
     setStatsLoading(false);
-    setBookings(b);
-    setBookingsLoading(false);
     setAllBookings(allB);
     setStudents(st);
     setStudentsLoading(false);
-  }, [bookingFilter]);
+  }, []);
 
   useEffect(() => {
     Promise.resolve().then(() => loadAll());
@@ -1523,20 +1538,6 @@ function TeacherDashboardInner() {
                 <Plus className="w-3.5 h-3.5" /> Add session
               </button>
             </div>
-            <div className="inline-flex p-1 rounded-xl bg-slate-100 gap-1">
-              {(['upcoming', 'past', 'all'] as const).map(f => (
-                <button
-                  key={f}
-                  onClick={() => setBookingFilter(f)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                    bookingFilter === f ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'
-                  }`}
-                  style={{ fontFamily: 'var(--font-grotesk)' }}
-                >
-                  {f.charAt(0).toUpperCase() + f.slice(1)}
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* Reschedule a whole batch going forward */}
@@ -1550,10 +1551,27 @@ function TeacherDashboardInner() {
             </button>
           </div>
 
-          {/* Visual month calendar — shows ALL bookings (not filtered) */}
-          {allBookings.length > 0 && (
-            <div className="mb-6">
-              <TeacherCalendar bookings={allBookings} timezone={userTimezone} onChanged={loadAll} />
+          {/* Visual month calendar — the single source for the schedule. Pick a
+              day, then act on a class (Join, Mark attendance, Reschedule,
+              Cancel) right from its detail row. */}
+          {allBookings.length > 0 ? (
+            <div className="mb-2">
+              <TeacherCalendar
+                bookings={allBookings}
+                timezone={userTimezone}
+                onChanged={loadAll}
+                onSelectBooking={(booking) => setManageBooking(booking)}
+              />
+            </div>
+          ) : (
+            <div className="card-3d p-8 text-center">
+              <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <h3 className="text-lg font-bold text-slate-900 mb-1" style={{ fontFamily: 'var(--font-jakarta)' }}>
+                No sessions scheduled
+              </h3>
+              <p className="text-sm text-slate-500">
+                When the admin assigns you to an active cohort and creates bookings, your class times will appear here.
+              </p>
             </div>
           )}
 
@@ -1562,39 +1580,6 @@ function TeacherDashboardInner() {
             onClose={() => setShowBatchReschedule(false)}
             onDone={loadAll}
           />
-
-          {/* Filtered bookings list (upcoming / past / all) */}
-          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3" style={{ fontFamily: 'var(--font-grotesk)' }}>
-            {bookingFilter === 'upcoming' ? 'Upcoming sessions' : bookingFilter === 'past' ? 'Past sessions' : 'All sessions'} ({bookings.length})
-          </h3>
-          {bookingsLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-green-600" />
-            </div>
-          ) : bookings.length === 0 ? (
-            <div className="card-3d p-8 text-center">
-              <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <h3 className="text-lg font-bold text-slate-900 mb-1" style={{ fontFamily: 'var(--font-jakarta)' }}>
-                {bookingFilter === 'upcoming' ? 'No upcoming sessions' : bookingFilter === 'past' ? 'No past sessions yet' : 'No sessions scheduled'}
-              </h3>
-              <p className="text-sm text-slate-500">
-                When the admin assigns you to an active cohort and creates bookings, your class times will appear here.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {bookings.map(b => (
-                <BookingCard
-                  key={b.id}
-                  booking={b}
-                  timezone={userTimezone}
-                  onStatusChange={handleStatusChange}
-                  onManage={(booking) => setManageBooking(booking)}
-                  onReschedule={(booking) => setRescheduleBookingState(booking)}
-                />
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Students */}

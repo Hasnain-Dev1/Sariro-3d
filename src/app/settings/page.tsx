@@ -31,19 +31,26 @@ function SettingsInner() {
 
   if (!user) return null;
 
+  // An admin can lock a student's name so they can't change it themselves.
+  const nameLocked = !!profile?.name_locked;
+
   const handleSave = async () => {
     setSaving(true);
     setSaved(false);
     setError(null);
     try {
+      // Never send full_name when the name is admin-locked — it's also enforced
+      // server-side by a DB trigger, but omitting it avoids a pointless error.
+      const patch: Record<string, unknown> = {
+        phone,
+        timezone: timezone || null,
+        track: track || null,
+      };
+      if (!nameLocked) patch.full_name = fullName;
+
       const { error } = await supabase
         .from('profiles')
-        .update({
-          full_name: fullName,
-          phone,
-          timezone: timezone || null,
-          track: track || null,
-        })
+        .update(patch)
         .eq('id', user.id);
       if (error) throw error;
       await refreshProfile();
@@ -108,10 +115,16 @@ function SettingsInner() {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="Your name"
-                className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                disabled={nameLocked}
+                className={`w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${nameLocked ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : ''}`}
                 style={{ fontFamily: 'var(--font-inter)' }}
               />
             </div>
+            {nameLocked && (
+              <p className="mt-1.5 text-[11px] text-amber-600 font-medium">
+                Your name is managed by your admin and can&apos;t be changed here. Contact them if it needs updating.
+              </p>
+            )}
           </div>
 
           {/* Email (read-only) */}

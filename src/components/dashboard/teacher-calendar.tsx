@@ -39,7 +39,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, ChevronRight, Calendar as CalendarIcon,
-  Video, Clock, X, HelpCircle,
+  Video, Clock, X, HelpCircle, ClipboardCheck,
 } from 'lucide-react';
 import type { TeacherBookingRow } from '@/lib/dashboard/teacher-data';
 import { getTrackName } from '@/lib/dashboard/upsell-engine';
@@ -460,6 +460,16 @@ export function TeacherCalendar({ bookings, timezone, onSelectBooking, onChanged
                         style={{ fontFamily: 'var(--font-grotesk)' }}
                       >
                         <Video className="w-3 h-3" /> {joinedIds.has(b.id) ? 'Joined ✓' : 'Join'}
+                      </button>
+                    )}
+                    {onSelectBooking && (b.status === 'scheduled' || b.status === 'completed') && (
+                      <button
+                        type="button"
+                        onClick={() => onSelectBooking(b)}
+                        className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-700 text-[10px] font-bold transition-colors"
+                        style={{ fontFamily: 'var(--font-grotesk)' }}
+                      >
+                        <ClipboardCheck className="w-3 h-3" /> Mark attendance
                       </button>
                     )}
                     {b.status === 'scheduled' && (

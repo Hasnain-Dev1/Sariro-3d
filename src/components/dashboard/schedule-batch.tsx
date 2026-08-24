@@ -13,7 +13,7 @@ import { generateOccurrences } from '@/lib/dashboard/schedule-generation';
    ════════════════════════════════════════════════════════════════════════ */
 
 interface Teacher { id: string; full_name: string | null; timezone: string | null }
-interface Cohort { id: string; track: string; level: string; ratio: string; status: string }
+interface Cohort { id: string; track: string; level: string; ratio: string; status: string; batch_code: string | null }
 interface Kid { id: string; full_name: string | null; timezone: string | null }
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -70,7 +70,7 @@ export default function ScheduleBatchModal({
       if (adminId) tq = tq.eq('reporting_admin_id', adminId);
       const [tRes, cRes] = await Promise.all([
         tq.order('full_name'),
-        sb.from('cohorts').select('id, track, level, ratio, status').in('status', ['gathering', 'ready', 'active']).order('created_at', { ascending: false }),
+        sb.from('cohorts').select('id, track, level, ratio, status, batch_code').in('status', ['gathering', 'ready', 'active']).order('created_at', { ascending: false }),
       ]);
       setTeachers((tRes.data ?? []) as Teacher[]);
       setCohorts((cRes.data ?? []) as Cohort[]);
@@ -227,7 +227,7 @@ export default function ScheduleBatchModal({
           <Field label="Batch (cohort)">
             <select value={cohortId} onChange={(e) => setCohortId(e.target.value)} className={selectCls}>
               <option value="">Select batch…</option>
-              {cohorts.map((c) => <option key={c.id} value={c.id}>{c.track} · {c.level} · {c.ratio}</option>)}
+              {cohorts.map((c) => <option key={c.id} value={c.id}>{c.batch_code ? `${c.batch_code} · ` : ''}{c.track} · {c.level} · {c.ratio}</option>)}
             </select>
           </Field>
         </div>

@@ -513,8 +513,33 @@ export interface UserRow {
   is_teacher: boolean;
   is_admin: boolean;
   is_super_admin: boolean;
+  name_locked: boolean;
   created_at: string;
   enrollment_count: number;
+}
+
+/* ───── updateStudentName ─────
+   Admin/super-admin renames a student and/or (un)locks the student's ability
+   to change their own name from Settings. Goes through the service-role route
+   /api/admin/update-student-name (RLS blocks a browser client from writing
+   another user's profile). */
+export async function updateStudentName(
+  userId: string,
+  opts: { fullName?: string; nameLocked?: boolean }
+): Promise<{ success: boolean; error?: string }> {
+  if (!userId) return { success: false, error: 'Missing user id' };
+  try {
+    const res = await fetch('/api/admin/update-student-name', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, fullName: opts.fullName, nameLocked: opts.nameLocked }),
+    });
+    const json = (await res.json()) as { ok: boolean; error?: string; message?: string };
+    if (!res.ok || !json.ok) return { success: false, error: json.message || json.error || 'update_failed' };
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Network error' };
+  }
 }
 
 export interface CohortStudentRow {
@@ -779,6 +804,15 @@ export async function fetchUsers(
       if (uid) countMap.set(uid, (countMap.get(uid) ?? 0) + 1);
     });
 
+    // name_locked is fetched best-effort in its own query so the whole users
+    // table never breaks if the student-name-management migration hasn't been
+    // run yet (unknown column → this select errors, we just default to false).
+    const lockedMap = new Map<string, boolean>();
+    try {
+      const { data: locks } = await supabase.from('profiles').select('id, name_locked').in('id', userIds);
+      (locks ?? []).forEach((r: { id: string; name_locked: boolean | null }) => lockedMap.set(r.id, !!r.name_locked));
+    } catch { /* column not present yet — treat everyone as unlocked */ }
+
     return users.map((u) => ({
       id: u.id,
       full_name: u.full_name ?? null,
@@ -789,6 +823,7 @@ export async function fetchUsers(
       is_teacher: !!u.is_teacher,
       is_admin: !!u.is_admin,
       is_super_admin: !!u.is_super_admin,
+      name_locked: lockedMap.get(u.id) ?? false,
       created_at: u.created_at,
       enrollment_count: countMap.get(u.id) ?? 0,
     }));

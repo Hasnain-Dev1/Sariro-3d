@@ -23,6 +23,7 @@ import {
   type UserRow, type CohortStudentRow, type RevenueStats,
 } from '@/lib/dashboard/admin-data';
 import { getTrackName } from '@/lib/dashboard/upsell-engine';
+import StudentNameEditor from '@/components/dashboard/student-name-editor';
 import { TeacherManagementModal } from '@/components/dashboard/teacher-management';
 import { SellerLeads } from '@/app/dashboard/admin/seller-leads';
 import { TeacherCourseAssignmentModal } from '@/app/dashboard/admin/teacher-course-assignments';
@@ -935,8 +936,22 @@ function UserManagementModal({
                       </div>
                       <div className="min-w-0 flex-1 grid grid-cols-1 sm:grid-cols-2 gap-1 sm:gap-2">
                         <div className="min-w-0">
-                          <div className="text-sm font-bold text-slate-900 truncate" style={{ fontFamily: 'var(--font-jakarta)' }}>
-                            {displayName}
+                          <div className="flex items-center gap-1">
+                            <div className="text-sm font-bold text-slate-900 truncate" style={{ fontFamily: 'var(--font-jakarta)' }}>
+                              {displayName}
+                            </div>
+                            {/* Rename + name-lock — students only */}
+                            {(u.is_student || u.role === 'student' || (!u.role && !u.is_teacher && !u.is_admin && !u.is_super_admin)) && (
+                              <StudentNameEditor
+                                userId={u.id}
+                                currentName={u.full_name}
+                                nameLocked={u.name_locked}
+                                onSaved={(newName, newLocked) =>
+                                  setUsers((prev) => prev.map((x) => x.id === u.id ? { ...x, full_name: newName, name_locked: newLocked } : x))
+                                }
+                                onError={(msg) => onToast('error', msg)}
+                              />
+                            )}
                           </div>
                           <div className="text-xs text-slate-500 truncate">{u.email || '—'}</div>
                         </div>
@@ -1135,8 +1150,16 @@ function ManualEnrollModal({
     Promise.resolve().then(() => setStudentsLoading(true));
     fetchUsers().then((rows) => {
       if (cancelled) return;
+      // Manual enrollment is for STUDENTS only — filter out teachers/admins/
+      // sellers/hr so the picker isn't cluttered with (and can't accidentally
+      // enrol) staff accounts. Mirrors the student filter used elsewhere:
+      // an account counts as a student if role==='student' OR is_student, and
+      // brand-new signups (role null, no flags) default to student.
+      const studentsOnly = rows.filter(
+        (r) => r.is_student || r.role === 'student' || (!r.role && !r.is_teacher && !r.is_admin && !r.is_super_admin)
+      );
       Promise.resolve().then(() => {
-        setStudents(rows);
+        setStudents(studentsOnly);
         setStudentsLoading(false);
       });
     });

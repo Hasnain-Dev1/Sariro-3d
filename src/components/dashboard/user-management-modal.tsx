@@ -9,6 +9,7 @@ import {
   fetchUsers, updateUserRole, exportUsersCSV,
   type UserRow,
 } from '@/lib/dashboard/admin-data';
+import StudentNameEditor from '@/components/dashboard/student-name-editor';
 
 /* ════════════════════════════════════════════════════════════════════════
    UserManagementModal — shared between admin + super-admin dashboards
@@ -232,8 +233,22 @@ export function UserManagementModal({
                       </div>
                       <div className="min-w-0 flex-1 grid grid-cols-1 sm:grid-cols-2 gap-1 sm:gap-2">
                         <div className="min-w-0">
-                          <div className="text-sm font-bold text-slate-900 truncate" style={{ fontFamily: 'var(--font-jakarta)' }}>
-                            {displayName}
+                          <div className="flex items-center gap-1">
+                            <div className="text-sm font-bold text-slate-900 truncate" style={{ fontFamily: 'var(--font-jakarta)' }}>
+                              {displayName}
+                            </div>
+                            {/* Rename + name-lock — students only */}
+                            {(u.is_student || u.role === 'student' || (!u.role && !u.is_teacher && !u.is_admin && !u.is_super_admin)) && (
+                              <StudentNameEditor
+                                userId={u.id}
+                                currentName={u.full_name}
+                                nameLocked={u.name_locked}
+                                onSaved={(newName, newLocked) =>
+                                  setUsers((prev) => prev.map((x) => x.id === u.id ? { ...x, full_name: newName, name_locked: newLocked } : x))
+                                }
+                                onError={(msg) => onToast('error', msg)}
+                              />
+                            )}
                           </div>
                           <div className="text-xs text-slate-500 truncate">{u.email || '—'}</div>
                         </div>
