@@ -9,22 +9,32 @@ import { ErrorTracker } from "@/components/observability/error-tracker";
 import { ImpersonationBanner } from "@/components/security/impersonation-banner";
 import WelcomePopup from "@/components/welcome/welcome-popup";
 
+// Font weights trimmed to what the UI actually leans on (measured: 700 and
+// 800 dominate; 400/500/900 are rare). Fewer weight files = less to download
+// before first paint on throttled mobile. A rare unused weight just gets
+// browser-synthesized, which is visually near-identical.
+//   Inter (body):      400 base + 600/700 emphasis
+//   Jakarta (display): 700/800 (all headings)
+//   Grotesk (labels):  600/700 (uppercase eyebrows/labels)
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "600", "700"],
+  display: "swap",
 });
 
 const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
   subsets: ["latin"],
-  weight: ["500", "600", "700", "800"],
+  weight: ["700", "800"],
+  display: "swap",
 });
- 
+
 const grotesk = Space_Grotesk({
   variable: "--font-grotesk",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["600", "700"],
+  display: "swap",
 });
 
 function getBaseUrl(): string {
