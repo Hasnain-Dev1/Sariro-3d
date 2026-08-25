@@ -5,6 +5,7 @@ import { motion, useInView } from 'framer-motion';
 import { ReactNode, useRef } from 'react';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
+import { useHeavyVisuals } from '@/lib/use-heavy-visuals';
 
 const PageHero3D = dynamic(() => import('./page-hero-3d'), { ssr: false });
 
@@ -35,6 +36,7 @@ export default function PageHero({
 }: PageHeroProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const inView = useInView(sectionRef, { margin: '100px' });
+  const heavyVisuals = useHeavyVisuals();
 
   return (
     <section ref={sectionRef} className="relative pt-36 sm:pt-44 pb-16 sm:pb-20 overflow-hidden">
@@ -126,7 +128,7 @@ export default function PageHero({
             />
             {/* 3D Canvas */}
             <div className="relative w-full h-full">
-              {inView && <PageHero3D variant={variant} accentColor={accentColor} />}
+              {heavyVisuals && inView && <PageHero3D variant={variant} accentColor={accentColor} />}
             </div>
           </motion.div>
         </div>

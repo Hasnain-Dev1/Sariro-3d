@@ -6,6 +6,7 @@ import { motion, useScroll, useTransform, useMotionValueEvent, useInView } from 
 import { useRef } from 'react';
 import { ArrowRight, Sparkles, Rocket } from 'lucide-react';
 import { BRAND, HERO_STATS, TRUSTED_BY } from '@/lib/sariro-data';
+import { useHeavyVisuals } from '@/lib/use-heavy-visuals';
 import BrandLayout from '@/components/brand/brand-layout';
 import { WaveDivider3D } from '@/components/sariro-3d/kit-3d';
 
@@ -31,6 +32,7 @@ export default function Home() {
   const heroRef = useRef<HTMLElement>(null);
   const scrollProgressRef = useRef(0);
   const inView = useInView(heroRef, { margin: '200px' });
+  const heavyVisuals = useHeavyVisuals();
 
   const { scrollYProgress } = useScroll({
     target: heroRef,
@@ -164,7 +166,7 @@ export default function Home() {
             >
               <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-500/20 via-violet-500/20 to-green-500/20 blur-3xl" />
               <div className="relative w-full h-full">
-                {inView && <NeuralNetworkScene scrollProgress={scrollProgressRef} />}
+                {heavyVisuals && inView && <NeuralNetworkScene scrollProgress={scrollProgressRef} />}
               </div>
               <div className="absolute bottom-0 left-1/2 -translate-x-1/2 text-center">
                 <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-400" style={{ fontFamily: 'var(--font-grotesk)' }}>
@@ -204,8 +206,9 @@ export default function Home() {
       {/* =================== ALL THE 3D FLOW SECTIONS (brought back!) =================== */}
       <Tracks3D />
       <WaveDivider3D fromColor="#FFFFFF" toColor="#0B1120" />
-      {/* ORYZO-STYLE CINEMATIC SCROLL: camera orbits 360° around AI Core */}
-      <OryzoSection />
+      {/* ORYZO-STYLE CINEMATIC SCROLL: camera orbits 360° around AI Core.
+          Real WebGL — desktop only, so phones don't hit it on scroll. */}
+      {heavyVisuals && <OryzoSection />}
       <WaveDivider3D fromColor="#0B1120" toColor="#F8FAFC" />
       <Stats3D />
       <Courses3D />

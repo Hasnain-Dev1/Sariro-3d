@@ -13,6 +13,7 @@ import SmoothScrollProvider from '@/components/sariro-3d/smooth-scroll-provider'
 import CookieConsent from '@/components/brand/cookie-consent';
 import ChatBubble from '@/components/sariro-3d/chat-bubble';
 import ServiceWorkerRegistration from '@/components/sariro-3d/service-worker-registration';
+import { useHeavyVisuals } from '@/lib/use-heavy-visuals';
 import { useAuth } from '@/components/auth/auth-provider';
 
 /* These three are the ONLY things in the app that pull in `three` /
@@ -466,15 +467,20 @@ function PageTransition({ children }: { children: ReactNode }) {
 }
 
 export default function BrandLayout({ children }: { children: ReactNode }) {
+  // The decorative three.js layers (cinematic intro, background particles,
+  // companion orb) run continuous render loops — great on desktop, ruinous for
+  // phone/tablet PageSpeed. Mount them only on capable non-touch devices; the
+  // rest of the design (gradients, motion, cursor) is untouched everywhere.
+  const heavyVisuals = useHeavyVisuals();
   return (
     <SmoothScrollProvider>
       <ServiceWorkerRegistration />
-      <CinematicIntro />
+      {heavyVisuals && <CinematicIntro />}
       <CustomCursor />
-      <BackgroundParticles3D />
+      {heavyVisuals && <BackgroundParticles3D />}
       <ScrollHueShift />
       <ChapterNav />
-      <CompanionOrb3D />
+      {heavyVisuals && <CompanionOrb3D />}
       <ScrollProgressBar />
       <NeuralMotifBg />
       <BrandNavbar />
