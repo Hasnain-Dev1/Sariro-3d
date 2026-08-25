@@ -43,7 +43,7 @@ export interface ProjectSubmissionRow {
   demo_url: string | null;
   reflection_tricky: string | null;
   reflection_proud: string | null;
-  status: 'submitted' | 'approved' | 'resubmit';
+  status: 'submitted' | 'approved' | 'partial' | 'resubmit';
   submitted_at: string;
   reviewed_at: string | null;
   reviewed_by: string | null;
@@ -117,7 +117,7 @@ export interface CapstoneProgressRow {
     enriched: LessonObject | null;
     status: 'completed' | 'in_progress' | 'not_started';
     has_submission: boolean;
-    submission_status?: 'submitted' | 'approved' | 'resubmit';
+    submission_status?: 'submitted' | 'approved' | 'partial' | 'resubmit';
   }>;
 }
 
@@ -419,6 +419,57 @@ export async function fetchSubmissionsForBooking(
 }
 
 /**
+ * Fetch every submission that still needs review across ALL of the signed-in
+ * teacher's bookings — powers the dedicated "Project Reviews" surface, so new
+ * submissions are visible without opening each class. RLS
+ * (teachers_read_cohort_submissions) already scopes rows to the teacher's own
+ * bookings; we additionally filter to status='submitted' (not yet reviewed).
+ */
+export async function fetchPendingSubmissionsForTeacher(): Promise<SubmissionWithFeedback[]> {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    // The teacher's bookings (RLS also enforces this, but scoping the query
+    // keeps it cheap).
+    const { data: bookings } = await supabase.from('bookings').select('id').eq('teacher_id', user.id);
+    const bookingIds = (bookings ?? []).map((b) => b.id);
+    if (bookingIds.length === 0) return [];
+
+    const { data: submissions, error } = await supabase
+      .from('project_submissions')
+      .select('*')
+      .in('booking_id', bookingIds)
+      .eq('status', 'submitted')
+      .order('submitted_at', { ascending: true });
+    if (error) throw error;
+    if (!submissions || submissions.length === 0) return [];
+
+    const studentIds = [...new Set(submissions.map((s) => s.user_id))];
+    const { data: profiles } = await supabase.from('profiles').select('id, full_name, avatar_url').in('id', studentIds);
+    const profileMap = new Map((profiles ?? []).map((p) => [p.id as string, p]));
+
+    const submissionIds = submissions.map((s) => s.id);
+    const { data: feedbackRows } = await supabase.from('submission_feedback').select('*').in('submission_id', submissionIds);
+    const feedbackMap = new Map((feedbackRows ?? []).map((f) => [f.submission_id as string, f]));
+
+    return submissions.map((s) => {
+      const profile = profileMap.get(s.user_id);
+      return {
+        ...(s as ProjectSubmissionRow),
+        student_name: profile?.full_name ?? null,
+        student_avatar: profile?.avatar_url ?? null,
+        feedback: (feedbackMap.get(s.id) as SubmissionFeedbackRow | undefined) ?? null,
+      };
+    });
+  } catch (err) {
+    console.warn('[submissions] fetchPendingSubmissionsForTeacher error:', err);
+    return [];
+  }
+}
+
+/**
  * Fetch lesson notes for the current student — the "after class" view.
  * Returns a timeline of past sessions with:
  *   - Lesson identification (module + name)
@@ -609,6 +660,7 @@ export async function fetchCapstoneProgress(
           submission_status: submission?.status as
             | 'submitted'
             | 'approved'
+            | 'partial'
             | 'resubmit'
             | undefined,
         };
@@ -869,7 +921,10 @@ export async function reviewSubmission(params: {
   submissionId: string;
   rating: number; // 1-5
   content: string;
-  approved: boolean;
+  /** Three-way outcome: complete (full) / partial (half) / invalid (zero). */
+  outcome?: 'complete' | 'partial' | 'invalid';
+  /** Legacy — still accepted; complete=true, invalid=false. */
+  approved?: boolean;
   /** Honeypot */
   website?: string;
 }): Promise<{ success: boolean; error?: string }> {
@@ -885,6 +940,7 @@ export async function reviewSubmission(params: {
       return { success: false, error: 'Feedback must be under 5000 characters' };
     }
 
+    const outcome = params.outcome ?? (params.approved === false ? 'invalid' : 'complete');
     const res = await fetch('/api/teacher/review', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -892,7 +948,7 @@ export async function reviewSubmission(params: {
         submissionId: params.submissionId,
         rating: params.rating,
         content: params.content.trim(),
-        approved: params.approved,
+        outcome,
         website: params.website ?? '',
       }),
     });

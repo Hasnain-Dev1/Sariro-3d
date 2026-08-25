@@ -41,8 +41,27 @@ interface ReviewBody {
   submissionId?: string;
   rating?: number;
   content?: string;
+  /** New three-way outcome. Falls back to `approved` for older callers. */
+  outcome?: 'complete' | 'partial' | 'invalid';
   approved?: boolean;
   website?: string; // honeypot
+}
+
+/**
+ * Maps a review outcome to the submission status, whether it counts as
+ * "approved" feedback, and the review points awarded (full / half / zero).
+ * The student's leaderboard points come from project_submissions.status via
+ * the student_leaderboard view (complete=15, partial=8, else 0); these
+ * review_points are the teacher-side per-review record.
+ */
+function resolveOutcome(o: 'complete' | 'partial' | 'invalid'): {
+  status: 'approved' | 'partial' | 'resubmit';
+  approved: boolean;
+  reviewPoints: number;
+} {
+  if (o === 'complete') return { status: 'approved', approved: true, reviewPoints: 4 };
+  if (o === 'partial') return { status: 'partial', approved: false, reviewPoints: 2 };
+  return { status: 'resubmit', approved: false, reviewPoints: 0 };
 }
 
 export async function POST(req: NextRequest) {
@@ -97,8 +116,15 @@ export async function POST(req: NextRequest) {
   if (body.content && body.content.length > 5000) {
     errors.push('Feedback must be under 5000 characters');
   }
-  if (typeof body.approved !== 'boolean') {
-    errors.push('Approved flag is required');
+  // Accept the new three-way outcome, or derive it from the legacy `approved`.
+  const outcome: 'complete' | 'partial' | 'invalid' =
+    body.outcome && ['complete', 'partial', 'invalid'].includes(body.outcome)
+      ? body.outcome
+      : typeof body.approved === 'boolean'
+        ? (body.approved ? 'complete' : 'invalid')
+        : ('' as 'complete');
+  if (!outcome) {
+    errors.push('A review outcome (complete / partial / invalid) is required');
   }
   if (errors.length > 0) {
     return NextResponse.json(
@@ -181,8 +207,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ── 9. Calculate review_points + ontime_bonus ─────────────────────────
-  const reviewPoints = 3; // 3 points per review
+  // ── 9. Resolve outcome → status + points; calculate ontime_bonus ──────
+  const resolved = resolveOutcome(outcome);
+  const reviewPoints = resolved.reviewPoints; // full (4) / half (2) / zero (0)
   const submittedAt = new Date(submission.submitted_at);
   const now = new Date();
   const hoursSinceSubmit = (now.getTime() - submittedAt.getTime()) / (1000 * 60 * 60);
@@ -196,7 +223,7 @@ export async function POST(req: NextRequest) {
     .eq('submission_id', body.submissionId!)
     .maybeSingle();
 
-  const newStatus = body.approved ? 'approved' : 'resubmit';
+  const newStatus = resolved.status;
 
   if (existingFeedback) {
     // Update existing feedback
@@ -205,7 +232,7 @@ export async function POST(req: NextRequest) {
       .update({
         rating: body.rating,
         content: body.content!.trim(),
-        approved: body.approved,
+        approved: resolved.approved,
         review_points: reviewPoints,
         ontime_bonus: ontimeBonus,
       })
@@ -227,7 +254,7 @@ export async function POST(req: NextRequest) {
         teacher_id: teacherId,
         rating: body.rating,
         content: body.content!.trim(),
-        approved: body.approved,
+        approved: resolved.approved,
         review_points: reviewPoints,
         ontime_bonus: ontimeBonus,
       });

@@ -23,6 +23,7 @@ import {
 } from '@/lib/dashboard/teacher-data';
 import {
   fetchSubmissionsForBooking,
+  fetchPendingSubmissionsForTeacher,
   reviewSubmission,
   type SubmissionWithFeedback,
 } from '@/lib/dashboard/submissions-data';
@@ -824,25 +825,33 @@ function SubmissionReviewCard({
 
   const statusBadge = (() => {
     if (submission.status === 'approved') {
-      return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-green-100 text-green-700" style={{ fontFamily: 'var(--font-grotesk)' }}>Approved</span>;
+      return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-green-100 text-green-700" style={{ fontFamily: 'var(--font-grotesk)' }}>Complete</span>;
+    }
+    if (submission.status === 'partial') {
+      return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-orange-700" style={{ fontFamily: 'var(--font-grotesk)' }}>Partial</span>;
     }
     if (submission.status === 'resubmit') {
-      return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700" style={{ fontFamily: 'var(--font-grotesk)' }}>Resubmit</span>;
+      return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700" style={{ fontFamily: 'var(--font-grotesk)' }}>Invalid</span>;
     }
     return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700" style={{ fontFamily: 'var(--font-grotesk)' }}>Pending</span>;
   })();
 
-  const handleReview = async (approve: boolean) => {
+  const handleReview = async (outcome: 'complete' | 'partial' | 'invalid') => {
     setSubmitting(true);
     const result = await reviewSubmission({
       submissionId: submission.id,
       rating,
       content,
-      approved: approve,
+      outcome,
     });
     setSubmitting(false);
     if (result.success) {
-      onToast(approve ? 'Approved! Student notified.' : 'Resubmit requested', 'success');
+      const msg = outcome === 'complete'
+        ? 'Marked complete — full points, student notified.'
+        : outcome === 'partial'
+          ? 'Marked partial — half points awarded.'
+          : 'Marked invalid — resubmit requested.';
+      onToast(msg, 'success');
       onReviewed();
     } else {
       onToast(result.error || 'Review failed', 'error');
@@ -991,28 +1000,113 @@ function SubmissionReviewCard({
               />
             </div>
 
-            {/* Action buttons */}
-            <div className="flex gap-2 pt-1">
+            {/* Action buttons — three-way outcome (full / half / zero points) */}
+            <div className="grid grid-cols-3 gap-2 pt-1">
               <button
-                onClick={() => handleReview(true)}
+                onClick={() => handleReview('complete')}
                 disabled={submitting || content.trim().length < 10}
-                className="flex-1 min-h-[44px] rounded-lg bg-green-600 hover:bg-green-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center justify-center gap-1.5 touch-manipulation"
+                title="Full points + capstone marked done"
+                className="min-h-[44px] rounded-lg bg-green-600 hover:bg-green-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center justify-center gap-1.5 touch-manipulation"
                 style={{ fontFamily: 'var(--font-grotesk)' }}
               >
                 {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                Approve
+                Complete
               </button>
               <button
-                onClick={() => handleReview(false)}
+                onClick={() => handleReview('partial')}
                 disabled={submitting || content.trim().length < 10}
-                className="flex-1 min-h-[44px] rounded-lg bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center justify-center gap-1.5 touch-manipulation"
+                title="Half points — good progress but not fully done"
+                className="min-h-[44px] rounded-lg bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center justify-center gap-1.5 touch-manipulation"
                 style={{ fontFamily: 'var(--font-grotesk)' }}
               >
-                {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Edit3 className="w-3.5 h-3.5" />}
-                Request resubmit
+                {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Star className="w-3.5 h-3.5" />}
+                Partial
+              </button>
+              <button
+                onClick={() => handleReview('invalid')}
+                disabled={submitting || content.trim().length < 10}
+                title="Zero points — must resubmit"
+                className="min-h-[44px] rounded-lg bg-red-500 hover:bg-red-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center justify-center gap-1.5 touch-manipulation"
+                style={{ fontFamily: 'var(--font-grotesk)' }}
+              >
+                {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
+                Invalid
               </button>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ───── Project Reviews — dedicated dashboard section ─────
+   Surfaces every pending submission across the teacher's classes so new
+   projects are visible without opening each session. Reuses the same review
+   card (three-way Complete / Partial / Invalid). */
+function ProjectReviewsSection({ onToast }: { onToast: (msg: string, kind?: 'success' | 'error') => void }) {
+  const [subs, setSubs] = useState<SubmissionWithFeedback[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    const rows = await fetchPendingSubmissionsForTeacher();
+    setSubs(rows);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.resolve().then(() => setLoading(true));
+    fetchPendingSubmissionsForTeacher().then((rows) => {
+      if (cancelled) return;
+      setSubs(rows);
+      setLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Auto-refresh when a new project comes in or a review is saved.
+  useRealtime({
+    tables: ['project_submissions', 'submission_feedback'],
+    onRefresh: () => { load(); },
+    enabled: true,
+  });
+
+  return (
+    <div className="mb-10" id="reviews">
+      <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-jakarta)' }}>
+        <FolderOpen className="w-5 h-5 text-violet-600" />
+        Project Reviews
+        {subs.length > 0 && (
+          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-violet-100 text-violet-700">
+            {subs.length} to review
+          </span>
+        )}
+      </h2>
+      {loading ? (
+        <div className="flex items-center justify-center py-10">
+          <Loader2 className="w-7 h-7 animate-spin text-violet-600" />
+        </div>
+      ) : subs.length === 0 ? (
+        <div className="card-3d p-6 text-center">
+          <FolderOpen className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+          <p className="text-sm text-slate-500">
+            No projects waiting for review. New student submissions will show up here.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {subs.map((sub) => (
+            <SubmissionReviewCard
+              key={sub.id}
+              submission={sub}
+              isExpanded={expandedId === sub.id}
+              onToggle={() => setExpandedId(expandedId === sub.id ? null : sub.id)}
+              onReviewed={() => { load(); setExpandedId(null); }}
+              onToast={onToast}
+            />
+          ))}
         </div>
       )}
     </div>
@@ -1581,6 +1675,9 @@ function TeacherDashboardInner() {
             onDone={loadAll}
           />
         </div>
+
+        {/* Project Reviews — pending submissions across all classes */}
+        <ProjectReviewsSection onToast={handleToast} />
 
         {/* Students */}
         <div className="mb-10" id="students">

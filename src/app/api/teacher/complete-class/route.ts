@@ -98,5 +98,47 @@ export async function POST(req: NextRequest) {
   if (uErr) return NextResponse.json({ ok: false, error: 'update_failed', message: uErr.message }, { status: 500 });
   if (!updated || updated.length === 0) return NextResponse.json({ ok: true, already: true });
 
+  // ── Consume 1 credit per active student (1 credit = 1 class). This used to
+  //    rely on a DB trigger that was never actually present, so completed
+  //    classes never deducted. We now do it here, idempotently: a
+  //    'class_consumed' credit_transactions row keyed to this booking + student
+  //    is the guard, so re-completing (or a retry) never double-deducts. ──
+  await deductClassCredits(admin, booking.id, booking.cohort_id);
+
   return NextResponse.json({ ok: true, completed: true, outcome });
+}
+
+/**
+ * Deduct one class credit from each active student in the cohort, exactly once
+ * per (booking, student). Guarded by a matching 'class_consumed' transaction so
+ * it's safe to call again on a retry or re-completion.
+ */
+async function deductClassCredits(
+  admin: ReturnType<typeof createServiceClient>,
+  bookingId: string,
+  cohortId: string
+) {
+  const { data: enrs } = await admin.from('enrollments')
+    .select('user_id').eq('cohort_id', cohortId).eq('status', 'active');
+  const studentIds = [...new Set((enrs ?? []).map((e: { user_id: string }) => e.user_id))];
+  if (studentIds.length === 0) return;
+
+  // Which students were already charged for THIS booking?
+  const { data: charged } = await admin.from('credit_transactions')
+    .select('user_id').eq('related_booking_id', bookingId).eq('type', 'class_consumed');
+  const already = new Set((charged ?? []).map((c: { user_id: string }) => c.user_id));
+
+  for (const sid of studentIds) {
+    if (already.has(sid)) continue;
+    const { data: cr } = await admin.from('credits').select('balance').eq('user_id', sid).maybeSingle();
+    const balance = cr?.balance ?? 0;
+    const newBalance = Math.max(0, balance - 1);
+    // Record the consumption first (the idempotency guard), then apply it.
+    const { error: txErr } = await admin.from('credit_transactions').insert({
+      user_id: sid, amount: -1, type: 'class_consumed',
+      description: 'Class attended', related_booking_id: bookingId,
+    });
+    if (txErr) continue; // a concurrent completion already charged this student
+    await admin.from('credits').upsert({ user_id: sid, balance: newBalance }, { onConflict: 'user_id' });
+  }
 }
