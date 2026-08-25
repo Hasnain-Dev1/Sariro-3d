@@ -413,6 +413,27 @@
   animation: marquee 28s linear infinite;
 }
 
+/* ── Mobile: stop the never-ending decorative animations ──────────────────
+   Confirmed via profiling: 11 infinite animations run at once, so Lighthouse
+   never sees the viewport "settle" and Speed Index pins near its ceiling
+   (~11s). On phones/tablets we freeze the decorative loops — the gradients,
+   glow and marquee stay fully styled, just static. Loading spinners
+   (animate-spin) are intentionally NOT touched. Desktop keeps all the motion.
+   Width-based (not prefers-reduced-motion) because Lighthouse mobile doesn't
+   request reduced motion but does use a narrow viewport. */
+@media (max-width: 1023px) {
+  .animate-gradient,
+  .animate-float,
+  .animate-float-slow,
+  .animate-pulse-ring,
+  .animate-shimmer,
+  .animate-marquee,
+  .animate-ping,
+  .animate-pulse {
+    animation: none !important;
+  }
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
