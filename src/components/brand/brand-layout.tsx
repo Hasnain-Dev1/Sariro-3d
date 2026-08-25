@@ -452,17 +452,17 @@ function BrandFooter() {
 
 /* Page transition wrapper */
 function PageTransition({ children }: { children: ReactNode }) {
+  // IMPORTANT: initial={false} — the page must paint immediately. This wrapper
+  // used to start at opacity:0 and fade in, which meant NOTHING on the page was
+  // visible until framer hydrated and ran the fade — a severe LCP / First
+  // Contentful Paint / Speed Index hit on mobile especially. (There's no
+  // pathname key here, so the fade only ever fired once on initial mount — it
+  // wasn't even giving us route transitions, only cost.) Rendering at the final
+  // state means content is painted on the very first frame.
   return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -8 }}
-        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      >
-        {children}
-      </motion.div>
-    </AnimatePresence>
+    <div>
+      {children}
+    </div>
   );
 }
 

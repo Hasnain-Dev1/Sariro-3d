@@ -61,7 +61,7 @@ export default function Home() {
             <motion.div style={{ y: heroY, opacity: heroOpacity }} className="max-w-2xl">
               {/* Eyebrow */}
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
                 className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full glass-panel text-xs font-bold uppercase tracking-wider text-blue-700 mb-6"
@@ -76,7 +76,7 @@ export default function Home() {
 
               {/* Headline */}
               <motion.h1
-                initial={{ opacity: 0, y: 24 }}
+                initial={{ y: 24 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.7, delay: 0.1 }}
                 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-[1.05] text-slate-900"
@@ -97,7 +97,7 @@ export default function Home() {
 
               {/* Subhead */}
               <motion.p
-                initial={{ opacity: 0, y: 24 }}
+                initial={{ y: 24 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.7, delay: 0.2 }}
                 className="mt-6 text-lg text-slate-600 max-w-xl"
@@ -107,7 +107,7 @@ export default function Home() {
 
               {/* CTAs — 3-button layout */}
               <motion.div
-                initial={{ opacity: 0, y: 24 }}
+                initial={{ y: 24 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.7, delay: 0.3 }}
                 className="mt-8 flex flex-wrap items-center gap-3"
@@ -131,7 +131,7 @@ export default function Home() {
 
               {/* Hero stats */}
               <motion.div
-                initial={{ opacity: 0, y: 24 }}
+                initial={{ y: 24 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.7, delay: 0.4 }}
                 className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-2xl"
