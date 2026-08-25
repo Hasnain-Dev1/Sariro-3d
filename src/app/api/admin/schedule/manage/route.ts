@@ -71,6 +71,47 @@ async function grantEnrollmentCredits(
   });
 }
 
+/**
+ * When a kid is added to a batch that's already in progress, unlock every
+ * lesson the batch has already covered so the new kid can continue from where
+ * the group is — regardless of whether they personally did the earlier ones.
+ *
+ * "Already covered" = the number of COMPLETED classes the cohort has had. We
+ * insert a lesson_progress row for each of the first N syllabus lessons (N =
+ * completed-class count), which is exactly what makes those lessons show as
+ * done/viewable (the unlock logic keys purely off lesson_progress). Idempotent:
+ * we skip lessons the enrollment already has.
+ */
+async function backfillLessonProgressToBatch(
+  admin: ReturnType<typeof createServiceClient>,
+  opts: { cohortId: string; enrollmentId: string; track: string | null; level: string | null }
+) {
+  if (!opts.track || !opts.level) return;
+  const syllabus = getCourseSyllabus(opts.track, opts.level);
+  const lessons: { module_num: string; lesson_name: string }[] = [];
+  for (const mod of syllabus.modules) {
+    for (const l of mod.lessons) {
+      lessons.push({ module_num: mod.num, lesson_name: typeof l === 'string' ? l : l.name });
+    }
+  }
+  if (lessons.length === 0) return;
+
+  const { count } = await admin.from('bookings')
+    .select('id', { count: 'exact', head: true })
+    .eq('cohort_id', opts.cohortId).eq('status', 'completed');
+  const delivered = Math.min(count ?? 0, lessons.length);
+  if (delivered <= 0) return;
+
+  const { data: existing } = await admin.from('lesson_progress')
+    .select('module_num, lesson_name').eq('enrollment_id', opts.enrollmentId);
+  const have = new Set((existing ?? []).map((r: { module_num: string; lesson_name: string }) => `${r.module_num}::${r.lesson_name}`));
+
+  const rows = lessons.slice(0, delivered)
+    .filter((l) => !have.has(`${l.module_num}::${l.lesson_name}`))
+    .map((l) => ({ enrollment_id: opts.enrollmentId, module_num: l.module_num, lesson_name: l.lesson_name }));
+  if (rows.length) await admin.from('lesson_progress').insert(rows);
+}
+
 async function appendMakeups(admin: ReturnType<typeof createServiceClient>, scheduleId: string, n: number) {
   if (n <= 0) return;
   const { data: sched } = await admin.from('cohort_schedules').select('*').eq('id', scheduleId).maybeSingle();
@@ -187,6 +228,8 @@ export async function POST(req: NextRequest) {
         if (existing.status !== 'active') await admin.from('enrollments').update({ status: 'active' }).eq('id', existing.id);
         // Ensure credits exist even on reactivation (idempotent top-up).
         await grantEnrollmentCredits(admin, { userId: body.studentId, enrollmentId: existing.id, track: cohort?.track ?? null, level: cohort?.level ?? null, grantedBy: userId });
+        // Catch the kid up to wherever the batch is (unlock prior lessons).
+        await backfillLessonProgressToBatch(admin, { cohortId: body.cohortId, enrollmentId: existing.id, track: cohort?.track ?? null, level: cohort?.level ?? null });
         return NextResponse.json({ ok: true, reactivated: true });
       }
       const { data: enrollment, error: e2 } = await admin.from('enrollments').insert({
@@ -195,9 +238,11 @@ export async function POST(req: NextRequest) {
         status: 'active',
       }).select('id').single();
       if (e2) return NextResponse.json({ ok: false, error: 'enroll_failed', message: e2.message }, { status: 500 });
-      // Grant class credits (idempotent) so the kid can actually join classes.
+      // Grant class credits (idempotent) so the kid can actually join classes,
+      // then unlock every lesson the batch has already covered.
       if (enrollment) {
         await grantEnrollmentCredits(admin, { userId: body.studentId, enrollmentId: enrollment.id, track: cohort?.track ?? null, level: cohort?.level ?? null, grantedBy: userId });
+        await backfillLessonProgressToBatch(admin, { cohortId: body.cohortId, enrollmentId: enrollment.id, track: cohort?.track ?? null, level: cohort?.level ?? null });
       }
       return NextResponse.json({ ok: true });
     }

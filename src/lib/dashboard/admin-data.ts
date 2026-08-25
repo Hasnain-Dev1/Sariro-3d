@@ -913,6 +913,71 @@ export async function fetchCohortStudents(cohortId: string): Promise<CohortStude
   }
 }
 
+/* ───── 8b. fetchOpenBatches / addKidToBatch ─────
+   Manual enrollment used to auto-fill the first gathering cohort, so two kids
+   enrolled at once always landed together. These let an admin pick a SPECIFIC
+   open batch (or create a fresh one). */
+export interface OpenBatch {
+  id: string;
+  batch_code: string | null;
+  status: string;
+  max_capacity: number | null;
+  enrolled: number;
+}
+
+export async function fetchOpenBatches(
+  track: string,
+  level: string,
+  ratio: string
+): Promise<OpenBatch[]> {
+  try {
+    const supabase = createClient();
+    const { data: cohorts } = await supabase
+      .from('cohorts')
+      .select('id, batch_code, status, max_capacity')
+      .eq('track', track).eq('level', level).eq('ratio', ratio)
+      .in('status', ['gathering', 'ready', 'active'])
+      .order('created_at', { ascending: true });
+    if (!cohorts || cohorts.length === 0) return [];
+    const ids = cohorts.map((c) => c.id);
+    const { data: enr } = await supabase.from('enrollments').select('cohort_id').in('cohort_id', ids).eq('status', 'active');
+    const counts = new Map<string, number>();
+    (enr ?? []).forEach((e: { cohort_id: string | null }) => {
+      if (e.cohort_id) counts.set(e.cohort_id, (counts.get(e.cohort_id) ?? 0) + 1);
+    });
+    return cohorts.map((c) => ({
+      id: c.id,
+      batch_code: c.batch_code ?? null,
+      status: c.status,
+      max_capacity: c.max_capacity ?? null,
+      enrolled: counts.get(c.id) ?? 0,
+    }));
+  } catch (err) {
+    console.warn('[admin] fetchOpenBatches error:', err);
+    return [];
+  }
+}
+
+/** Add a kid to a SPECIFIC existing batch (grants credits + unlocks the
+    lessons the batch already covered — see /api/admin/schedule/manage). */
+export async function addKidToBatch(
+  cohortId: string,
+  studentId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/admin/schedule/manage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'add_kid', cohortId, studentId }),
+    });
+    const json = (await res.json()) as { ok: boolean; error?: string; message?: string };
+    if (!res.ok || !json.ok) return { success: false, error: json.message || json.error || 'Failed to add student to batch' };
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Network error' };
+  }
+}
+
 /* ───── 9. manualEnrollStudent ─────
    Bypasses payment: finds (or creates) a gathering cohort for the
    given track/level/ratio, then drops an active enrollment into it. */

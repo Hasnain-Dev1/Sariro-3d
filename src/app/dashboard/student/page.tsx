@@ -921,7 +921,7 @@ function StudentDashboardInner() {
       if (cohortIds.length > 0) {
         const [cohortsResult, upcomingResult, pastResult, classmateEnrResult] = await Promise.all([
           supabase.from('cohorts').select('*').in('id', cohortIds),
-          supabase.from('bookings').select('*').in('cohort_id', cohortIds).gte('slot_start', now).order('slot_start', { ascending: true }).limit(1),
+          supabase.from('bookings').select('*').in('cohort_id', cohortIds).eq('status', 'scheduled').gte('slot_start', now).order('slot_start', { ascending: true }).limit(1),
           supabase.from('bookings').select('*').in('cohort_id', cohortIds).lt('slot_start', now).order('slot_start', { ascending: false }).limit(20),
           supabase.from('enrollments').select('user_id, track, level, status').in('cohort_id', cohortIds).neq('user_id', user.id).neq('status', 'dropped'),
         ]);

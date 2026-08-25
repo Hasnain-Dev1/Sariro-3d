@@ -19,8 +19,9 @@ import {
   createCohort, updateCohortMeetUrl, updateCohortMaterialsUrl,
   fetchUsers, updateUserRole, fetchCohortStudents, manualEnrollStudent,
   fetchRevenueStats, exportUsersCSV, exportEnrollmentsCSV, exportRevenueCSV,
+  fetchOpenBatches, addKidToBatch,
   type AdminStats, type PurchaseIntentRow, type CohortRow,
-  type UserRow, type CohortStudentRow, type RevenueStats,
+  type UserRow, type CohortStudentRow, type RevenueStats, type OpenBatch,
 } from '@/lib/dashboard/admin-data';
 import { getTrackName } from '@/lib/dashboard/upsell-engine';
 import StudentNameEditor from '@/components/dashboard/student-name-editor';
@@ -1143,6 +1144,28 @@ function ManualEnrollModal({
   const [ratio, setRatio] = useState<'1:1' | '1:4'>('1:4');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Which OPEN batch to place the kid into. '' = create a fresh batch.
+  const [batches, setBatches] = useState<OpenBatch[]>([]);
+  const [selectedCohortId, setSelectedCohortId] = useState('');
+  const [batchesLoading, setBatchesLoading] = useState(false);
+
+  // Refetch the matching open batches whenever track/level/ratio change, so the
+  // admin can choose exactly where the new kid goes instead of auto-filling the
+  // first open one.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setBatchesLoading(true);
+    setSelectedCohortId('');
+    fetchOpenBatches(track, level, ratio).then((rows) => {
+      if (cancelled) return;
+      Promise.resolve().then(() => {
+        setBatches(rows);
+        setBatchesLoading(false);
+      });
+    });
+    return () => { cancelled = true; };
+  }, [open, track, level, ratio]);
 
   useEffect(() => {
     if (!open) return;
@@ -1173,15 +1196,15 @@ function ManualEnrollModal({
     }
     setSubmitting(true);
     setError(null);
-    const result = await manualEnrollStudent({
-      userId: selectedUserId,
-      track,
-      level,
-      ratio,
-    });
+    // Placing into a SPECIFIC existing batch goes through add_kid (grants
+    // credits + unlocks the lessons that batch already covered). Otherwise we
+    // create/fill a fresh gathering cohort as before.
+    const result = selectedCohortId
+      ? await addKidToBatch(selectedCohortId, selectedUserId)
+      : await manualEnrollStudent({ userId: selectedUserId, track, level, ratio });
     setSubmitting(false);
     if (result.success) {
-      onToast('success', 'Student enrolled successfully');
+      onToast('success', selectedCohortId ? 'Student added to the selected batch' : 'Student enrolled in a new batch');
       onEnrolled();
       onClose();
     } else {
@@ -1308,6 +1331,42 @@ function ManualEnrollModal({
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Batch selector — choose a specific open batch, or create a new
+                  one. This is what stops two kids enrolled at once from being
+                  force-paired into the same batch. */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                  Batch
+                </label>
+                <select
+                  value={selectedCohortId}
+                  onChange={(e) => setSelectedCohortId(e.target.value)}
+                  disabled={submitting || batchesLoading}
+                  className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-60"
+                  style={{ fontFamily: 'var(--font-inter)' }}
+                >
+                  <option value="">
+                    {batchesLoading ? 'Loading batches…' : '➕ Create a new batch'}
+                  </option>
+                  {batches.map((b) => {
+                    const cap = b.max_capacity ?? (ratio === '1:1' ? 1 : 4);
+                    const full = b.enrolled >= cap;
+                    return (
+                      <option key={b.id} value={b.id} disabled={full}>
+                        {b.batch_code || 'Batch'} · {b.enrolled}/{cap}{full ? ' (full)' : ''} · {b.status}
+                      </option>
+                    );
+                  })}
+                </select>
+                <p className="mt-1 text-[11px] text-slate-400">
+                  {selectedCohortId
+                    ? 'The kid joins this batch and all lessons it has already covered unlock automatically.'
+                    : batches.length > 0
+                      ? 'Or pick an existing open batch above.'
+                      : 'No open batch for this track/level/ratio yet — a new one will be created.'}
+                </p>
               </div>
 
               {error && (
