@@ -7,7 +7,7 @@ import {
   CheckCircle2, XCircle, Loader2, AlertCircle, Plus, Video,
   Lock, PlayCircle, Trophy, ArrowRight, X, FolderOpen,
   Search, Download, UserCheck, TrendingUp, Phone, LogIn,
-  Calendar, Rocket, Mail,
+  Calendar, CalendarClock, Rocket, Mail,
 } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import { useAuth } from '@/components/auth/auth-provider';
@@ -31,6 +31,7 @@ import { TeacherCourseAssignmentModal } from '@/app/dashboard/admin/teacher-cour
 import { useRealtime } from '@/lib/dashboard/use-realtime';
 import ScheduleBatchModal from '@/components/dashboard/schedule-batch';
 import ManageBatchesModal from '@/components/dashboard/manage-batches';
+import { BatchRescheduleModal } from '@/components/dashboard/batch-reschedule-modal';
 import MyTeachers from '@/components/dashboard/my-teachers';
 
 /* ───── Helpers ───── */
@@ -1421,6 +1422,7 @@ function AdminDashboardInner() {
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
   const [showManualEnroll, setShowManualEnroll] = useState(false);
   const [showScheduleBatch, setShowScheduleBatch] = useState(false);
+  const [showBatchReschedule, setShowBatchReschedule] = useState(false);
   const [showManageBatches, setShowManageBatches] = useState(false);
   const [rosterCohort, setRosterCohort] = useState<CohortRow | null>(null);
   const [revenue, setRevenue] = useState<RevenueStats | null>(null);
@@ -1594,6 +1596,15 @@ function AdminDashboardInner() {
                 className="btn-tactile btn-tactile-light px-4 py-2.5 text-sm flex items-center gap-2"
               >
                 <Clock className="w-4 h-4" /> Schedule Batch
+              </button>
+              {/* Change schedule — reschedule an existing batch (new days/times,
+                  apply-from date, or a break). Admins had no entry point for
+                  this; only super-admin and teacher did. */}
+              <button
+                onClick={() => setShowBatchReschedule(true)}
+                className="btn-tactile btn-tactile-light px-4 py-2.5 text-sm flex items-center gap-2"
+              >
+                <CalendarClock className="w-4 h-4" /> Change Schedule
               </button>
               <button
                 onClick={() => setShowManageBatches(true)}
@@ -1885,6 +1896,13 @@ function AdminDashboardInner() {
         onClose={() => setShowManageBatches(false)}
         adminId={user?.id}
         onToast={(msg, kind) => handleToast(kind ?? 'success', msg)}
+      />
+
+      {/* Change schedule — new days/times, apply-from date, or a break */}
+      <BatchRescheduleModal
+        open={showBatchReschedule}
+        onClose={() => setShowBatchReschedule(false)}
+        onDone={() => { setShowBatchReschedule(false); handleToast('success', 'Schedule updated'); loadAll(); }}
       />
 
       {/* Seller Leads — leads assigned to this admin/seller */}
