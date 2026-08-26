@@ -214,7 +214,106 @@ the front door changes — keep them as entry points that funnel into intent cap
 
 ---
 
-## 6. Open decisions (yours to make)
+## 5b. DECIDED — first non-coding domain: **Mathematics**
+
+Scoped by **journey demand, not curriculum completeness.** Build only the maths
+that existing journeys actually route through — logic, functions, linear-algebra
+basics, probability/stats — which is adjacent to the AI/programming content that
+already exists and immediately useful to current students.
+
+**Why not "Khan Academy is free, don't bother":** that objection was about
+*acquisition*, and acquisition isn't the point. This is about **retention and
+journey integrity**:
+
+- A learner mid-journey, with a mentor and tracked progress, must never be bounced
+  off-platform. (The YouTube Premium test: you don't leave Premium for FreeTube.)
+- **If learning happens off-platform, the capability graph gets holes and the
+  mastery model breaks.** Phase 0 depends on evidence Sariro can actually observe.
+- You cannot promise "we'll build your path to X" and then hand someone a reading
+  list for the maths. That's a reading list, not a journey.
+
+**Build stance:** Sariro's maths does **not** need better explanations than Khan's.
+It needs to be *inside the journey, in the mastery profile, and known to the
+mentor*. Khan Academy doesn't know the learner wants to become an aerospace
+engineer — Sariro does. **Integration is the moat, not the content.**
+Do not build a standalone maths library competing on breadth.
+
+---
+
+## 6. Open decisions — with recommendations
+
+> Recommendations below are advisory; the business calls remain the founder's.
+> Confidence noted per item.
+
+| # | Decision | Recommendation | Confidence |
+|---|---|---|---|
+| 1 | Public promise | **Narrow on subject, wide on philosophy** | High |
+| 2 | First non-coding domain | **Maths** — see §5b (decided) | — |
+| 3 | Courses stay purchasable? | **Yes**, but rename to Journeys/Paths in UI now | High |
+| 4 | AI autonomy | **Scale inversely to cost of being wrong** | High |
+| 5 | Pricing model | **Move toward time/mentorship-based, not per-course** | Medium |
+| 6 | Age positioning | **Split the marketing, not the platform** | High |
+
+**1 — Public promise.** The differentiator was never "we have every subject"
+(Udemy has every subject and is generic). It's *how* you teach. Sell the method
+now, expand subjects later:
+> "We don't teach you a syllabus. We help you become capable." — *currently in AI,
+> programming, and building real products.*
+
+**"Learning how to learn" is the product; technology is the current vehicle.**
+Honest today, unchanged when domains are added.
+
+**3 — Vocabulary.** Kill the word *course* internally now. Lock:
+**Journey** (path) · **Milestone** (chunk) · **Capability** (skill) ·
+**Project** (artifact). Near-zero cost now, painful to change later; it also
+trains users into the new model before the tech ships.
+
+**4 — AI autonomy tiers.**
+- *AI decides freely:* next-step suggestions **within** a milestone (low stakes, high frequency)
+- *AI proposes, mentor approves:* the overall journey/path (high stakes, low frequency)
+- *AI never decides alone:* anything a parent reads as a judgment of their child, or anything touching money/schedule
+
+Market mentor-in-the-loop as a **feature**. Parents trust "AI, checked by a real
+human" far more than "our AI decides your child's education."
+
+**5 — Pricing.** Per-course pricing **structurally fights the vision**: buying
+"Web Builder Pro" makes the customer expect to *complete Web Builder Pro* — the
+exact metric the vision says to stop optimising for.
+
+Key observation: **the credit system is already ~80% of a subscription.**
+1 credit = 1 class, granted on enrolment, deducted on completion. Today it's sold
+in course-sized chunks; selling it in **time-based chunks** (e.g. *8 live sessions
+/month + unlimited journey access*) aligns revenue with the vision — you profit
+when learners keep learning, not when they finish a SKU. Content access wants to
+be cheap; **scarce mentor time is the defensible thing.**
+
+**6 — Age.** "Has a parent attached" is an account attribute, not a separate
+product; two surfaces doubles the work for little gain. But **conditionally hide
+the parent surface for adult accounts** — a 35-year-old seeing "your parent can
+view your progress" churns instantly. Cheap fix, real impact.
+
+---
+
+## 6b. Additional recommendations
+
+**A. You're closer than you think.** The three-way project review
+(Complete/Partial/Invalid) already shipped **is** evidence of demonstrated
+ability — exactly what the mastery model consumes. Phases 3 and 4 are nearly free.
+
+**B. Do NOT build the AI planner first.** Most exciting part, biggest trap.
+Without the capability graph and real mastery data it has nothing to reason over
+and will produce generic slop that makes the product feel *worse* than the fixed
+curriculum. The sequencing in §3 is not optional.
+
+**C. Validate with ONE real learner before writing any code.** Take a current
+student. By hand, build their capability profile from data that already exists,
+write their personalised next step, show it to the parent. **If the reaction isn't
+"you actually understand my child," the model is wrong** — and no amount of
+engineering fixes a wrong model. A one-afternoon test that can save months.
+
+---
+
+## 7. Original open-decision list (superseded by §6)
 
 1. **Public promise now** — wide ("learn anything") or honest-narrow ("technology
    & AI, learner-first") until inventory widens? *(Recommendation: narrow.)*
@@ -230,7 +329,7 @@ the front door changes — keep them as entry points that funnel into intent cap
 
 ---
 
-## 7. Recommended immediate next step
+## 8. Recommended immediate next step
 
 **Phase 0 only.** Specifically:
 
@@ -246,7 +345,7 @@ of guesswork.
 
 ---
 
-## 8. The test for every Stage 2 feature
+## 9. The test for every Stage 2 feature
 
 > **Does this make the learner more capable, more curious, more independent, or
 > more capable of learning?**
