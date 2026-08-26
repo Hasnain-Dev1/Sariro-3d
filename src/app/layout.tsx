@@ -37,10 +37,27 @@ const grotesk = Space_Grotesk({
   display: "swap",
 });
 
+/**
+ * Absolute base for metadata URLs (og:image, twitter:image, canonical).
+ *
+ * These MUST be absolute and publicly reachable — a social crawler
+ * (WhatsApp/LinkedIn/X/Facebook) fetches them from its own machine. This
+ * previously fell back to http://localhost:3000 whenever NEXT_PUBLIC_SITE_URL
+ * was unset, which is exactly what happened in production: the live site was
+ * serving `og:image = http://localhost:3000/opengraph-image`, so every shared
+ * link rendered with no preview image at all.
+ *
+ * The production domain is known and stable, so it's now the default and
+ * localhost is only used during local development. NEXT_PUBLIC_SITE_URL still
+ * wins when set (useful for staging/preview deploys).
+ */
+const PRODUCTION_URL = 'https://sariro.com';
+
 function getBaseUrl(): string {
   if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return 'http://localhost:3000';
+  if (process.env.NODE_ENV === 'development') return 'http://localhost:3000';
+  return PRODUCTION_URL;
 }
 
 export const metadata: Metadata = {
@@ -59,11 +76,14 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "Mimo Patra" }],
   icons: { icon: "/logo.svg" },
+  alternates: { canonical: "/" },
   openGraph: {
     title: "Sariro — AI & Technology Education",
     description: "Teaching the future. We teach thinking, not just coding.",
     siteName: "Sariro",
     type: "website",
+    url: getBaseUrl(),
+    locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
