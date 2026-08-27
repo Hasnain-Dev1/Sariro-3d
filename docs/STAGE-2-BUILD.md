@@ -449,6 +449,48 @@ else's taste. Anything load-bearing and cosmetic belongs in the repo.
 
 ---
 
+## 8c. NEXT SESSION — the map has no front door yet
+
+Raised by the founder after the first demo of `/explore`. Both are correct and
+both block the map from being a product rather than a display.
+
+**1. `/courses` and the map are strangers.**
+`/explore/[strand]` links *into* `/course-path/[id]`, but nothing links back. A
+course page should say which strands it develops — that is what turns a course
+from a SKU into "one way to travel part of the map", which is the whole
+repositioning. Cheap: the tags already exist in `content-tags.ts`, it is a
+reverse lookup of the same data the strand page already does.
+
+**2. There is no way to join.**
+The real gap. Today a learner reaching a strand can do exactly nothing:
+
+- a **mentor-led** strand ends at `/contact` — a dead end dressed as a CTA
+- a **content-backed** strand hands off to the existing per-course checkout,
+  which sells a course, not a direction
+
+Nothing exists for *"I want to learn this, how do I start?"* — no membership, no
+trial, no intent capture, no "book a mentor". A learner who is convinced by the
+map has nowhere to put that intent, and we do not even record that they wanted it.
+
+This is decision **D2** (pricing) arriving as an engineering problem. Per §6.5,
+per-course pricing structurally fights the map: buying "Web Builder Pro" makes
+the customer expect to complete Web Builder Pro. Credits are already ~80% of a
+subscription — 1 credit = 1 class, granted on enrolment, deducted on completion.
+Selling them in **time-based chunks** (e.g. *8 live sessions/month + full map
+access*) is what a strand-level "Start this" button can actually be wired to.
+
+**Minimum for tomorrow, in order:**
+1. `learner_goals` table + a "Start this" button on every strand that records
+   intent — works for all 68 strands, mentor-led included, and costs nothing to
+   fulfil manually at current volume (9 students).
+2. Reverse link: course pages list the strands they develop.
+3. Decide D2, then build the join/membership flow it implies.
+
+Step 1 is worth doing even before D2 is decided: it captures demand across the
+whole map, which is the evidence that should decide D2 in the first place.
+
+---
+
 ## 9. The test applied to every slice
 
 > **Does this make the learner more capable, more curious, more independent, or
