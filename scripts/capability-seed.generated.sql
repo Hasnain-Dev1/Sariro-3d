@@ -1,7 +1,7 @@
 -- =============================================================================
 -- SARIRO — Capability map seed   (GENERATED — do not edit by hand)
 -- =============================================================================
--- Source:    src/lib/capabilities/taxonomy.ts
+-- Source:     src/lib/capabilities/taxonomy.ts
 -- Regenerate: npx tsx scripts/generate-capability-seed.ts
 --
 -- Run scripts/capability-graph.sql first. Idempotent: re-running updates names
@@ -110,6 +110,6 @@ begin
   where slug not in ('mathematics', 'number-sense', 'algebraic-reasoning', 'geometry-and-space', 'measurement', 'data-and-chance', 'proof-and-logic', 'mathematical-modelling', 'science', 'scientific-inquiry', 'physics-and-motion', 'matter-and-chemistry', 'life-and-biology', 'earth-and-climate', 'space-and-astronomy', 'scientific-instruments', 'technology', 'computational-thinking', 'programming-foundations', 'software-systems', 'data-and-databases', 'artificial-intelligence', 'networks-and-security', 'digital-craft', 'engineering-and-making', 'design-process', 'mechanisms-and-structures', 'electronics-and-circuits', 'robotics-and-control', 'materials-and-fabrication', 'systems-engineering', 'language-and-communication', 'reading-and-comprehension', 'writing-and-composition', 'speaking-and-presenting', 'listening-and-dialogue', 'language-acquisition', 'storytelling-and-narrative', 'argument-and-rhetoric', 'humanities', 'history-and-change', 'geography-and-place', 'civics-and-society', 'philosophy-and-ethics', 'cultures-and-belief', 'law-and-justice', 'psychology-and-mind', 'arts', 'visual-art-and-drawing', 'design-and-composition', 'music', 'performance-and-drama', 'film-and-photography', 'creative-practice', 'business-and-economics', 'money-and-financial-literacy', 'economics', 'entrepreneurship', 'marketing-and-audience', 'operations-and-management', 'product-thinking', 'negotiation-and-deals', 'health-and-body', 'physical-literacy', 'nutrition-and-fuel', 'mental-health-and-emotion', 'human-anatomy', 'sleep-and-recovery', 'safety-and-first-aid', 'learning-itself', 'problem-solving', 'critical-thinking', 'independent-learning', 'creativity', 'focus-and-attention', 'persistence-and-resilience', 'collaboration', 'metacognition');
 
   if stray_count > 0 then
-    raise notice 'Sariro: % capability rows exist that are not in taxonomy.ts — review before deleting.', stray_count;
+    raise notice 'Sariro: % capability rows are not in taxonomy.ts — review before deleting.', stray_count;
   end if;
 end $$;

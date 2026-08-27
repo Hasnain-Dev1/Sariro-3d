@@ -51,6 +51,9 @@ const EMAIL_ICONS: Record<string, React.ComponentType<{ className?: string; stro
 
 const NAV_ITEMS = [
   { href: '/', label: 'Home' },
+  // The map sits ahead of Courses on purpose: the learner picks a direction
+  // first, and courses are one way to travel it — not the entry point.
+  { href: '/explore', label: 'Explore' },
   { href: '/courses', label: 'Courses' },
   { href: '/schools', label: 'Schools' },
   { href: '/events', label: 'Events' },

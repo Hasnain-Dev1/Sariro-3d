@@ -45,6 +45,13 @@ export interface Strand {
   name: string;
   /** Learner-facing, in terms of what they become able to do. */
   description: string;
+  /**
+   * What a learner actually types when looking for this. The map is written in
+   * capability language ("Number Sense"), but people search in subject language
+   * ("fractions", "times tables"). Without these, the front door answers "what do
+   * you want to learn?" with nothing for most real queries.
+   */
+  keywords: string[];
 }
 
 export interface Domain {
