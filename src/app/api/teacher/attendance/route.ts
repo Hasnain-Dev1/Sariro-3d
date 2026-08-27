@@ -3,6 +3,10 @@ import { createServerClientHelper, createServiceClient } from '@/lib/supabase/se
 import { getCourseSyllabus } from '@/lib/dashboard/student-data';
 import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
+import { COURSES } from '@/lib/sariro-data';
+import { resolveUnitKey } from '@/lib/curriculum/identity';
+import { evidenceForUnit } from '@/lib/learner-model/evidence';
+import { recordEvidence } from '@/lib/learner-model/record';
 
 /**
  * SARIRO — POST /api/teacher/attendance
@@ -333,6 +337,12 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // A completed lesson is weak evidence — exposure, not demonstrated capability.
+  // Recorded anyway because it is the only signal most learners generate early,
+  // and the scoring weights it far below a reviewed project. Cannot fail the
+  // request: attendance moves credits and teacher pay.
+  await recordLessonEvidence(cohortRow, studentId, moduleNum, lessonName);
+
   return NextResponse.json({
     ok: true,
     lessonMarked: true,
@@ -341,6 +351,38 @@ export async function POST(req: NextRequest) {
     lessonIndex,
     syllabusLength: lessons.length,
   });
+}
+
+/**
+ * Record a completed lesson as (weak) learning evidence. Never throws.
+ */
+async function recordLessonEvidence(
+  cohort: CohortRow,
+  studentId: string,
+  moduleNum: string,
+  lessonName: string
+): Promise<void> {
+  try {
+    const course = COURSES.find(
+      (c) => c.trackId === cohort.track && c.level.toLowerCase() === String(cohort.level).toLowerCase()
+    );
+    if (!course) return;
+
+    const unitKey = resolveUnitKey(course.id, moduleNum, lessonName);
+    if (!unitKey) return;
+
+    const rows = evidenceForUnit(unitKey, {
+      learnerId: studentId,
+      source: 'lesson_complete',
+      // Keyed to the lesson so re-marking the same lesson cannot inflate mastery.
+      sourceRef: `${course.id}:${moduleNum}:${lessonName}`,
+      signal: 0.4,
+    });
+
+    await recordEvidence(rows, 'attendance');
+  } catch (err) {
+    console.warn('[attendance] evidence skipped:', err instanceof Error ? err.message : String(err));
+  }
 }
 
 /* ─────────────────────── GET /api/teacher/attendance ────────────────

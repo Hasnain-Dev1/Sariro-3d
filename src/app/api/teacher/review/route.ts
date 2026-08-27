@@ -2,6 +2,58 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClientHelper } from '@/lib/supabase/server';
 import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
+import { createServiceClient } from '@/lib/supabase/server';
+import { COURSES } from '@/lib/sariro-data';
+import { resolveUnitKey } from '@/lib/curriculum/identity';
+import { evidenceForUnit, signalForReview } from '@/lib/learner-model/evidence';
+import { recordEvidence } from '@/lib/learner-model/record';
+
+/**
+ * Turn a completed review into learning evidence.
+ *
+ * Never throws. The review is already written by the time this runs, and losing
+ * an observation is a far smaller failure than failing a teacher's review.
+ */
+async function recordReviewEvidence(
+  submission: { id: string; user_id: string; enrollment_id: string | null; module_num: string | null; lesson_name: string | null },
+  outcome: 'complete' | 'partial' | 'invalid',
+  teacherId: string,
+  now: Date
+): Promise<void> {
+  try {
+    if (!submission.enrollment_id || !submission.module_num || !submission.lesson_name) return;
+
+    // enrollments carry track + level, not course_id.
+    const admin = createServiceClient();
+    const { data: enr } = await admin
+      .from('enrollments')
+      .select('track, level')
+      .eq('id', submission.enrollment_id)
+      .maybeSingle();
+    if (!enr) return;
+
+    const course = COURSES.find(
+      (c) => c.trackId === enr.track && c.level.toLowerCase() === String(enr.level).toLowerCase()
+    );
+    if (!course) return;
+
+    const unitKey = resolveUnitKey(course.id, submission.module_num, submission.lesson_name);
+    if (!unitKey) return;
+
+    const rows = evidenceForUnit(unitKey, {
+      learnerId: submission.user_id,
+      source: 'project_review',
+      sourceRef: submission.id,
+      signal: signalForReview(outcome),
+      observedAt: now,
+      recordedBy: teacherId,
+    });
+
+    await recordEvidence(rows, 'review');
+  } catch (err) {
+    console.warn('[review] evidence skipped:', err instanceof Error ? err.message : String(err));
+  }
+}
 
 /**
  * SARIRO — POST /api/teacher/review
@@ -159,7 +211,7 @@ export async function POST(req: NextRequest) {
   // ── 8. Fetch the submission + verify teacher owns the booking ─────────
   const { data: submission, error: subErr } = await supabase
     .from('project_submissions')
-    .select('id, booking_id, user_id, submitted_at, status')
+    .select('id, booking_id, user_id, submitted_at, status, enrollment_id, module_num, lesson_name')
     .eq('id', body.submissionId!)
     .maybeSingle();
 
@@ -299,6 +351,13 @@ export async function POST(req: NextRequest) {
       console.warn('[review] submission touch error:', touchErr.message);
     }
   }
+
+  // ── 11b. Record the review as learning evidence ───────────────────────
+  // A human judging real work is the strongest signal the product has, and the
+  // only one a competitor cannot manufacture. Deliberately last, and unable to
+  // fail this request: the review itself has already been written, and a lost
+  // observation must never cost a teacher their submitted review.
+  await recordReviewEvidence(submission, outcome, teacherId, now);
 
   // ── 12. Return success ────────────────────────────────────────────────
   // Note: the sync_capstone_on_approval trigger (Phase 2) will auto-mark
