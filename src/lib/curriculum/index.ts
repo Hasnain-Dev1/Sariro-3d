@@ -38,3 +38,8 @@ export function getStructuredLesson(
   if (!course) return null;
   return course.lessons.find((l) => l.moduleNum === moduleNum && l.lessonIndex === lessonIndex) ?? null;
 }
+
+/** Every course that has authored structured curriculum. Used by the content-identity layer. */
+export function getAllStructuredCourses(): StructuredCourse[] {
+  return Object.values(REGISTRY);
+}

@@ -75,10 +75,8 @@ to the `StructuredLesson` type in `types.ts` (concept / miniProject / finalProje
    endpoints — same code, swap `base_url`. Embeddings moved off `voyageai` onto
    OpenAI's embeddings API. **Zero Claude/Anthropic references remain.**
 
-⚠️ **Unresolved / parked:** removing React from Beginner+Intermediate tiers
-(keeping it Advanced-only) was raised, three clarifying questions were dismissed
-with "wait for next instruction", and it was **never decided**. Do not act on it
-without explicit direction.
+✅ **Resolved:** the React-tier question (keep React to Advanced only) has been
+handled — it is no longer an open decision. Nothing parked here.
 
 ---
 
