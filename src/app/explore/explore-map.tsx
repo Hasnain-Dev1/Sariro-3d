@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Compass, Users, BookOpen, X } from 'lucide-react';
+import Link from 'next/link';
+import { Search, Compass, Users, BookOpen, X, ArrowRight } from 'lucide-react';
 
 /**
  * SARIRO — The map, rendered.
@@ -140,8 +141,9 @@ export default function ExploreMap({ domains }: { domains: MapDomain[] }) {
 
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {domain.strands.map((strand) => (
-                  <div
+                  <Link
                     key={strand.slug}
+                    href={`/explore/${strand.slug}`}
                     className="group relative rounded-2xl border border-slate-200 bg-white p-5 hover:border-slate-300 hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] transition-all duration-300"
                   >
                     <span
@@ -166,7 +168,8 @@ export default function ExploreMap({ domains }: { domains: MapDomain[] }) {
                         Mentor-led
                       </span>
                     )}
-                  </div>
+                    <ArrowRight className="absolute right-4 bottom-5 w-4 h-4 text-slate-200 group-hover:text-slate-500 group-hover:translate-x-0.5 transition-all" />
+                  </Link>
                 ))}
               </div>
             </motion.section>
