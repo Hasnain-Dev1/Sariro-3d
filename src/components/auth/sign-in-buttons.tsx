@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import { Github, Mail, Loader2, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Mail, Loader2, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, ArrowRight } from 'lucide-react';
+import { GithubIcon } from '@/components/icons/brand-icons';
 import GoogleOneTap from './google-one-tap';
 import { HoneypotField } from '@/components/security/honeypot';
 
@@ -127,7 +128,7 @@ export default function SignInButtons({
         className="w-full h-12 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-800 font-bold text-sm flex items-center justify-center gap-2.5 transition-colors disabled:opacity-50"
         style={{ fontFamily: 'var(--font-grotesk)' }}
       >
-        {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Github className="w-[18px] h-[18px]" />}
+        {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <GithubIcon className="w-[18px] h-[18px]" />}
         {mode === 'signup' ? 'Sign up with GitHub' : 'Continue with GitHub'}
       </button>
 

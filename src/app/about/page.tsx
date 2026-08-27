@@ -11,13 +11,12 @@ import {
   Lightbulb,
   Heart,
   Quote,
-  Linkedin,
-  Twitter,
   Users,
   Sparkles,
   Building2,
   CheckCircle2,
 } from 'lucide-react';
+import { LinkedinIcon, XIcon } from '@/components/icons/brand-icons';
 import BrandLayout from '@/components/brand/brand-layout';
 import PageHero from '@/components/brand/page-hero';
 import { WaveDivider3D } from '@/components/sariro-3d/kit-3d';
@@ -260,14 +259,14 @@ export default function AboutPage() {
                   aria-label="Mimo on LinkedIn"
                   className="w-10 h-10 rounded-xl glass-panel flex items-center justify-center text-slate-700 hover:text-amber-600 transition-colors"
                 >
-                  <Linkedin className="w-5 h-5" />
+                  <LinkedinIcon className="w-5 h-5" />
                 </a>
                 <a
                   href="#"
-                  aria-label="Mimo on Twitter"
+                  aria-label="Mimo on X"
                   className="w-10 h-10 rounded-xl glass-panel flex items-center justify-center text-slate-700 hover:text-amber-600 transition-colors"
                 >
-                  <Twitter className="w-5 h-5" />
+                  <XIcon className="w-5 h-5" />
                 </a>
                 <a
                   href={`mailto:${BRAND.email}`}

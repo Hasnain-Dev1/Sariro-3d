@@ -4,10 +4,6 @@ import { motion, useScroll, useTransform } from 'framer-motion';
 import { useRef } from 'react';
 import {
   GraduationCap,
-  Twitter,
-  Youtube,
-  Github,
-  Linkedin,
   Mail,
   LifeBuoy,
   Briefcase,
@@ -15,6 +11,7 @@ import {
   Sparkles,
   MapPin,
 } from 'lucide-react';
+import { GithubIcon, LinkedinIcon, XIcon, YoutubeIcon } from '@/components/icons/brand-icons';
 import { BRAND, FOOTER_LINKS, NAV_LINKS, EMAILS } from '@/lib/sariro-data';
 
 /* Map the icon name string from EMAILS data to a real icon component. */
@@ -113,10 +110,10 @@ export default function Footer3D() {
             {/* Socials */}
             <div className="flex items-center gap-2 mt-6">
               {[
-                { Icon: Youtube, label: 'YouTube' },
-                { Icon: Twitter, label: 'Twitter' },
-                { Icon: Linkedin, label: 'LinkedIn' },
-                { Icon: Github, label: 'GitHub' },
+                { Icon: YoutubeIcon, label: 'YouTube' },
+                { Icon: XIcon, label: 'X' },
+                { Icon: LinkedinIcon, label: 'LinkedIn' },
+                { Icon: GithubIcon, label: 'GitHub' },
               ].map(({ Icon, label }) => (
                 <a
                   key={label}
