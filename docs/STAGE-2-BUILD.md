@@ -172,20 +172,74 @@ Code:
   by script, so it is reviewable in a diff (new)
 - `scripts/audit-content-identity.ts`, `scripts/seed-capabilities.ts` (new)
 
-**Taxonomy shape — 40-60 capabilities, domain-agnostic from day one.**
-Domains: `maths · programming · science · business · communication · meta`.
-Even though 100% of today's content is programming/AI, the *graph* must not be a
-programming taxonomy with branches bolted on — maths is the next domain and it
-must slot in without a reshape.
+**The map is the product. We are not writing curriculum.**
 
-**Meta-capabilities are modelled first-class, not derived**: problem solving,
-critical thinking, independent learning, creativity, communication, persistence.
-These are what the vision promises, what parents are shown, and the only part of
-the model that survives a domain change.
+This was clarified after the first draft of this doc and it changes the shape of
+S0. Sariro is not building dozens of courses — it is building the **outline of
+everything a person can become capable of**, and letting each learner move
+through it their own way. Every other platform pushes all learners down the same
+pre-planned course; the map is the refusal to do that.
+
+**KG → Advanced is not a level of the map.** Age is not a node. Every node
+carries four **stages** instead, so a six-year-old and a thirty-five-year-old
+enter the same node at different depths and neither is in the wrong place:
+
+```
+Number Sense
+  foundation  counting, quantity, "5 is more than 3"
+  developing  place value, operations, fractions
+  proficient  ratio, proportion, negative numbers
+  advanced    number theory, modular arithmetic
+```
+
+The map therefore never needs rebuilding as a learner grows — they move through
+it, not out of it.
+
+**Breadth before depth.** The promise is "learn anything"; a map that is deep
+only on programming proves the opposite. So the spine is authored across every
+domain first, and depth is added wherever real learners actually go.
+
+**Content is optional scaffolding, not the product.** The 61 lessons attach to a
+couple of dozen nodes. Most nodes will never have a lesson — because the delivery
+system is the **mentor**, and Sariro already runs live classes, scheduling,
+credits and teacher pay. "I want to learn fractions" is answered by a mentor
+teaching it and the map recording what the learner became capable of, not by a
+lesson someone must write first.
+
+**Meta-capabilities are modelled first-class, not derived.** The tenth domain,
+`learning-itself`, holds problem solving, critical thinking, independent
+learning, creativity, focus, persistence, collaboration and metacognition. These
+are what the vision promises, what parents are shown, and the only part of the
+model that survives a learner changing field entirely.
 
 **Exit test:** every one of the 61 lessons resolves to a `unit_key` and carries
 at least one capability tag; zero unresolved syllabus lessons; taxonomy seeds
 idempotently.
+
+#### Status — spine BUILT
+
+`src/lib/capabilities/taxonomy.ts` — **10 domains · 68 strands · 78 nodes.**
+
+| Domain | Strands | | Domain | Strands |
+|---|---|---|---|---|
+| Mathematics | 7 | | Humanities | 7 |
+| Science | 7 | | Arts | 6 |
+| Technology | 7 | | Business & Economics | 7 |
+| Engineering & Making | 6 | | Health & Body | 6 |
+| Language & Communication | 7 | | **Learning Itself** *(meta)* | 8 |
+
+Migrations to run in Supabase, in order:
+1. `scripts/capability-graph.sql` — tables, indexes, RLS, shape constraint
+2. `scripts/capability-seed.generated.sql` — the 78 nodes
+
+Regenerate the seed after editing the taxonomy:
+`npx tsx scripts/generate-capability-seed.ts`
+
+**Slugs are permanent.** Learner evidence points at them; renaming one throws
+away that person's history. Names and descriptions may change freely.
+
+**Still open in S0:** tag the 61 lessons to strands (`content_capabilities`), and
+author leaf capabilities with stages under the strands real journeys reach.
 
 ---
 
