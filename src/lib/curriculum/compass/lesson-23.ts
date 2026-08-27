@@ -7,7 +7,7 @@ import type { StructuredLesson } from '@/lib/curriculum/types';
 export const lesson23: StructuredLesson = {
   courseId: 'agent-101',
   moduleNum: 4,
-  lessonIndex: 5,
+  lessonIndex: 4,
   globalNumber: 23,
   name: 'Error recovery in multi-step agents',
   title: 'Error Recovery — When a Step Fails Mid-Plan',

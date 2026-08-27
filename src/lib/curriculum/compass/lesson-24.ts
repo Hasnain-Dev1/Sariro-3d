@@ -7,7 +7,7 @@ import type { StructuredLesson } from '@/lib/curriculum/types';
 export const lesson24: StructuredLesson = {
   courseId: 'agent-101',
   moduleNum: 4,
-  lessonIndex: 6,
+  lessonIndex: 5,
   globalNumber: 24,
   name: 'Module 4 build — the reasoning agent',
   title: 'Module 4 Build — Compass, a Full Reasoning Agent',

@@ -7,7 +7,7 @@ import type { StructuredLesson } from '@/lib/curriculum/types';
 export const lesson22: StructuredLesson = {
   courseId: 'agent-101',
   moduleNum: 4,
-  lessonIndex: 4,
+  lessonIndex: 3,
   globalNumber: 22,
   name: 'Self-reflection and revision',
   title: 'Self-Reflection — Checking Compass’s Own Work',

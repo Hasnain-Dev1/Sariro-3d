@@ -7,7 +7,7 @@ import type { StructuredLesson } from '@/lib/curriculum/types';
 export const lesson19: StructuredLesson = {
   courseId: 'agent-101',
   moduleNum: 4,
-  lessonIndex: 1,
+  lessonIndex: 0,
   globalNumber: 19,
   name: 'ReAct — reasoning and acting together',
   title: 'ReAct — Interleaving Thought and Action',

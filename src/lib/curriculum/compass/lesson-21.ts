@@ -7,7 +7,7 @@ import type { StructuredLesson } from '@/lib/curriculum/types';
 export const lesson21: StructuredLesson = {
   courseId: 'agent-101',
   moduleNum: 4,
-  lessonIndex: 3,
+  lessonIndex: 2,
   globalNumber: 21,
   name: 'Plan+Execute — decomposing complex tasks',
   title: 'Plan+Execute — Breaking a Big Task Into Steps',

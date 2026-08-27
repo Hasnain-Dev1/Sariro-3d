@@ -7,7 +7,7 @@ import type { StructuredLesson } from '@/lib/curriculum/types';
 export const lesson20: StructuredLesson = {
   courseId: 'agent-101',
   moduleNum: 4,
-  lessonIndex: 2,
+  lessonIndex: 1,
   globalNumber: 20,
   name: 'Chain-of-thought reasoning',
   title: 'Chain-of-Thought — Step-by-Step Reasoning Without Tools',
