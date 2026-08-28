@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, ArrowRight, Clock, Layers, BookOpen, Calendar,
   CheckCircle2, Users, User, Sparkles, ShieldCheck, Rocket,
-  TrendingUp, Star,
+  TrendingUp, Star, Compass,
 } from 'lucide-react';
 import BrandLayout from '@/components/brand/brand-layout';
 import { ReserveSeatButton } from '@/components/auth/reserve-seat-button';
@@ -21,6 +21,7 @@ import {
   
 } from '@/components/brand/effects-kit';
 import { COURSES, TRACKS, getRazorpayLink } from '@/lib/sariro-data';
+import { strandsForCourse } from '@/lib/capabilities/course-strands';
 
 type LearningRatio = '1:4' | '1:1';
 
@@ -70,6 +71,11 @@ export default function CoursePathPage() {
 
   const accent = ACCENT_HEX[track.accent] ?? '#2563EB';
   const selectedCourse = selectedLevel ? courses.find((c) => c.level === selectedLevel) : null;
+  // The strands this programme develops — the link back to the map.
+  const courseStrands = useMemo(
+    () => (selectedCourse ? strandsForCourse(selectedCourse.id) : []),
+    [selectedCourse]
+  );
 
   return (
     <BrandLayout>
@@ -203,6 +209,51 @@ export default function CoursePathPage() {
                         </ul>
                       </div>
                     </Reveal>
+
+                    {/* Where this sits on the map.
+                        A course on its own reads as a product you finish. Named
+                        by the strands it develops, it becomes one way to travel
+                        part of the map — and every strand here is a live link
+                        back into it. */}
+                    {courseStrands.length > 0 && (
+                      <Reveal delay={0.05}>
+                        <div className="card-3d p-6">
+                          <h3
+                            className="text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2"
+                            style={{ color: ls.color, fontFamily: 'var(--font-grotesk)' }}
+                          >
+                            <Compass className="w-4 h-4" />Where this sits on the map
+                          </h3>
+                          <p className="text-sm text-slate-600 mb-4 leading-relaxed">
+                            This programme develops {courseStrands.length} strands of the Sariro
+                            capability map. You are not buying a course — you are travelling part of
+                            a map that keeps going.
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {courseStrands.map((s) => (
+                              <Link
+                                key={s.slug}
+                                href={`/explore/${s.slug}`}
+                                className="group inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:border-slate-400 hover:text-slate-900 transition"
+                              >
+                                {s.name}
+                                <span className="text-slate-400 text-[11px]">
+                                  {s.lessonCount}
+                                </span>
+                              </Link>
+                            ))}
+                          </div>
+                          <Link
+                            href="/explore"
+                            className="inline-flex items-center gap-1.5 text-[13px] font-semibold mt-4 hover:gap-2 transition-all"
+                            style={{ color: ls.color }}
+                          >
+                            See the whole map
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </Link>
+                        </div>
+                      </Reveal>
+                    )}
 
                     {/* Syllabus */}
                     <Reveal delay={0.1}>

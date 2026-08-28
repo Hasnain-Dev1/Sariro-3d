@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, ArrowRight, BookOpen, Users, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookOpen, Users } from 'lucide-react';
 import BrandLayout from '@/components/brand/brand-layout';
 import { DOMAINS } from '@/lib/capabilities/taxonomy';
 import { CONTENT_TAGS } from '@/lib/capabilities/content-tags';
 import { STAGES } from '@/lib/capabilities/types';
 import { listContentUnits, parseUnitKey } from '@/lib/curriculum/identity';
 import { COURSES } from '@/lib/sariro-data';
+import StartThisButton from '@/app/explore/start-this-button';
 
 /**
  * SARIRO — /explore/[strand]
@@ -122,6 +123,12 @@ export default async function StrandPage({ params }: StrandParams) {
               </span>
             ))}
           </div>
+
+          {/* The map's front door. Identical on all 68 strands — a learner is
+              never told "we don't offer that". */}
+          <div className="mt-9">
+            <StartThisButton capabilitySlug={strand.slug} strandName={strand.name} source="strand" />
+          </div>
         </div>
       </section>
 
@@ -199,13 +206,19 @@ export default async function StrandPage({ params }: StrandParams) {
                 way it is everywhere else on the map. You are never handed a reading list and left to
                 it.
               </p>
-              <Link
-                href="/contact"
-                className="inline-flex items-center gap-2 h-11 px-5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition"
-              >
-                <Sparkles className="w-4 h-4" />
-                Ask for a mentor in {strand.name}
-              </Link>
+              <div className="flex flex-wrap items-center gap-4">
+                <StartThisButton
+                  capabilitySlug={strand.slug}
+                  strandName={strand.name}
+                  source="strand"
+                />
+                <Link
+                  href="/contact"
+                  className="text-sm font-medium text-slate-600 hover:text-slate-900 underline underline-offset-4 transition"
+                >
+                  Or talk to us first
+                </Link>
+              </div>
             </div>
           )}
         </div>
