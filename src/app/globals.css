@@ -503,3 +503,102 @@ html[data-syllabus-open="true"] header {
   transition: transform 0.3s ease, opacity 0.3s ease;
 }
 
+
+/* ===============================================================
+   STRAND CARD — light depth
+   ---------------------------------------------------------------
+   Shadow as LIGHT, not grey. Two layers: a tight neutral contact
+   shadow that sits the card on the page, and a wide, very low
+   opacity shadow tinted with the domain's own accent (--accent,
+   set inline per card). Grey drop shadows are what make a light UI
+   look like a 2015 admin panel; a tinted ambient shadow reads as
+   the card being lit by the thing it belongs to.
+
+   Only `box-shadow` and `border-color` transition here — the lift
+   itself is a framer-motion transform, so it stays on the
+   compositor and never triggers layout.
+=============================================================== */
+.strand-card {
+  --accent: #2563eb;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 8px 24px -16px rgba(15, 23, 42, 0.10);
+  transition:
+    box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.strand-card:hover {
+  border-color: rgba(148, 163, 184, 0.55);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.05),
+    0 18px 40px -22px color-mix(in srgb, var(--accent) 55%, rgb(15 23 42));
+}
+
+/* Keyboard users get the same affordance as pointer users. */
+.strand-card:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent),
+    0 18px 40px -22px color-mix(in srgb, var(--accent) 55%, rgb(15 23 42));
+}
+
+/* The performance contract: no motion below the tablet breakpoint.
+   Eleven infinite animations once pinned Speed Index at 11s — these are
+   finite, but hover lift and shadow work is pure cost on a touch device
+   that cannot hover in the first place. */
+@media (max-width: 1023px) {
+  .strand-card,
+  .strand-card:hover {
+    transition: none;
+    box-shadow:
+      0 1px 2px rgba(15, 23, 42, 0.04),
+      0 8px 24px -16px rgba(15, 23, 42, 0.10);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .strand-card {
+    transition: none;
+  }
+}
+
+/* ===============================================================
+   STRAND ENTRY — continuity without View Transitions
+   ---------------------------------------------------------------
+   The obvious way to make a card "become" the page it opens is the
+   View Transitions API. It does not apply here: `@view-transition`
+   is a CROSS-DOCUMENT feature, and the App Router navigates
+   same-document, so the rule never fires for an internal <Link>.
+   Making it work needs document.startViewTransition() wrapped
+   around the router push — worth doing, not worth faking.
+
+   Until then, continuity comes from the destination: the strand
+   hero rises into place with the house spring's shape, so arriving
+   reads as movement rather than a hard cut.
+
+   Finite (runs once, then stops), transform/opacity only, and
+   desktop-only — the animation budget that earned 38 → 76 is not
+   being spent on phones.
+=============================================================== */
+@media (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
+  .strand-enter {
+    animation: strand-rise 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .strand-enter-delayed {
+    animation: strand-rise 520ms cubic-bezier(0.22, 1, 0.36, 1) 80ms both;
+  }
+}
+
+@keyframes strand-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}

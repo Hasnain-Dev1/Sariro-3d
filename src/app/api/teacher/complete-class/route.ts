@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
 
   const admin = createServiceClient();
   const { data: booking } = await admin.from('bookings')
-    .select('id, cohort_id, teacher_id, slot_start, status')
+    .select('id, cohort_id, teacher_id, slot_start, status, is_complimentary')
     .eq('id', body.bookingId).maybeSingle();
   if (!booking) return NextResponse.json({ ok: false, error: 'booking_not_found' }, { status: 404 });
 
@@ -103,6 +103,14 @@ export async function POST(req: NextRequest) {
   //    classes never deducted. We now do it here, idempotently: a
   //    'class_consumed' credit_transactions row keyed to this booking + student
   //    is the guard, so re-completing (or a retry) never double-deducts. ──
+  // Complimentary classes (the 3-4 diagnostic sessions that open a 1:1
+  // masterclass) are real classes the teacher is paid for — the learner is just
+  // never charged a credit for them. Without this guard a learner who bought 12
+  // classes and received 4 diagnostics would silently get 8.
+  if (booking.is_complimentary) {
+    return NextResponse.json({ ok: true, completed: true, outcome, complimentary: true });
+  }
+
   await deductClassCredits(admin, booking.id, booking.cohort_id);
 
   return NextResponse.json({ ok: true, completed: true, outcome });

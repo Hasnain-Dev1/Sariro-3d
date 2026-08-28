@@ -58,6 +58,8 @@ interface Booking {
   // Capstone system: lesson tagged at booking creation time
   module_num?: number | null;
   lesson_name?: string | null;
+  /** Diagnostic / gifted class — attended and taught, but never charged a credit. */
+  is_complimentary?: boolean | null;
 }
 
 interface Cohort {
@@ -543,7 +545,16 @@ function ScheduleCard({ booking, cohort, timezone, credits }: { booking: Booking
         {formatSessionTime(booking.slot_start, timezone)}
       </div>
       <div className="mb-3 flex items-center justify-between gap-2">
-        <TzBadge iso={booking.slot_start} timezone={timezone} />
+        <div className="flex items-center gap-2 flex-wrap">
+          <TzBadge iso={booking.slot_start} timezone={timezone} />
+          {/* A free class must be visibly free. Otherwise the learner counts
+              their classes, counts their credits, and thinks they were charged. */}
+          {booking.is_complimentary && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+              Free class
+            </span>
+          )}
+        </div>
         {canStudentCancel && (
           <button
             onClick={() => setShowCancel(true)}
@@ -574,7 +585,7 @@ function ScheduleCard({ booking, cohort, timezone, credits }: { booking: Booking
           <span className="text-xs font-bold text-red-700">{joinError}</span>
         </div>
       )}
-      {!hasCredits && booking.status === 'scheduled' && (
+      {!hasCredits && !booking.is_complimentary && booking.status === 'scheduled' && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 mb-2 flex items-center gap-2">
           <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
           <span className="text-xs font-bold text-amber-700">No credits remaining — contact admin to top up</span>
@@ -586,7 +597,9 @@ function ScheduleCard({ booking, cohort, timezone, credits }: { booking: Booking
           <button
             type="button"
             onClick={handleJoinClass}
-            disabled={joining || !hasCredits || joined}
+            // A complimentary class costs no credit, so an empty balance must
+            // not lock the learner out of the very sessions meant to win them over.
+            disabled={joining || (!hasCredits && !booking.is_complimentary) || joined}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-green-600 hover:bg-green-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold transition-colors min-h-[44px] touch-manipulation"
             style={{ fontFamily: 'var(--font-grotesk)' }}
           >

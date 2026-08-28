@@ -9,6 +9,7 @@ import { STAGES } from '@/lib/capabilities/types';
 import { listContentUnits, parseUnitKey } from '@/lib/curriculum/identity';
 import { COURSES } from '@/lib/sariro-data';
 import StartThisButton from '@/app/explore/start-this-button';
+import { accentFor } from '@/lib/capabilities/accents';
 
 /**
  * SARIRO — /explore/[strand]
@@ -90,6 +91,7 @@ export default async function StrandPage({ params }: StrandParams) {
   if (!found) notFound();
 
   const { domain, strand } = found;
+  const accent = accentFor(domain.slug);
   const courses = coursesForStrand(slug);
   const lessonCount = courses.reduce((n, c) => n + c.lessons.length, 0);
 
@@ -105,13 +107,18 @@ export default async function StrandPage({ params }: StrandParams) {
             The Map
           </Link>
 
-          <p className="text-xs font-semibold uppercase tracking-widest text-violet-600 mb-3">
-            {domain.name}
-          </p>
-          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-slate-900 mb-4">
+          <div className="flex items-center gap-2.5 mb-4">
+            <span className="h-px w-6" style={{ background: accent }} aria-hidden />
+            <p className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: accent }}>
+              {domain.name}
+            </p>
+          </div>
+          <h1 className="strand-enter text-[2.75rem] leading-[1.05] sm:text-6xl font-bold tracking-[-0.03em] text-slate-900 mb-5">
             {strand.name}
           </h1>
-          <p className="text-lg text-slate-600 max-w-2xl">{strand.description}</p>
+          <p className="strand-enter-delayed text-lg sm:text-xl text-slate-600 leading-[1.55] max-w-2xl">
+            {strand.description}
+          </p>
 
           <div className="flex flex-wrap gap-2 mt-7">
             {strand.keywords.map((k) => (
@@ -141,15 +148,28 @@ export default async function StrandPage({ params }: StrandParams) {
             actually are — and a ten-year-old and a forty-year-old can be at the same place.
           </p>
 
-          <ol className="space-y-3">
+          {/* A connected track, not four separate boxes — depth is a journey
+              through one thing. The learner's position will be marked here once
+              mastery data exists (S4); the shape is built for it now. */}
+          <ol className="relative">
+            <span
+              aria-hidden
+              className="absolute left-[13px] top-3 bottom-3 w-px"
+              style={{ background: `linear-gradient(to bottom, ${accent}55, ${accent}12)` }}
+            />
             {STAGES.map((stage, i) => (
-              <li key={stage} className="flex gap-4 rounded-xl border border-slate-200 bg-white p-4">
-                <span className="shrink-0 w-7 h-7 rounded-lg bg-slate-900 text-white text-xs font-bold flex items-center justify-center">
+              <li key={stage} className="relative flex gap-5 pb-7 last:pb-0">
+                <span
+                  className="relative z-10 shrink-0 w-7 h-7 rounded-full bg-white border-2 text-[11px] font-bold flex items-center justify-center tabular-nums"
+                  style={{ borderColor: accent, color: accent }}
+                >
                   {i + 1}
                 </span>
-                <div>
+                <div className="pt-0.5">
                   <p className="font-semibold text-slate-900 text-[15px] capitalize">{stage}</p>
-                  <p className="text-[13.5px] text-slate-600">{STAGE_MEANING[stage]}</p>
+                  <p className="text-[13.5px] leading-[1.6] text-slate-600 mt-0.5">
+                    {STAGE_MEANING[stage]}
+                  </p>
                 </div>
               </li>
             ))}
@@ -175,9 +195,10 @@ export default async function StrandPage({ params }: StrandParams) {
                   <Link
                     key={c.id}
                     href={`/course-path/${c.id}`}
-                    className="group flex items-start gap-4 rounded-2xl border border-slate-200 bg-white p-5 hover:border-violet-300 hover:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] transition-all"
+                    className="strand-card group flex items-start gap-4 rounded-2xl border border-slate-200/80 bg-white p-5"
+                    style={{ ['--accent' as string]: accent }}
                   >
-                    <BookOpen className="w-5 h-5 text-violet-600 shrink-0 mt-0.5" />
+                    <BookOpen className="w-5 h-5 shrink-0 mt-0.5" style={{ color: accent }} />
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-slate-900 text-[15px]">{c.title}</p>
                       <p className="text-[13px] text-slate-500 mt-0.5">
@@ -189,7 +210,7 @@ export default async function StrandPage({ params }: StrandParams) {
                         {c.lessons.length > 3 ? ` · +${c.lessons.length - 3} more` : ''}
                       </p>
                     </div>
-                    <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-violet-600 group-hover:translate-x-0.5 transition-all shrink-0 mt-1" />
+                    <ArrowRight className="w-4 h-4 text-slate-300 group-hover:translate-x-0.5 transition-all duration-300 shrink-0 mt-1" />
                   </Link>
                 ))}
               </div>
@@ -197,7 +218,7 @@ export default async function StrandPage({ params }: StrandParams) {
           ) : (
             <div className="rounded-2xl border border-slate-200 bg-white p-7">
               <div className="flex items-center gap-2 mb-3">
-                <Users className="w-5 h-5 text-violet-600" />
+                <Users className="w-5 h-5" style={{ color: accent }} />
                 <p className="font-semibold text-slate-900">Mentor-led</p>
               </div>
               <p className="text-slate-600 text-[15px] leading-relaxed mb-5">
@@ -237,9 +258,10 @@ export default async function StrandPage({ params }: StrandParams) {
                 <Link
                   key={s.slug}
                   href={`/explore/${s.slug}`}
-                  className="group rounded-xl border border-slate-200 bg-white p-4 hover:border-slate-300 transition"
+                  className="strand-card group rounded-xl border border-slate-200/80 bg-white p-4"
+                  style={{ ['--accent' as string]: accent }}
                 >
-                  <p className="font-semibold text-slate-900 text-[14px] group-hover:text-violet-700 transition">
+                  <p className="font-semibold text-slate-900 text-[14px] transition-colors duration-300">
                     {s.name}
                   </p>
                   <p className="text-[13px] text-slate-600 mt-1 line-clamp-2">{s.description}</p>
