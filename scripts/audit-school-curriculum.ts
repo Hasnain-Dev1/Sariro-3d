@@ -25,21 +25,11 @@ import {
 } from '../src/lib/school/curriculum';
 import { flattenTaxonomy } from '../src/lib/capabilities/taxonomy';
 import {
-  LIST_PER_CLASS,
-  LIST_PER_MONTH,
-  PRICE_PER_CLASS,
-  PRICE_PER_MONTH,
   formatPrice,
   paymentPlans,
+  priceBundle,
   startingAtLine,
 } from '../src/lib/school/pricing';
-import {
-  REGIONS,
-  activeRegions,
-  billingNote,
-  regionalPlans,
-  startingAtFor,
-} from '../src/lib/school/regions';
 
 const problems: string[] = [];
 const strands = new Set(flattenTaxonomy().filter((n) => n.kind === 'strand').map((n) => n.slug));
@@ -92,8 +82,12 @@ for (const subject of SCHOOL_SUBJECTS) {
     for (const grade of group.grades) {
       const syl = buildGradeSyllabus(subject.slug, grade);
       totalAuthored += syl.authoredCount;
-      if (syl.lessonCount !== LESSONS_PER_GRADE) {
-        problems.push(`${subject.slug} grade ${grade}: ${syl.lessonCount} lessons, expected ${LESSONS_PER_GRADE}`);
+      // 48 SLOTS is what a parent buys; 46 of them teach and 2 assess.
+      if (syl.slotCount !== LESSONS_PER_GRADE) {
+        problems.push(`${subject.slug} grade ${grade}: ${syl.slotCount} slots, expected ${LESSONS_PER_GRADE}`);
+      }
+      if (syl.testCount !== 2) {
+        problems.push(`${subject.slug} grade ${grade}: ${syl.testCount} tests, expected 2`);
       }
       const keys = new Set(syl.modules.flatMap((m) => m.lessons.map((l) => l.key)));
       if (keys.size !== LESSONS_PER_GRADE) {
@@ -103,76 +97,39 @@ for (const subject of SCHOOL_SUBJECTS) {
   }
 }
 
-/* ── what a parent can buy ──────────────────────────────────────────────── */
-console.log('\nsample offer — Mathematics, grade 6\n' + '-'.repeat(62));
-for (const opt of enrolmentOptions('mathematics', 6)) {
-  console.log(`  ${opt.label.padEnd(34)} ${String(opt.lessonCount).padStart(3)} lessons · ${opt.months} months`);
+/* ── tests inside the scaffold ──────────────────────────────────────────── */
+const sample = buildGradeSyllabus('mathematics', 8);
+console.log('\nslot shape — Mathematics grade 8\n' + '-'.repeat(62));
+console.log(`  ${sample.slotCount} slots = ${sample.lessonCount} lessons + ${sample.testCount} tests`);
+for (const m of sample.modules) {
+  for (const l of m.lessons) {
+    if (l.kind === 'test') console.log(`  slot ${String(l.number).padStart(2)} · module ${m.num} · ${l.title}`);
+  }
 }
-
-/* ── report ─────────────────────────────────────────────────────────────── */
-const offered = SCHOOL_SUBJECTS.reduce((n, s) => n + s.groups.length, 0);
-
-console.log('\n' + '='.repeat(62));
-console.log(`subjects        : ${SCHOOL_SUBJECTS.length}`);
-console.log(`subject×group   : ${offered} offerings`);
-console.log(`lessons scaffolded : ${totalLessons}`);
-console.log(`lessons authored   : ${totalAuthored}  (${totalLessons - totalAuthored} still blank)`);
-for (const group of GRADE_GROUPS) {
-  console.log(`  ${group.label.padEnd(12)} ${subjectsForGroup(group.slug).map((s) => s.name).join(', ')}`);
+if (sample.lessonCount !== 46 || sample.testCount !== 2) {
+  problems.push(`grade scaffold should be 46 lessons + 2 tests, got ${sample.lessonCount} + ${sample.testCount}`);
 }
+console.log(`  a full grade group therefore carries ${sample.testCount * 3} tests`);
 
 /* ── pricing ────────────────────────────────────────────────────────────── */
 for (const ratio of ['1:4', '1:1'] as const) {
-  console.log(`
-pricing — ${ratio}
-` + '-'.repeat(62));
+  console.log(`\npricing — ${ratio}  (${formatPrice(ratio === '1:1' ? 9.99 : 6.99)}/class)\n` + '-'.repeat(62));
   console.log(`  ${startingAtLine(ratio)}`);
-  for (const plan of paymentPlans(ratio)) {
-    const p = plan.price;
+  for (const classes of [30, 42, 48, 96, 144]) {
+    const b = priceBundle(classes, ratio);
     console.log(
-      `  ${plan.label.padEnd(18)} ${formatPrice(p.amount).padStart(12)}` +
-      `  was ${formatPrice(p.listAmount).padStart(12)}  -${p.discountPercent}%` +
-      `  (${p.classes} classes @ ${formatPrice(p.perClass)})`
+      `  ${String(classes).padStart(3)} classes  raw ${formatPrice(b.rawTotal).padStart(9)}` +
+      ` -> ${formatPrice(b.total).padStart(7)}` +
+      `  (gives up ${formatPrice(b.roundingDiscount)})` +
+      `  vs ${formatPrice(b.monthlyEquivalent).padStart(9)} monthly` +
+      `  = save ${formatPrice(b.upfrontSaving)}`
     );
   }
 }
 
-/* ── regional pricing ───────────────────────────────────────────────────── */
-console.log(`
-regional pricing
-` + '-'.repeat(62));
-for (const region of REGIONS) {
-  if (!region.confirmed || region.perMonth <= 0) {
-    console.log(`  ${region.name.padEnd(15)} NOT CONFIGURED — hidden from all pricing pages`);
-    continue;
-  }
-  const plans = regionalPlans(region);
-  const note = billingNote(region);
-  console.log(`  ${region.name} (${region.currency})`);
-  console.log(`    ${startingAtFor(region)}`);
-  for (const p of plans) {
-    console.log(
-      `    ${p.label.padEnd(18)} ${p.formatted.padStart(11)}` +
-      `  was ${p.formattedList.padStart(11)}  -${p.discountPercent}%  (${p.classes} classes)`
-    );
-  }
-  if (note) console.log(`    disclosure: ${note}`);
-}
-console.log(`
-  live regions: ${activeRegions().map((r) => r.name).join(', ')}`);
-
-// The two anchors disagree: 4 x LIST_PER_CLASS should equal LIST_PER_MONTH if a
-// parent is ever going to multiply. Flagged, not corrected — the numbers are a
-// business decision, but the inconsistency is visible to anyone with a phone.
-const impliedMonthlyList = LIST_PER_CLASS * 4;
-if (impliedMonthlyList !== LIST_PER_MONTH) {
-  console.log(`
-PRICING NOTE
-` + '-'.repeat(62));
-  console.log(`  per-class anchor implies ${formatPrice(impliedMonthlyList)}/month, but the`);
-  console.log(`  monthly anchor is ${formatPrice(LIST_PER_MONTH)} — two different discount rates`);
-  console.log(`  on the same product (${Math.round((1 - PRICE_PER_CLASS / LIST_PER_CLASS) * 100)}% per class vs ${Math.round((1 - PRICE_PER_MONTH / LIST_PER_MONTH) * 100)}% monthly).`);
-  console.log(`  Align LIST_PER_MONTH to ${formatPrice(impliedMonthlyList)} to make the maths hold.`);
+console.log('\nplans — 48 classes, 1:4\n' + '-'.repeat(62));
+for (const plan of paymentPlans(48, '1:4')) {
+  console.log(`  ${plan.label.padEnd(14)} ${plan.formatted.padStart(9)}  ${plan.savingLabel ?? ''}`);
 }
 
 if (problems.length) {
