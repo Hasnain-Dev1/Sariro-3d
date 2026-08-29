@@ -15,6 +15,7 @@ import { DesktopClock } from '@/components/dashboard/desktop-clock';
 import { TzBadge } from '@/components/dashboard/tz-badge';
 import { CancelClassModal } from '@/components/dashboard/cancel-class-modal';
 import { canJoinNow } from '@/lib/dashboard/join-window';
+import StudentNextUp from '@/components/dashboard/student-next-up';
 import TeacherLatePopup from '@/components/dashboard/teacher-late-popup';
 import { useAuth } from '@/components/auth/auth-provider';
 import { TRACKS } from '@/lib/sariro-data';
@@ -527,7 +528,10 @@ function ScheduleCard({ booking, cohort, timezone, credits }: { booking: Booking
   };
 
   return (
-    <div className="card-3d p-5">
+    // The "Join my class" button at the top of the page scrolls here, where the
+    // real join handler lives — so it goes somewhere useful rather than
+    // pretending to be the control itself.
+    <div id="next-class-card" className="card-3d p-5">
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-1">
@@ -1081,6 +1085,21 @@ function StudentDashboardInner() {
 
         {/* Live class-status popup (teacher late / no-show) */}
         <TeacherLatePopup />
+
+        {/* The one question a student actually has, answered before anything
+            else on a 1,191-line page. Nothing below is removed — it is just no
+            longer the first thing a six-year-old meets. */}
+        {!loading && !error && (
+          <StudentNextUp
+            booking={bookings[0] ?? null}
+            firstName={firstName}
+            hasCredits={(credits?.balance ?? 0) > 0}
+            joined={false}
+            onJoin={() => {
+              document.getElementById('next-class-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }}
+          />
+        )}
 
         {loading ? (
           <div className="flex items-center justify-center py-20">
