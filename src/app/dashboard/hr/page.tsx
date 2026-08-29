@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useRealtime } from '@/lib/dashboard/use-realtime';
 import {
   Loader2, DollarSign, TrendingUp, Users, CheckCircle2, Clock, X,
-  Award, Coins, GraduationCap, ArrowRight,
+  Award, Coins, GraduationCap, ArrowRight, ChevronRight,
 } from 'lucide-react';
 import { TRACKS } from '@/lib/sariro-data';
 import SalesEarningsReport from '@/components/dashboard/sales-earnings-report';
@@ -115,6 +115,59 @@ export default function HRDashboard() {
               <TrendingUp className="w-4 h-4" /> Earnings &amp; Sales
             </button>
           </div>
+
+          {/* Who is waiting on a decision from you.
+              These counts already existed — they were spread across four stat
+              cards that also carried money totals, so "3 leave requests" read
+              like a statistic rather than three people waiting. */}
+          {(pendingLeaves.length > 0 || pendingIncentives.length > 0 || pendingEarnings.length > 0) && (
+            <div className="card card--feature mb-6" style={{ ['--accent' as string]: '#D97706' }}>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-600 mb-3">
+                Waiting on you
+              </p>
+              <ul className="space-y-2">
+                {pendingLeaves.length > 0 && (
+                  <li>
+                    <button
+                      onClick={() => setActiveTab('payments')}
+                      className="w-full flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 hover:border-amber-300 transition-colors text-left"
+                    >
+                      <span className="font-semibold text-slate-900 text-[15px]">
+                        {pendingLeaves.length} leave {pendingLeaves.length === 1 ? 'request' : 'requests'} to review
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                    </button>
+                  </li>
+                )}
+                {pendingIncentives.length > 0 && (
+                  <li>
+                    <button
+                      onClick={() => setActiveTab('incentives')}
+                      className="w-full flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 hover:border-amber-300 transition-colors text-left"
+                    >
+                      <span className="font-semibold text-slate-900 text-[15px]">
+                        {pendingIncentives.length} incentive {pendingIncentives.length === 1 ? 'request' : 'requests'} to approve
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                    </button>
+                  </li>
+                )}
+                {pendingEarnings.length > 0 && (
+                  <li>
+                    <button
+                      onClick={() => setActiveTab('payments')}
+                      className="w-full flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 hover:border-amber-300 transition-colors text-left"
+                    >
+                      <span className="font-semibold text-slate-900 text-[15px]">
+                        {pendingEarnings.length} teacher {pendingEarnings.length === 1 ? 'payout is' : 'payouts are'} unsettled
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                    </button>
+                  </li>
+                )}
+              </ul>
+            </div>
+          )}
 
           {/* Summary cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
