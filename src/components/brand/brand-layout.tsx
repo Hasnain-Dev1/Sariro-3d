@@ -54,6 +54,7 @@ const NAV_ITEMS = [
   // The map sits ahead of Courses on purpose: the learner picks a direction
   // first, and courses are one way to travel it — not the entry point.
   { href: '/explore', label: 'Explore' },
+  { href: '/subjects', label: 'Subjects' },
   { href: '/courses', label: 'Courses' },
   { href: '/schools', label: 'Schools' },
   { href: '/events', label: 'Events' },
