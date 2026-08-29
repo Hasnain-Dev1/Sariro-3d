@@ -149,7 +149,7 @@ export default async function SubjectPage({ params }: Params) {
               return (
                 <li
                   key={m.num}
-                  className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4"
+                  className="card card--compact flex items-center gap-4"
                 >
                   <span
                     className="shrink-0 w-8 h-8 rounded-lg text-xs font-bold flex items-center justify-center tabular-nums"
@@ -210,7 +210,7 @@ export default async function SubjectPage({ params }: Params) {
               <Link
                 key={s.slug}
                 href={`/subjects/${s.slug}`}
-                className="strand-card group rounded-xl border border-slate-200/80 bg-white p-4"
+                className="card card--compact group"
                 style={{ ['--accent' as string]: s.accent }}
               >
                 <p className="font-semibold text-slate-900 text-[14.5px]">{s.name}</p>

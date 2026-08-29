@@ -64,7 +64,7 @@ export default function SubjectsPage() {
                 <Link
                   key={subject.slug}
                   href={`/subjects/${subject.slug}`}
-                  className="strand-card group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6"
+                  className="card card--feature group flex flex-col"
                   style={{ ['--accent' as string]: subject.accent }}
                 >
                   <span
@@ -81,7 +81,7 @@ export default function SubjectsPage() {
                     {subject.description}
                   </p>
 
-                  <span className="flex items-center justify-between mt-5 pt-4 border-t border-slate-100">
+                  <span className="card-meta flex items-center justify-between">
                     <span className="text-[13px] text-slate-500 tabular-nums">
                       {LESSONS_PER_GRADE} classes a year
                     </span>
@@ -95,7 +95,7 @@ export default function SubjectsPage() {
                 page is looking for it, and a dead end here is a lost enquiry. */}
             <Link
               href="/courses"
-              className="strand-card group flex flex-col rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 p-6"
+              className="card card--feature card--dashed group flex flex-col"
               style={{ ['--accent' as string]: '#EA580C' }}
             >
               <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full self-start mb-3 bg-orange-50 text-orange-700">
@@ -108,7 +108,7 @@ export default function SubjectsPage() {
                 Not tied to a grade. Four tracks by what your child can already do — from first
                 steps to shipping real applications.
               </p>
-              <span className="flex items-center justify-between mt-5 pt-4 border-t border-slate-200">
+              <span className="card-meta flex items-center justify-between">
                 <span className="inline-flex items-center gap-1.5 text-[13px] text-slate-500">
                   <Code2 className="w-4 h-4" />
                   4 tracks
@@ -133,7 +133,7 @@ export default function SubjectsPage() {
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {GRADE_GROUPS.map((group) => (
-              <div key={group.slug} className="rounded-2xl border border-slate-200 bg-white p-5">
+              <div key={group.slug} className="card">
                 <p className="font-bold text-slate-900 mb-1.5 tabular-nums">{group.label}</p>
                 <p className="text-[13px] text-slate-600 leading-[1.6] mb-4">{group.pitch}</p>
                 <ul className="space-y-1.5">
@@ -171,7 +171,7 @@ export default function SubjectsPage() {
               <Link
                 key={spec.slug}
                 href={`/subjects/focus/${spec.slug}`}
-                className="strand-card group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-5"
+                className="card group flex flex-col"
                 style={{ ['--accent' as string]: spec.accent }}
               >
                 <span
@@ -184,7 +184,7 @@ export default function SubjectsPage() {
                 <p className="text-[13.5px] leading-[1.6] text-slate-600 flex-1">
                   {spec.description}
                 </p>
-                <span className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100">
+                <span className="card-meta flex items-center justify-between">
                   <span className="text-[12.5px] text-slate-500 tabular-nums">
                     {LESSONS_PER_GRADE} classes
                   </span>

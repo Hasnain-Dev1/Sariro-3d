@@ -505,64 +505,116 @@ html[data-syllabus-open="true"] header {
 
 
 /* ===============================================================
-   STRAND CARD — light depth
+   CARDS
    ---------------------------------------------------------------
-   Shadow as LIGHT, not grey. Two layers: a tight neutral contact
-   shadow that sits the card on the page, and a wide, very low
-   opacity shadow tinted with the domain's own accent (--accent,
-   set inline per card). Grey drop shadows are what make a light UI
-   look like a 2015 admin panel; a tinted ambient shadow reads as
-   the card being lit by the thing it belongs to.
+   One class owns the whole appearance: radius, border, background,
+   padding and depth.
 
-   Only `box-shadow` and `border-color` transition here — the lift
-   itself is a framer-motion transform, so it stays on the
-   compositor and never triggers layout.
+   It did not, once. `.strand-card` carried only the shadow, so every
+   call site re-declared `rounded-2xl border border-slate-200/80
+   bg-white p-5` — and six variants of the same card drifted apart,
+   with five different paddings and three radii across the site.
+   A shared class that owns half a look is worse than no class: it
+   implies consistency it cannot enforce.
+
+   Three sizes, tied to ROLE rather than taste. Radius scales with
+   padding, because a large radius on a tight box reads as a bubble
+   and a small one on a large panel reads as a table cell.
+
+     .card            standard content card
+     .card--compact   dense rows and list items
+     .card--feature   large panels that carry a decision
+
+   Shadow as LIGHT, not grey: a tight neutral contact shadow to sit
+   the card on the page, plus a wide, very low opacity shadow tinted
+   with the domain accent (--accent, set inline). Grey drop shadows
+   are what make a light UI look like a 2015 admin panel.
 =============================================================== */
-.strand-card {
-  --accent: #2563eb;
-  box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.04),
-    0 8px 24px -16px rgba(15, 23, 42, 0.10);
-  transition:
-    box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 0.35s cubic-bezier(0.22, 1, 0.36, 1),
-    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.strand-card:hover {
-  border-color: rgba(148, 163, 184, 0.55);
-  box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.05),
-    0 18px 40px -22px color-mix(in srgb, var(--accent) 55%, rgb(15 23 42));
-}
-
-/* Keyboard users get the same affordance as pointer users. */
-.strand-card:focus-visible {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow:
-    0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent),
-    0 18px 40px -22px color-mix(in srgb, var(--accent) 55%, rgb(15 23 42));
-}
-
-/* The performance contract: no motion below the tablet breakpoint.
-   Eleven infinite animations once pinned Speed Index at 11s — these are
-   finite, but hover lift and shadow work is pure cost on a touch device
-   that cannot hover in the first place. */
-@media (max-width: 1023px) {
-  .strand-card,
-  .strand-card:hover {
-    transition: none;
-    transform: none;
+@layer components {
+  /* In `components`, not bare CSS: Tailwind utilities live in a later
+     layer, so a call site can still override padding with `sm:p-8`.
+     Unlayered rules beat every utility regardless of specificity, which
+     silently broke `sm:p-8` on the picker panels — 24px where 32px was
+     written. A component class should be a default, not a veto. */
+  .card {
+    --accent: #2563eb;
+    border-radius: 1rem;
+    border: 1px solid rgb(226 232 240 / 0.8);
+    background: #fff;
+    padding: 1.25rem;
     box-shadow:
       0 1px 2px rgba(15, 23, 42, 0.04),
-      0 8px 24px -16px rgba(15, 23, 42, 0.10);
+      0 8px 24px -16px rgba(15, 23, 42, 0.1);
+    transition:
+      box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
   }
-}
 
-@media (prefers-reduced-motion: reduce) {
-  .strand-card {
-    transition: none;
+  .card--compact {
+    border-radius: 0.75rem;
+    padding: 1rem;
+  }
+
+  .card--feature {
+    border-radius: 1.25rem;
+    padding: 1.5rem;
+  }
+
+  /* A card that is an invitation rather than a destination. */
+  .card--dashed {
+    border-style: dashed;
+    border-color: rgb(203 213 225);
+    background: rgb(248 250 252 / 0.6);
+  }
+
+  a.card:hover,
+  button.card:hover {
+    border-color: rgb(148 163 184 / 0.55);
+    transform: translateY(-2px);
+    box-shadow:
+      0 1px 2px rgba(15, 23, 42, 0.05),
+      0 18px 40px -22px color-mix(in srgb, var(--accent) 55%, rgb(15 23 42));
+  }
+
+  .card:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow:
+      0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent),
+      0 18px 40px -22px color-mix(in srgb, var(--accent) 55%, rgb(15 23 42));
+  }
+
+  /* The metadata strip at the foot of a card. One rule so the divider
+     sits the same distance from the body on every card in the product. */
+  .card-meta {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgb(241 245 249);
+  }
+
+  /* The performance contract: no motion below the tablet breakpoint.
+     Hover work is pure cost on a device that cannot hover. */
+  @media (max-width: 1023px) {
+    .card,
+    a.card:hover,
+    button.card:hover {
+      transition: none;
+      transform: none;
+      box-shadow:
+        0 1px 2px rgba(15, 23, 42, 0.04),
+        0 8px 24px -16px rgba(15, 23, 42, 0.1);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .card {
+      transition: none;
+    }
+    a.card:hover,
+    button.card:hover {
+      transform: none;
+    }
   }
 }
 

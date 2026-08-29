@@ -38,7 +38,7 @@ export default function CadenceChooser({
   const [cadence, setCadence] = useState<CadenceOption['cadence']>('monthly');
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8">
+    <div className="card card--feature sm:p-8">
       <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">
         How would you like to pay?
       </p>

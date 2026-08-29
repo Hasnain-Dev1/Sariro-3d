@@ -185,7 +185,7 @@ export default function ExploreMap({ domains }: { domains: MapDomain[] }) {
                   <div key={strand.slug} className="group/card">
                     <Link
                       href={`/explore/${strand.slug}`}
-                      className="strand-card group relative flex flex-col h-full rounded-2xl border border-slate-200/80 bg-white p-5 hover:-translate-y-0.5"
+                      className="card group relative flex flex-col h-full"
                       style={{ ['--accent' as string]: accent }}
                     >
                       <span

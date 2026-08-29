@@ -196,7 +196,7 @@ export default async function StrandPage({ params }: StrandParams) {
                   <Link
                     key={c.id}
                     href={`/course-path/${c.id}`}
-                    className="strand-card group flex items-start gap-4 rounded-2xl border border-slate-200/80 bg-white p-5"
+                    className="card group flex items-start gap-4"
                     style={{ ['--accent' as string]: accent }}
                   >
                     <BookOpen className="w-5 h-5 shrink-0 mt-0.5" style={{ color: accent }} />
@@ -217,7 +217,7 @@ export default async function StrandPage({ params }: StrandParams) {
               </div>
             </>
           ) : (
-            <div className="rounded-2xl border border-slate-200 bg-white p-7">
+            <div className="card card--feature">
               <div className="flex items-center gap-2 mb-3">
                 <Users className="w-5 h-5" style={{ color: accent }} />
                 <p className="font-semibold text-slate-900">Mentor-led</p>
@@ -259,7 +259,7 @@ export default async function StrandPage({ params }: StrandParams) {
                 <Link
                   key={s.slug}
                   href={`/explore/${s.slug}`}
-                  className="strand-card group rounded-xl border border-slate-200/80 bg-white p-4"
+                  className="card card--compact group"
                   style={{ ['--accent' as string]: accent }}
                 >
                   <p className="font-semibold text-slate-900 text-[14px] transition-colors duration-300">
