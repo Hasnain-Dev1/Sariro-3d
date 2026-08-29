@@ -9,22 +9,46 @@ import Lenis from 'lenis';
    - Initializes Lenis with tuned settings (buttery, not floaty)
    - Drives Lenis via requestAnimationFrame (rAF) — zero flicker
    - Syncs with framer-motion's scroll tracking
-   - Respects prefers-reduced-motion
+   - DESKTOP ONLY — see below
+
+   Why Lenis never runs on touch devices
+   -------------------------------------
+   Native mobile scrolling is GPU-accelerated and handled off the main
+   thread; it is already smooth, and it is what makes the browser's own
+   URL bar hide as you scroll. Lenis replaces that with JavaScript-driven
+   scrolling ON the main thread, plus a requestAnimationFrame loop that
+   runs for the entire life of the page whether anyone scrolls or not.
+
+   On a desktop with headroom that buys a genuinely nicer feel. On a
+   low-end Android it is a permanent main-thread tax and the single
+   biggest source of "the site feels laggy" — while replacing something
+   that was already better.
+
+   Same gate as `useHeavyVisuals`: non-touch, >=1024px, motion allowed.
 --------------------------------------------------------------- */
 
 export default function SmoothScrollProvider({ children }: { children: React.ReactNode }) {
   const lenisRef = useRef<Lenis | null>(null);
 
   useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReduced) return; // skip smooth scroll for accessibility
+    const smallViewport = window.matchMedia('(max-width: 1023px)').matches;
+    const touchPrimary = window.matchMedia('(pointer: coarse)').matches;
+
+    // Phones and tablets keep native scroll: smoother, cheaper, and it lets the
+    // browser chrome collapse the way users expect.
+    if (prefersReduced || smallViewport || touchPrimary) return;
 
     const lenis = new Lenis({
       duration: 1.1,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)), // expo out
       smoothWheel: true,
       wheelMultiplier: 1,
-      touchMultiplier: 1.6,
+      // Touch is never smoothed — this provider does not run on touch devices
+      // at all, and leaving it enabled would only mislead the next reader.
+      syncTouch: false,
       infinite: false,
     });
     lenisRef.current = lenis;
