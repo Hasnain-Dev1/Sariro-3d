@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   BookOpen, Clock, Calendar, ArrowRight, Sparkles, Rocket,
@@ -13,6 +14,7 @@ import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import { DesktopClock } from '@/components/dashboard/desktop-clock';
 import { TzBadge } from '@/components/dashboard/tz-badge';
 import { CancelClassModal } from '@/components/dashboard/cancel-class-modal';
+import { canJoinNow } from '@/lib/dashboard/join-window';
 import TeacherLatePopup from '@/components/dashboard/teacher-late-popup';
 import { useAuth } from '@/components/auth/auth-provider';
 import { TRACKS } from '@/lib/sariro-data';
@@ -474,7 +476,20 @@ function ScheduleCard({ booking, cohort, timezone, credits }: { booking: Booking
     && cohort?.ratio === '1:1'
     && new Date(booking.slot_start).getTime() > Date.now();
 
+  const router = useRouter();
+  // Recomputed on render rather than stored: the window opens while the page is
+  // sitting there, and a stale boolean would strand a learner outside a class
+  // that has already started.
+  const joinable = canJoinNow(booking.slot_start, booking.slot_end ?? null);
+
   const handleJoinClass = async () => {
+    // Outside the join window this is not a failure — it is a question. Send the
+    // learner to the page that answers it rather than into an empty Meet.
+    if (!canJoinNow(booking.slot_start, booking.slot_end ?? null)) {
+      router.push('/dashboard/student/next-class');
+      return;
+    }
+
     setJoining(true);
     setJoinError(null);
     try {
@@ -604,7 +619,7 @@ function ScheduleCard({ booking, cohort, timezone, credits }: { booking: Booking
             style={{ fontFamily: 'var(--font-grotesk)' }}
           >
             {joining ? <Loader2 className="w-4 h-4 animate-spin" /> : <Video className="w-4 h-4" />}
-            {joined ? 'Joined ✓' : 'Join Class'}
+            {joined ? 'Joined ✓' : joinable ? 'Join Class' : 'See when your class is'}
           </button>
         ) : meetUrl ? (
           <a

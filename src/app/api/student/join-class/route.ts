@@ -2,17 +2,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClientHelper, createServiceClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
+import { joinWindow, JOIN_OPENS_MINUTES_BEFORE } from '@/lib/dashboard/join-window';
 
 /**
  * SARIRO — POST /api/student/join-class
  *
  * Body: { booking_id }
  *
- * Lets an enrolled student join their own scheduled class. Unlike the
- * teacher's start-class route, there is NO time-window restriction here —
- * penalties (late-join, no-show) only ever apply to the teacher, so a
- * student is free to join a class whenever they like: early, on time, or
- * after it's technically started. This route only:
+ * Lets an enrolled student join their own scheduled class.
+ *
+ * There IS a time window, and it is generous: doors open 15 minutes before the
+ * start and stay open 20 minutes past the end. It exists not to penalise a
+ * learner — lateness only ever costs the teacher — but because joining early
+ * used to drop a child into an empty Meet, where they concluded nobody had come.
+ * Outside the window the client sends them to the next-class page instead.
+ *
+ * This route:
  *   1. Verifies the student is actively enrolled in the booking's cohort.
  *   2. Verifies the booking is still 'scheduled' (not cancelled/completed).
  *   3. Verifies the student has a positive credit balance (mirrors the
@@ -57,10 +62,27 @@ export async function POST(req: NextRequest) {
 
   const { data: booking } = await admin
     .from('bookings')
-    .select('id, cohort_id, status, google_meet_url')
+    .select('id, cohort_id, status, google_meet_url, slot_start, slot_end')
     .eq('id', body.booking_id)
     .maybeSingle();
   if (!booking) return NextResponse.json({ ok: false, error: 'not_found', message: 'Class not found.' }, { status: 404 });
+
+  // The client sends early joiners to the next-class page rather than calling
+  // this route, but the client is not a security boundary — and more to the
+  // point, an early join that succeeds here puts a child alone in an empty Meet
+  // regardless of which button they pressed to get there.
+  const win = joinWindow(booking.slot_start as string, (booking.slot_end as string) ?? null);
+  if (win.state === 'too_early') {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'too_early',
+        message: `This class has not started yet. The link opens ${JOIN_OPENS_MINUTES_BEFORE} minutes before.`,
+        opens_at: win.opensAt.toISOString(),
+      },
+      { status: 409 }
+    );
+  }
 
   if (booking.status !== 'scheduled') {
     return NextResponse.json(
