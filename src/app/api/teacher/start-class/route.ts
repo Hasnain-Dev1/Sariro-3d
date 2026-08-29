@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClientHelper, createServiceClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
+import { JOIN_OPENS_MINUTES_BEFORE } from '@/lib/dashboard/join-window';
 
 /**
  * SARIRO — POST /api/teacher/start-class  { bookingId }
@@ -53,15 +54,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'not_startable', message: `Class is ${booking.status}.` }, { status: 409 });
   }
 
-  // Teachers may only join from 5 minutes before start (never earlier).
-  const EARLY_JOIN_MIN = 5;
+  // The same window students get. It used to be 5 minutes here and unbounded for
+  // students; now that students open at JOIN_OPENS_MINUTES_BEFORE, a smaller
+  // teacher window would let a class fill up before its teacher could get in —
+  // the empty-room problem, from the other side. Late penalties are unaffected:
+  // they are measured from the scheduled start, not from when the door opened.
+  const EARLY_JOIN_MIN = JOIN_OPENS_MINUTES_BEFORE;
   const startsMs = new Date(booking.slot_start).getTime();
   const opensMs = startsMs - EARLY_JOIN_MIN * 60_000;
   if (Date.now() < opensMs) {
     const mins = Math.ceil((opensMs - Date.now()) / 60_000);
     return NextResponse.json({
       ok: false, error: 'too_early',
-      message: `You can join this class 5 minutes before it starts — please try again in about ${mins} minute${mins === 1 ? '' : 's'}.`,
+      message: `You can join this class ${EARLY_JOIN_MIN} minutes before it starts — please try again in about ${mins} minute${mins === 1 ? '' : 's'}.`,
       opens_at: new Date(opensMs).toISOString(),
     }, { status: 409 });
   }

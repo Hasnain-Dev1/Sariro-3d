@@ -12,6 +12,8 @@ import {
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import { BatchRescheduleModal } from '@/components/dashboard/batch-reschedule-modal';
 import { DesktopClock } from '@/components/dashboard/desktop-clock';
+import { JOIN_OPENS_MINUTES_BEFORE } from '@/lib/dashboard/join-window';
+import NextClassCard from '@/components/dashboard/next-class-card';
 import TeacherEarnings from '@/components/dashboard/teacher-earnings';
 import TeacherManagers from '@/components/dashboard/teacher-managers';
 import { useAuth } from '@/components/auth/auth-provider';
@@ -170,7 +172,8 @@ function BookingCard({
   const [earlyMsg, setEarlyMsg] = useState<string | null>(null);
 
   // Teachers can only join from 5 minutes before start.
-  const EARLY_JOIN_MIN = 5;
+  // Shared with the student side and the server — see join-window.ts.
+  const EARLY_JOIN_MIN = JOIN_OPENS_MINUTES_BEFORE;
   const joinOpensMs = new Date(booking.slot_start).getTime() - EARLY_JOIN_MIN * 60_000;
 
   const handleStatus = async (newStatus: 'completed' | 'no_show' | 'cancelled') => {
@@ -186,7 +189,7 @@ function BookingCard({
   const handleJoin = async () => {
     if (Date.now() < joinOpensMs) {
       const mins = Math.ceil((joinOpensMs - Date.now()) / 60_000);
-      setEarlyMsg(`You can join this class 5 minutes before it starts — please come back in about ${mins} minute${mins === 1 ? '' : 's'}.`);
+      setEarlyMsg(`You can join this class ${EARLY_JOIN_MIN} minutes before it starts — please come back in about ${mins} minute${mins === 1 ? '' : 's'}.`);
       return;
     }
     setProcessing(true);
@@ -1602,6 +1605,18 @@ function TeacherDashboardInner() {
           </div>
           <DesktopClock />
         </motion.div>
+
+        {/* What am I teaching next, with whom, and which batch? The teacher's
+            actual question, answered above everything else. */}
+        <NextClassCard
+          bookings={allBookings}
+          timezone={userTimezone}
+          onJoin={(b) => {
+            const el = document.getElementById('schedule');
+            el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            void b;
+          }}
+        />
 
         {/* Reporting Admin + HR */}
         <TeacherManagers />
