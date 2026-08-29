@@ -202,7 +202,27 @@
   transform-style: preserve-3d;
   transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
               box-shadow 0.4s ease;
+}
+
+/* `will-change: transform` used to sit on the rule above — on all 121 elements
+   that carry .card-3d, across 36 files, for the entire life of every page.
+   Each one becomes a composited layer held in GPU memory whether it ever
+   animates or not, which is precisely what this file's own note beside
+   `.gpu-layer` warns against: "use sparingly — only on elements that actually
+   animate".
+   Promoted on hover instead, where a transform is genuinely about to happen,
+   and dropped again the moment the pointer leaves. */
+.card-3d:hover {
   will-change: transform;
+}
+
+/* Touch devices cannot hover, so the 3D context and its transition are pure
+   cost there — the same reasoning that took smooth scroll and WebGL off phones. */
+@media (max-width: 1023px) {
+  .card-3d {
+    transform-style: flat;
+    transition: none;
+  }
 }
 
 .glass-panel {

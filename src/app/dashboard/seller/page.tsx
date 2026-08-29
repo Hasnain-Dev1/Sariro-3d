@@ -24,7 +24,7 @@ export default function SellerDashboard() {
   return (
     <DashboardLayout>
       <section className="relative pt-6 sm:pt-10 pb-16 px-4 sm:px-6 lg:px-10">
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-1" style={{ fontFamily: 'var(--font-jakarta)' }}>
