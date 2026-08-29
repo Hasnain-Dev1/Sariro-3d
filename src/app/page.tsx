@@ -8,6 +8,7 @@ import { ArrowRight, Sparkles, Rocket } from 'lucide-react';
 import { BRAND, HERO_STATS, TRUSTED_BY } from '@/lib/sariro-data';
 import { useHeavyVisuals } from '@/lib/use-heavy-visuals';
 import BrandLayout from '@/components/brand/brand-layout';
+import MapTeaser from '@/components/brand/map-teaser';
 import { WaveDivider3D } from '@/components/sariro-3d/kit-3d';
 
 const NeuralNetworkScene = dynamic(() => import('@/components/brand/neural-scene'), { ssr: false });
@@ -205,6 +206,9 @@ export default function Home() {
 
       {/* =================== ALL THE 3D FLOW SECTIONS (brought back!) =================== */}
       <Tracks3D />
+      {/* The map, surfaced. It used to be reachable only from the nav, so a
+          visitor could read the entire homepage without learning it existed. */}
+      <MapTeaser />
       <WaveDivider3D fromColor="#FFFFFF" toColor="#0B1120" />
       {/* ORYZO-STYLE CINEMATIC SCROLL: camera orbits 360° around AI Core.
           Real WebGL — desktop only, so phones don't hit it on scroll. */}
