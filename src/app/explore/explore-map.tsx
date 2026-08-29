@@ -4,15 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Search, Compass, Users, BookOpen, X, ArrowRight } from 'lucide-react';
-import {
-  REDUCED,
-  SPRING,
-  SPRING_QUICK,
-  VIEWPORT,
-  reflowVariants,
-  revealVariants,
-  staggerDelay,
-} from '@/lib/motion';
+import { REDUCED, SPRING, SPRING_QUICK, staggerDelay } from '@/lib/motion';
 import { accentFor } from '@/lib/capabilities/accents';
 
 /**
@@ -88,9 +80,9 @@ export default function ExploreMap({ domains }: { domains: MapDomain[] }) {
   const shownStrands = filtered.reduce((n, d) => n + d.strands.length, 0);
 
   return (
-    <div className="max-w-6xl mx-auto px-5 sm:px-8">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* ── search ─────────────────────────────────────────────────────── */}
-      <div className="sticky top-16 z-20 -mx-5 sm:-mx-8 px-5 sm:px-8 py-4 glass-panel border-x-0 border-t-0 rounded-none">
+      <div className="sticky top-16 z-20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-4 glass-panel border-x-0 border-t-0 rounded-none">
         <div className="relative max-w-2xl mx-auto">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
           <input
@@ -154,10 +146,11 @@ export default function ExploreMap({ domains }: { domains: MapDomain[] }) {
             <motion.section
               key={domain.slug}
               layout={!reduced}
-              variants={revealVariants}
-              initial="hidden"
-              whileInView="visible"
-              viewport={VIEWPORT}
+              // Animated on mount, not on scroll. A scroll-triggered reveal that
+              // fails to fire leaves a whole domain invisible, and the map is the
+              // page — it cannot be contingent on an observer callback.
+              initial={reduced ? false : { opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ ...spring, delay: staggerDelay(di) }}
             >
               <div className="flex items-baseline gap-3 flex-wrap mb-2">
@@ -181,52 +174,46 @@ export default function ExploreMap({ domains }: { domains: MapDomain[] }) {
               </p>
 
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                <AnimatePresence mode="popLayout">
-                  {domain.strands.map((strand) => (
-                    <motion.div
-                      key={strand.slug}
-                      layout={!reduced}
-                      variants={reflowVariants}
-                      initial="hidden"
-                      animate="visible"
-                      exit="exit"
-                      transition={spring}
-                      // Hover is physical: the card lifts and its shadow deepens
-                      // with the accent, rather than just changing colour.
-                      whileHover={reduced ? undefined : { y: -2 }}
+                {/* Plain elements, deliberately.
+                    These were wrapped in AnimatePresence with `layout` so the
+                    grid would animate while filtering. It kept filtered-out
+                    cards mounted at full opacity: the counter said "1 of 68"
+                    while seven cards stayed on screen. A search that lies about
+                    its own results is worse than a search that does not animate,
+                    so the reflow animation is gone and the filter is honest. */}
+                {domain.strands.map((strand) => (
+                  <div key={strand.slug} className="group/card">
+                    <Link
+                      href={`/explore/${strand.slug}`}
+                      className="strand-card group relative flex flex-col h-full rounded-2xl border border-slate-200/80 bg-white p-5 hover:-translate-y-0.5"
+                      style={{ ['--accent' as string]: accent }}
                     >
-                      <Link
-                        href={`/explore/${strand.slug}`}
-                        className="strand-card group relative flex flex-col h-full rounded-2xl border border-slate-200/80 bg-white p-5"
-                        style={{ ['--accent' as string]: accent }}
-                      >
-                        <span
-                          aria-hidden
-                          className="absolute left-0 top-5 bottom-5 w-[3px] rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                          style={{ background: accent }}
-                        />
-                        <h3 className="font-semibold text-slate-900 text-[15px] leading-snug mb-1.5">
-                          {strand.name}
-                        </h3>
-                        <p className="text-[13.5px] leading-[1.6] text-slate-600 mb-4 flex-1">
-                          {strand.description}
-                        </p>
-                        {strand.lessonCount > 0 ? (
-                          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 tabular-nums">
-                            <BookOpen className="w-3.5 h-3.5" style={{ color: accent }} />
-                            {strand.lessonCount} {strand.lessonCount === 1 ? 'lesson' : 'lessons'}
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
-                            <Users className="w-3.5 h-3.5" />
-                            Mentor-led
-                          </span>
-                        )}
-                        <ArrowRight className="absolute right-4 bottom-5 w-4 h-4 text-slate-200 group-hover:text-slate-500 group-hover:translate-x-0.5 transition-all duration-300" />
-                      </Link>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
+                      <span
+                        aria-hidden
+                        className="absolute left-0 top-5 bottom-5 w-[3px] rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                        style={{ background: accent }}
+                      />
+                      <h3 className="font-semibold text-slate-900 text-[15px] leading-snug mb-1.5">
+                        {strand.name}
+                      </h3>
+                      <p className="text-[13.5px] leading-[1.6] text-slate-600 mb-4 flex-1">
+                        {strand.description}
+                      </p>
+                      {strand.lessonCount > 0 ? (
+                        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 tabular-nums">
+                          <BookOpen className="w-3.5 h-3.5" style={{ color: accent }} />
+                          {strand.lessonCount} {strand.lessonCount === 1 ? 'lesson' : 'lessons'}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
+                          <Users className="w-3.5 h-3.5" />
+                          Mentor-led
+                        </span>
+                      )}
+                      <ArrowRight className="absolute right-4 bottom-5 w-4 h-4 text-slate-200 group-hover:text-slate-500 group-hover:translate-x-0.5 transition-all duration-300" />
+                    </Link>
+                  </div>
+                ))}
               </div>
             </motion.section>
           );
