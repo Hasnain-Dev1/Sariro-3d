@@ -43,6 +43,17 @@
 }
 
 :root {
+  /* Card depth, shared by `.card` and the legacy `.card-3d`.
+     Shadow as LIGHT, not grey: a tight contact shadow to sit the card on
+     the page, and a wide ambient one tinted with the element's accent. */
+  --card-border: rgb(226 232 240 / 0.8);
+  --card-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 8px 24px -16px rgba(15, 23, 42, 0.1);
+  --card-shadow-hover:
+    0 1px 2px rgba(15, 23, 42, 0.05),
+    0 18px 40px -22px color-mix(in srgb, var(--accent, #2563eb) 55%, rgb(15 23 42));
+
   /* SARIRO brand tokens */
   --background: #FFFFFF;
   --foreground: #0F172A;
@@ -191,17 +202,40 @@
    3D CARD / GLASS / DEPTH UTILITIES
    ============================================================ */
 
+/* ---------------------------------------------------------------
+   .card-3d — LEGACY ALIAS. Prefer `.card` for anything new.
+
+   Two card systems existed side by side: `.card-3d` on 36 files and
+   `.card` on 9. They differed in shadow language and in nothing that
+   mattered, which is the worst kind of difference — enough for a
+   page to look subtly unlike its neighbour, not enough for anyone to
+   say why.
+
+   Rather than rewrite 36 files and risk their layouts, both now draw
+   from the same tokens below. `.card-3d` keeps its name and its
+   padding-free contract (call sites supply p-5/p-6), so nothing
+   breaks; it simply stops looking different.
+--------------------------------------------------------------- */
 .card-3d {
+  --accent: #2563eb;
   background: #fff;
-  border: 1px solid var(--border);
+  border: 1px solid var(--card-border);
   border-radius: 1.25rem;
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.9) inset,
-    0 1px 2px rgba(15, 23, 42, 0.04),
-    0 12px 30px -12px rgba(15, 23, 42, 0.12);
+  box-shadow: var(--card-shadow);
   transform-style: preserve-3d;
-  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
-              box-shadow 0.4s ease;
+  transition:
+    box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Anchors and buttons lift, the way `.card` does. Static panels do not —
+   a hover effect on something unclickable is a promise of nothing. */
+a.card-3d:hover,
+button.card-3d:hover {
+  border-color: rgb(148 163 184 / 0.55);
+  transform: translateY(-2px);
+  box-shadow: var(--card-shadow-hover);
 }
 
 /* `will-change: transform` used to sit on the rule above — on all 121 elements
@@ -559,12 +593,10 @@ html[data-syllabus-open="true"] header {
   .card {
     --accent: #2563eb;
     border-radius: 1rem;
-    border: 1px solid rgb(226 232 240 / 0.8);
+    border: 1px solid var(--card-border);
     background: #fff;
     padding: 1.25rem;
-    box-shadow:
-      0 1px 2px rgba(15, 23, 42, 0.04),
-      0 8px 24px -16px rgba(15, 23, 42, 0.1);
+    box-shadow: var(--card-shadow);
     transition:
       box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1),
       border-color 0.35s cubic-bezier(0.22, 1, 0.36, 1),
@@ -592,9 +624,7 @@ html[data-syllabus-open="true"] header {
   button.card:hover {
     border-color: rgb(148 163 184 / 0.55);
     transform: translateY(-2px);
-    box-shadow:
-      0 1px 2px rgba(15, 23, 42, 0.05),
-      0 18px 40px -22px color-mix(in srgb, var(--accent) 55%, rgb(15 23 42));
+    box-shadow: var(--card-shadow-hover);
   }
 
   .card:focus-visible {
