@@ -7,13 +7,15 @@ import {
   CheckCircle2, XCircle, Loader2, AlertCircle, Plus, Video,
   Lock, PlayCircle, Trophy, ArrowRight, X, FolderOpen,
   Search, Download, UserCheck, TrendingUp, Phone, LogIn,
-  Calendar, CalendarClock, Rocket, Mail,
+  Calendar, CalendarClock, Rocket, Mail, ChevronRight,
 } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import { useAuth } from '@/components/auth/auth-provider';
 import { TRACKS, COURSES } from '@/lib/sariro-data';
 import { createClient } from '@/lib/supabase/client';
 import {
+  fetchAdminActionQueue,
+  type AdminActionItem,
   fetchAdminStats, fetchPendingPurchaseIntents, fetchCohorts,
   confirmPurchaseIntent, rejectPurchaseIntent, transitionCohortStatus,
   createCohort, updateCohortMeetUrl, updateCohortMaterialsUrl,
@@ -1416,6 +1418,7 @@ function AdminDashboardInner() {
   const [cohortFilter, setCohortFilter] = useState<string>('all');
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [actionQueue, setActionQueue] = useState<AdminActionItem[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showUserManagement, setShowUserManagement] = useState(false);
   const [showTeacherModal, setShowTeacherModal] = useState(false);
@@ -1428,6 +1431,10 @@ function AdminDashboardInner() {
   const [revenue, setRevenue] = useState<RevenueStats | null>(null);
   const [revenueLoading, setRevenueLoading] = useState(true);
 
+  const loadActionQueue = useCallback(async () => {
+    setActionQueue(await fetchAdminActionQueue());
+  }, []);
+
   const loadAll = useCallback(async () => {
     setError(null);
     const [s, intents, c, rev] = await Promise.all([
@@ -1438,6 +1445,7 @@ function AdminDashboardInner() {
     ]);
     setStats(s);
     setStatsLoading(false);
+    void loadActionQueue();
     setPendingIntents(intents);
     setIntentsLoading(false);
     setCohorts(c);
@@ -1633,7 +1641,30 @@ function AdminDashboardInner() {
         )}
 
         {/* Stats grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+                {/* What needs a decision, separated from what is merely true. The stat
+            cards below are context; this is the work. */}
+        {actionQueue.length > 0 && (
+          <div className="card card--feature mb-8" style={{ ['--accent' as string]: '#D97706' }}>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-600 mb-3">
+              Needs you today
+            </p>
+            <ul className="space-y-2">
+              {actionQueue.map((item) => (
+                <li key={item.key}>
+                  <a
+                    href={item.href}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 hover:border-amber-300 transition-colors"
+                  >
+                    <span className="font-semibold text-slate-900 text-[15px]">{item.label}</span>
+                    <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+<div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
           <StatCard icon={Users} color="bg-blue-100 text-blue-600" value={stats?.totalUsers ?? 0} label="Total users" loading={statsLoading} />
           <StatCard icon={BookOpen} color="bg-green-100 text-green-600" value={stats?.totalEnrollments ?? 0} label="Enrollments" loading={statsLoading} />
           <StatCard icon={Clock} color="bg-amber-100 text-amber-600" value={stats?.pendingPurchaseIntents ?? 0} label="Pending approvals" loading={statsLoading} />

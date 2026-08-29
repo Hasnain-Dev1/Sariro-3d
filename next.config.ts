@@ -69,7 +69,14 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   output: "standalone",
   typescript: {
-    ignoreBuildErrors: true,
+    // Was `true`, which meant `next build` did not type-check at all — a type
+    // error could reach production and the build would cheerfully say nothing.
+    // The repo is at zero errors, so this is now enforced: a type error fails
+    // the build instead of shipping.
+    //
+    // Only flippable while the count is zero. Left open, errors accumulate and
+    // the window closes.
+    ignoreBuildErrors: false,
   },
   reactStrictMode: false,
   images: {

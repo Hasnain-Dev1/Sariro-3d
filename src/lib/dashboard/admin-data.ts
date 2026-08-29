@@ -10,6 +10,75 @@
 
 import { createClient } from '@/lib/supabase/client';
 
+/**
+ * What is actually waiting on an admin right now.
+ *
+ * The dashboard already showed counts — total users, enrollments, pending
+ * approvals — but gave them all the same weight, so "17 users" sat beside
+ * "3 approvals waiting" as if they were the same kind of fact. One is trivia;
+ * the other is somebody waiting on a person.
+ *
+ * This separates the things that need a decision from the things that are
+ * merely true.
+ */
+export interface AdminActionItem {
+  key: 'approvals' | 'unassigned_batches' | 'unmarked_classes';
+  label: string;
+  count: number;
+  /** Where to go and deal with it. */
+  href: string;
+}
+
+export async function fetchAdminActionQueue(): Promise<AdminActionItem[]> {
+  const supabase = createClient();
+  const items: AdminActionItem[] = [];
+
+  try {
+    const nowIso = new Date().toISOString();
+
+    const [approvals, unassigned, stale] = await Promise.all([
+      supabase.from('purchase_intents').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+      // A batch with no teacher cannot run, and nothing else in the product
+      // will surface it until a class is due to start.
+      supabase.from('cohorts').select('id', { count: 'exact', head: true }).is('teacher_id', null).neq('status', 'completed'),
+      // Classes whose time has passed but which nobody marked. Left alone these
+      // silently break credits, teacher pay and attendance at once.
+      supabase.from('bookings').select('id', { count: 'exact', head: true }).eq('status', 'scheduled').lt('slot_start', nowIso),
+    ]);
+
+    if ((approvals.count ?? 0) > 0) {
+      items.push({
+        key: 'approvals',
+        label: (approvals.count ?? 0) === 1 ? '1 enrolment waiting for approval' : `${approvals.count} enrolments waiting for approval`,
+        count: approvals.count ?? 0,
+        href: '#purchase-intents',
+      });
+    }
+
+    if ((unassigned.count ?? 0) > 0) {
+      items.push({
+        key: 'unassigned_batches',
+        label: (unassigned.count ?? 0) === 1 ? '1 batch has no teacher' : `${unassigned.count} batches have no teacher`,
+        count: unassigned.count ?? 0,
+        href: '#batches',
+      });
+    }
+
+    if ((stale.count ?? 0) > 0) {
+      items.push({
+        key: 'unmarked_classes',
+        label: (stale.count ?? 0) === 1 ? '1 past class was never marked' : `${stale.count} past classes were never marked`,
+        count: stale.count ?? 0,
+        href: '#schedule',
+      });
+    }
+  } catch (err) {
+    console.warn('[admin] action queue failed:', err instanceof Error ? err.message : String(err));
+  }
+
+  return items;
+}
+
 export interface AdminStats {
   totalUsers: number;
   totalEnrollments: number;
