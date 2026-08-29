@@ -602,3 +602,19 @@ html[data-syllabus-open="true"] header {
     transform: translate3d(0, 0, 0);
   }
 }
+
+/* ===============================================================
+   PROSE MEASURE
+   ---------------------------------------------------------------
+   Line length is a legibility constraint, not a layout one. Long
+   lines are genuinely harder to read — the eye loses its place on
+   the return sweep — but the usual fix (shrinking the container)
+   drags the whole section's left edge inward and breaks the page's
+   alignment to solve a text problem.
+
+   So the cap goes on the TEXT, in characters, and containers stay
+   where they are. Sections keep lining up; paragraphs stay readable.
+=============================================================== */
+.prose-measure {
+  max-width: 65ch;
+}

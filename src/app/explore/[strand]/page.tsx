@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, ArrowRight, BookOpen, Users } from 'lucide-react';
 import BrandLayout from '@/components/brand/brand-layout';
+import { Container } from '@/components/layout/page-shell';
 import { DOMAINS } from '@/lib/capabilities/taxonomy';
 import { CONTENT_TAGS } from '@/lib/capabilities/content-tags';
 import { STAGES } from '@/lib/capabilities/types';
@@ -98,7 +99,7 @@ export default async function StrandPage({ params }: StrandParams) {
   return (
     <BrandLayout>
       <section className="pt-28 sm:pt-32 pb-12 bg-gradient-to-b from-slate-50 to-white">
-        <div className="max-w-4xl mx-auto px-5 sm:px-8">
+        <Container>
           <Link
             href="/explore"
             className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 transition mb-8"
@@ -116,7 +117,7 @@ export default async function StrandPage({ params }: StrandParams) {
           <h1 className="strand-enter text-[2.75rem] leading-[1.05] sm:text-6xl font-bold tracking-[-0.03em] text-slate-900 mb-5">
             {strand.name}
           </h1>
-          <p className="strand-enter-delayed text-lg sm:text-xl text-slate-600 leading-[1.55] max-w-2xl">
+          <p className="strand-enter-delayed prose-measure text-lg sm:text-xl text-slate-600 leading-[1.55]">
             {strand.description}
           </p>
 
@@ -136,14 +137,14 @@ export default async function StrandPage({ params }: StrandParams) {
           <div className="mt-9">
             <StartThisButton capabilitySlug={strand.slug} strandName={strand.name} source="strand" />
           </div>
-        </div>
+        </Container>
       </section>
 
       {/* ── stages ─────────────────────────────────────────────────────── */}
-      <section className="py-12 sm:py-16 bg-white border-t border-slate-100">
+      <section className="py-14 sm:py-20 bg-white border-t border-slate-100">
         <div className="max-w-4xl mx-auto px-5 sm:px-8">
-          <h2 className="text-xl font-bold text-slate-900 mb-2">How deep you go is up to you</h2>
-          <p className="text-slate-600 text-[15px] mb-8 max-w-2xl">
+          <h2 className="text-2xl sm:text-[1.75rem] font-bold tracking-[-0.02em] text-slate-900 mb-2">How deep you go is up to you</h2>
+          <p className="prose-measure text-slate-600 text-[15px] leading-[1.65] mb-8">
             There is no beginner version and no advanced version of this. You enter wherever you
             actually are — and a ten-year-old and a forty-year-old can be at the same place.
           </p>
@@ -178,9 +179,9 @@ export default async function StrandPage({ params }: StrandParams) {
       </section>
 
       {/* ── how you learn it ───────────────────────────────────────────── */}
-      <section className="py-12 sm:py-16 bg-slate-50 border-t border-slate-100">
+      <section className="py-14 sm:py-20 bg-slate-50 border-t border-slate-100">
         <div className="max-w-4xl mx-auto px-5 sm:px-8">
-          <h2 className="text-xl font-bold text-slate-900 mb-6">How you learn this at Sariro</h2>
+          <h2 className="text-2xl sm:text-[1.75rem] font-bold tracking-[-0.02em] text-slate-900 mb-6">How you learn this at Sariro</h2>
 
           {courses.length > 0 ? (
             <>
@@ -246,9 +247,9 @@ export default async function StrandPage({ params }: StrandParams) {
       </section>
 
       {/* ── siblings ───────────────────────────────────────────────────── */}
-      <section className="py-12 sm:py-16 bg-white border-t border-slate-100">
+      <section className="py-14 sm:py-20 bg-white border-t border-slate-100">
         <div className="max-w-4xl mx-auto px-5 sm:px-8">
-          <h2 className="text-xl font-bold text-slate-900 mb-6">
+          <h2 className="text-2xl sm:text-[1.75rem] font-bold tracking-[-0.02em] text-slate-900 mb-6">
             The rest of {domain.name}
           </h2>
           <div className="grid sm:grid-cols-2 gap-3">

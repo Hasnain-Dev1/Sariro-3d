@@ -95,7 +95,7 @@ export default async function SubjectPage({ params }: Params) {
   return (
     <BrandLayout>
       <section className="pt-28 sm:pt-32 pb-12 bg-gradient-to-b from-slate-50 to-white">
-        <div className="max-w-5xl mx-auto px-5 sm:px-8">
+        <div className="max-w-4xl mx-auto px-5 sm:px-8">
           <Link
             href="/subjects"
             className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 transition mb-8"
@@ -114,15 +114,15 @@ export default async function SubjectPage({ params }: Params) {
           <h1 className="strand-enter text-[2.5rem] leading-[1.05] sm:text-5xl font-bold tracking-[-0.03em] text-slate-900 mb-5">
             {subject.tagline}
           </h1>
-          <p className="strand-enter-delayed text-lg text-slate-600 leading-[1.6] max-w-2xl">
+          <p className="strand-enter-delayed prose-measure text-lg text-slate-600 leading-[1.6]">
             {subject.description}
           </p>
         </div>
       </section>
 
       {/* ── choose + price ─────────────────────────────────────────────── */}
-      <section className="py-10 sm:py-14 bg-white">
-        <div className="max-w-3xl mx-auto px-5 sm:px-8">
+      <section className="py-14 sm:py-20 bg-white">
+        <div className="max-w-4xl mx-auto px-5 sm:px-8">
           <SubjectPicker
             subjectSlug={subject.slug}
             subjectName={subject.name}
@@ -134,10 +134,10 @@ export default async function SubjectPage({ params }: Params) {
       </section>
 
       {/* ── what a year looks like ─────────────────────────────────────── */}
-      <section className="py-12 sm:py-16 bg-slate-50 border-t border-slate-100">
-        <div className="max-w-3xl mx-auto px-5 sm:px-8">
-          <h2 className="text-xl font-bold text-slate-900 mb-2">What a year looks like</h2>
-          <p className="text-slate-600 text-[15px] leading-[1.65] mb-7">
+      <section className="py-14 sm:py-20 bg-slate-50 border-t border-slate-100">
+        <div className="max-w-4xl mx-auto px-5 sm:px-8">
+          <h2 className="text-2xl sm:text-[1.75rem] font-bold tracking-[-0.02em] text-slate-900 mb-2">What a year looks like</h2>
+          <p className="prose-measure text-slate-600 text-[15px] leading-[1.65] mb-7">
             {LESSONS_PER_GRADE} classes across {sample.modules.length} modules — one class a week,
             four a month. {sample.testCount} of those classes are assessments rather than lessons,
             so you always know whether it is working.
@@ -179,10 +179,10 @@ export default async function SubjectPage({ params }: Params) {
       </section>
 
       {/* ── what it builds ─────────────────────────────────────────────── */}
-      <section className="py-12 sm:py-16 bg-white border-t border-slate-100">
-        <div className="max-w-3xl mx-auto px-5 sm:px-8">
-          <h2 className="text-xl font-bold text-slate-900 mb-2">What it actually builds</h2>
-          <p className="text-slate-600 text-[15px] leading-[1.65] mb-6">
+      <section className="py-14 sm:py-20 bg-white border-t border-slate-100">
+        <div className="max-w-4xl mx-auto px-5 sm:px-8">
+          <h2 className="text-2xl sm:text-[1.75rem] font-bold tracking-[-0.02em] text-slate-900 mb-2">What it actually builds</h2>
+          <p className="prose-measure text-slate-600 text-[15px] leading-[1.65] mb-6">
             Every class feeds a capability on the Sariro map, so progress is measured as what your
             child can do — not how many lessons they sat through.
           </p>
@@ -202,9 +202,9 @@ export default async function SubjectPage({ params }: Params) {
       </section>
 
       {/* ── other subjects ─────────────────────────────────────────────── */}
-      <section className="py-12 sm:py-16 bg-slate-50 border-t border-slate-100">
-        <div className="max-w-5xl mx-auto px-5 sm:px-8">
-          <h2 className="text-xl font-bold text-slate-900 mb-6">Other subjects</h2>
+      <section className="py-14 sm:py-20 bg-slate-50 border-t border-slate-100">
+        <div className="max-w-4xl mx-auto px-5 sm:px-8">
+          <h2 className="text-2xl sm:text-[1.75rem] font-bold tracking-[-0.02em] text-slate-900 mb-6">Other subjects</h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {SCHOOL_SUBJECTS.filter((s) => s.slug !== subject.slug).map((s) => (
               <Link

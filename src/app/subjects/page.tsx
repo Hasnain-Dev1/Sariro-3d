@@ -126,7 +126,7 @@ export default function SubjectsPage() {
           <h2 className="text-2xl font-bold text-slate-900 tracking-[-0.02em] mb-2">
             What we teach, by stage
           </h2>
-          <p className="text-slate-600 text-[15px] leading-[1.65] max-w-2xl mb-8">
+          <p className="prose-measure text-slate-600 text-[15px] leading-[1.65] mb-8">
             Physics and Chemistry begin at grade 7, when school splits them out of Science. Before
             that they are one subject, because the world still is.
           </p>
@@ -160,7 +160,7 @@ export default function SubjectsPage() {
           <h2 className="text-2xl font-bold text-slate-900 tracking-[-0.02em] mb-2">
             Or fix one thing
           </h2>
-          <p className="text-slate-600 text-[15px] leading-[1.65] max-w-2xl mb-8">
+          <p className="prose-measure text-slate-600 text-[15px] leading-[1.65] mb-8">
             Focus courses take one topic — usually the one a student has decided they are bad at —
             and spend {LESSONS_PER_GRADE} classes on it. Not tied to a grade: take Algebra at
             sixteen if that is where the gap is.
@@ -198,12 +198,12 @@ export default function SubjectsPage() {
 
       {/* ── assessments ────────────────────────────────────────────────── */}
       <section className="py-14 sm:py-20 bg-white border-t border-slate-100">
-        <div className="max-w-3xl mx-auto px-5 sm:px-8 text-center">
-          <ClipboardList className="w-8 h-8 mx-auto text-slate-400 mb-4" />
+        <div className="max-w-6xl mx-auto px-5 sm:px-8">
+          <ClipboardList className="w-8 h-8 text-slate-400 mb-4" />
           <h2 className="text-2xl font-bold text-slate-900 tracking-[-0.02em] mb-3">
             Two assessments a year, not a surprise at the end
           </h2>
-          <p className="text-slate-600 text-[15px] leading-[1.7]">
+          <p className="prose-measure text-slate-600 text-[15px] leading-[1.7]">
             Of the {LESSONS_PER_GRADE} classes, two are assessments — one mid-year, one at the end.
             They are part of the {LESSONS_PER_GRADE}, never an extra charge, and they exist so a
             parent finds out in month six whether it is working, rather than in month twelve.
