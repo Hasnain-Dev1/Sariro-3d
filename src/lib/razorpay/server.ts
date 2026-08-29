@@ -192,6 +192,12 @@ export function getSupabaseAdmin() {
    `currency` defaults to 'INR' but can be overridden — if 'USD' is set,
    Razorpay requires an international merchant account. */
 export function displayPriceToAmount(displayPrice: number, currency = RAZORPAY_CURRENCY): number {
-  // All supported currencies (INR, USD) use 100 subunits per unit.
+  // DEPRECATED — do not use for new checkout paths.
+  //
+  // This multiplies by 100 and ignores `currency` entirely, which is how a $199
+  // course came to be charged as INR 199. It survives only for any legacy caller;
+  // new code must use `toMinorUnits` from '@/lib/pricing/currency', which takes
+  // the currency explicitly and is guarded by `checkChargeCurrency`.
+  void currency;
   return Math.round(displayPrice * 100);
 }

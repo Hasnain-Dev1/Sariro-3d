@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClientHelper } from '@/lib/supabase/server';
 import {
   createOrder,
-  displayPriceToAmount,
   RAZORPAY_CONFIGURED,
   RAZORPAY_CURRENCY,
   getSupabaseAdmin,
 } from '@/lib/razorpay/server';
 import { SETTING_KEYS } from '@/lib/dashboard/settings-data';
+import { checkChargeCurrency, toMinorUnits, type SupportedCurrency } from '@/lib/pricing/currency';
 import { rateLimit, rateLimitedResponse, getClientIp, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -156,7 +156,25 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-  const amount = displayPriceToAmount(displayPrice, RAZORPAY_CURRENCY);
+  // ── Currency guard ──────────────────────────────────────────────────
+  // The site displays USD. If the gateway is configured for a different
+  // currency, `displayPrice * 100` bills the wrong amount entirely — a $199
+  // course charged as INR 199 is about $2.30. Refuse rather than guess: a
+  // blocked checkout costs one sale, a mis-charged one runs undetected.
+  const currencyCheck = checkChargeCurrency(RAZORPAY_CURRENCY);
+  if (!currencyCheck.ok) {
+    console.error('[create-order] currency misconfigured:', currencyCheck.reason);
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'currency_misconfigured',
+        message: 'Checkout is temporarily unavailable. Our team has been notified.',
+      },
+      { status: 503 }
+    );
+  }
+
+  const amount = toMinorUnits(displayPrice, currencyCheck.chargeCurrency as SupportedCurrency);
 
   // ── Find or create a PENDING purchase_intent (idempotent) ───────────
   const { data: existing } = await supaServer
@@ -182,6 +200,12 @@ export async function POST(req: NextRequest) {
         track,
         level,
         ratio,
+        // What we quoted and what we charge, recorded together so the two can
+        // never disagree unnoticed again.
+        display_price: displayPrice,
+        display_currency: currencyCheck.displayCurrency,
+        charge_amount_minor: amount,
+        charge_currency: currencyCheck.chargeCurrency,
         // Standard API flow — no payment-link URL; will be updated post-verify
         razorpay_link: null,
         status: 'pending',
