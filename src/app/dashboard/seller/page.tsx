@@ -4,6 +4,7 @@ import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import { useAuth } from '@/components/auth/auth-provider';
 import { SellerLeads } from '@/app/dashboard/admin/seller-leads';
 import { Loader2 } from 'lucide-react';
+import DashboardToast, { useDashboardToast } from '@/components/dashboard/dashboard-toast';
 
 export default function SellerDashboard() {
   const { user, profile, loading } = useAuth();
@@ -16,10 +17,9 @@ export default function SellerDashboard() {
     );
   }
 
-  const handleToast = (msg: string, kind?: 'success' | 'error') => {
-    // Simple toast — can be enhanced later
-    console.log(`[seller toast] ${kind}: ${msg}`);
-  };
+  // Was `console.log`. A seller updating a lead saw nothing at all happen —
+  // every action looked like it might have failed.
+  const { toast, showToast } = useDashboardToast();
 
   return (
     <DashboardLayout>
@@ -36,9 +36,11 @@ export default function SellerDashboard() {
           </div>
 
           {/* Seller Leads — same component as admin dashboard */}
-          <SellerLeads onToast={handleToast} />
+          <SellerLeads onToast={showToast} />
         </div>
       </section>
+
+      <DashboardToast toast={toast} />
     </DashboardLayout>
   );
 }

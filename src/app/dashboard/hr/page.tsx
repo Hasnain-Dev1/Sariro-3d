@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
+import DashboardToast, { useDashboardToast } from '@/components/dashboard/dashboard-toast';
 import { useAuth } from '@/components/auth/auth-provider';
 import { createClient } from '@/lib/supabase/client';
 import { useRealtime } from '@/lib/dashboard/use-realtime';
@@ -23,13 +24,8 @@ export default function HRDashboard() {
   const [students, setStudents] = useState<StudentProfile[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'my_teachers' | 'incentives' | 'payments' | 'credits' | 'tiers'>('overview');
-  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const { toast, showToast } = useDashboardToast();
   const [showSales, setShowSales] = useState(false);
-
-  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-    setToast({ type, message });
-    setTimeout(() => setToast(null), 3000);
-  };
 
   const loadAll = useCallback(async () => {
     try {
@@ -439,17 +435,12 @@ export default function HRDashboard() {
         </div>
 
         {/* Toast */}
-        {toast && (
-          <div className={`fixed bottom-20 lg:bottom-6 left-1/2 -translate-x-1/2 z-[90] px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 ${toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`} style={{ fontFamily: 'var(--font-grotesk)' }}>
-            {toast.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <X className="w-4 h-4" />}
-            <span className="text-sm font-bold">{toast.message}</span>
-          </div>
-        )}
+        <DashboardToast toast={toast} />
 
         <SalesEarningsReport
           open={showSales}
           onClose={() => setShowSales(false)}
-          onToast={(msg, kind) => setToast({ type: kind || 'success', message: msg })}
+          onToast={showToast}
         />
       </section>
     </DashboardLayout>
