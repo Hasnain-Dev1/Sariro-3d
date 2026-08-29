@@ -59,5 +59,45 @@ export async function POST(req: NextRequest) {
   const { error } = await admin.from('profiles').update({ [column]: managerId }).eq('id', body.teacherId);
   if (error) return NextResponse.json({ ok: false, error: 'update_failed', message: error.message }, { status: 500 });
 
+  // ── Tell the people it happened to ──────────────────────────────────
+  // Assignment used to be silent: a manager acquired a teacher and a teacher
+  // acquired a manager, and neither was told. Both then had to notice by
+  // chance, which at any real volume means nobody notices at all.
+  //
+  // Never allowed to fail the assignment — the relationship is already saved,
+  // and a lost notification is a far smaller problem than a 500 on an action
+  // that actually succeeded.
+  if (managerId) {
+    try {
+      const [{ data: teacher }, { data: manager }] = await Promise.all([
+        admin.from('profiles').select('full_name').eq('id', body.teacherId).maybeSingle(),
+        admin.from('profiles').select('full_name').eq('id', managerId).maybeSingle(),
+      ]);
+
+      const teacherName = teacher?.full_name ?? 'a teacher';
+      const managerName = manager?.full_name ?? 'a manager';
+      const roleLabel = body.field === 'admin' ? 'Admin' : 'HR';
+
+      await admin.from('notifications').insert([
+        {
+          user_id: managerId,
+          type: 'system',
+          title: `${teacherName} now reports to you`,
+          message: `You are the reporting ${roleLabel} for ${teacherName}. Their schedule and classes are on your dashboard.`,
+          link: '/dashboard/teacher',
+        },
+        {
+          user_id: body.teacherId,
+          type: 'system',
+          title: `${managerName} is your reporting ${roleLabel}`,
+          message: `Reach out to ${managerName} for anything about your schedule, batches or pay.`,
+          link: '/dashboard/teacher',
+        },
+      ]);
+    } catch (err) {
+      console.warn('[assign-manager] notification skipped:', err instanceof Error ? err.message : String(err));
+    }
+  }
+
   return NextResponse.json({ ok: true });
 }

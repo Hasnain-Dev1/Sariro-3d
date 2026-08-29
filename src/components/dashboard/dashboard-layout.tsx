@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Menu, X, LayoutDashboard, BookOpen, Calendar, Settings,
   LogOut, ChevronRight, Bell, Home as HomeIcon, GraduationCap,
@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { useAuth, getRole, type UserRole } from '@/components/auth/auth-provider';
 import { BRAND } from '@/lib/sariro-data';
+import { useRealtime } from '@/lib/dashboard/use-realtime';
+import { alertPermission, requestAlertPermission, showAlert, type AlertPermission } from '@/lib/dashboard/alerts';
 import {
   fetchNotifications, fetchUnreadCount, markAsRead, markAllAsRead,
   formatRelativeTime, type NotificationRow,
@@ -198,16 +200,66 @@ function NotificationBell() {
   const [loading, setLoading] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
 
-  /* Fetch unread count on mount + every 30s */
+  // Read inside the realtime callback so toggling the dropdown does not tear
+  // down and rebuild the subscription.
+  const openRef = useRef(open);
   useEffect(() => {
-    let active = true;
-    const loadCount = async () => {
-      const c = await fetchUnreadCount();
-      if (active) setUnreadCount(c);
-    };
-    loadCount();
-    const interval = setInterval(loadCount, 30000);
-    return () => { active = false; clearInterval(interval); };
+    openRef.current = open;
+  }, [open]);
+
+  /* Unread count: loaded once, then kept live by Realtime.
+   *
+   * This used to poll every 30 seconds. Two problems with that. A notification
+   * could sit unseen for half a minute, which is the difference between a
+   * product that feels alive and one that feels like it is catching up; and
+   * every open tab spent a request every 30s forever, whether anything had
+   * happened or not.
+   *
+   * `notifications` is already in the `supabase_realtime` publication and RLS
+   * scopes events to rows this user can SELECT, so a client-side user filter is
+   * unnecessary — a teacher is never woken by an admin's notification. */
+
+  /* The traditional ding + system pop-up, for whoever has the dashboard open.
+   *
+   * Fires only when the unread count RISES, and never on the first load —
+   * otherwise every page navigation would chime for notifications the user
+   * read yesterday, and an alert that cries wolf gets muted within a day. */
+  const seenCount = useRef<number | null>(null);
+
+  const refreshBell = useCallback(async () => {
+    const before = seenCount.current;
+    const list = await fetchNotifications(false);
+    const count = list.filter((n) => !n.read_at).length;
+
+    setUnreadCount(count);
+    // Only refetch into view if the user is actually looking at the dropdown.
+    if (openRef.current) setNotifications(list);
+
+    if (before !== null && count > before) {
+      const newest = list.find((n) => !n.read_at);
+      if (newest) {
+        showAlert({
+          title: newest.title,
+          body: newest.message ?? undefined,
+          url: newest.link ?? undefined,
+          tag: newest.id,
+        });
+      }
+    }
+    seenCount.current = count;
+  }, []);
+
+  useEffect(() => {
+    void refreshBell();
+  }, [refreshBell]);
+
+  useRealtime({ tables: ['notifications'], onRefresh: refreshBell });
+
+  /* Whether the browser will actually show a pop-up. Offered as a control
+     rather than prompted on load — see alerts.ts. */
+  const [alertState, setAlertState] = useState<AlertPermission>('default');
+  useEffect(() => {
+    setAlertState(alertPermission());
   }, []);
 
   /* Fetch full list whenever the dropdown opens */
@@ -317,6 +369,31 @@ function NotificationBell() {
                 </button>
               )}
             </div>
+
+            {/* Desktop alerts — offered, never auto-prompted. A permission
+                dialog that appears on page load gets denied, and a denial is
+                effectively permanent: the browser will not ask again and almost
+                nobody finds the setting to undo it. */}
+            {alertState === 'default' && (
+              <button
+                onClick={async () => setAlertState(await requestAlertPermission())}
+                className="w-full text-left px-4 py-2.5 border-b border-slate-100 bg-blue-50/60 hover:bg-blue-50 transition-colors"
+              >
+                <span className="flex items-center gap-2 text-[12px] font-bold text-blue-700">
+                  <Bell className="w-3.5 h-3.5" />
+                  Turn on desktop alerts
+                </span>
+                <span className="block text-[11px] text-blue-600/80 mt-0.5">
+                  A sound and a pop-up the moment something needs you.
+                </span>
+              </button>
+            )}
+            {alertState === 'denied' && (
+              <p className="px-4 py-2.5 border-b border-slate-100 text-[11px] text-slate-500">
+                Desktop alerts are blocked for this site. You can re-enable them in your
+                browser&apos;s site settings.
+              </p>
+            )}
 
             {/* List */}
             <div className="max-h-96 overflow-y-auto">
