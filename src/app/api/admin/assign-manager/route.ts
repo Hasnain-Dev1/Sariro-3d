@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClientHelper, createServiceClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
+import { notifyUsers } from '@/lib/notify';
 
 /**
  * SARIRO — POST /api/admin/assign-manager  (super_admin only)
@@ -78,20 +79,26 @@ export async function POST(req: NextRequest) {
       const managerName = manager?.full_name ?? 'a manager';
       const roleLabel = body.field === 'admin' ? 'Admin' : 'HR';
 
-      await admin.from('notifications').insert([
+      // Assignment is worth an email as well as a bell: it changes who someone
+      // reports to, and a teacher who misses it does not know who to ask about
+      // their pay. Most notifications should NOT do this — every unnecessary
+      // email makes the next one easier to ignore.
+      await notifyUsers([
         {
-          user_id: managerId,
+          userId: managerId,
           type: 'system',
           title: `${teacherName} now reports to you`,
           message: `You are the reporting ${roleLabel} for ${teacherName}. Their schedule and classes are on your dashboard.`,
           link: '/dashboard/teacher',
+          email: true,
         },
         {
-          user_id: body.teacherId,
+          userId: body.teacherId,
           type: 'system',
           title: `${managerName} is your reporting ${roleLabel}`,
           message: `Reach out to ${managerName} for anything about your schedule, batches or pay.`,
           link: '/dashboard/teacher',
+          email: true,
         },
       ]);
     } catch (err) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
+import { notifyUsers } from '@/lib/notify';
 import { generateOccurrences } from '@/lib/dashboard/schedule-generation';
 import { resolveActor, teacherCancelCountThisMonth, POLICY } from '@/lib/dashboard/schedule-ops-server';
 
@@ -191,6 +192,49 @@ export async function POST(req: NextRequest) {
 
   // ── Preserve paid lesson count: append one make-up at the schedule end ──
   await appendOneMakeup(admin, booking.schedule_id);
+
+  // ── Tell everyone whose evening just changed ────────────────────────
+  // A cancelled class is the one notification nobody can afford to miss: without
+  // it a child sits waiting for a lesson that is not happening. Emailed for that
+  // reason, and only for that reason — see lib/notify for why most things should
+  // stay in-app.
+  //
+  // Deliberately last and deliberately unable to fail: the cancellation is
+  // already committed, and returning a 500 here would tell the caller it did not
+  // happen when it did.
+  try {
+    const { data: roster } = await admin
+      .from('enrollments')
+      .select('user_id')
+      .eq('cohort_id', booking.cohort_id)
+      .eq('status', 'active');
+
+    const when = new Date(booking.slot_start).toLocaleString('en-GB', {
+      weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit',
+    });
+
+    const recipients = [
+      ...new Set([
+        ...(roster ?? []).map((r: { user_id: string }) => r.user_id),
+        booking.teacher_id,
+      ]),
+    ].filter(Boolean) as string[];
+
+    await notifyUsers(
+      recipients.map((userId) => ({
+        userId,
+        type: 'session_cancelled' as const,
+        title: 'Your class on ' + when + ' was cancelled',
+        message: body.reason
+          ? `Reason: ${body.reason}`
+          : 'Your dashboard shows the rest of your schedule.',
+        link: userId === booking.teacher_id ? '/dashboard/teacher' : '/dashboard/student',
+        email: true,
+      }))
+    );
+  } catch (err) {
+    console.warn('[cancel] notification skipped:', err instanceof Error ? err.message : String(err));
+  }
 
   return NextResponse.json({ ok: true, bookingId: booking.id, cancelledBy, cancelType, payStatus });
 }
