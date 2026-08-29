@@ -107,7 +107,7 @@ export default function AboutPage() {
       {/* ============================================================
           SECTION 1 — ABOUT SARIRO (the company, FIRST)
          ============================================================ */}
-      <section className="relative py-12 sm:py-16 overflow-hidden">
+      <section className="relative py-14 sm:py-20 overflow-hidden">
         <ParallaxOrb color="rgba(245, 158, 11, 0.10)" size={420} speed={110} position="top-10 -left-20" />
         <ParallaxOrb color="rgba(37, 99, 235, 0.08)" size={340} speed={-80} position="bottom-10 -right-20" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -188,7 +188,7 @@ export default function AboutPage() {
       {/* ============================================================
           SECTION 2 — MIMO PATRA (founder, with floating stat pills)
          ============================================================ */}
-      <section className="relative py-12 sm:py-16 overflow-hidden">
+      <section className="relative py-14 sm:py-20 overflow-hidden">
         <ParallaxOrb color="rgba(124, 58, 237, 0.10)" size={420} speed={110} position="top-10 -right-20" />
         <ParallaxOrb color="rgba(245, 158, 11, 0.08)" size={340} speed={-80} position="bottom-10 -left-20" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -358,7 +358,7 @@ export default function AboutPage() {
       {/* ============================================================
           SECTION 3 — TEAM (after Mimo)
          ============================================================ */}
-      <section className="relative py-16 sm:py-20 mesh-bg-soft-amber overflow-hidden">
+      <section className="relative py-14 sm:py-20 mesh-bg-soft-amber overflow-hidden">
         <ParallaxOrb color="rgba(124, 58, 237, 0.10)" size={380} speed={100} position="top-20 right-10" />
         <ParallaxOrb color="rgba(22, 163, 74, 0.08)" size={320} speed={-70} position="bottom-10 left-10" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -446,7 +446,7 @@ export default function AboutPage() {
          ============================================================ */}
       <section
         ref={principlesRef}
-        className="relative py-16 sm:py-20 bg-slate-50 scroll-mt-24 overflow-hidden"
+        className="relative py-14 sm:py-20 bg-slate-50 scroll-mt-24 overflow-hidden"
       >
         <ParallaxOrb color="rgba(245, 158, 11, 0.10)" size={380} speed={100} position="top-20 right-10" />
         <ParallaxOrb color="rgba(124, 58, 237, 0.08)" size={320} speed={-70} position="bottom-10 left-10" />
@@ -520,7 +520,7 @@ export default function AboutPage() {
       <WaveDivider3D fromColor="#F8FAFC" toColor="#FFFFFF" />
 
       {/* ====== Quote pull (dark card) ====== */}
-      <section className="relative py-16 sm:py-20 overflow-hidden">
+      <section className="relative py-14 sm:py-20 overflow-hidden">
         <ParallaxOrb color="rgba(245, 158, 11, 0.12)" size={400} speed={100} position="top-10 left-10" />
         <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <Reveal>
@@ -550,7 +550,7 @@ export default function AboutPage() {
       </section>
 
       {/* ====== Bottom CTA ====== */}
-      <section className="relative py-20 sm:py-24 overflow-hidden">
+      <section className="relative py-20 sm:py-28 overflow-hidden">
         <div className="absolute inset-0 mesh-bg opacity-60" />
         <ParallaxOrb color="rgba(245, 158, 11, 0.12)" size={420} speed={100} position="top-10 left-1/4" />
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">

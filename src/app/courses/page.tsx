@@ -112,7 +112,7 @@ function CoursesPageInner() {
       </PageHero>
 
       {/* ====== Filter + Catalog ====== */}
-      <section id="catalog" className="relative py-16 sm:py-20 overflow-hidden scroll-mt-20">
+      <section id="catalog" className="relative py-14 sm:py-20 overflow-hidden scroll-mt-20">
         <ParallaxOrb color="rgba(37, 99, 235, 0.10)" size={420} speed={120} position="top-10 -left-20" />
         <ParallaxOrb color="rgba(124, 58, 237, 0.08)" size={360} speed={-90} position="bottom-10 -right-20" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -321,7 +321,7 @@ function CoursesPageInner() {
       <WaveDivider3D fromColor="#FFFFFF" toColor="#F8FAFC" />
 
       {/* ====== Cohort value strip ====== */}
-      <section className="relative py-16 sm:py-20 mesh-bg-soft-blue overflow-hidden">
+      <section className="relative py-14 sm:py-20 mesh-bg-soft-blue overflow-hidden">
         <ParallaxOrb color="rgba(22, 163, 74, 0.10)" size={380} speed={80} position="top-20 left-10" />
         <ParallaxOrb color="rgba(245, 158, 11, 0.08)" size={300} speed={-70} position="bottom-10 right-10" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -394,7 +394,7 @@ function CoursesPageInner() {
       </StickyScrollSection>
 
       {/* ====== Bottom CTA ====== */}
-      <section className="relative py-20 sm:py-24 overflow-hidden">
+      <section className="relative py-20 sm:py-28 overflow-hidden">
         <div className="absolute inset-0 mesh-bg opacity-60" />
         <ParallaxOrb color="rgba(37, 99, 235, 0.12)" size={400} speed={100} position="top-10 left-1/4" />
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">

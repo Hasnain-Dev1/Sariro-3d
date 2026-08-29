@@ -95,7 +95,7 @@ export default async function SubjectPage({ params }: Params) {
   return (
     <BrandLayout>
       <section className="pt-28 sm:pt-32 pb-12 bg-gradient-to-b from-slate-50 to-white">
-        <div className="max-w-4xl mx-auto px-5 sm:px-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <Link
             href="/subjects"
             className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 transition mb-8"
@@ -122,7 +122,7 @@ export default async function SubjectPage({ params }: Params) {
 
       {/* ── choose + price ─────────────────────────────────────────────── */}
       <section className="py-14 sm:py-20 bg-white">
-        <div className="max-w-4xl mx-auto px-5 sm:px-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <SubjectPicker
             subjectSlug={subject.slug}
             subjectName={subject.name}
@@ -135,7 +135,7 @@ export default async function SubjectPage({ params }: Params) {
 
       {/* ── what a year looks like ─────────────────────────────────────── */}
       <section className="py-14 sm:py-20 bg-slate-50 border-t border-slate-100">
-        <div className="max-w-4xl mx-auto px-5 sm:px-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-2xl sm:text-[1.75rem] font-bold tracking-[-0.02em] text-slate-900 mb-2">What a year looks like</h2>
           <p className="prose-measure text-slate-600 text-[15px] leading-[1.65] mb-7">
             {LESSONS_PER_GRADE} classes across {sample.modules.length} modules — one class a week,
@@ -180,7 +180,7 @@ export default async function SubjectPage({ params }: Params) {
 
       {/* ── what it builds ─────────────────────────────────────────────── */}
       <section className="py-14 sm:py-20 bg-white border-t border-slate-100">
-        <div className="max-w-4xl mx-auto px-5 sm:px-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-2xl sm:text-[1.75rem] font-bold tracking-[-0.02em] text-slate-900 mb-2">What it actually builds</h2>
           <p className="prose-measure text-slate-600 text-[15px] leading-[1.65] mb-6">
             Every class feeds a capability on the Sariro map, so progress is measured as what your
@@ -203,7 +203,7 @@ export default async function SubjectPage({ params }: Params) {
 
       {/* ── other subjects ─────────────────────────────────────────────── */}
       <section className="py-14 sm:py-20 bg-slate-50 border-t border-slate-100">
-        <div className="max-w-4xl mx-auto px-5 sm:px-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-2xl sm:text-[1.75rem] font-bold tracking-[-0.02em] text-slate-900 mb-6">Other subjects</h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {SCHOOL_SUBJECTS.filter((s) => s.slug !== subject.slug).map((s) => (

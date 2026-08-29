@@ -142,7 +142,7 @@ export default async function StrandPage({ params }: StrandParams) {
 
       {/* ── stages ─────────────────────────────────────────────────────── */}
       <section className="py-14 sm:py-20 bg-white border-t border-slate-100">
-        <div className="max-w-4xl mx-auto px-5 sm:px-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-2xl sm:text-[1.75rem] font-bold tracking-[-0.02em] text-slate-900 mb-2">How deep you go is up to you</h2>
           <p className="prose-measure text-slate-600 text-[15px] leading-[1.65] mb-8">
             There is no beginner version and no advanced version of this. You enter wherever you
@@ -180,7 +180,7 @@ export default async function StrandPage({ params }: StrandParams) {
 
       {/* ── how you learn it ───────────────────────────────────────────── */}
       <section className="py-14 sm:py-20 bg-slate-50 border-t border-slate-100">
-        <div className="max-w-4xl mx-auto px-5 sm:px-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-2xl sm:text-[1.75rem] font-bold tracking-[-0.02em] text-slate-900 mb-6">How you learn this at Sariro</h2>
 
           {courses.length > 0 ? (
@@ -248,7 +248,7 @@ export default async function StrandPage({ params }: StrandParams) {
 
       {/* ── siblings ───────────────────────────────────────────────────── */}
       <section className="py-14 sm:py-20 bg-white border-t border-slate-100">
-        <div className="max-w-4xl mx-auto px-5 sm:px-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-2xl sm:text-[1.75rem] font-bold tracking-[-0.02em] text-slate-900 mb-6">
             The rest of {domain.name}
           </h2>

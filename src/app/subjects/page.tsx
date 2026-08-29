@@ -53,7 +53,7 @@ export default function SubjectsPage() {
       />
 
       <section className="py-14 sm:py-20 bg-white">
-        <div className="max-w-6xl mx-auto px-5 sm:px-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {SCHOOL_SUBJECTS.map((subject) => {
               const groups = GRADE_GROUPS.filter((g) => subject.groups.includes(g.slug));
@@ -122,7 +122,7 @@ export default function SubjectsPage() {
 
       {/* ── by grade group ─────────────────────────────────────────────── */}
       <section className="py-14 sm:py-20 bg-slate-50 border-t border-slate-100">
-        <div className="max-w-6xl mx-auto px-5 sm:px-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-2xl font-bold text-slate-900 tracking-[-0.02em] mb-2">
             What we teach, by stage
           </h2>
@@ -156,7 +156,7 @@ export default function SubjectsPage() {
 
       {/* ── focus courses ──────────────────────────────────────────────── */}
       <section className="py-14 sm:py-20 bg-white border-t border-slate-100">
-        <div className="max-w-6xl mx-auto px-5 sm:px-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-2xl font-bold text-slate-900 tracking-[-0.02em] mb-2">
             Or fix one thing
           </h2>
@@ -198,7 +198,7 @@ export default function SubjectsPage() {
 
       {/* ── assessments ────────────────────────────────────────────────── */}
       <section className="py-14 sm:py-20 bg-white border-t border-slate-100">
-        <div className="max-w-6xl mx-auto px-5 sm:px-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <ClipboardList className="w-8 h-8 text-slate-400 mb-4" />
           <h2 className="text-2xl font-bold text-slate-900 tracking-[-0.02em] mb-3">
             Two assessments a year, not a surprise at the end

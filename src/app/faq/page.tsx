@@ -51,7 +51,7 @@ export default function FAQPage() {
         subtitle="Everything you need to know before joining a Sariro cohort. Can't find your answer? We reply within 24 hours."
       />
 
-      <section className="relative py-12 sm:py-16 overflow-hidden">
+      <section className="relative py-14 sm:py-20 overflow-hidden">
         <ParallaxOrb color="rgba(6, 182, 212, 0.08)" size={400} speed={100} position="top-10 -left-20" />
         <ParallaxOrb color="rgba(124, 58, 237, 0.06)" size={320} speed={-70} position="bottom-10 -right-20" />
         <div className="relative max-w-3xl mx-auto px-5 sm:px-6 lg:px-8">

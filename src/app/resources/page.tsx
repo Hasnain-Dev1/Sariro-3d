@@ -206,7 +206,7 @@ export default function ResourcesPage() {
       </PageHero>
 
       {/* ====== Library ====== */}
-      <section id="library" className="relative py-12 sm:py-16 overflow-hidden">
+      <section id="library" className="relative py-14 sm:py-20 overflow-hidden">
         <ParallaxOrb color="rgba(6, 182, 212, 0.10)" size={420} speed={110} position="top-10 -left-20" />
         <ParallaxOrb color="rgba(20, 184, 166, 0.08)" size={320} speed={-80} position="bottom-10 -right-20" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -384,7 +384,7 @@ export default function ResourcesPage() {
       </StickyScrollSection>
 
       {/* ====== Topic pillars ====== */}
-      <section className="relative py-16 sm:py-20 mesh-bg-soft-cyan overflow-hidden">
+      <section className="relative py-14 sm:py-20 mesh-bg-soft-cyan overflow-hidden">
         <ParallaxOrb color="rgba(124, 58, 237, 0.08)" size={360} speed={90} position="top-10 right-10" />
         <ParallaxOrb color="rgba(22, 163, 74, 0.08)" size={300} speed={-70} position="bottom-10 left-10" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -434,7 +434,7 @@ export default function ResourcesPage() {
       <WaveDivider3D fromColor="#F8FAFC" toColor="#FFFFFF" />
 
       {/* ====== Newsletter CTA ====== */}
-      <section className="relative py-20 sm:py-24 overflow-hidden">
+      <section className="relative py-20 sm:py-28 overflow-hidden">
         <div className="absolute inset-0 mesh-bg opacity-60" />
         {/* Accent glow */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] rounded-full blur-[120px] opacity-25 pointer-events-none" style={{ background: '#06B6D4' }} />

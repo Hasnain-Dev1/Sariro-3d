@@ -68,7 +68,7 @@ export default async function SpecialisationPage({ params }: Params) {
   return (
     <BrandLayout>
       <section className="pt-28 sm:pt-32 pb-12 bg-gradient-to-b from-slate-50 to-white">
-        <div className="max-w-4xl mx-auto px-5 sm:px-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <Link
             href="/subjects"
             className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 transition mb-8"
@@ -94,7 +94,7 @@ export default async function SpecialisationPage({ params }: Params) {
       </section>
 
       <section className="py-14 sm:py-20 bg-white">
-        <div className="max-w-4xl mx-auto px-5 sm:px-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <CadenceChooser
             accent={accent}
             plans={plans}
@@ -107,7 +107,7 @@ export default async function SpecialisationPage({ params }: Params) {
       </section>
 
       <section className="py-14 sm:py-20 bg-slate-50 border-t border-slate-100">
-        <div className="max-w-4xl mx-auto px-5 sm:px-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-2xl sm:text-[1.75rem] font-bold tracking-[-0.02em] text-slate-900 mb-2">How the course runs</h2>
           <p className="prose-measure text-slate-600 text-[15px] leading-[1.65] mb-7">
             {LESSONS_PER_GRADE} classes, one a week, in a batch of four. Two of them are
@@ -131,7 +131,7 @@ export default async function SpecialisationPage({ params }: Params) {
       </section>
 
       <section className="py-14 sm:py-20 bg-white border-t border-slate-100">
-        <div className="max-w-4xl mx-auto px-5 sm:px-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-2xl sm:text-[1.75rem] font-bold tracking-[-0.02em] text-slate-900 mb-6">Other focus courses</h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {SPECIALISATIONS.filter((s) => s.slug !== spec.slug).map((s) => (

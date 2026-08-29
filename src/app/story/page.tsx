@@ -45,7 +45,7 @@ export default function StoryPage() {
       </PageHero>
 
       {/* 5 chapters */}
-      <section className="relative py-12 sm:py-16 overflow-hidden bg-slate-950">
+      <section className="relative py-14 sm:py-20 overflow-hidden bg-slate-950">
         <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-blue-950/40 to-slate-950" />
         <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 30% 50%, rgba(124, 58, 237, 0.3) 0%, transparent 50%), radial-gradient(circle at 70% 50%, rgba(37, 99, 235, 0.3) 0%, transparent 50%)' }} />
         <div className="relative max-w-4xl mx-auto px-5 sm:px-6 lg:px-8">
@@ -105,7 +105,7 @@ export default function StoryPage() {
       <WaveDivider3D fromColor="#0B1120" toColor="#FFFFFF" />
 
       {/* Values */}
-      <section className="relative py-16 sm:py-20 overflow-hidden">
+      <section className="relative py-14 sm:py-20 overflow-hidden">
         <ParallaxOrb color="rgba(124, 58, 237, 0.08)" size={400} speed={100} position="top-10 -left-20" />
         <ParallaxOrb color="rgba(37, 99, 235, 0.06)" size={320} speed={-70} position="bottom-10 -right-20" />
         <div className="relative max-w-7xl mx-auto px-5 sm:px-6 lg:px-8">
@@ -137,7 +137,7 @@ export default function StoryPage() {
       <WaveDivider3D fromColor="#FFFFFF" toColor="#F8FAFC" />
 
       {/* Impact numbers */}
-      <section className="relative py-16 sm:py-20 mesh-bg-soft-violet overflow-hidden">
+      <section className="relative py-14 sm:py-20 mesh-bg-soft-violet overflow-hidden">
         <ParallaxOrb color="rgba(124, 58, 237, 0.10)" size={380} speed={90} position="top-20 right-10" />
         <div className="relative max-w-7xl mx-auto px-5 sm:px-6 lg:px-8">
           <Reveal className="text-center mb-12">
@@ -174,7 +174,7 @@ export default function StoryPage() {
       <WaveDivider3D fromColor="#F8FAFC" toColor="#FFFFFF" />
 
       {/* Closing CTA */}
-      <section className="relative py-20 sm:py-24 overflow-hidden">
+      <section className="relative py-20 sm:py-28 overflow-hidden">
         <div className="absolute inset-0 mesh-bg opacity-60" />
         <ParallaxOrb color="rgba(124, 58, 237, 0.12)" size={420} speed={100} position="top-10 left-1/4" />
         <div className="relative max-w-4xl mx-auto px-5 sm:px-6 lg:px-8 text-center">

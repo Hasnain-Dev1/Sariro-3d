@@ -196,7 +196,7 @@ export default function SchoolsPage() {
       </section>
 
       {/* ====== Packages grid ====== */}
-      <section id="packages" className="relative py-16 sm:py-20 overflow-hidden">
+      <section id="packages" className="relative py-14 sm:py-20 overflow-hidden">
         <ParallaxOrb color="rgba(37, 99, 235, 0.10)" size={420} speed={100} position="top-20 -right-20" />
         <ParallaxOrb color="rgba(124, 58, 237, 0.08)" size={320} speed={-80} position="bottom-10 left-10" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -308,7 +308,7 @@ export default function SchoolsPage() {
       <WaveDivider3D fromColor="#FFFFFF" toColor="#F8FAFC" />
 
       {/* ====== Process steps ====== */}
-      <section className="relative py-16 sm:py-20 mesh-bg-soft-green overflow-hidden">
+      <section className="relative py-14 sm:py-20 mesh-bg-soft-green overflow-hidden">
         <ParallaxOrb color="rgba(124, 58, 237, 0.08)" size={380} speed={90} position="top-10 right-10" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-14">
@@ -400,7 +400,7 @@ export default function SchoolsPage() {
       </StickyScrollSection>
 
       {/* ====== Testimonial ====== */}
-      <section className="relative py-16 sm:py-20 overflow-hidden">
+      <section className="relative py-14 sm:py-20 overflow-hidden">
         <ParallaxOrb color="rgba(22, 163, 74, 0.10)" size={400} speed={100} position="top-10 left-10" />
         <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <Reveal>
@@ -426,7 +426,7 @@ export default function SchoolsPage() {
       </section>
 
       {/* ====== Bottom CTA ====== */}
-      <section className="relative py-20 sm:py-24 overflow-hidden">
+      <section className="relative py-20 sm:py-28 overflow-hidden">
         <div className="absolute inset-0 mesh-bg opacity-60" />
         <ParallaxOrb color="rgba(22, 163, 74, 0.12)" size={420} speed={100} position="top-10 left-1/4" />
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">

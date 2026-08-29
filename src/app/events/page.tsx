@@ -94,7 +94,7 @@ export default function EventsPage() {
       </PageHero>
 
       {/* ====== Filter + Event grid ====== */}
-      <section id="schedule" className="relative py-12 sm:py-16 overflow-hidden">
+      <section id="schedule" className="relative py-14 sm:py-20 overflow-hidden">
         <ParallaxOrb color="rgba(124, 58, 237, 0.10)" size={420} speed={110} position="top-10 -left-20" />
         <ParallaxOrb color="rgba(217, 70, 239, 0.08)" size={320} speed={-80} position="bottom-10 -right-20" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -296,7 +296,7 @@ export default function EventsPage() {
       </StickyScrollSection>
 
       {/* ====== Event types explainer ====== */}
-      <section className="relative py-16 sm:py-20 mesh-bg-soft-violet overflow-hidden">
+      <section className="relative py-14 sm:py-20 mesh-bg-soft-violet overflow-hidden">
         <ParallaxOrb color="rgba(37, 99, 235, 0.10)" size={380} speed={90} position="top-10 right-10" />
         <ParallaxOrb color="rgba(22, 163, 74, 0.08)" size={320} speed={-70} position="bottom-10 left-10" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -368,7 +368,7 @@ export default function EventsPage() {
       <WaveDivider3D fromColor="#F8FAFC" toColor="#FFFFFF" />
 
       {/* ====== Bottom CTA ====== */}
-      <section className="relative py-20 sm:py-24 overflow-hidden">
+      <section className="relative py-20 sm:py-28 overflow-hidden">
         <div className="absolute inset-0 mesh-bg opacity-60" />
         <ParallaxOrb color="rgba(124, 58, 237, 0.12)" size={420} speed={100} position="top-10 left-1/4" />
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">

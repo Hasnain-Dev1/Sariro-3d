@@ -86,7 +86,7 @@ export default function ExplorePage() {
       />
 
       <section className="py-10 sm:py-14 bg-white">
-        <div className="max-w-6xl mx-auto px-5 sm:px-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <p className="prose-measure text-slate-600 text-[15px] leading-[1.65]">
             Every other platform pushes every learner down the same pre-planned course. This is the
             alternative: a map, not a syllabus. There is no beginner version and no advanced version
