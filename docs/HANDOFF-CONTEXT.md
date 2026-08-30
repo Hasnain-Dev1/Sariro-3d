@@ -4,7 +4,7 @@
 > without losing what has been built. Companion docs: `SARIRO-VISION.md`,
 > `STAGE-2-PLAN.md`, `STAGE-2-BUILD.md`, `PLATFORM-PLAN.md`,
 > `IMPROVEMENT-PLAN.md`, `UI-2077-PLAN.md`.
-> **Last updated:** 30 Aug 2026, at commit `dde2c45` + uncommitted English 7–12.
+> **Last updated:** 30 Aug 2026, at commit `a517e06` + uncommitted class reminders.
 
 ---
 
@@ -33,11 +33,11 @@ on the merged `/courses` page.
 
 | # | What | Why |
 |---|---|---|
-| 1 | **Class reminder** ("your class is in 30 min") | §9 calls it the highest-value thing not built. Nothing in the product runs on a timer. |
+| 1 | ~~Class reminder~~ | **BUILT — needs two things only you can do.** See §15. |
 | 2 | **Cloudflare in front** | TTFB ≈ 946 ms is the whole site's ceiling; this is config, not code. Bypass `/dashboard/*` and `/api/*`. |
 | 3 | ~~Student-side conflict check~~ | **DONE** — `studentConflicts` / `cohortStudentConflicts` in `schedule-ops-server.ts`, wired into both `POST /api/admin/schedule` and `POST /api/schedule/reschedule`. Returns 409 `student_conflict` naming the learners. |
 | 4 | ~~`/pricing` school prices~~ | **DONE** — `/pricing` rendered only the coding tiers, so a parent clicking Pricing for maths saw a bootcamp price list. `src/app/pricing/school-pricing.tsx` adds the per-class pricing and the three cadences, sourced from `school/pricing.ts` so it cannot drift from the subject pages. |
-| 5 | Surface `student_conflict` in the admin UI | The API returns it; the scheduling screens still only render the teacher-conflict message. |
+| 5 | ~~Surface `student_conflict` in the admin UI~~ | **DONE, and it was worse than expected.** `schedule-batch` and `manage-batches` read `json.error` (the machine slug) and never `json.message`, so admins had *always* seen "teacher_conflict" instead of the sentence explaining it. Both now prefer `message`. |
 
 ---
 
@@ -350,12 +350,20 @@ Set: `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_GOOGLE_CLIENT_ID`, 4 ×
 `HOSTINGER_MAIL_*`, `RAZORPAY_WEBHOOK_SECRET`, `RAZORPAY_KEY_ID`.
 
-Needed: **`RAZORPAY_KEY_SECRET`**, **`RAZORPAY_CURRENCY=USD`**.
-Optional: `NEXT_PUBLIC_SITE_URL`, `DEMO_CLASS_NOTIFY_EMAIL`.
+Needed: **`RAZORPAY_KEY_SECRET`**, **`RAZORPAY_CURRENCY=USD`**,
+**`CRON_SECRET`** (new — class reminders send nothing without it, see §15).
+Optional: `NEXT_PUBLIC_SITE_URL`, `DEMO_CLASS_NOTIFY_EMAIL`, `ERROR_WEBHOOK_URL`.
 
-See `.env.example` — it documents every variable and what breaks without it.
 Production values live in **Hostinger's env config**; local `.env` does nothing
 for sariro.com.
+
+> ⚠️ **`.env.example` is NOT in the repository.** `.gitignore` ignores `.env*`
+> and then names `.env.example` explicitly again at line 37, so the file exists
+> on the founder's machine and nowhere else — a new engineer cloning this repo
+> gets no env template at all, which is why this section has to carry the list.
+> `.env.example` holds no secrets by definition, so committing it is the normal
+> convention and would fix this; that is a repo-policy call, not an engineering
+> one, so it has been left alone. **If you un-ignore it, delete this warning.**
 
 ---
 
@@ -414,3 +422,46 @@ and every one written from now on — is warm. **Reverting is deleting that bloc
   stopped it. It now writes `sessionStorage` and asks once per visit.
 - The **cookie banner is fine** (`z-[45]` bottom bar, persists to localStorage +
   a 365-day cookie). It is not the thing that was covering the page.
+
+## 15. Class reminders — BUILT, but not yet live
+
+The first thing in this product that runs on a timer. Code is in; **two steps
+are outstanding and both are yours.**
+
+### Step 1 — run the migration
+`scripts/class-reminders.sql` in Supabase → SQL Editor. Idempotent. It adds
+`bookings.reminder_sent_at` plus a partial index. Until this runs, the route
+returns `column bookings.reminder_sent_at does not exist` (verified).
+
+### Step 2 — set `CRON_SECRET` and schedule it
+Generate: `openssl rand -hex 32`, set it in Hostinger's env config, then a cron
+every ~10 minutes:
+
+```
+curl -fsS -H "Authorization: Bearer $CRON_SECRET" \
+  https://sariro.com/api/cron/class-reminders
+```
+
+**The route fails closed.** With `CRON_SECRET` unset it returns 401 and sends
+nothing — an unauthenticated endpoint that writes notifications to arbitrary
+users is a spam vector, and a reminder at 3am costs more trust than a missed
+class. Verified: no secret → 401 "route is disabled"; wrong secret → 401 "bad
+secret"; correct secret → reaches the database.
+
+### How it cannot double-send
+It **claims** each booking by stamping `reminder_sent_at` before sending, and
+only claims rows where it is still null. That update is the lock — two
+overlapping cron runs cannot both claim the same row. Claiming happens *before*
+the notification, which is the safe direction to fail: a claimed-but-undelivered
+reminder is one missed message; delivered-but-unclaimed is the same message
+every ten minutes.
+
+### Knobs
+| Param | Default | Notes |
+|---|---|---|
+| `windowMin` | 35 | Only needs to exceed the cron interval. Too small silently drops classes; too large just reminds slightly early. |
+| `email` | off | **Decision D4 (WhatsApp vs email) is still open**, so this ships in-app only. `?email=1` when you decide. |
+| `dryRun` | off | `?dryRun=1` lists what would be reminded without sending or claiming. Use this first in production. |
+
+Students **and** the teacher are reminded — a teacher who forgets costs more,
+because the whole batch sits in an empty room.
