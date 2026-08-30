@@ -4,32 +4,39 @@
 > without losing what has been built. Companion docs: `SARIRO-VISION.md`,
 > `STAGE-2-PLAN.md`, `STAGE-2-BUILD.md`, `PLATFORM-PLAN.md`,
 > `IMPROVEMENT-PLAN.md`, `UI-2077-PLAN.md`.
-> **Last updated:** 30 Aug 2026, at commit `74590f8` + uncommitted enrol flow.
+> **Last updated:** 30 Aug 2026, at commit `dde2c45` + uncommitted English 7–12.
 
 ---
 
 ## 0. Start here — what to do next
 
-The founder's most recent instructions, in their words, ordered:
+The founder's five ordered instructions from the last session are **all done**:
 
-1. **Backend first, then frontend.**
-2. **Write the curriculum** — a real course outline for every subject, every
-   grade (this is the big one; see §7).
-3. **Merge `/explore` and `/courses` into ONE page.** A visitor should pick
-   coding, maths, science, physics, chemistry from a single place. Clicking
-   coding opens the existing coding-course look.
-4. **New homepage + course-page copy.** The old taglines sell coding; the
-   product is now multi-subject. Needs catchy lines that carry that.
-5. **UI pass** — currently reads as cluttered and "all black and white". Make it
-   friendlier and easier for a newcomer to parse.
+1. ~~Backend first, then frontend.~~ — followed throughout.
+2. ~~**Write the curriculum**~~ — **COMPLETE. 48/48 subject-grades, 2,208
+   lessons across 384 modules.** See §7 for the shape and the rules.
+3. ~~**Merge `/explore` and `/courses`**~~ — `/courses` is now the single browse
+   page (decision D2). `/subjects` index 307-redirects to `/courses#learn`;
+   `/subjects/[subject]` and `/subjects/focus/[topic]` are unchanged. Nav
+   dropped 12 items → 10.
+4. ~~**New homepage + course-page copy**~~ — the promise is now *"Big enough to
+   teach anything. Small enough to know your name."* Homepage was restructured
+   to lead with subjects (§12).
+5. ~~**UI pass**~~ — the site read "all black and white" because `slate-*` is
+   used 2,580 times and Tailwind's slate is a *cold* grey. The ramp is
+   redefined warm in one `@theme` block in `globals.css` (§13).
 
-Two smaller things noted from a live screenshot:
-- Copy fixed already: "we'll find a batch that fits your timings **before you
-  pay anything**" → "**Once you enrol**, we'll find a batch that fits your
-  timings."
-- **Public Speaking looked missing.** It is not — it exists and renders on
-  `/subjects`. But `/subjects/[subject]` only cross-links the five *grade*
-  subjects, so focus courses are invisible from a subject page. Worth fixing.
+Also fixed: **Public Speaking is now visible** — all seven focus courses render
+on the merged `/courses` page.
+
+### Next up, in recommended order
+
+| # | What | Why |
+|---|---|---|
+| 1 | **Class reminder** ("your class is in 30 min") | §9 calls it the highest-value thing not built. Nothing in the product runs on a timer. |
+| 2 | **Cloudflare in front** | TTFB ≈ 946 ms is the whole site's ceiling; this is config, not code. Bypass `/dashboard/*` and `/api/*`. |
+| 3 | **Student-side conflict check** | Only `teacherHasConflict` exists. A learner in maths + physics + coding can be double-booked. |
+| 4 | `/pricing` and `/events` copy | The last two marketing pages not swept for multi-subject framing. |
 
 ---
 
@@ -44,8 +51,12 @@ Tailwind v4 + Supabase, deployed on **Hostinger** at **https://sariro.com**.
 
 ### Non-negotiable conventions
 - **Never commit or push without being asked.** Permission is per-action; an
-  earlier "push it" is not standing consent. Short commit messages, and
-  **no `Co-Authored-By` trailer**.
+  earlier "push it" is not standing consent. Short commit messages.
+- **`Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>` is now wanted** on
+  AI-assisted commits — the founder asked for it on 30 Aug 2026, reversing the
+  earlier "no trailer" rule. Ask if unsure; do not silently revert to the old one.
+- **Batch the work, push once.** The founder does not want a push per change —
+  finish a meaningful chunk, then a single `git push origin main`.
 - **`npx tsc --noEmit` and `npx next build` must both exit 0** before any commit.
   `ignoreBuildErrors` is now **`false`**, so the build type-checks — keep it that
   way; it was only flippable because the repo hit zero errors.
@@ -126,8 +137,8 @@ a grade group (3 grades) therefore carries 6 tests
 A test occupies a class slot rather than being added on top — so the parent's 48
 classes stay 48, and the scheduler, credits and attendance need no special case.
 
-`AUTHORED_TITLES` in `curriculum.ts` is **empty**. Everything renders as
-"Lesson N" / "Module N". **Filling it is task §7.**
+`AUTHORED_TITLES` in `curriculum.ts` is **full — 48/48 subject-grades**. Nothing
+renders as "Lesson N" any more. See §7 for the authoring rules before editing it.
 
 ---
 
@@ -227,44 +238,69 @@ scale, one `.card` class (3 sizes) sharing tokens with legacy `.card-3d`.
 
 ---
 
-## 7. THE BIG TASK — write the curriculum
+## 7. The curriculum — DONE, and the rules for editing it
 
-Fill `AUTHORED_TITLES` in `src/lib/school/curriculum.ts`:
+`AUTHORED_TITLES` in `src/lib/school/curriculum.ts` is complete:
 
-```ts
-AUTHORED_TITLES['mathematics:8'] = {
-  modules: [
-    { title: 'Number & Place Value', lessons: ['...', '...', ...] },
-    // 8 modules × 6 lessons = 48 slots
-  ],
-};
-```
+| Subject | Grades | | Subject | Grades |
+|---|---|---|---|---|
+| Mathematics | 12/12 | | Chemistry | 6/6 |
+| Science | 6/6 | | Biology | 6/6 |
+| Physics | 6/6 | | English | 12/12 |
 
-**Scale:** 6 subjects × their grades + 7 focus courses ≈ **2,592 slots**, of
-which 46 per grade are real lessons.
+**48/48 subject-grades · 2,208 lessons · 384 modules.**
 
-**Rules:**
-- Slots 24 and 48 are tests — the builder overrides those titles automatically,
-  so authored lesson titles at those positions are ignored.
-- Module titles should match what a school board actually covers for that grade.
-- Run `npx tsx scripts/audit-school-curriculum.ts` after — it fails if any grade
-  is not exactly 48 slots / 2 tests, or if a subject claims a strand the map
-  does not have.
+### Three rules before you touch it
 
-**Suggested order:** Mathematics 6–10 first (most demand), then Physics and
-Chemistry 9–12 (entrance-exam pressure), then English, then the rest.
+1. **Modules 4 and 8 carry FIVE lessons, not six.** `testPositions(48)` puts the
+   assessments at slots 24 and 48 — the last slots of those modules — and
+   `buildGradeSyllabus` overrides those titles. A sixth entry there is silently
+   discarded. `6×6 + 2×5 = 46 lessons + 2 tests = 48 slots.`
+2. **Names are board-neutral on purpose.** Sariro sells worldwide at one flat USD
+   price. The maths/science topic spine is near-identical across NCERT,
+   Cambridge, Common Core and the IB, but the *vocabulary* is not. "Mensuration",
+   "practical geometry" and "comparing quantities" are South-Asian textbook
+   words; elsewhere they read as a foreign curriculum. "Area, Surface Area and
+   Volume" is recognised by everyone **including** the CBSE parent looking for
+   their mensuration chapter — the translation only fails in one direction, so
+   always pick the global name.
+3. **Apostrophes are the typographic `’` (U+2019)**, not `'`. Correct on the page
+   and escape-free inside the single-quoted strings. There are many: Newton’s,
+   Gauss’s, Mendel’s, Bayes’, the author’s purpose.
+
+### The audit is now a real guard
+
+`npx tsx scripts/audit-school-curriculum.ts` fails on: a grade that is not
+exactly 48 slots / 2 tests; a strand a subject claims that the map lacks; wrong
+module count; **wrong lessons-per-module** (it knows modules 4 and 8 expect 5);
+empty titles; duplicate lesson titles within a grade; and authoring a grade a
+subject is not offered for. Run it after every edit.
+
+**Still unauthored:** the 7 focus courses (`SPECIALISATIONS`) have no
+`AUTHORED_TITLES` entries — they are keyed by subject:grade and focus courses are
+neither. Authoring those needs a small extension to the key scheme first.
 
 ---
 
 ## 8. Open decisions (founder's, not engineering's)
 
-| # | Decision | Blocks |
+| # | Decision | Status |
 |---|---|---|
-| **D1** | Public promise: wide "learn anything" vs honest-narrow | homepage copy (§0.4) |
-| D2 | Merge `/explore` + `/courses`: which URL survives? | §0.3 |
-| D3 | What to cut from each dashboard below the fold | Phase B completion |
-| D4 | WhatsApp vs email for class reminders | needs a Meta/Twilio account |
-| D5 | `web-201` sells 42 lessons, has 1 written | content or copy |
+| **D1** | Public promise: wide vs honest-narrow | **Resolved by the product.** Multi-subject is now a fact, so the promise is honest-broad: it names the subjects rather than claiming "learn anything". |
+| D2 | Merge `/explore` + `/courses`: which URL survives? | **Decided: `/courses`** — it held ~18 internal links and the organic traffic. |
+| D3 | What to cut from each dashboard below the fold | Open |
+| D4 | WhatsApp vs email for class reminders | Open — needs a Meta/Twilio account |
+| D5 | `web-201` sells 42 lessons, has 1 written | Open — still the only sold-but-unwritten content |
+
+### Also settled this session
+
+**`HERO_STATS` and `TRUSTED_BY` are real, and are the founder's, not the
+platform's.** 5,000+ students, 65 nationalities, 36 papers, 7 patents, and the
+Microsoft/Google/Apple/IIT marquee are Mimo's record from *before* Sariro. They
+were being rendered unattributed in three places, which read as Sariro's own
+results next to a nine-student business. All three now say so explicitly
+(hero, `stats-3d.tsx`, `/story`). **Do not delete them as fake, and do not
+un-attribute them.**
 
 ---
 
@@ -309,3 +345,61 @@ Optional: `NEXT_PUBLIC_SITE_URL`, `DEMO_CLASS_NOTIFY_EMAIL`.
 See `.env.example` — it documents every variable and what breaks without it.
 Production values live in **Hostinger's env config**; local `.env` does nothing
 for sariro.com.
+
+---
+
+## 12. The homepage, restructured
+
+It used to run eleven sections without once naming a subject — a parent could
+read the whole page and never learn we teach maths. It opened with audience
+tracks, the capability map, a WebGL AI core and a coding catalogue, all of which
+answer questions asked *after* "do you teach what my child needs?" The closing
+CTA said *"Stop watching AI happen. Start building it."*
+
+New order follows a visitor's actual questions:
+
+```
+hero -> WHAT WE TEACH (new)  -> HOW IT WORKS (new) -> who is teaching
+     -> who it is for -> the map -> proof -> price -> book a free class
+```
+
+- `src/components/home/subject-strip.tsx` (new) — all seven subjects, one click
+  from the hero. Every card is a real destination, not a scroll anchor.
+- `src/components/home/how-it-works.tsx` (new) — the mechanics, which existed
+  nowhere on the site: book free -> tell us subject and grade -> we fit a batch
+  to your timings -> one class a week, four to a room.
+- **`Courses3D` was removed, not reordered.** It rendered a coding-only grid that
+  `/courses` now owns and sells beside every other subject.
+
+## 13. The warm palette — read before changing a colour
+
+The site read "all black and white". The cause was **not** missing accent colour
+— blue, green, amber, violet and cyan were all already there. It was that
+`slate-*` is used **2,580 times** and Tailwind's slate is a *cold* grey with a
+cyan cast. No amount of accent on top fixes the ground it sits on.
+
+So the ramp itself is redefined in one `@theme` block in `src/app/globals.css`.
+Every `text-slate-600`, `bg-slate-50` and `border-slate-200` already written —
+and every one written from now on — is warm. **Reverting is deleting that block.**
+
+- Lightness steps match Tailwind's originals, so hierarchy survives.
+- Contrast was verified before landing: **zero WCAG threshold regressions**, and
+  8 of 10 tested text/background pairs came out slightly *higher* contrast
+  (`slate-500` on white: 4.76 → 4.91).
+- The cost: the name "slate" now lies. Treat `slate-*` as "our neutral".
+- Shadows, `--brand-deep`, the `.dark` block, the hero mesh and 61 hardcoded cold
+  hexes across 22 component files were warmed to match — a cold shadow under a
+  warm card is the tell that makes a warmed palette still feel synthetic.
+
+## 14. Known behaviour worth not re-discovering
+
+- **The Browser pane cannot screenshot scrolled positions on this site.** Heavy
+  WebGL + parallax + sticky sections defeat its compositor; captures come back
+  white while `elementFromPoint` shows real content at `opacity: 1`. Verify with
+  `read_page` / `get_page_text` / computed styles instead. The first capture
+  after each `navigate` does work.
+- **`WelcomePopup` used to block every page every 6 seconds** for logged-out
+  visitors, and neither X nor "Maybe later" wrote anything — only converting
+  stopped it. It now writes `sessionStorage` and asks once per visit.
+- The **cookie banner is fine** (`z-[45]` bottom bar, persists to localStorage +
+  a 365-day cookie). It is not the thing that was covering the page.
