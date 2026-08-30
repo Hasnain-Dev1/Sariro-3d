@@ -100,7 +100,7 @@ export default function CadenceChooser({
         </Link>
       </motion.div>
       <p className="text-[12.5px] text-slate-500 mt-2.5">
-        We&apos;ll find a batch that fits your timings before you pay anything.
+        Once you enrol, we&apos;ll find a batch that fits your timings.
       </p>
     </div>
   );

@@ -8,6 +8,13 @@ import {
 } from '@/lib/razorpay/server';
 import { SETTING_KEYS } from '@/lib/dashboard/settings-data';
 import { checkChargeCurrency, toMinorUnits, type SupportedCurrency } from '@/lib/pricing/currency';
+import {
+  LESSONS_PER_GRADE,
+  LESSONS_PER_GROUP,
+  getSpecialisation,
+  getSubject,
+} from '@/lib/school/curriculum';
+import { cadencePlans } from '@/lib/school/pricing';
 import { rateLimit, rateLimitedResponse, getClientIp, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -131,25 +138,89 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Parse body ──────────────────────────────────────────────────────
-  let body: { track?: string; level?: string; ratio?: string };
+  // Two product shapes, one order path. Money should never have two code paths:
+  // the currency guard, the purchase intent and the audit trail below all have
+  // to apply identically to a coding course and a school subject.
+  //
+  //   kind 'course'  (default)  { track, level, ratio }        — coding tracks,
+  //                                                              priced from app_settings
+  //   kind 'school'             { subject, grade?, scope,      — grade subjects and
+  //                               cadence, ratio }               focus courses, priced
+  //                                                              from lib/school/pricing
+  let body: {
+    kind?: 'course' | 'school';
+    track?: string;
+    level?: string;
+    ratio?: string;
+    subject?: string;
+    grade?: number;
+    scope?: 'grade' | 'group';
+    cadence?: 'monthly' | 'quarterly' | 'full';
+  };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ ok: false, error: 'invalid_json' }, { status: 400 });
   }
-  const track = (body.track || '').trim();
-  const level = normalizeLevel(body.level || '');
   const ratio = body.ratio === '1:1' ? '1:1' : '1:4';
-  if (!track || !level) {
-    return NextResponse.json(
-      { ok: false, error: 'missing_params', message: 'track and level are required' },
-      { status: 400 }
-    );
+  const supaServer = await createServerClientHelper();
+
+  let displayPrice: number | null = null;
+  let track: string;
+  let level: string;
+
+  if (body.kind === 'school') {
+    const subjectSlug = (body.subject || '').trim();
+    const scope = body.scope === 'group' ? 'group' : 'grade';
+    const cadence =
+      body.cadence === 'quarterly' || body.cadence === 'full' ? body.cadence : 'monthly';
+
+    // The slug must be a real product. Without this a crafted request could
+    // create an order for something that does not exist, at whatever price the
+    // pricing function happened to return.
+    const isSubject = !!getSubject(subjectSlug);
+    const isFocus = !!getSpecialisation(subjectSlug);
+    if (!isSubject && !isFocus) {
+      return NextResponse.json(
+        { ok: false, error: 'unknown_product', message: 'That course does not exist.' },
+        { status: 400 }
+      );
+    }
+
+    // Focus courses are a fixed 48 classes and have no grade; only a grade
+    // subject can be bought as a whole three-year group.
+    const classes = isFocus || scope === 'grade' ? LESSONS_PER_GRADE : LESSONS_PER_GROUP;
+
+    const plan = cadencePlans(classes, ratio).find((p) => p.cadence === cadence);
+    if (!plan) {
+      return NextResponse.json(
+        { ok: false, error: 'unknown_cadence' },
+        { status: 400 }
+      );
+    }
+
+    // What they hand over now: one instalment for monthly/quarterly, the whole
+    // thing for full. Never the lifetime total — charging a year upfront because
+    // someone chose "monthly" is the worst possible bug in this file.
+    displayPrice = plan.perPayment;
+
+    // `purchase_intents` has no columns for subject/grade, and adding them is a
+    // migration this does not need: track and level already exist to identify a
+    // product, so a school order stores itself there in a readable form.
+    track = subjectSlug;
+    level = isFocus ? 'focus' : scope === 'group' ? `group-${body.grade ?? ''}` : `grade-${body.grade ?? ''}`;
+  } else {
+    track = (body.track || '').trim();
+    level = normalizeLevel(body.level || '');
+    if (!track || !level) {
+      return NextResponse.json(
+        { ok: false, error: 'missing_params', message: 'track and level are required' },
+        { status: 400 }
+      );
+    }
+    displayPrice = await getDisplayPrice(supaServer, level, ratio);
   }
 
-  // ── Get display price (from app_settings or defaults) ───────────────
-  const supaServer = await createServerClientHelper();
-  const displayPrice = await getDisplayPrice(supaServer, level, ratio);
   if (!displayPrice) {
     return NextResponse.json(
       { ok: false, error: 'price_not_found', message: `No price configured for ${level} ${ratio}` },

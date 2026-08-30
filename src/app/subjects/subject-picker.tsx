@@ -195,13 +195,13 @@ export default function SubjectPicker({
           </div>
 
           <Link
-            href={`/contact?subject=${subjectSlug}&grade=${grade}&scope=${scope}&pay=${cadence}`}
+            href={`/enroll?subject=${subjectSlug}&grade=${grade}&scope=${scope}&pay=${cadence}`}
             className="mt-5 inline-flex items-center justify-center h-12 px-6 rounded-xl bg-slate-900 text-white text-[15px] font-semibold hover:bg-slate-800 transition-colors w-full sm:w-auto"
           >
             Start {subjectName} — Grade {grade}
           </Link>
           <p className="text-[12.5px] text-slate-500 mt-2.5">
-            We&apos;ll find a batch that fits your timings before you pay anything.
+            Once you enrol, we&apos;ll find a batch that fits your timings.
           </p>
         </motion.div>
       )}

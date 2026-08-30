@@ -31,6 +31,17 @@ interface RazorpayCheckoutButtonProps {
   courseName: string;
   accentColor: string;
   className?: string;
+  /**
+   * Override the create-order body. School products (subject + grade + scope +
+   * cadence) price differently from coding tracks, but they must go through the
+   * SAME order route — the currency guard, the purchase intent and the audit
+   * trail all live there, and a second checkout would eventually disagree with
+   * this one about money.
+   *
+   * `track`/`level` are still required above: they identify the product on the
+   * success page and in the purchase intent.
+   */
+  orderBody?: Record<string, unknown>;
 }
 
 interface CreateOrderResponse {
@@ -87,6 +98,7 @@ export function RazorpayCheckoutButton({
   track,
   level,
   ratio,
+  orderBody,
   paymentLink,
   courseName,
   accentColor,
@@ -123,7 +135,7 @@ export function RazorpayCheckoutButton({
       const r = await fetch('/api/razorpay/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ track, level, ratio }),
+        body: JSON.stringify(orderBody ?? { track, level, ratio }),
       });
       orderRes = (await r.json()) as CreateOrderResponse;
     } catch (err) {

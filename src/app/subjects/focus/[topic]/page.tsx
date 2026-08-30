@@ -101,7 +101,7 @@ export default async function SpecialisationPage({ params }: Params) {
             lessons={syllabus.lessonCount}
             tests={syllabus.testCount}
             ctaLabel={`Start ${spec.name}`}
-            ctaHref={`/contact?focus=${spec.slug}`}
+            ctaHref={`/enroll?focus=${spec.slug}`}
           />
         </div>
       </section>
