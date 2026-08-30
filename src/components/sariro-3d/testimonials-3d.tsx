@@ -61,7 +61,7 @@ export default function Testimonials3D() {
             — Voices from the community —
           </span>
           <h2 className="text-4xl sm:text-5xl font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
-            <SplitText3D text="What our builders" highlight="builders" highlightClassName="gradient-text" />
+            <SplitText3D text="What our learners" highlight="learners" highlightClassName="gradient-text" />
             <br />
             <SplitText3D text="say about us." highlight="us." highlightClassName="gradient-text" delay={0.3} />
           </h2>

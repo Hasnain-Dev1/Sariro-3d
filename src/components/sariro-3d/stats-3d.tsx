@@ -3,7 +3,7 @@
 import { motion, useInView, useMotionValue, useTransform, animate, useScroll } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import { Users, Globe, FileText, Award } from 'lucide-react';
-import { HERO_STATS } from '@/lib/sariro-data';
+import { BRAND, HERO_STATS } from '@/lib/sariro-data';
 import { SplitText3D } from './scroll-effects';
 import { NumberFlip3D } from './kit-3d';
 
@@ -141,16 +141,21 @@ export default function Stats3D() {
           viewport={{ once: true }}
           className="text-center max-w-3xl mx-auto mb-16"
         >
+          {/* Second place these same numbers appear — the hero is the other.
+              They are Mimo's career, earned before Sariro existed, so they are
+              attributed here too. Unattributed they read as the platform's, and
+              the platform is young. See the hero comment in app/page.tsx. */}
           <span className="text-xs font-bold uppercase tracking-[0.2em] text-blue-600 mb-4 block" style={{ fontFamily: 'var(--font-grotesk)' }}>
-            — By the numbers —
+            — Who is teaching —
           </span>
           <h2 className="text-4xl sm:text-5xl font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
-            <SplitText3D text="A decade of teaching." highlight="decade" highlightClassName="gradient-text" />
+            <SplitText3D text="A decade of teaching," highlight="decade" highlightClassName="gradient-text" />
             <br />
-            <SplitText3D text="A generation of builders." highlight="builders." highlightClassName="gradient-text" delay={0.3} />
+            <SplitText3D text="before the first Sariro class." highlight="first Sariro class." highlightClassName="gradient-text" delay={0.3} />
           </h2>
           <p className="mt-5 text-lg text-slate-600">
-            Numbers don't tell the whole story — but they tell a lot of it. Here's what 12+ years of teaching AI education looks like.
+            Sariro was founded by {BRAND.founder}. These are his numbers from the years before it
+            existed — the reason a parent can trust who is on the other side of the screen.
           </p>
         </motion.div>
 

@@ -20,9 +20,10 @@ const OryzoSection = dynamic(() => import('@/components/brand/oryzo-section'), {
 // server-render (good for SEO/first paint of their content), but splitting
 // them out of the hero's own JS chunk means a first-time visitor only has to
 // download/parse the hero's code before it's interactive, not the whole page.
+const SubjectStrip = dynamic(() => import('@/components/home/subject-strip'));
+const HowItWorks = dynamic(() => import('@/components/home/how-it-works'));
 const Tracks3D = dynamic(() => import('@/components/sariro-3d/tracks-3d'));
 const Stats3D = dynamic(() => import('@/components/sariro-3d/stats-3d'));
-const Courses3D = dynamic(() => import('@/components/sariro-3d/courses-3d'));
 const Philosophy3D = dynamic(() => import('@/components/sariro-3d/philosophy-3d'));
 const Events3D = dynamic(() => import('@/components/sariro-3d/events-3d'));
 const Testimonials3D = dynamic(() => import('@/components/sariro-3d/testimonials-3d'));
@@ -183,8 +184,12 @@ export default function Home() {
                 {heavyVisuals && inView && <NeuralNetworkScene scrollProgress={scrollProgressRef} />}
               </div>
               <div className="absolute bottom-0 left-1/2 -translate-x-1/2 text-center">
+                {/* Was "Live AI Neural Network" — a label that told a parent
+                    looking for a maths tutor they were on a machine-learning
+                    company's site. Same visual, honest framing: it is a picture
+                    of how the subjects connect, which is what the map models. */}
                 <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-400" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                  Live AI Neural Network
+                  Every subject, connected
                 </p>
               </div>
             </motion.div>
@@ -217,23 +222,50 @@ export default function Home() {
         `}</style>
       </section>
 
-      {/* =================== ALL THE 3D FLOW SECTIONS (brought back!) =================== */}
+      {/* ── Order is the argument ─────────────────────────────────────────
+          A visitor's questions arrive in a fixed sequence, and the page used to
+          answer them backwards: philosophy, tracks, an AI-core WebGL scene and
+          a coding catalogue all came before any mention of a subject. Someone
+          could read the entire homepage and never learn we teach maths.
+
+          Now: what do you teach -> how does it work -> who are you -> what do
+          you believe -> what do others say -> what does it cost -> start.
+
+          Courses3D was removed rather than reordered. It rendered the coding
+          catalogue, which /courses now owns properly and sells beside every
+          other subject; keeping a coding-only grid on the homepage of a
+          multi-subject school re-told the exact story we just stopped telling.
+          ────────────────────────────────────────────────────────────────── */}
+
+      {/* 1 — what we teach. The question that was never answered. */}
+      <SubjectStrip />
+
+      {/* 2 — how it works, and that the first class is free. */}
+      <HowItWorks />
+
+      {/* 3 — who is teaching: the founder's record, attributed. */}
+      <Stats3D />
+
+      {/* 4 — who it is for, and what we believe. */}
       <Tracks3D />
-      {/* The map, surfaced. It used to be reachable only from the nav, so a
-          visitor could read the entire homepage without learning it existed. */}
+      <Philosophy3D />
+
+      {/* 5 — the map: a direction rather than a course, for the visitor who is
+              not shopping by subject. Lower down because it is the most
+              abstract thing here, and abstraction is a poor opening move. */}
       <MapTeaser />
-      <WaveDivider3D fromColor="#FFFFFF" toColor="#14100C" />
-      {/* ORYZO-STYLE CINEMATIC SCROLL: camera orbits 360° around AI Core.
+
+      <WaveDivider3D fromColor="#FBF9F6" toColor="#14100C" />
+      {/* ORYZO-STYLE CINEMATIC SCROLL: camera orbits 360°.
           Real WebGL — desktop only, so phones don't hit it on scroll. */}
       {heavyVisuals && <OryzoSection />}
       <WaveDivider3D fromColor="#14100C" toColor="#FBF9F6" />
-      <Stats3D />
-      <Courses3D />
-      <Philosophy3D />
+
+      {/* 6 — proof, price, and the ask. */}
+      <Testimonials3D />
       <WaveDivider3D fromColor="#FFFFFF" toColor="#14100C" />
       <Events3D />
       <WaveDivider3D fromColor="#14100C" toColor="#FBF9F6" />
-      <Testimonials3D />
       <Pricing3D />
       <CTA3D />
     </BrandLayout>

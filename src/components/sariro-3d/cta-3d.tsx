@@ -74,9 +74,9 @@ export default function CTA3D() {
           className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-[1.1]"
           style={{ fontFamily: 'var(--font-jakarta)' }}
         >
-          <SplitText3D text="Stop watching AI happen." highlight="watching" highlightClassName="bg-gradient-to-r from-yellow-200 via-green-200 to-cyan-200 bg-clip-text text-transparent" />
+          <SplitText3D text="Find out in one class," highlight="one class," highlightClassName="bg-gradient-to-r from-yellow-200 via-green-200 to-cyan-200 bg-clip-text text-transparent" />
           <br />
-          <SplitText3D text="Start building it." highlight="building" highlightClassName="bg-gradient-to-r from-yellow-200 via-green-200 to-cyan-200 bg-clip-text text-transparent" delay={0.3} />
+          <SplitText3D text="not one term." highlight="not one term." highlightClassName="bg-gradient-to-r from-yellow-200 via-green-200 to-cyan-200 bg-clip-text text-transparent" delay={0.3} />
         </motion.h2>
 
         <motion.p
@@ -86,7 +86,8 @@ export default function CTA3D() {
           transition={{ delay: 0.2 }}
           className="mt-6 text-lg sm:text-xl text-blue-100 max-w-2xl mx-auto"
         >
-          Join 5,000+ students from 65 countries who chose to learn AI the way it should be taught — by building real things with people who care.
+          Book a free class in any subject. A real lesson with a real mentor, so you can watch how
+          your child is taught before anyone asks you for money.
         </motion.p>
 
         <motion.div
@@ -96,13 +97,17 @@ export default function CTA3D() {
           transition={{ delay: 0.3 }}
           className="mt-9 flex flex-col sm:flex-row gap-3 justify-center items-center"
         >
+          {/* Was a scroll to #courses on this page. That anchor no longer exists —
+              the coding catalogue lives on /courses now — and scrolling someone
+              back UP the page they just read was never the right ending anyway. */}
           <MagneticButton
             strength={0.2}
-            onClick={() => document.getElementById('courses')?.scrollIntoView({ behavior: 'smooth' })}
+            as="a"
+            href="/welcome#book"
             className="btn-tactile btn-tactile-light px-8 py-4 text-base"
           >
             <Sparkles className="w-5 h-5" />
-            Explore courses
+            Book a free class
             <ArrowRight className="w-5 h-5" />
           </MagneticButton>
 

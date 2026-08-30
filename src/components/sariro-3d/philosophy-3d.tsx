@@ -108,7 +108,7 @@ export default function Philosophy3D() {
               <h2 className="text-4xl sm:text-5xl font-extrabold text-slate-900 leading-tight" style={{ fontFamily: 'var(--font-jakarta)' }}>
                 <SplitText3D text="Four principles that" highlight="principles" highlightClassName="gradient-text" />
                 <br />
-                <SplitText3D text="shape every Sariro course." highlight="Sariro" highlightClassName="gradient-text" delay={0.3} />
+                <SplitText3D text="shape every Sariro class." highlight="Sariro" highlightClassName="gradient-text" delay={0.3} />
               </h2>
               <p className="mt-5 text-lg text-slate-600">
                 These aren't slogans on a wall. Every curriculum decision, every project prompt, every line of feedback comes back to one of these four things.
