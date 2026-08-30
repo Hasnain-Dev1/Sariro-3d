@@ -6,17 +6,40 @@
 
 ---
 
-## 1. Turn on class reminders (10 minutes)
+## 0. REDEPLOY FIRST — nothing below works without it
 
-The code is live but sends nothing until both steps are done. It fails closed on
+Checked 30 Aug 2026: **sariro.com is running old code.** The homepage still
+titles itself "AI & Technology Education", the nav still has Explore + Subjects,
+`/subjects` still returns 200 instead of redirecting, and
+`/api/cron/class-reminders` returns **404**.
+
+Everything from this session is pushed to GitHub and none of it is deployed —
+the curriculum, the homepage, the copy, the warm palette, the CSP fix, the
+reminders. **Pull `main` on Hostinger and rebuild.** One deploy makes it all live.
+
+Setting `CRON_SECRET` before this does nothing: the route it protects does not
+exist in production yet.
+
+Verify the deploy took:
+```bash
+curl -s https://sariro.com | grep -o '<title>[^<]*</title>'
+# want: Sariro — live classes in maths, science, English and coding
+curl -s -o /dev/null -w "%{http_code}
+" https://sariro.com/api/cron/class-reminders
+# want: 401 (route exists, secret not set yet) — NOT 404
+```
+
+---
+
+## 1. Turn on class reminders (5 minutes, after the deploy)
+
+The migration is **already done** — you ran `scripts/class-reminders.sql` and got
+"Success. No rows returned", which is correct for DDL. Only the secret and the
+cron are left. It fails closed on
 purpose — an open endpoint that writes notifications to arbitrary users is a spam
 vector, and a reminder at 3am costs more trust than a missed class.
 
-**Step 1 — run the migration.**
-Supabase → SQL Editor → paste `scripts/class-reminders.sql` → Run. Idempotent,
-safe to re-run. It adds one column and one index.
-
-**Step 2 — set the secret and schedule it.**
+**Set the secret and schedule it.**
 
 ```bash
 openssl rand -hex 32          # generate the secret
