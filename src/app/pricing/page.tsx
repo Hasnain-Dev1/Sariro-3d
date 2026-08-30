@@ -30,7 +30,7 @@ import {
   ParallaxOrb,
   StickyScrollSection,
 } from '@/components/brand/effects-kit';
-import { PRICING_TIERS, DISCOUNT_LABEL, DISCOUNT_DEADLINE, discountPercent, getRazorpayLink } from '@/lib/sariro-data';
+import { PRICING_TIERS, DISCOUNT_LABEL, DISCOUNT_DEADLINE, discountPercent } from '@/lib/sariro-data';
 import SchoolPricing from '@/app/pricing/school-pricing';
 
 const ACCENT_HEX: Record<string, string> = {

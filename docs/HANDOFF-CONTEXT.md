@@ -8,7 +8,7 @@
 > **→ `FOUNDER-TODO.md` is the short list of things only the founder can do** —
 > accounts, dashboards and decisions, with the exact steps for each. Nothing on
 > it is blocked on engineering.
-> **Last updated:** 30 Aug 2026, at commit `b023da4` + the security pass (§17).
+> **Last updated:** 30 Aug 2026, at commit `98c2d85` + the unified checkout (§18).
 
 ---
 
@@ -581,3 +581,51 @@ storing.
 and WAF reject abuse before it ever reaches Hostinger, and survive deploys by
 definition. That is the stronger argument for Cloudflare than speed (see
 `FOUNDER-TODO.md` §2), because Hostinger already runs a CDN.
+
+## 18. One checkout — and the pricing bug it uncovered
+
+There were two checkouts. They disagreed about almost everything:
+
+| | `/checkout` (coding) | `/enroll` (school + focus) |
+|---|---|---|
+| Price came from | a **static Razorpay link** with a hard-coded amount | `create-order`, server-side |
+| Class size 1:4 / 1:1 | yes | no |
+| Bank transfer | no | yes |
+| Instalments | no | yes |
+
+Only one of them was safe. The coding path handed Razorpay a fixed link, so
+*what was displayed* and *what was charged* were two independent facts.
+
+**`/checkout` is now the only one.** `/enroll` 307-redirects to it, forwarding
+its whole query string so a link open mid-purchase still works.
+
+```
+coding        /checkout?course=web-101
+school grade  /checkout?subject=mathematics&grade=7&scope=grade&pay=monthly
+grade group   /checkout?subject=physics&grade=11&scope=group&pay=full
+focus course  /checkout?focus=calculus&pay=quarterly
+```
+
+`src/lib/checkout/resolve.ts` turns any of those into one shape; the page
+renders it; `create-order` prices it. **The cadence control is the one thing not
+unified** — coding is a single payment and school is paid over time, so
+`item.offersCadence` decides whether it appears. Inventing an instalment plan
+that billing cannot honour would be a worse lie than two pages were.
+
+### The bug this found
+
+`/course-path` computed the 1:1 price as `ls.price + 100`. For Beginner and
+Intermediate that happened to be right. For **Advanced it showed $799 while the
+server's own table charged $899** — a hundred dollars apart, on the flagship.
+
+The cause was four price sources for one product: `DEFAULT_PRICES` in
+`create-order`, `course.price` in `sariro-data`, `LEVEL_STYLES.price + 100` in
+`course-path`, and the static Razorpay links.
+
+All four are now `src/lib/pricing/coding.ts`, imported by both the checkout and
+`create-order`. `src/lib/checkout/resolve.test.ts` asserts that every displayed
+price *is* the table price, for every course at both ratios — the assertion that
+would have caught it.
+
+**`app_settings` still overrides.** An admin can change any price there and the
+server honours it; this table is the fallback and the display default.

@@ -31,7 +31,7 @@ import {
   ParallaxOrb,
   StickyScrollSection,
 } from '@/components/brand/effects-kit';
-import { COURSES, discountPercent, getRazorpayLink } from '@/lib/sariro-data';
+import { COURSES, discountPercent } from '@/lib/sariro-data';
 import { useAuth } from '@/components/auth/auth-provider';
 import { createClient } from '@/lib/supabase/client';
 
@@ -295,16 +295,18 @@ export default function TierPage({ tier }: { tier: Tier }) {
                     </div>
                   </div>
 
-                  <a
-                    href={getRazorpayLink(tier)}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  {/* Was a direct Razorpay link with a hard-coded amount.
+                      Everything now goes through /checkout, which prices on the
+                      server, so what is displayed and what is charged cannot
+                      drift apart. */}
+                  <Link
+                    href="#pick-a-course"
                     className="block w-full text-center px-5 py-3 rounded-xl bg-white text-slate-900 text-sm font-bold hover:bg-white/90 transition-colors"
                     style={{ fontFamily: 'var(--font-grotesk)' }}
                   >
-                    Reserve a seat
+                    Choose your course
                     <ArrowRight className="w-4 h-4 inline ml-1.5" />
-                  </a>
+                  </Link>
                 </div>
               </div>
             </Reveal>
@@ -342,6 +344,7 @@ export default function TierPage({ tier }: { tier: Tier }) {
             </Reveal>
           </div>
 
+          <div id="pick-a-course" className="scroll-mt-24">
           <StaggerGroup className="space-y-12" stagger={0.1}>
             {courses.map((course, idx) => (
               <StaggerItem key={course.id}>
@@ -349,6 +352,7 @@ export default function TierPage({ tier }: { tier: Tier }) {
               </StaggerItem>
             ))}
           </StaggerGroup>
+          </div>
         </div>
       </section>
 
@@ -397,7 +401,7 @@ export default function TierPage({ tier }: { tier: Tier }) {
           </Reveal>
           <Reveal delay={0.2}>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-              <MagneticButton as="a" href={getRazorpayLink(tier)} target="_blank" rel="noopener noreferrer" strength={0.25} className="btn-tactile btn-tactile-primary px-6 py-3.5" style={{ background: cfg.accentColor }}>
+              <MagneticButton as="a" href="#pick-a-course" strength={0.25} className="btn-tactile btn-tactile-primary px-6 py-3.5" style={{ background: cfg.accentColor }}>
                 Reserve a seat
                 <ArrowRight className="w-4 h-4" />
               </MagneticButton>

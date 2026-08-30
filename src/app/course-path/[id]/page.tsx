@@ -10,7 +10,6 @@ import {
   TrendingUp, Star, Compass,
 } from 'lucide-react';
 import BrandLayout from '@/components/brand/brand-layout';
-import { ReserveSeatButton } from '@/components/auth/reserve-seat-button';
 import {
   Reveal,
   StaggerGroup,
@@ -20,7 +19,8 @@ import {
   ParallaxOrb,
   
 } from '@/components/brand/effects-kit';
-import { COURSES, TRACKS, getRazorpayLink } from '@/lib/sariro-data';
+import { COURSES, TRACKS } from '@/lib/sariro-data';
+import { codingPrice } from '@/lib/pricing/coding';
 import { strandsForCourse } from '@/lib/capabilities/course-strands';
 
 type LearningRatio = '1:4' | '1:1';
@@ -169,8 +169,10 @@ export default function CoursePathPage() {
           {/* Selected course details */}
           {selectedCourse && (() => {
             const ls = LEVEL_STYLES.find((l) => l.label === selectedCourse.level)!;
-            const displayPrice = ratio === '1:1' ? ls.price + 100 : ls.price;
-            const paymentLink = getRazorpayLink(selectedCourse.level, ratio);
+            // Was `ls.price + 100` for 1:1, which was WRONG for Advanced:
+            // it showed $799 while the server's table charges $899. One table
+            // now feeds both the display and the charge, so they cannot differ.
+            const displayPrice = codingPrice(selectedCourse.level, ratio) ?? ls.price;
             const syllabus = 'syllabus' in selectedCourse ? (selectedCourse.syllabus as Array<{ num: string; name: string; project: string; lessons: string[] }>) : [];
 
             return (
@@ -328,15 +330,18 @@ export default function CoursePathPage() {
                           </div>
                         </div>
 
-                        {/* CTA — login-gated, creates purchase_intent, then opens Razorpay */}
-                        <ReserveSeatButton
-                          track={trackId}
-                          level={selectedCourse.level}
-                          ratio={ratio}
-                          paymentLink={paymentLink}
-                          courseName={`${track.name} — ${selectedCourse.level}`}
-                          accentColor={ls.color}
-                        />
+                        {/* Everything is bought in one place now. This used to
+                            open a static Razorpay link straight from here,
+                            bypassing the checkout entirely — which is how the
+                            displayed price and the charged price drifted apart. */}
+                        <Link
+                          href={`/checkout?course=${selectedCourse.id}&ratio=${ratio}`}
+                          className="flex w-full items-center justify-center gap-2 h-12 px-6 rounded-xl text-white text-[15px] font-bold transition-transform hover:scale-[1.02]"
+                          style={{ background: ls.color }}
+                        >
+                          Reserve a seat
+                          <ArrowRight className="w-4 h-4" />
+                        </Link>
 
                         <div className="mt-4 flex items-center justify-center gap-4 text-[10px] text-slate-400" style={{ fontFamily: 'var(--font-grotesk)' }}>
                           <span className="flex items-center gap-1"><ShieldCheck className="w-3 h-3" />14-day refund</span>

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { codingPrice } from '@/lib/pricing/coding';
 import { createServerClientHelper } from '@/lib/supabase/server';
 import {
   createOrder,
@@ -6,7 +7,6 @@ import {
   RAZORPAY_CURRENCY,
   getSupabaseAdmin,
 } from '@/lib/razorpay/server';
-import { SETTING_KEYS } from '@/lib/dashboard/settings-data';
 import { checkChargeCurrency, toMinorUnits, type SupportedCurrency } from '@/lib/pricing/currency';
 import {
   LESSONS_PER_GRADE,
@@ -44,16 +44,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 export const runtime = 'nodejs';
 
-const DEFAULT_PRICES: Record<string, number> = {
-  [SETTING_KEYS.elementaryPrice]: 248,
-  [SETTING_KEYS.beginnerPrice]: 199,
-  [SETTING_KEYS.intermediatePrice]: 299,
-  [SETTING_KEYS.advancedPrice]: 699,
-  [SETTING_KEYS.elementaryPrice1on1]: 348,
-  [SETTING_KEYS.beginnerPrice1on1]: 299,
-  [SETTING_KEYS.intermediatePrice1on1]: 399,
-  [SETTING_KEYS.advancedPrice1on1]: 899,
-};
+// Prices live in lib/pricing/coding.ts, shared with the checkout page. They
+// used to be duplicated here, which is how /course-path came to display $799
+// for Advanced 1:1 while this route charged $899.
 
 function normalizeLevel(level: string): string {
   if (!level) return '';
@@ -84,7 +77,7 @@ async function getDisplayPrice(
     const n = Number(data.value);
     if (Number.isFinite(n) && n > 0) return n;
   }
-  return DEFAULT_PRICES[key] ?? null;
+  return codingPrice(level, ratio === '1:1' ? '1:1' : '1:4');
 }
 
 export async function POST(req: NextRequest) {
