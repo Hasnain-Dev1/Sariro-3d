@@ -10,15 +10,22 @@ import { useAuth } from '@/components/auth/auth-provider';
    WelcomePopup — global popup that invites visitors to book a demo class
    ════════════════════════════════════════════════════════════════════════
 
-   SMART PERSISTENCE (per user decision):
-   - Click "Maybe later"  → never show again (localStorage: sariro-welcome-dismissed)
-   - Click X (close)      → hide for THIS session only, will show again on next
-                             reload (sessionStorage: sariro-welcome-session-closed)
-   - Click "Yes, take a demo" → never show again (converted)
+   PERSISTENCE:
+   - Click "Yes, take a demo" → never show again, ever (localStorage: converted)
+   - Click "Maybe later" or X → gone for the REST OF THIS VISIT (sessionStorage)
    - Hidden for logged-in users (they're already enrolled)
 
-   TRIGGER: 6 seconds after page load (per user decision 1A)
-   SHOWN ON: every page (per user decision 2A)
+   TRIGGER: 6 seconds after page load, at most ONCE per visit.
+
+   Why it changed: this used to reappear on every page load, every 6 seconds,
+   for every logged-out visitor, and neither X nor "Maybe later" wrote anything —
+   so the only way to stop being interrupted was to convert. A parent going
+   Maths -> Physics -> Pricing had the page blurred out and blocked three times
+   while trying to decide, on exactly the pages that do the selling.
+
+   Asking once is a prompt. Asking on every page, unskippably, is a toll gate —
+   and it is charged to the most engaged visitors, the ones reading several
+   pages. "Maybe later" is now a promise we keep for the visit.
    ════════════════════════════════════════════════════════════════════════ */
 
 const LOCAL_DISMISS_KEY = 'sariro-welcome-dismissed'; // never show again
@@ -37,17 +44,21 @@ export default function WelcomePopup() {
     // Don't show for logged-in users — they're already enrolled
     if (user) return;
 
-    // Only permanently dismiss if user clicked "Yes, take a demo" (converted)
+    // Converted once — never ask again, on any visit.
     try {
       if (localStorage.getItem(LOCAL_DISMISS_KEY)) return;
     } catch {
       // localStorage might be blocked — continue
     }
 
-    // NOTE: We intentionally do NOT check sessionStorage here.
-    // For logged-out visitors, the popup should appear again and again —
-    // every page load, every 6 seconds. Only "Yes" permanently dismisses it.
-    // X and "Maybe later" just close it temporarily (it reappears on next navigation).
+    // Already said "not now" during THIS visit — do not ask again until they
+    // come back. This is the check that turns the popup from a toll gate on
+    // every page into a single prompt per visit.
+    try {
+      if (sessionStorage.getItem(SESSION_CLOSE_KEY)) return;
+    } catch {
+      // sessionStorage might be blocked — continue
+    }
 
     // Trigger after 6 seconds
     const timer = setTimeout(() => setOpen(true), TRIGGER_DELAY_MS);
@@ -67,15 +78,19 @@ export default function WelcomePopup() {
     router.push('/welcome');
   };
 
-  const handleMaybeLater = () => {
-    // Just close — will reappear on next page navigation (no sessionStorage)
+  /** Gone for the rest of this visit; asks again next time they come back. */
+  const dismissForVisit = () => {
+    try {
+      sessionStorage.setItem(SESSION_CLOSE_KEY, '1');
+    } catch {
+      // sessionStorage might be blocked — the popup simply asks again, which is
+      // the old behaviour and an acceptable fallback for a private-mode visitor.
+    }
     setOpen(false);
   };
 
-  const handleClose = () => {
-    // Just close — will reappear on next page navigation (no sessionStorage)
-    setOpen(false);
-  };
+  const handleMaybeLater = dismissForVisit;
+  const handleClose = dismissForVisit;
 
   /* ─── Render ─── */
   return (
