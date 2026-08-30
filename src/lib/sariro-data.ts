@@ -6,9 +6,14 @@
 export const BRAND = {
   name: "Sariro",
   founder: "Mimo Patra",
-  tagline: "Teaching the future. We teach thinking, not just coding.",
+  // Sariro stopped being a coding school when the school subjects shipped. The
+  // old line ("We teach thinking, not just coding") defined us by the thing we
+  // were no longer only doing, and a parent looking for maths read it as "wrong
+  // shop". The promise now has to carry the breadth AND the reason to pick us
+  // over a cheaper recorded course: four learners to a class.
+  tagline: "Big enough to teach anything. Small enough to know your name.",
   mission:
-    "We don't just teach you to write code. We teach you to think — to break problems apart, to reason about systems, and to build the future with confidence.",
+    "Maths, science, physics, chemistry, English and coding — taught live in batches of four, by mentors who notice the moment a learner goes quiet. Not the syllabus read aloud: the thinking underneath it, so the next grade gets easier instead of harder.",
   email: "contact@sariro.com",
   phone: "+1 (415) 555-0142",
   location: "San Francisco · Remote-first · Worldwide",

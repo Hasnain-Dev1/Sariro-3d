@@ -62,24 +62,31 @@ function getBaseUrl(): string {
 
 export const metadata: Metadata = {
   metadataBase: new URL(getBaseUrl()),
-  title: "Sariro — AI & Technology Education | Mimo Patra",
+  // Search results are where the old positioning did the most damage: a parent
+  // searching "grade 8 maths tutor" saw "AI & Technology Education" and never
+  // clicked. Lead with the subjects, keep coding in the list rather than at the
+  // front, and put the differentiator (four to a class) in the description.
+  title: "Sariro — live classes in maths, science, English and coding",
   description:
-    "Teaching the future. We teach thinking, not just coding. Cohort-based AI courses, school workshops, and free learning resources by educator Mimo Patra.",
+    "Live, mentored classes for grades 1–12: maths, science, physics, chemistry, biology, English and coding. Never more than four learners to a class. Worldwide, from $6.99 a class.",
   keywords: [
     "Sariro",
+    "online maths tuition",
+    "online science classes",
+    "grade 1 to 12 tutoring",
+    "small group tutoring",
+    "live online classes",
+    "coding for kids",
     "AI education",
     "Mimo Patra",
-    "AI courses",
-    "school workshops",
-    "coding bootcamp",
-    "technology education",
   ],
   authors: [{ name: "Mimo Patra" }],
   icons: { icon: "/logo.svg" },
   alternates: { canonical: "/" },
   openGraph: {
-    title: "Sariro — AI & Technology Education",
-    description: "Teaching the future. We teach thinking, not just coding.",
+    title: "Sariro — big enough to teach anything, small enough to know your name",
+    description:
+      "Maths, science, English and coding, taught live in batches of four. Grades 1–12, worldwide.",
     siteName: "Sariro",
     type: "website",
     url: getBaseUrl(),
@@ -87,8 +94,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Sariro — AI & Technology Education",
-    description: "Teaching the future. We teach thinking, not just coding.",
+    title: "Sariro — big enough to teach anything, small enough to know your name",
+    description:
+      "Maths, science, English and coding, taught live in batches of four. Grades 1–12, worldwide.",
   },
 };
 

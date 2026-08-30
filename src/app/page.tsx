@@ -72,7 +72,7 @@ export default function Home() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-75" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600" />
                 </span>
-                New: Summer 2026 cohort — 12 seats left
+                New: every school subject, not just coding
               </motion.div>
 
               {/* Headline */}
@@ -83,17 +83,17 @@ export default function Home() {
                 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-[1.05] text-slate-900"
                 style={{ fontFamily: 'var(--font-jakarta)' }}
               >
-                Teaching the{' '}
-                <span className="gradient-text animate-gradient">future.</span>
+                Big enough to teach{' '}
+                <span className="gradient-text animate-gradient">anything.</span>
                 <br />
-                We teach{' '}
+                Small enough to know{' '}
                 <span className="relative inline-block">
-                  <span className="gradient-text-deep">thinking</span>
+                  <span className="gradient-text-deep">your name</span>
                   <svg className="absolute -bottom-2 left-0 w-full" viewBox="0 0 200 12" fill="none" preserveAspectRatio="none">
                     <path d="M2 9 Q 50 1, 100 6 T 198 4" stroke="#16A34A" strokeWidth="3" strokeLinecap="round" fill="none" />
                   </svg>
                 </span>
-                ,<br /> not just coding.
+                .
               </motion.h1>
 
               {/* Subhead */}
@@ -114,9 +114,9 @@ export default function Home() {
                 className="mt-8 flex flex-wrap items-center gap-3"
               >
                 {/* Explore Courses — small white */}
-                <Link href="/courses" className="px-5 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 text-sm font-bold hover:bg-slate-50 transition-colors flex items-center gap-2">
+                <Link href="/courses#learn" className="px-5 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 text-sm font-bold hover:bg-slate-50 transition-colors flex items-center gap-2">
                   <Sparkles className="w-4 h-4" />
-                  Explore Courses
+                  Find your subject
                 </Link>
                 {/* Sign Up — small white */}
                 <Link href="/auth/sign-up" className="px-5 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 text-sm font-bold hover:bg-slate-50 transition-colors flex items-center gap-2">
@@ -135,8 +135,20 @@ export default function Home() {
                 initial={{ y: 24 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.7, delay: 0.4 }}
-                className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-2xl"
+                className="mt-10 max-w-2xl"
               >
+                {/* These are MIMO'S numbers, earned before Sariro existed — not
+                    the platform's. Unattributed they read as "5,000 students have
+                    been through Sariro", which is not true and is the kind of
+                    claim a parent can disprove in one search. Attributed, they do
+                    more work: they answer "who is teaching my child?" */}
+                <p
+                  className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-3"
+                  style={{ fontFamily: 'var(--font-grotesk)' }}
+                >
+                  Before founding Sariro, {BRAND.founder} —
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {HERO_STATS.map((s) => (
                   <div key={s.label} className="glass-panel rounded-2xl px-4 py-4 text-center">
                     <div
@@ -155,6 +167,7 @@ export default function Home() {
                     </div>
                   </div>
                 ))}
+                </div>
               </motion.div>
             </motion.div>
 
@@ -182,7 +195,7 @@ export default function Home() {
         <div className="absolute bottom-0 left-0 right-0 z-20 pb-4 pt-6 bg-gradient-to-t from-white via-white/80 to-transparent">
           <div className="max-w-7xl mx-auto px-4">
             <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-3" style={{ fontFamily: 'var(--font-grotesk)' }}>
-              Trusted by educators & learners at
+              {BRAND.founder} has taught educators and learners from
             </p>
             <div className="relative overflow-hidden mask-fade">
               <div className="flex gap-10 animate-marquee whitespace-nowrap">
@@ -209,17 +222,17 @@ export default function Home() {
       {/* The map, surfaced. It used to be reachable only from the nav, so a
           visitor could read the entire homepage without learning it existed. */}
       <MapTeaser />
-      <WaveDivider3D fromColor="#FFFFFF" toColor="#0B1120" />
+      <WaveDivider3D fromColor="#FFFFFF" toColor="#14100C" />
       {/* ORYZO-STYLE CINEMATIC SCROLL: camera orbits 360° around AI Core.
           Real WebGL — desktop only, so phones don't hit it on scroll. */}
       {heavyVisuals && <OryzoSection />}
-      <WaveDivider3D fromColor="#0B1120" toColor="#F8FAFC" />
+      <WaveDivider3D fromColor="#14100C" toColor="#FBF9F6" />
       <Stats3D />
       <Courses3D />
       <Philosophy3D />
-      <WaveDivider3D fromColor="#FFFFFF" toColor="#0B1120" />
+      <WaveDivider3D fromColor="#FFFFFF" toColor="#14100C" />
       <Events3D />
-      <WaveDivider3D fromColor="#0B1120" toColor="#F8FAFC" />
+      <WaveDivider3D fromColor="#14100C" toColor="#FBF9F6" />
       <Testimonials3D />
       <Pricing3D />
       <CTA3D />

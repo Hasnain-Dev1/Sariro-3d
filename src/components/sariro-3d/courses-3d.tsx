@@ -154,16 +154,18 @@ export default function Courses3D() {
           className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6 mb-12"
         >
           <div className="max-w-2xl">
-            <span className="text-xs font-bold uppercase tracking-[0.2em] text-blue-600 mb-4 block" style={{ fontFamily: 'var(--font-grotesk)' }}>
-              — Cohort-based learning —
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-orange-600 mb-4 block" style={{ fontFamily: 'var(--font-grotesk)' }}>
+              — Coding tracks —
             </span>
             <h2 className="text-4xl sm:text-5xl font-extrabold text-slate-900 leading-tight" style={{ fontFamily: 'var(--font-jakarta)' }}>
-              <SplitText3D text="Courses that ship" highlight="ship" highlightClassName="gradient-text" />
+              <SplitText3D text="Coding, sorted by what" highlight="what" highlightClassName="gradient-text" />
               <br />
-              <SplitText3D text="real builders." highlight="builders." highlightClassName="gradient-text" delay={0.3} />
+              <SplitText3D text="you can already do." highlight="already do." highlightClassName="gradient-text" delay={0.3} />
             </h2>
             <p className="mt-5 text-lg text-slate-600">
-              No 80-hour video dumps. No 'just follow along' tutorials. Every Sariro course is a live cohort with feedback, community, and a portfolio project that proves you can build.
+              No 80-hour video dumps. No &lsquo;just follow along&rsquo; tutorials. Coding is the one
+              subject here that ignores your age entirely — you start at the track that matches what
+              you can build today, whether you are nine or thirty-nine.
             </p>
           </div>
 

@@ -146,7 +146,7 @@ export default function Tracks3D() {
             transition={{ delay: 0.5 }}
             className="mt-5 text-lg text-slate-600"
           >
-            Sariro meets you where you are — a curious 14-year-old, a teacher with 200 students, or a PM shipping AI features next quarter. Different contexts, same teaching DNA.
+            Sariro meets you where you are — a grade 8 student stuck on algebra, a school that wants its whole staff trained, or an adult finally learning the thing they were told they were bad at. Different contexts, same teaching DNA.
           </motion.p>
         </motion.div>
 
