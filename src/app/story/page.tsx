@@ -12,14 +12,16 @@ const CHAPTERS = [
   { num: '01', title: 'The Question', body: 'It started with a question that would not go away: why do smart students graduate unable to build anything real? They pass exams. They can recite definitions. But ship a working AI feature? Freeze. The question sat in the back of Mimo\'s mind for twelve years.', accent: '#7C3AED', icon: HelpCircle },
   { num: '02', title: 'The Refusal', body: 'Mimo spent 12 years watching this — in classrooms, in bootcamps, in corporate training rooms. Watching smart people leave with certificates and zero confidence. The industry kept saying "more tutorials, more videos, more bootcamps." Mimo refused. Tutorials teach typing. They do not teach thinking.', accent: '#06B6D4', icon: Ban },
   { num: '03', title: 'The Bet', body: 'So Mimo made a bet: teach thinking, not typing. Build a brand that respects curiosity over credentials, projects over playlists, questions over answers. Cohort-based. Mentor-led. Project-first. Plain language. No jargon. No gatekeeping. Sariro was the name. The bet was that students would actually learn.', accent: '#F59E0B', icon: Sparkles },
-  { num: '04', title: 'The Proof', body: 'The bet paid off. 5,000+ students. 65 countries. 200+ cohorts. 1,000+ portfolio projects shipped. A history teacher became an AI engineer. A 16-year-old built her first neural net. A principal started an AI ethics club. The proof was not in the numbers — it was in the builders those numbers represented.', accent: '#16A34A', icon: Hammer },
+  // The numbers here are Mimo's career before Sariro, not Sariro's results.
+  // Framed as what he brought TO the bet rather than what the bet returned.
+  { num: '04', title: 'The Record', body: 'He was not guessing. Across twelve years before Sariro, Mimo had taught 5,000+ students from 65 countries, published 36 research papers and filed 7 patents. A history teacher he taught became an engineer. A 16-year-old built her first working model. A principal started a club. The proof was never the numbers — it was the learners those numbers stood for.', accent: '#16A34A', icon: Hammer },
   { num: '05', title: 'The Future', body: 'The next chapter is not ours to write. It is yours. If you are curious — really curious, the kind of curious that keeps you up at night — you belong here. Sariro is not a course. It is not a platform. It is a movement of people who refuse to watch the future happen to them.', accent: '#EC4899', icon: Globe },
 ];
 
 const VALUES = [
   { title: 'Thinking over typing', body: 'Anyone can copy a tutorial. We teach you to think — to break problems apart, to ask the right questions, to reason about systems.', accent: '#7C3AED', icon: Sparkles },
-  { title: 'Build real things', body: 'Every Sariro course ends with something you can show an employer, a client, or a school. Not a hello world — a real, working AI artifact.', accent: '#F59E0B', icon: Rocket },
-  { title: 'Accessible by design', body: 'AI education should not be gatekept by jargon. We teach in plain language. An 8-year-old and a grandpa should both be able to follow along.', accent: '#16A34A', icon: Heart },
+  { title: 'Understand, don’t memorise', body: 'A grade is a receipt for remembering. We teach until the reasoning holds on its own, so the next grade gets easier instead of harder.', accent: '#F59E0B', icon: Rocket },
+  { title: 'Accessible by design', body: 'No subject should be gatekept by jargon. We teach in plain language. An 8-year-old and a grandpa should both be able to follow along.', accent: '#16A34A', icon: Heart },
   { title: 'Community, not customers', body: 'Once you are in, you are in. Lifetime community access, mentorship opportunities, and a network that shows up when you ship — and when you stumble.', accent: '#06B6D4', icon: Users },
 ];
 

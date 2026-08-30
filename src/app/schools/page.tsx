@@ -72,7 +72,7 @@ const PACKAGES = [
   {
     id: 'curriculum',
     title: 'Curriculum',
-    tagline: 'Full-semester AI course, ready to teach.',
+    tagline: 'Full-semester curriculum, ready to teach.',
     icon: BookOpen,
     accent: '#2563EB',
     duration: '8–16 weeks',
@@ -440,7 +440,7 @@ export default function SchoolsPage() {
             className="text-3xl sm:text-5xl font-extrabold text-slate-900"
             style={{ fontFamily: 'var(--font-jakarta)' }}
           >
-            <SplitText text="Let's design AI education for your campus." highlight="your campus." highlightClassName="gradient-text" />
+            <SplitText text="Let's design a curriculum for your campus." highlight="your campus." highlightClassName="gradient-text" />
           </h2>
           <Reveal delay={0.15}>
             <p className="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">

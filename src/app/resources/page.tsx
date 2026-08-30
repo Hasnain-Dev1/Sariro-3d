@@ -193,7 +193,7 @@ export default function ResourcesPage() {
             Papers, blog posts, <span className="gradient-text">and downloads.</span>
           </>
         }
-        subtitle="Open knowledge from the Sariro team. Read the research, grab the templates, steal the checklists. No email gate on most of it — we believe AI education should be free."
+        subtitle="Open knowledge from the Sariro team. Read the research, grab the templates, steal the checklists. No email gate on most of it — we believe good teaching should be shared."
       >
         <Link href="#library" className="btn-tactile px-5 py-3 text-sm text-white" style={{ background: '#06B6D4', boxShadow: '0 10px 0 -1px #0E7490, 0 18px 30px -12px rgba(6,182,212,0.55)', fontFamily: 'var(--font-grotesk)' }}>
           <BookOpen className="w-4 h-4" />

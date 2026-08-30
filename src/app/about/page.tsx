@@ -84,7 +84,7 @@ export default function AboutPage() {
             About <span className="gradient-text">Sariro.</span>
           </>
         }
-        subtitle="A cohort-based AI education studio from San Francisco. We teach thinking, not just typing — and we ship real, working AI artifacts, not hello world demos."
+        subtitle="A live, mentor-led school for grades 1 to 12 — maths, science, physics, chemistry, biology, English and coding. Never more than four learners to a class, anywhere in the world."
       >
         <button
           onClick={scrollToPrinciples}
@@ -297,7 +297,7 @@ export default function AboutPage() {
                 {MIMO.bio}
               </p>
               <p className="text-base text-slate-600 leading-relaxed mb-8">
-                Mimo started Sariro after a decade watching smart students graduate unable to build anything real. The fix wasn't more tutorials — it was teaching thinking. Sariro is the result: cohort-based, project-first, mentor-led AI education that respects your time and your curiosity.
+                Mimo started Sariro after a decade watching bright students pass exams they had understood nothing of. The fix was not more tutorials — it was small enough classes that a teacher notices the moment someone is lost. Sariro is the result: live, mentor-led classes in every school subject, capped at four learners, that respect your time and your child&apos;s curiosity.
               </p>
 
               {/* Numbers strip */}
@@ -377,7 +377,7 @@ export default function AboutPage() {
             </h2>
             <Reveal delay={0.15}>
               <p className="mt-3 text-slate-600">
-                Every Sariro cohort is led by senior builders who have shipped AI to production. You learn from scars, not slides.
+                Every Sariro class is led by a mentor who teaches the subject for a living — not a script read aloud, and never a recording.
               </p>
             </Reveal>
           </div>
