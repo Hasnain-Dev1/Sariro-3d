@@ -31,6 +31,7 @@ import {
   StickyScrollSection,
 } from '@/components/brand/effects-kit';
 import { PRICING_TIERS, DISCOUNT_LABEL, DISCOUNT_DEADLINE, discountPercent, getRazorpayLink } from '@/lib/sariro-data';
+import SchoolPricing from '@/app/pricing/school-pricing';
 
 const ACCENT_HEX: Record<string, string> = {
   blue: '#2563EB',
@@ -392,11 +393,17 @@ export default function PricingPage() {
           {/* Below-grid note */}
           <Reveal>
             <p className="text-center text-xs text-slate-500 mt-8">
+              The tiers above are the <strong className="text-slate-700">coding tracks</strong>. School subjects are priced per class — see below.
               All prices in USD. Razorpay-secured checkout. Need an invoice for your school or employer? <Link href="/contact" className="text-blue-600 font-bold underline">Get in touch</Link>.
             </p>
           </Reveal>
         </div>
       </section>
+
+      {/* ====== School subjects — the half of the catalogue this page used to
+               omit entirely. A parent clicking "Pricing" for maths landed on a
+               bootcamp price list. ====== */}
+      <SchoolPricing />
 
       <WaveDivider3D fromColor="#FFFFFF" toColor="#FBF9F6" />
 

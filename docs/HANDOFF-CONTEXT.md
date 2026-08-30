@@ -36,7 +36,7 @@ on the merged `/courses` page.
 | 1 | **Class reminder** ("your class is in 30 min") | §9 calls it the highest-value thing not built. Nothing in the product runs on a timer. |
 | 2 | **Cloudflare in front** | TTFB ≈ 946 ms is the whole site's ceiling; this is config, not code. Bypass `/dashboard/*` and `/api/*`. |
 | 3 | ~~Student-side conflict check~~ | **DONE** — `studentConflicts` / `cohortStudentConflicts` in `schedule-ops-server.ts`, wired into both `POST /api/admin/schedule` and `POST /api/schedule/reschedule`. Returns 409 `student_conflict` naming the learners. |
-| 4 | `/pricing` and `/events` copy | The last two marketing pages not swept for multi-subject framing. |
+| 4 | ~~`/pricing` school prices~~ | **DONE** — `/pricing` rendered only the coding tiers, so a parent clicking Pricing for maths saw a bootcamp price list. `src/app/pricing/school-pricing.tsx` adds the per-class pricing and the three cadences, sourced from `school/pricing.ts` so it cannot drift from the subject pages. |
 | 5 | Surface `student_conflict` in the admin UI | The API returns it; the scheduling screens still only render the teacher-conflict message. |
 
 ---
