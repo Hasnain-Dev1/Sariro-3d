@@ -4,6 +4,10 @@
 > without losing what has been built. Companion docs: `SARIRO-VISION.md`,
 > `STAGE-2-PLAN.md`, `STAGE-2-BUILD.md`, `PLATFORM-PLAN.md`,
 > `IMPROVEMENT-PLAN.md`, `UI-2077-PLAN.md`.
+>
+> **→ `FOUNDER-TODO.md` is the short list of things only the founder can do** —
+> accounts, dashboards and decisions, with the exact steps for each. Nothing on
+> it is blocked on engineering.
 > **Last updated:** 30 Aug 2026, at commit `ca9288f` + uncommitted tests.
 
 ---
