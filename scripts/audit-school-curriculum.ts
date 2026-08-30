@@ -22,8 +22,10 @@ import {
   LESSONS_PER_MODULE,
   MODULES_PER_GRADE,
   SCHOOL_SUBJECTS,
+  SPECIALISATIONS,
   buildGradeSyllabus,
   enrolmentOptions,
+  getSpecialisation,
   getSubject,
   gradeGroupFor,
   subjectsForGroup,
@@ -116,16 +118,30 @@ console.log('\nauthored curriculum\n' + '-'.repeat(62));
 for (const [key, authored] of Object.entries(AUTHORED_TITLES)) {
   const [subjectSlug, gradeRaw] = key.split(':');
   const grade = Number(gradeRaw);
-  const subject = getSubject(subjectSlug);
-  const group = gradeGroupFor(grade);
 
-  if (!subject) {
-    problems.push(`authored "${key}": no such subject`);
-    continue;
-  }
-  if (!group || !subject.groups.includes(group.slug)) {
-    problems.push(`authored "${key}": ${subject.name} is not offered for grade ${grade}`);
-    continue;
+  // Grade 0 is the sentinel for a focus course — `/subjects/focus/[topic]`
+  // calls buildGradeSyllabus(spec.slug, 0). Those keys are valid and must be
+  // checked against SPECIALISATIONS, not SCHOOL_SUBJECTS, or every focus course
+  // reads as a broken subject.
+  const isFocus = grade === 0;
+  const subject = isFocus ? null : getSubject(subjectSlug);
+  const spec = isFocus ? getSpecialisation(subjectSlug) : null;
+  const group = isFocus ? null : gradeGroupFor(grade);
+
+  if (isFocus) {
+    if (!spec) {
+      problems.push(`authored "${key}": no such focus course`);
+      continue;
+    }
+  } else {
+    if (!subject) {
+      problems.push(`authored "${key}": no such subject`);
+      continue;
+    }
+    if (!group || !subject.groups.includes(group.slug)) {
+      problems.push(`authored "${key}": ${subject.name} is not offered for grade ${grade}`);
+      continue;
+    }
   }
   if (authored.modules.length !== MODULES_PER_GRADE) {
     problems.push(`authored "${key}": ${authored.modules.length} modules, expected ${MODULES_PER_GRADE}`);
@@ -174,10 +190,18 @@ for (const subject of SCHOOL_SUBJECTS) {
     for (const grade of group.grades) gradeKeys.push(`${subject.slug}:${grade}`);
   }
 }
+const focusKeys = SPECIALISATIONS.map((s) => `${s.slug}:0`);
+
 const done = gradeKeys.filter((k) => AUTHORED_TITLES[k]).length;
+const focusDone = focusKeys.filter((k) => AUTHORED_TITLES[k]).length;
+const totalDone = done + focusDone;
+const totalKeys = gradeKeys.length + focusKeys.length;
+
 console.log(
-  `\n  coverage: ${done}/${gradeKeys.length} subject-grades authored` +
-  `  · ${gradeKeys.length - done} still render as "Lesson N"`
+  `\n  coverage: ${done}/${gradeKeys.length} subject-grades` +
+  ` · ${focusDone}/${focusKeys.length} focus courses` +
+  ` · ${totalDone}/${totalKeys} overall` +
+  `  ${totalDone === totalKeys ? '— nothing renders as "Lesson N"' : `· ${totalKeys - totalDone} still render as "Lesson N"`}`
 );
 
 /* ── tests inside the scaffold ──────────────────────────────────────────── */

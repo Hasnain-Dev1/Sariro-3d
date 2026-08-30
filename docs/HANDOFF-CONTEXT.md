@@ -276,9 +276,19 @@ module count; **wrong lessons-per-module** (it knows modules 4 and 8 expect 5);
 empty titles; duplicate lesson titles within a grade; and authoring a grade a
 subject is not offered for. Run it after every edit.
 
-**Still unauthored:** the 7 focus courses (`SPECIALISATIONS`) have no
-`AUTHORED_TITLES` entries — they are keyed by subject:grade and focus courses are
-neither. Authoring those needs a small extension to the key scheme first.
+### Focus courses are authored too — 7/7
+
+Keyed **`${slug}:0`**. No key-scheme change was needed: `/subjects/focus/[topic]`
+already called `buildGradeSyllabus(spec.slug, 0)`, so grade 0 was the existing
+sentinel for "not grade-bound". Only the audit had to learn that a `:0` key is a
+focus course to be checked against `SPECIALISATIONS` rather than a broken subject.
+
+The focus page also gained the module outline it never had — it used to go
+straight from the price to the capability strands, so a visitor deciding whether
+to spend $279 on Organic Chemistry could not see one thing they would be taught.
+
+**Grand total: 55/55 — 48 subject-grades + 7 focus courses. Nothing anywhere
+renders "Lesson N".**
 
 ---
 

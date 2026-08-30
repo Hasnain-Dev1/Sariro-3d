@@ -4822,6 +4822,655 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
     ],
   },
+
+  /* ── Focus courses ───────────────────────────────────────────────────────
+   * Keyed `${slug}:0`, because `/subjects/focus/[topic]` already calls
+   * `buildGradeSyllabus(spec.slug, 0)` — grade 0 is the existing sentinel for
+   * "not grade-bound". No new key scheme was needed; only the audit had to
+   * learn that a `:0` key is a focus course rather than a broken subject.
+   *
+   * These are the same 48 slots as a school year, but each one is a single
+   * topic taken to depth. That is the whole product: a student who is fine at
+   * maths generally and drowning in trigonometry does not need a maths course,
+   * they need trigonometry for a term.
+   */
+
+  'organic-chemistry:0': {
+    modules: [
+      {
+        title: 'The Language of Organic Chemistry',
+        lessons: [
+          'Why carbon behaves unlike anything else',
+          'Drawing organic structures',
+          'Functional groups and homologous series',
+          'IUPAC nomenclature: the rules',
+          'Naming compounds with several groups',
+          'Isomerism: structural and stereo',
+        ],
+      },
+      {
+        title: 'How Electrons Move',
+        lessons: [
+          'Bonding, hybridisation and shape',
+          'Polarity and electronegativity',
+          'Inductive and resonance effects',
+          'Curly arrows: the notation for a mechanism',
+          'Nucleophiles and electrophiles',
+          'Carbocations, carbanions and radicals',
+        ],
+      },
+      {
+        title: 'Substitution and Elimination',
+        lessons: [
+          'Haloalkanes and their reactivity',
+          'The SN2 mechanism',
+          'The SN1 mechanism',
+          'Choosing between SN1 and SN2',
+          'The E1 and E2 mechanisms',
+          'Substitution versus elimination',
+        ],
+      },
+      {
+        title: 'Alcohols, Phenols and Ethers',
+        lessons: [
+          'Preparing alcohols',
+          'Reactions of alcohols',
+          'Phenols, and why they are acidic',
+          'Ethers and epoxides',
+          'Distinguishing tests that actually work',
+        ],
+      },
+      {
+        title: 'Alkenes, Alkynes and Addition',
+        lessons: [
+          'Preparing alkenes',
+          'Electrophilic addition',
+          'Markovnikov’s rule, and why it holds',
+          'Oxidation and reduction of alkenes',
+          'Alkynes and their reactions',
+          'Dienes and conjugation',
+        ],
+      },
+      {
+        title: 'Aromatic Chemistry',
+        lessons: [
+          'Benzene and aromaticity',
+          'Electrophilic aromatic substitution',
+          'How substituents direct the next one',
+          'Nitration, halogenation and sulfonation',
+          'Friedel–Crafts reactions',
+          'Reactions of the side chain',
+        ],
+      },
+      {
+        title: 'Carbonyl Chemistry',
+        lessons: [
+          'Aldehydes and ketones: preparation',
+          'Nucleophilic addition to the carbonyl',
+          'Carboxylic acids and acidity',
+          'Acid derivatives, in order of reactivity',
+          'Amines and their basicity',
+          'Diazonium salts and coupling',
+        ],
+      },
+      {
+        title: 'Putting It Together',
+        lessons: [
+          'The named reactions worth memorising',
+          'Working out a multi-step synthesis',
+          'Reading a mechanism you have never seen',
+          'Identifying an unknown by test',
+          'How exam problems are actually built',
+        ],
+      },
+    ],
+  },
+
+  'mechanics:0': {
+    modules: [
+      {
+        title: 'Describing Motion',
+        lessons: [
+          'Position, displacement and distance',
+          'Speed, velocity and acceleration',
+          'Motion graphs, and what they tell you',
+          'The equations of uniformly accelerated motion',
+          'Vectors, and how to resolve them',
+          'Relative motion',
+        ],
+      },
+      {
+        title: 'Newton’s Laws',
+        lessons: [
+          'Force, and what it really does',
+          'The first law and inertia',
+          'The second law',
+          'The third law',
+          'Free-body diagrams',
+          'Connected bodies: pulleys and strings',
+        ],
+      },
+      {
+        title: 'Friction and Circular Motion',
+        lessons: [
+          'Static and kinetic friction',
+          'The coefficient of friction',
+          'Motion on an inclined plane',
+          'Uniform circular motion',
+          'Centripetal force',
+          'Banked tracks and vertical circles',
+        ],
+      },
+      {
+        title: 'Work, Energy and Power',
+        lessons: [
+          'Work done by a constant force',
+          'Work done by a variable force',
+          'Kinetic energy and the work–energy theorem',
+          'Potential energy and conservative forces',
+          'Power and efficiency',
+        ],
+      },
+      {
+        title: 'Momentum and Collisions',
+        lessons: [
+          'Linear momentum',
+          'Impulse',
+          'Conservation of momentum',
+          'Elastic collisions',
+          'Inelastic collisions',
+          'Collisions in two dimensions',
+        ],
+      },
+      {
+        title: 'Rotational Mechanics',
+        lessons: [
+          'Centre of mass',
+          'Torque',
+          'Moment of inertia',
+          'Angular momentum and its conservation',
+          'Rolling without slipping',
+          'Rotational kinetic energy',
+        ],
+      },
+      {
+        title: 'Gravitation and Oscillation',
+        lessons: [
+          'The law of gravitation',
+          'Gravitational field and potential',
+          'Orbits, satellites and escape velocity',
+          'Simple harmonic motion',
+          'The pendulum and the spring',
+          'Damping and resonance',
+        ],
+      },
+      {
+        title: 'Problem-Solving Craft',
+        lessons: [
+          'Choosing the right conservation law',
+          'When to use energy, and when to use forces',
+          'Choosing coordinates that simplify the problem',
+          'Checking an answer by dimensions and limits',
+          'The problems that trip everyone up',
+        ],
+      },
+    ],
+  },
+
+  'calculus:0': {
+    modules: [
+      {
+        title: 'Functions and Limits',
+        lessons: [
+          'Functions, domain and range',
+          'Graphs and transformations',
+          'The idea of a limit',
+          'Evaluating limits algebraically',
+          'One-sided limits, and limits at infinity',
+          'Continuity',
+        ],
+      },
+      {
+        title: 'The Derivative',
+        lessons: [
+          'Rate of change, and the tangent problem',
+          'The derivative from first principles',
+          'Differentiating powers and polynomials',
+          'The product and quotient rules',
+          'The chain rule',
+          'Higher-order derivatives',
+        ],
+      },
+      {
+        title: 'Differentiating Everything',
+        lessons: [
+          'Trigonometric functions',
+          'Exponential and logarithmic functions',
+          'Inverse trigonometric functions',
+          'Implicit differentiation',
+          'Logarithmic differentiation',
+          'Parametric differentiation',
+        ],
+      },
+      {
+        title: 'Applications of the Derivative',
+        lessons: [
+          'Tangents and normals',
+          'Increasing, decreasing and stationary points',
+          'Maxima, minima and the second derivative',
+          'Curve sketching',
+          'Optimisation problems',
+        ],
+      },
+      {
+        title: 'The Integral',
+        lessons: [
+          'Antiderivatives and the indefinite integral',
+          'Integration by substitution',
+          'Integration by parts',
+          'Partial fractions',
+          'Trigonometric integrals',
+          'Choosing a method, reliably',
+        ],
+      },
+      {
+        title: 'The Definite Integral',
+        lessons: [
+          'Area under a curve, and the Riemann sum',
+          'The fundamental theorem of calculus',
+          'Properties of definite integrals',
+          'Area between two curves',
+          'Volumes of revolution',
+          'Improper integrals',
+        ],
+      },
+      {
+        title: 'Differential Equations',
+        lessons: [
+          'What a differential equation is',
+          'Order, degree and general solutions',
+          'Variables separable',
+          'Homogeneous equations',
+          'Linear first-order equations',
+          'Modelling growth, decay and cooling',
+        ],
+      },
+      {
+        title: 'Calculus in Use',
+        lessons: [
+          'Related rates',
+          'Motion problems with calculus',
+          'Approximation and linearisation',
+          'Reading a calculus question correctly',
+          'Exam technique, and the common errors',
+        ],
+      },
+    ],
+  },
+
+  'algebra-1:0': {
+    modules: [
+      {
+        title: 'From Arithmetic to Algebra',
+        lessons: [
+          'Why we use letters for numbers',
+          'Writing an expression from words',
+          'Substituting values into an expression',
+          'Like terms and simplifying',
+          'The distributive law',
+          'Order of operations with variables',
+        ],
+      },
+      {
+        title: 'Linear Equations',
+        lessons: [
+          'What an equation actually says',
+          'Solving by keeping the balance',
+          'Equations with brackets',
+          'Equations with fractions',
+          'Variables on both sides',
+          'Turning a word problem into an equation',
+        ],
+      },
+      {
+        title: 'Inequalities and Formulae',
+        lessons: [
+          'Inequalities and their notation',
+          'Solving linear inequalities',
+          'Showing solutions on a number line',
+          'Compound inequalities',
+          'Rearranging a formula',
+          'Using formulae from other subjects',
+        ],
+      },
+      {
+        title: 'Exponents and Polynomials',
+        lessons: [
+          'The laws of exponents',
+          'Negative and zero exponents',
+          'Adding and subtracting polynomials',
+          'Multiplying a monomial by a polynomial',
+          'Multiplying two binomials',
+        ],
+      },
+      {
+        title: 'Factorising',
+        lessons: [
+          'Common factors',
+          'Factorising by grouping',
+          'The difference of two squares',
+          'Factorising simple quadratics',
+          'Factorising harder quadratics',
+          'Choosing the right method',
+        ],
+      },
+      {
+        title: 'Graphs and Linear Functions',
+        lessons: [
+          'The coordinate plane',
+          'Plotting a linear equation',
+          'Gradient and intercept',
+          'Writing the equation of a line',
+          'Parallel and perpendicular lines',
+          'Reading a real-world graph',
+        ],
+      },
+      {
+        title: 'Systems of Equations',
+        lessons: [
+          'What simultaneous equations mean',
+          'Solving graphically',
+          'The substitution method',
+          'The elimination method',
+          'Systems with no solution, or infinitely many',
+          'Word problems with two unknowns',
+        ],
+      },
+      {
+        title: 'Ratio, Proportion and Review',
+        lessons: [
+          'Ratio and proportion, algebraically',
+          'Direct and inverse variation',
+          'Percentage problems with algebra',
+          'Checking a solution properly',
+          'The mistakes that cost the most marks',
+        ],
+      },
+    ],
+  },
+
+  'algebra-2:0': {
+    modules: [
+      {
+        title: 'Quadratic Expressions and Equations',
+        lessons: [
+          'Quadratic expressions and their graphs',
+          'Solving by factorisation',
+          'Completing the square',
+          'The quadratic formula',
+          'The discriminant and the nature of the roots',
+          'How roots and coefficients are related',
+        ],
+      },
+      {
+        title: 'Functions',
+        lessons: [
+          'What makes a relation a function',
+          'Domain, range and notation',
+          'Composite functions',
+          'Inverse functions',
+          'Transformations of graphs',
+          'Piecewise functions',
+        ],
+      },
+      {
+        title: 'Polynomials',
+        lessons: [
+          'Degree, and how a polynomial behaves',
+          'Division of polynomials',
+          'The remainder and factor theorems',
+          'Finding all the roots',
+          'Sketching a polynomial graph',
+          'Polynomial inequalities',
+        ],
+      },
+      {
+        title: 'Rational and Radical Expressions',
+        lessons: [
+          'Simplifying rational expressions',
+          'Operations with rational expressions',
+          'Solving rational equations',
+          'Radicals and rational exponents',
+          'Solving radical equations',
+        ],
+      },
+      {
+        title: 'Exponentials and Logarithms',
+        lessons: [
+          'Exponential functions and growth',
+          'The number e',
+          'Logarithms, and what they actually mean',
+          'The laws of logarithms',
+          'Solving exponential and logarithmic equations',
+          'Modelling with exponentials',
+        ],
+      },
+      {
+        title: 'Sequences and Series',
+        lessons: [
+          'Sequences and their notation',
+          'Arithmetic sequences and series',
+          'Geometric sequences and series',
+          'Infinite geometric series',
+          'Sigma notation',
+          'Applications in finance and growth',
+        ],
+      },
+      {
+        title: 'Matrices and Systems',
+        lessons: [
+          'Matrices and matrix operations',
+          'Determinants',
+          'The inverse of a matrix',
+          'Solving systems with matrices',
+          'Systems of three equations',
+          'Applications of linear systems',
+        ],
+      },
+      {
+        title: 'Complex Numbers and Review',
+        lessons: [
+          'Why complex numbers had to exist',
+          'Arithmetic with complex numbers',
+          'The complex plane and modulus',
+          'Quadratics with complex roots',
+          'Bringing the whole course together',
+        ],
+      },
+    ],
+  },
+
+  'trigonometry:0': {
+    modules: [
+      {
+        title: 'Angles and Right Triangles',
+        lessons: [
+          'Angles, degrees and radians',
+          'The right triangle and its ratios',
+          'Sine, cosine and tangent',
+          'Finding an unknown side',
+          'Finding an unknown angle',
+          'Solving a right triangle completely',
+        ],
+      },
+      {
+        title: 'Standard Angles and the Unit Circle',
+        lessons: [
+          'Exact values of the standard angles',
+          'The unit circle',
+          'Trigonometric ratios of any angle',
+          'Signs in the four quadrants',
+          'Reference angles',
+          'Coterminal and negative angles',
+        ],
+      },
+      {
+        title: 'Graphs of Trigonometric Functions',
+        lessons: [
+          'The sine graph',
+          'The cosine graph',
+          'The tangent graph',
+          'Amplitude and period',
+          'Phase shift and vertical shift',
+          'Modelling anything that repeats',
+        ],
+      },
+      {
+        title: 'Identities',
+        lessons: [
+          'The Pythagorean identities',
+          'Reciprocal and quotient identities',
+          'Proving an identity',
+          'Simplifying a trigonometric expression',
+          'Which identity to reach for, and when',
+        ],
+      },
+      {
+        title: 'Compound and Multiple Angles',
+        lessons: [
+          'Sum and difference formulae',
+          'Double angle formulae',
+          'Half angle formulae',
+          'Product-to-sum and sum-to-product',
+          'Combining a sine and a cosine into one ratio',
+          'Using the formulae in a proof',
+        ],
+      },
+      {
+        title: 'Trigonometric Equations',
+        lessons: [
+          'Solving a basic equation',
+          'Equations with multiple angles',
+          'Equations that need an identity first',
+          'Solutions within a given interval',
+          'General solutions',
+          'Equations that look harder than they are',
+        ],
+      },
+      {
+        title: 'Triangles and Applications',
+        lessons: [
+          'The sine rule',
+          'The cosine rule',
+          'Area of a triangle',
+          'The ambiguous case',
+          'Heights and distances',
+          'Bearings and navigation',
+        ],
+      },
+      {
+        title: 'Inverse Functions and Review',
+        lessons: [
+          'The inverse trigonometric functions',
+          'Their domains and ranges',
+          'Solving with inverse functions',
+          'Where trigonometry shows up in other subjects',
+          'Exam problems and the common traps',
+        ],
+      },
+    ],
+  },
+
+  'public-speaking:0': {
+    modules: [
+      {
+        title: 'Finding Your Voice',
+        lessons: [
+          'Speaking well is learnable, not a gift',
+          'What makes an audience actually listen',
+          'Your natural speaking voice',
+          'Breath, pace and the pause',
+          'Volume, pitch and emphasis',
+          'Recording yourself, and listening back',
+        ],
+      },
+      {
+        title: 'Managing Nerves',
+        lessons: [
+          'What nervousness actually is',
+          'Preparation as the cure for fear',
+          'Techniques that work in the moment',
+          'Recovering from a mistake mid-speech',
+          'What to do when your mind goes blank',
+          'Confidence as a result of repetition',
+        ],
+      },
+      {
+        title: 'Structuring What You Say',
+        lessons: [
+          'One idea, clearly stated',
+          'Openings that earn attention',
+          'The middle: three points, well ordered',
+          'Signposting and transitions',
+          'Endings that land',
+          'Cutting whatever does not serve the point',
+        ],
+      },
+      {
+        title: 'Delivery',
+        lessons: [
+          'Posture, and learning to stand still',
+          'Gesture that means something',
+          'Eye contact with a real audience',
+          'Using notes without reading them',
+          'Speaking to a camera',
+        ],
+      },
+      {
+        title: 'Persuasion',
+        lessons: [
+          'Knowing what you want them to do',
+          'Ethos, pathos and logos',
+          'Evidence, and how to present it',
+          'Anticipating the objection',
+          'Rhetorical devices that still work',
+          'The ethics of persuasion',
+        ],
+      },
+      {
+        title: 'Storytelling',
+        lessons: [
+          'Why stories are remembered and facts are not',
+          'Finding the story inside your material',
+          'Setup, turn and resolution',
+          'Detail, and how much is enough',
+          'Humour that does not misfire',
+          'Telling a story about yourself',
+        ],
+      },
+      {
+        title: 'Speaking in Real Situations',
+        lessons: [
+          'The interview',
+          'The viva and the oral exam',
+          'Presenting in a class or a meeting',
+          'Group discussion and turn-taking',
+          'Impromptu speaking',
+          'Answering a question you did not expect',
+        ],
+      },
+      {
+        title: 'Performance and Beyond',
+        lessons: [
+          'Adapting to the audience in front of you',
+          'Using slides without hiding behind them',
+          'Debating a position',
+          'Giving and receiving feedback',
+          'A speech about something that matters to you',
+        ],
+      },
+    ],
+  },
 };
 
 export function buildGradeSyllabus(subjectSlug: string, grade: number): GradeSyllabus {

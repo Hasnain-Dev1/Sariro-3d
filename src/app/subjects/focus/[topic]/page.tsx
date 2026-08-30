@@ -106,13 +106,59 @@ export default async function SpecialisationPage({ params }: Params) {
         </div>
       </section>
 
+      {/* ── what the course actually covers ──────────────────────────────
+          This page used to jump from the price straight to the capability
+          strands, so a visitor deciding whether to spend $279 on Organic
+          Chemistry could not see a single thing they would be taught. The
+          titles existed nowhere to be read. */}
       <section className="py-14 sm:py-20 bg-slate-50 border-t border-slate-100">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-2xl sm:text-[1.75rem] font-bold tracking-[-0.02em] text-slate-900 mb-2">How the course runs</h2>
+          <h2 className="text-2xl sm:text-[1.75rem] font-bold tracking-[-0.02em] text-slate-900 mb-2">
+            What the {LESSONS_PER_GRADE} classes cover
+          </h2>
           <p className="prose-measure text-slate-600 text-[15px] leading-[1.65] mb-7">
-            {LESSONS_PER_GRADE} classes, one a week, in a batch of four. Two of them are
-            assessments — one mid-course, one at the end — so you find out whether it is working
-            while there is still time to change something.
+            {syllabus.modules.length} modules, one class a week, in a batch of four. Two of the{' '}
+            {LESSONS_PER_GRADE} are assessments — one mid-course, one at the end — so you find out
+            whether it is working while there is still time to change something.
+          </p>
+
+          <ol className="space-y-2.5">
+            {syllabus.modules.map((m) => {
+              const tests = m.lessons.filter((l) => l.kind === 'test').length;
+              return (
+                <li key={m.num} className="card card--compact flex items-center gap-4">
+                  <span
+                    className="shrink-0 w-8 h-8 rounded-lg text-xs font-bold flex items-center justify-center tabular-nums"
+                    style={{ background: `${accent}12`, color: accent }}
+                  >
+                    {m.num}
+                  </span>
+                  <span className="flex-1 font-medium text-slate-800 text-[14.5px]">{m.title}</span>
+                  <span className="text-[12.5px] text-slate-500 tabular-nums shrink-0">
+                    {m.lessons.length - tests} lessons
+                    {tests > 0 && (
+                      <span
+                        className="inline-flex items-center gap-1 ml-2 font-semibold"
+                        style={{ color: accent }}
+                      >
+                        <ClipboardList className="w-3.5 h-3.5" />
+                        test
+                      </span>
+                    )}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      </section>
+
+      <section className="py-14 sm:py-20 bg-white border-t border-slate-100">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-2xl sm:text-[1.75rem] font-bold tracking-[-0.02em] text-slate-900 mb-2">What it builds</h2>
+          <p className="prose-measure text-slate-600 text-[15px] leading-[1.65] mb-7">
+            Every class feeds a capability on the Sariro map, so progress is measured as what you
+            can do — not how many lessons you sat through.
           </p>
 
           <div className="flex flex-wrap gap-2">
