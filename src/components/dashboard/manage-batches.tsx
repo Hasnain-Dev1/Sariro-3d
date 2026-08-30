@@ -101,7 +101,7 @@ export default function ManageBatchesModal({
       });
       const json = await res.json();
       if (json.ok) { onToast?.(okMsg); await load(); }
-      else onToast?.(json.error || 'Action failed', 'error');
+      else onToast?.(json.message || json.error || 'Action failed', 'error');
     } catch { onToast?.('Network error', 'error'); }
     finally { setBusy(false); }
   };

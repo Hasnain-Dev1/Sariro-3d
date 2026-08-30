@@ -193,7 +193,11 @@ export default function ScheduleBatchModal({
       });
       const json = await res.json();
       if (json.ok) { onCreated?.(); onClose(); }
-      else setErr(json.errors?.join(', ') || json.error || 'Could not create schedule.');
+      // `message` before `error`: the API sends a machine slug in `error`
+      // ("teacher_conflict", "student_conflict") and the human sentence in
+      // `message`. Reading only `error` showed admins the slug, which tells
+      // them something failed but not who, when, or what to do about it.
+      else setErr(json.errors?.join(', ') || json.message || json.error || 'Could not create schedule.');
     } catch {
       setErr('Network error. Try again.');
     } finally {
