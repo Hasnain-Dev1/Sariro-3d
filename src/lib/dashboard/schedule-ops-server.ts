@@ -118,3 +118,122 @@ export async function teacherHasConflict(
   const { count } = await query;
   return (count ?? 0) > 0;
 }
+
+/**
+ * The same test, for LEARNERS — which nothing checked until now.
+ *
+ * `teacherHasConflict` has always stopped a teacher being booked twice at once,
+ * but a student could be. That was survivable while Sariro sold one coding
+ * track per learner; it stopped being survivable when a child could take maths,
+ * physics and coding at the same time. Three separate enrolments, three separate
+ * schedulers, and nothing anywhere noticing they collide on a Tuesday at 17:30.
+ *
+ * The learner is not on `bookings` — they reach it through `enrollments`, so
+ * this is two hops: their active cohorts, then any overlapping booking in one.
+ *
+ * Returns the clashing cohorts rather than a bare boolean, because the useful
+ * admin message is "clashes with their Physics batch", not "conflict".
+ */
+export async function studentConflicts(
+  admin: ReturnType<typeof createServiceClient>,
+  studentId: string,
+  slotStart: string,
+  slotEnd: string,
+  opts?: { excludeCohortId?: string; excludeBookingId?: string }
+): Promise<{ bookingId: string; cohortId: string; slotStart: string; slotEnd: string }[]> {
+  const { data: enrolments } = await admin
+    .from('enrollments')
+    .select('cohort_id')
+    .eq('user_id', studentId)
+    .eq('status', 'active');
+
+  const cohortIds = (enrolments ?? [])
+    .map((e: { cohort_id: string | null }) => e.cohort_id)
+    .filter((id): id is string => !!id && id !== opts?.excludeCohortId);
+
+  if (cohortIds.length === 0) return [];
+
+  let query = admin
+    .from('bookings')
+    .select('id, cohort_id, slot_start, slot_end')
+    .in('cohort_id', cohortIds)
+    .in('status', ['scheduled', 'completed'])
+    .lt('slot_start', slotEnd)
+    .gt('slot_end', slotStart);
+  if (opts?.excludeBookingId) query = query.neq('id', opts.excludeBookingId);
+
+  const { data } = await query;
+  return (data ?? []).map((b: { id: string; cohort_id: string; slot_start: string; slot_end: string }) => ({
+    bookingId: b.id,
+    cohortId: b.cohort_id,
+    slotStart: b.slot_start,
+    slotEnd: b.slot_end,
+  }));
+}
+
+/**
+ * "Aarav and Meera" rather than two UUIDs. An admin fixing a clash needs to know
+ * WHO clashes — a message they cannot act on is the same as no message.
+ */
+export async function studentNamesFor(
+  admin: ReturnType<typeof createServiceClient>,
+  studentIds: string[]
+): Promise<string> {
+  if (studentIds.length === 0) return 'A student';
+  const { data } = await admin
+    .from('profiles')
+    .select('id, full_name')
+    .in('id', studentIds);
+
+  const names = (data ?? [])
+    .map((p: { full_name: string | null }) => p.full_name?.trim())
+    .filter((n): n is string => !!n);
+
+  if (names.length === 0) return studentIds.length === 1 ? 'A student' : `${studentIds.length} students`;
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+/**
+ * Every learner in a cohort who would be double-booked by a slot at this time.
+ *
+ * This is the one the schedulers want: they are placing a whole batch, not one
+ * child, so the question is "which of these kids already has something then?"
+ */
+export async function cohortStudentConflicts(
+  admin: ReturnType<typeof createServiceClient>,
+  cohortId: string,
+  slotStart: string,
+  slotEnd: string,
+  opts?: { excludeBookingId?: string }
+): Promise<{ studentId: string; clashingCohortIds: string[] }[]> {
+  const { data: roster } = await admin
+    .from('enrollments')
+    .select('user_id')
+    .eq('cohort_id', cohortId)
+    .eq('status', 'active');
+
+  const studentIds: string[] = [
+    ...new Set<string>(
+      (roster ?? [])
+        .map((r: { user_id: string | null }) => r.user_id)
+        .filter((id): id is string => !!id)
+    ),
+  ];
+
+  const clashes: { studentId: string; clashingCohortIds: string[] }[] = [];
+  for (const studentId of studentIds) {
+    const found = await studentConflicts(admin, studentId, slotStart, slotEnd, {
+      excludeCohortId: cohortId,
+      excludeBookingId: opts?.excludeBookingId,
+    });
+    if (found.length > 0) {
+      clashes.push({
+        studentId,
+        clashingCohortIds: [...new Set(found.map((f) => f.cohortId))],
+      });
+    }
+  }
+  return clashes;
+}

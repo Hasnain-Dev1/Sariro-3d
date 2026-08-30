@@ -3,7 +3,7 @@ import { createServerClientHelper, createServiceClient } from '@/lib/supabase/se
 import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import { generateOccurrences } from '@/lib/dashboard/schedule-generation';
-import { teacherHasConflict } from '@/lib/dashboard/schedule-ops-server';
+import { teacherHasConflict, cohortStudentConflicts, studentNamesFor } from '@/lib/dashboard/schedule-ops-server';
 
 /**
  * SARIRO — POST /api/admin/schedule
@@ -171,6 +171,25 @@ export async function POST(req: NextRequest) {
     if (await teacherHasConflict(admin, body.teacherId!, s.slotStart, s.slotEnd)) {
       return NextResponse.json(
         { ok: false, error: 'teacher_conflict', message: `This teacher already has another class scheduled at ${new Date(s.slotStart).toLocaleString()}.` },
+        { status: 409 }
+      );
+    }
+    // The learner side of the same question. A child taking maths, physics and
+    // coding has three enrolments and three schedulers, none of which used to
+    // know about the others — so they could be booked into two classes at once
+    // and only find out by missing one.
+    const clashes = await cohortStudentConflicts(admin, body.cohortId!, s.slotStart, s.slotEnd);
+    if (clashes.length > 0) {
+      const names = await studentNamesFor(admin, clashes.map((c) => c.studentId));
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'student_conflict',
+          message:
+            `${names} already ${clashes.length === 1 ? 'has' : 'have'} another class at ` +
+            `${new Date(s.slotStart).toLocaleString()}. Pick a different time, or remove them from this batch.`,
+          students: clashes,
+        },
         { status: 409 }
       );
     }

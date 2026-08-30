@@ -35,8 +35,9 @@ on the merged `/courses` page.
 |---|---|---|
 | 1 | **Class reminder** ("your class is in 30 min") | §9 calls it the highest-value thing not built. Nothing in the product runs on a timer. |
 | 2 | **Cloudflare in front** | TTFB ≈ 946 ms is the whole site's ceiling; this is config, not code. Bypass `/dashboard/*` and `/api/*`. |
-| 3 | **Student-side conflict check** | Only `teacherHasConflict` exists. A learner in maths + physics + coding can be double-booked. |
+| 3 | ~~Student-side conflict check~~ | **DONE** — `studentConflicts` / `cohortStudentConflicts` in `schedule-ops-server.ts`, wired into both `POST /api/admin/schedule` and `POST /api/schedule/reschedule`. Returns 409 `student_conflict` naming the learners. |
 | 4 | `/pricing` and `/events` copy | The last two marketing pages not swept for multi-subject framing. |
+| 5 | Surface `student_conflict` in the admin UI | The API returns it; the scheduling screens still only render the teacher-conflict message. |
 
 ---
 

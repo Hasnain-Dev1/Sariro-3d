@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
-import { resolveActor, cohortTimeline, teacherHasConflict } from '@/lib/dashboard/schedule-ops-server';
+import { resolveActor, cohortTimeline, teacherHasConflict, cohortStudentConflicts, studentNamesFor } from '@/lib/dashboard/schedule-ops-server';
 
 /**
  * SARIRO — POST /api/schedule/reschedule
@@ -100,6 +100,29 @@ export async function POST(req: NextRequest) {
   if (await teacherHasConflict(admin, booking.teacher_id, newStart.toISOString(), newEnd.toISOString(), { excludeBookingId: booking.id })) {
     return NextResponse.json(
       { ok: false, error: 'teacher_conflict', message: 'This teacher already has another class scheduled during that time.' },
+      { status: 409 }
+    );
+  }
+
+  // Same constraint for the learners. Rescheduling is where this bites hardest:
+  // a batch moved to "Tuesday 17:30 instead" can land on top of the physics
+  // class half the room already has, and nothing would have said so.
+  const studentClashes = await cohortStudentConflicts(
+    admin,
+    booking.cohort_id,
+    newStart.toISOString(),
+    newEnd.toISOString(),
+    { excludeBookingId: booking.id }
+  );
+  if (studentClashes.length > 0) {
+    const names = await studentNamesFor(admin, studentClashes.map((c) => c.studentId));
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'student_conflict',
+        message: `${names} already ${studentClashes.length === 1 ? 'has' : 'have'} another class during that time.`,
+        students: studentClashes,
+      },
       { status: 409 }
     );
   }
