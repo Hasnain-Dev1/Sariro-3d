@@ -69,9 +69,21 @@ export function normalizeLessonName(raw: string): string {
     .trim();
 }
 
-/** Syllabus `module_num` is a zero-padded string ("02"); structured is a number (2). */
+/**
+ * Syllabus `module_num` is a zero-padded string ("02"); structured is a number (2).
+ *
+ * The empty-string guard is not paranoia: `Number('')` and `Number('   ')` are
+ * both `0`, and `Number.isInteger(0)` is true — so without it, a blank or
+ * whitespace `module_num` resolved to "module 0" instead of being rejected.
+ * Module 0 does not exist, so it surfaced as an unresolved lesson rather than a
+ * wrong one, but "silently became a different module" is the exact class of bug
+ * this identity layer exists to prevent.
+ */
 export function parseModuleNum(moduleNum: string | number): number | null {
-  const n = typeof moduleNum === 'number' ? moduleNum : Number(moduleNum.trim());
+  if (typeof moduleNum === 'number') return Number.isInteger(moduleNum) ? moduleNum : null;
+  const trimmed = moduleNum.trim();
+  if (trimmed === '') return null;
+  const n = Number(trimmed);
   return Number.isInteger(n) ? n : null;
 }
 
