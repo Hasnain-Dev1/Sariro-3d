@@ -848,6 +848,1676 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
     ],
   },
+
+  /* ── Physics ──────────────────────────────────────────────────────────────
+   * Grades 9–12. Physics and Chemistry are offered from grade 7, but 9–12 is
+   * where the entrance-exam pressure sits and where parents pay for help — the
+   * grades a student either keeps or loses the subject in.
+   *
+   * Apostrophes are the typographic ’ (U+2019) rather than ', which is correct
+   * on the page and avoids escaping inside these single-quoted strings. There
+   * are a lot of them here: Newton, Ohm, Gauss, Faraday, Lenz, Kepler.
+   */
+
+  'physics:9': {
+    modules: [
+      {
+        title: 'Describing Motion',
+        lessons: [
+          'Distance and displacement, and why they differ',
+          'Speed and velocity',
+          'Acceleration',
+          'Reading a distance–time graph',
+          'Reading a velocity–time graph',
+          'The equations of motion',
+        ],
+      },
+      {
+        title: 'Forces and the Laws of Motion',
+        lessons: [
+          'What a force actually does',
+          'Balanced and unbalanced forces',
+          'Newton’s first law and inertia',
+          'Newton’s second law',
+          'Newton’s third law',
+          'Momentum, and why it is conserved',
+        ],
+      },
+      {
+        title: 'Gravitation, Pressure and Floating',
+        lessons: [
+          'The universal law of gravitation',
+          'Free fall and the acceleration due to gravity',
+          'Mass and weight — not the same thing',
+          'Motion under gravity',
+          'Thrust and pressure',
+          'Buoyancy, upthrust and why things float',
+        ],
+      },
+      {
+        title: 'Work, Energy and Power',
+        lessons: [
+          'When a force does work, and when it does not',
+          'Kinetic energy',
+          'Potential energy',
+          'Conservation of energy',
+          'Power, and the units we measure it in',
+        ],
+      },
+      {
+        title: 'Sound',
+        lessons: [
+          'How a sound wave travels',
+          'Wavelength, frequency and amplitude',
+          'The speed of sound in different materials',
+          'Reflection of sound, and echoes',
+          'The range of hearing, and ultrasound',
+          'SONAR and the human ear',
+        ],
+      },
+      {
+        title: 'Matter and Its States',
+        lessons: [
+          'The particle model of matter',
+          'States of matter, and how they change',
+          'Evaporation, and why it cools',
+          'Latent heat',
+          'Temperature scales and thermal expansion',
+          'Density, and how it is measured',
+        ],
+      },
+      {
+        title: 'Measurement and Experiment',
+        lessons: [
+          'Units, standards, and why they matter',
+          'Measuring length, mass and time accurately',
+          'Significant figures and estimation',
+          'Errors and uncertainty',
+          'Turning data into a graph',
+          'Designing a fair experiment',
+        ],
+      },
+      {
+        title: 'Physics at Work',
+        lessons: [
+          'Simple machines and mechanical advantage',
+          'Levers, pulleys and inclined planes',
+          'Friction: the useful and the wasteful',
+          'A first look at circular motion',
+          'Solving multi-step physics problems',
+        ],
+      },
+    ],
+  },
+
+  'physics:10': {
+    modules: [
+      {
+        title: 'Reflection and Mirrors',
+        lessons: [
+          'How light travels',
+          'The laws of reflection',
+          'Plane mirrors and the images they form',
+          'Concave and convex mirrors',
+          'The mirror formula and magnification',
+          'Where mirrors are used, and why',
+        ],
+      },
+      {
+        title: 'Refraction and Lenses',
+        lessons: [
+          'Why light bends',
+          'Refractive index and the laws of refraction',
+          'Convex and concave lenses',
+          'Image formation by lenses',
+          'The lens formula and the power of a lens',
+          'Total internal reflection and optical fibres',
+        ],
+      },
+      {
+        title: 'The Human Eye and Light in Nature',
+        lessons: [
+          'How the human eye focuses',
+          'Defects of vision, and the lenses that correct them',
+          'Dispersion and the spectrum',
+          'Scattering — why the sky is blue',
+          'Atmospheric refraction',
+          'The rainbow, explained',
+        ],
+      },
+      {
+        title: 'Electric Current',
+        lessons: [
+          'Charge and current — what is actually flowing',
+          'Potential difference and the cell',
+          'Ohm’s law',
+          'Resistance, and what it depends on',
+          'Resistors in series and in parallel',
+        ],
+      },
+      {
+        title: 'Effects of Electric Current',
+        lessons: [
+          'The heating effect of current',
+          'Electric power and electrical energy',
+          'The domestic circuit',
+          'Fuses, earthing and electrical safety',
+          'Working out your electricity bill',
+          'A reliable method for circuit problems',
+        ],
+      },
+      {
+        title: 'Magnetism and Electromagnetism',
+        lessons: [
+          'Magnets and magnetic field lines',
+          'The magnetic field around a current',
+          'Force on a current-carrying conductor',
+          'The electric motor',
+          'Electromagnetic induction',
+          'The generator, and AC versus DC',
+        ],
+      },
+      {
+        title: 'Energy and Its Sources',
+        lessons: [
+          'Conventional sources of energy',
+          'Thermal and hydroelectric power',
+          'Wind and solar, and their real limits',
+          'Nuclear energy',
+          'Choosing an energy source: the honest trade-offs',
+          'Efficiency and conservation',
+        ],
+      },
+      {
+        title: 'Preparing for the Board',
+        lessons: [
+          'Numerical problems across topics',
+          'Ray diagrams: getting them right every time',
+          'Circuit problems without slips',
+          'Writing a full experimental answer',
+          'Common traps, and how to spot them',
+        ],
+      },
+    ],
+  },
+
+  'physics:11': {
+    modules: [
+      {
+        title: 'Units, Measurement and Vectors',
+        lessons: [
+          'Physical quantities, units and dimensions',
+          'Dimensional analysis and what it can prove',
+          'Errors, precision and significant figures',
+          'Scalars and vectors',
+          'Adding and resolving vectors',
+          'Scalar and vector products',
+        ],
+      },
+      {
+        title: 'Motion in a Line and in a Plane',
+        lessons: [
+          'Position, displacement and instantaneous velocity',
+          'Acceleration, and the calculus behind it',
+          'Motion with uniform acceleration',
+          'Relative velocity',
+          'Projectile motion',
+          'Uniform circular motion',
+        ],
+      },
+      {
+        title: 'Laws of Motion',
+        lessons: [
+          'Newton’s laws, stated rigorously',
+          'Drawing a free-body diagram',
+          'Friction: static, kinetic and rolling',
+          'Dynamics of circular motion',
+          'Banking of roads',
+          'Impulse, momentum and collisions',
+        ],
+      },
+      {
+        title: 'Work, Energy and Power',
+        lessons: [
+          'Work done by a variable force',
+          'The work–energy theorem',
+          'Conservative and non-conservative forces',
+          'Potential energy and equilibrium',
+          'Elastic and inelastic collisions',
+        ],
+      },
+      {
+        title: 'Rotational Motion',
+        lessons: [
+          'Centre of mass',
+          'Torque and angular momentum',
+          'Moment of inertia',
+          'The parallel and perpendicular axis theorems',
+          'Rolling motion',
+          'Conservation of angular momentum',
+        ],
+      },
+      {
+        title: 'Gravitation and Properties of Matter',
+        lessons: [
+          'Gravitation and Kepler’s laws',
+          'Gravitational potential energy and escape velocity',
+          'Satellites and orbits',
+          'Elasticity: stress, strain and moduli',
+          'Fluid pressure — Pascal and Archimedes',
+          'Viscosity, surface tension and Bernoulli',
+        ],
+      },
+      {
+        title: 'Thermal Physics',
+        lessons: [
+          'Temperature, heat and thermal expansion',
+          'Calorimetry and change of state',
+          'Conduction, convection and radiation',
+          'The kinetic theory of gases',
+          'The first law of thermodynamics',
+          'The second law, and why no engine is perfect',
+        ],
+      },
+      {
+        title: 'Oscillations and Waves',
+        lessons: [
+          'Simple harmonic motion',
+          'The simple pendulum and spring systems',
+          'Wave motion and the wave equation',
+          'Superposition, standing waves and beats',
+          'The Doppler effect',
+        ],
+      },
+    ],
+  },
+
+  'physics:12': {
+    modules: [
+      {
+        title: 'Electrostatics',
+        lessons: [
+          'Electric charge and Coulomb’s law',
+          'The electric field',
+          'Field lines and electric dipoles',
+          'Gauss’s law',
+          'Applying Gauss’s law',
+          'Electric potential and equipotential surfaces',
+        ],
+      },
+      {
+        title: 'Capacitance and Current Electricity',
+        lessons: [
+          'Capacitors and capacitance',
+          'Combinations of capacitors',
+          'Energy stored in a capacitor',
+          'Current, drift velocity and resistivity',
+          'Kirchhoff’s rules',
+          'The Wheatstone bridge and the potentiometer',
+        ],
+      },
+      {
+        title: 'Magnetic Effects of Current',
+        lessons: [
+          'Magnetic force on a moving charge',
+          'The Biot–Savart law',
+          'Ampere’s circuital law',
+          'The solenoid and the toroid',
+          'Force between parallel conductors',
+          'Galvanometer, ammeter and voltmeter',
+        ],
+      },
+      {
+        title: 'Magnetism and Electromagnetic Induction',
+        lessons: [
+          'Magnetism and matter',
+          'Faraday’s law of induction',
+          'Lenz’s law and eddy currents',
+          'Self and mutual inductance',
+          'Motional EMF and the AC generator',
+        ],
+      },
+      {
+        title: 'Alternating Current and Electromagnetic Waves',
+        lessons: [
+          'AC voltage and current, and RMS values',
+          'AC through a resistor, inductor and capacitor',
+          'LCR circuits and resonance',
+          'Power in AC circuits, and the transformer',
+          'Displacement current and Maxwell’s equations',
+          'The electromagnetic spectrum',
+        ],
+      },
+      {
+        title: 'Ray and Wave Optics',
+        lessons: [
+          'Lens and mirror systems, revisited',
+          'Optical instruments: microscope and telescope',
+          'Huygens’ principle',
+          'Interference and Young’s double slit',
+          'Diffraction',
+          'Polarisation',
+        ],
+      },
+      {
+        title: 'Modern Physics',
+        lessons: [
+          'The photoelectric effect',
+          'Photons and the dual nature of radiation',
+          'Matter waves and de Broglie',
+          'Atomic models and the hydrogen spectrum',
+          'The nucleus, binding energy and radioactivity',
+          'Fission, fusion, and where the energy comes from',
+        ],
+      },
+      {
+        title: 'Semiconductors and Electronics',
+        lessons: [
+          'Conductors, insulators and semiconductors',
+          'The p–n junction and the diode',
+          'Rectifiers and special-purpose diodes',
+          'Transistors and how they act',
+          'Logic gates and digital electronics',
+        ],
+      },
+    ],
+  },
+
+  /* ── Chemistry ───────────────────────────────────────────────────────────
+   * Grades 9–12, same reasoning as Physics. Grade 12 organic is deliberately
+   * split across two modules rather than one dense block: it is the topic
+   * students give up on, and it is the reason the Organic Chemistry focus
+   * course exists as a separate product.
+   */
+
+  'chemistry:9': {
+    modules: [
+      {
+        title: 'Matter and Its Nature',
+        lessons: [
+          'What matter is, and how we know',
+          'States of matter and the particle model',
+          'Melting, boiling and change of state',
+          'Evaporation, and why it cools',
+          'Changing state with heat and pressure',
+          'Measuring matter: mass, volume and density',
+        ],
+      },
+      {
+        title: 'Pure Substances and Mixtures',
+        lessons: [
+          'Pure substances and mixtures — why the difference matters',
+          'Solutions, suspensions and colloids',
+          'Concentration of a solution',
+          'Separating mixtures: filtration and evaporation',
+          'Distillation and chromatography',
+          'Physical and chemical changes',
+        ],
+      },
+      {
+        title: 'Atoms and Molecules',
+        lessons: [
+          'The laws of chemical combination',
+          'Dalton’s atomic theory',
+          'Atomic mass and the mole',
+          'Molecules, ions and formulae',
+          'Writing and balancing chemical equations',
+          'Mole calculations in practice',
+        ],
+      },
+      {
+        title: 'Structure of the Atom',
+        lessons: [
+          'Discovering the electron and the proton',
+          'Rutherford’s experiment and the nucleus',
+          'Bohr’s model of the atom',
+          'Electronic configuration',
+          'Valency, atomic number and mass number',
+        ],
+      },
+      {
+        title: 'Isotopes and Classifying the Elements',
+        lessons: [
+          'Isotopes and isobars',
+          'What isotopes are used for',
+          'Early attempts to classify the elements',
+          'Mendeleev’s periodic table',
+          'The modern periodic law',
+          'Reading the periodic table as a map',
+        ],
+      },
+      {
+        title: 'Chemical Reactions',
+        lessons: [
+          'Types of chemical reaction',
+          'Combination and decomposition',
+          'Displacement and double displacement',
+          'A first look at oxidation and reduction',
+          'Corrosion and rancidity',
+          'Energy changes in a reaction',
+        ],
+      },
+      {
+        title: 'Acids, Bases and Salts',
+        lessons: [
+          'What makes an acid an acid',
+          'Bases and alkalis',
+          'The pH scale',
+          'Neutralisation, and where you meet it daily',
+          'Common salts and how they are made',
+          'Water of crystallisation',
+        ],
+      },
+      {
+        title: 'Chemistry in the World',
+        lessons: [
+          'Metals and non-metals',
+          'The reactivity series',
+          'An introduction to extracting metals',
+          'Carbon — the element that behaves differently',
+          'Working safely in a chemistry lab',
+        ],
+      },
+    ],
+  },
+
+  'chemistry:10': {
+    modules: [
+      {
+        title: 'Chemical Reactions and Equations',
+        lessons: [
+          'Recognising that a reaction has happened',
+          'Writing and balancing equations',
+          'Combination and decomposition reactions',
+          'Displacement and double displacement reactions',
+          'Oxidation and reduction',
+          'Corrosion, rancidity, and how to prevent them',
+        ],
+      },
+      {
+        title: 'Acids, Bases and Salts',
+        lessons: [
+          'Properties of acids and bases',
+          'How acids and bases react with metals',
+          'The pH scale and why it matters',
+          'Strong and weak acids',
+          'Preparing and using common salts',
+          'Hydrated salts and water of crystallisation',
+        ],
+      },
+      {
+        title: 'Metals and Non-Metals',
+        lessons: [
+          'Physical properties of metals and non-metals',
+          'Chemical properties of metals',
+          'The reactivity series',
+          'Ionic bonding and ionic compounds',
+          'Occurrence and extraction of metals',
+          'Alloys, and why we make them',
+        ],
+      },
+      {
+        title: 'Carbon and Its Compounds',
+        lessons: [
+          'Why carbon forms so many compounds',
+          'Covalent bonding',
+          'Saturated and unsaturated hydrocarbons',
+          'Isomerism, and naming carbon compounds',
+          'Functional groups and homologous series',
+        ],
+      },
+      {
+        title: 'Reactions of Carbon Compounds',
+        lessons: [
+          'Combustion and oxidation',
+          'Addition and substitution reactions',
+          'Ethanol: properties and uses',
+          'Ethanoic acid: properties and uses',
+          'Soaps and detergents',
+          'How soap actually cleans',
+        ],
+      },
+      {
+        title: 'Periodic Classification',
+        lessons: [
+          'Early classification: Dobereiner and Newlands',
+          'Mendeleev’s table, and the gaps he left',
+          'The modern periodic table',
+          'Trends in valency and atomic size',
+          'Metallic and non-metallic character',
+          'Predicting properties from position',
+        ],
+      },
+      {
+        title: 'Chemistry in Everyday Life',
+        lessons: [
+          'Chemicals in food and medicine',
+          'Cleaning agents and their chemistry',
+          'Fuels — what makes a good one',
+          'Air and water pollution, chemically',
+          'The chemistry of a sustainable choice',
+          'Reading a label like a chemist',
+        ],
+      },
+      {
+        title: 'Preparing for the Board',
+        lessons: [
+          'Balancing equations reliably',
+          'Naming organic compounds without slips',
+          'Predicting the products of a reaction',
+          'Writing a full experimental answer',
+          'Common traps, and how to spot them',
+        ],
+      },
+    ],
+  },
+
+  'chemistry:11': {
+    modules: [
+      {
+        title: 'Basic Concepts of Chemistry',
+        lessons: [
+          'Matter, measurement and significant figures',
+          'The laws of chemical combination',
+          'Atomic and molecular masses',
+          'The mole concept and molar mass',
+          'Percentage composition and empirical formulae',
+          'Stoichiometry and limiting reagents',
+        ],
+      },
+      {
+        title: 'Structure of the Atom',
+        lessons: [
+          'Subatomic particles and the early models',
+          'Bohr’s model, and where it breaks down',
+          'The quantum mechanical model',
+          'Quantum numbers and orbitals',
+          'Electronic configuration and the aufbau principle',
+          'Hund’s rule and the Pauli principle',
+        ],
+      },
+      {
+        title: 'Periodicity and Chemical Bonding',
+        lessons: [
+          'The logic of the modern periodic table',
+          'Periodic trends in properties',
+          'Ionic bonding and lattice energy',
+          'Covalent bonding and Lewis structures',
+          'VSEPR theory and molecular shape',
+          'Hybridisation and molecular orbital theory',
+        ],
+      },
+      {
+        title: 'States of Matter',
+        lessons: [
+          'Intermolecular forces',
+          'The gas laws and the ideal gas equation',
+          'Kinetic molecular theory of gases',
+          'Real gases, and how they deviate',
+          'The liquid state and its properties',
+        ],
+      },
+      {
+        title: 'Thermodynamics',
+        lessons: [
+          'System, surroundings and state functions',
+          'The first law of thermodynamics',
+          'Enthalpy and calorimetry',
+          'Hess’s law and enthalpies of reaction',
+          'Entropy and spontaneity',
+          'Gibbs free energy',
+        ],
+      },
+      {
+        title: 'Equilibrium',
+        lessons: [
+          'Reversible reactions and dynamic equilibrium',
+          'The equilibrium constant',
+          'Le Chatelier’s principle',
+          'Ionic equilibrium in solution',
+          'pH, buffers and hydrolysis',
+          'Solubility product',
+        ],
+      },
+      {
+        title: 'Redox and the Foundations of Organic Chemistry',
+        lessons: [
+          'Oxidation number and redox reactions',
+          'Balancing redox equations',
+          'Classifying and naming organic compounds',
+          'Isomerism in organic chemistry',
+          'Inductive and resonance effects',
+          'Reaction intermediates and mechanisms',
+        ],
+      },
+      {
+        title: 'Hydrocarbons',
+        lessons: [
+          'Alkanes: preparation and reactions',
+          'Alkenes: preparation and reactions',
+          'Alkynes: preparation and reactions',
+          'Aromatic hydrocarbons and benzene',
+          'Hydrocarbon pollution and cleaner fuels',
+        ],
+      },
+    ],
+  },
+
+  'chemistry:12': {
+    modules: [
+      {
+        title: 'Solutions and Colligative Properties',
+        lessons: [
+          'Types of solution, and ways to state concentration',
+          'Solubility and Henry’s law',
+          'Raoult’s law and vapour pressure',
+          'The colligative properties',
+          'Finding molar mass from a colligative property',
+          'Abnormal molar mass and the van’t Hoff factor',
+        ],
+      },
+      {
+        title: 'Electrochemistry',
+        lessons: [
+          'Redox reactions, revisited',
+          'Galvanic cells and electrode potential',
+          'The Nernst equation',
+          'Conductance in electrolytic solutions',
+          'Electrolysis and Faraday’s laws',
+          'Batteries, fuel cells and corrosion',
+        ],
+      },
+      {
+        title: 'Chemical Kinetics and Surface Chemistry',
+        lessons: [
+          'Rate of reaction and the rate law',
+          'Order and molecularity',
+          'Integrated rate equations',
+          'Temperature dependence and the Arrhenius equation',
+          'Catalysis and activation energy',
+          'Adsorption, colloids and emulsions',
+        ],
+      },
+      {
+        title: 'The d- and f-Block Elements',
+        lessons: [
+          'General properties of the transition elements',
+          'Variable oxidation states, and where colour comes from',
+          'Magnetic and catalytic behaviour',
+          'Important compounds of the transition metals',
+          'Lanthanoids and actinoids',
+        ],
+      },
+      {
+        title: 'Coordination Compounds',
+        lessons: [
+          'Ligands, coordination number and nomenclature',
+          'Werner’s theory',
+          'Isomerism in coordination compounds',
+          'Valence bond theory',
+          'Crystal field theory, and the origin of colour',
+          'Coordination compounds in life and industry',
+        ],
+      },
+      {
+        title: 'Haloalkanes, Alcohols and Ethers',
+        lessons: [
+          'Haloalkanes and haloarenes: preparation',
+          'Substitution and elimination mechanisms',
+          'Alcohols: preparation and properties',
+          'Phenols, and what makes them different',
+          'Ethers: preparation and reactions',
+          'Distinguishing tests you can rely on',
+        ],
+      },
+      {
+        title: 'Carbonyl Compounds and Amines',
+        lessons: [
+          'Aldehydes and ketones: preparation',
+          'Nucleophilic addition reactions',
+          'Carboxylic acids and their derivatives',
+          'Amines: preparation and basicity',
+          'Diazonium salts and what they are for',
+          'The named reactions worth knowing cold',
+        ],
+      },
+      {
+        title: 'Biomolecules and Applied Chemistry',
+        lessons: [
+          'Carbohydrates',
+          'Proteins and enzymes',
+          'Nucleic acids and vitamins',
+          'Polymers and how they are classified',
+          'Chemistry in medicine, food and materials',
+        ],
+      },
+    ],
+  },
+
+  /* ── Biology ─────────────────────────────────────────────────────────────
+   * Grades 9–12. The third exam subject, and the one medical entrance exams
+   * are built on — which is why 11 and 12 lean harder on human physiology and
+   * molecular genetics than a general science course would.
+   */
+
+  'biology:9': {
+    modules: [
+      {
+        title: 'The Cell — The Unit of Life',
+        lessons: [
+          'Discovering the cell',
+          'The cell membrane, and what crosses it',
+          'The nucleus and the cytoplasm',
+          'Cell organelles and the jobs they do',
+          'Plant cells and animal cells compared',
+          'Cell division: mitosis and meiosis',
+        ],
+      },
+      {
+        title: 'Tissues',
+        lessons: [
+          'Why a multicellular body needs tissues',
+          'Plant tissues: meristematic and permanent',
+          'Simple and complex plant tissues',
+          'Animal tissues: epithelial and connective',
+          'Muscular and nervous tissue',
+          'How plants and animals organise tissue differently',
+        ],
+      },
+      {
+        title: 'Diversity of Living Organisms',
+        lessons: [
+          'Why we classify living things',
+          'The hierarchy of classification',
+          'Monera, Protista and Fungi',
+          'Plantae: from algae to angiosperms',
+          'The invertebrate phyla',
+          'Vertebrates and their classes',
+        ],
+      },
+      {
+        title: 'Health and Disease',
+        lessons: [
+          'What health actually means',
+          'Infectious and non-infectious disease',
+          'Disease-causing agents, and how they spread',
+          'Prevention: hygiene, nutrition and immunisation',
+          'Common diseases and their treatment',
+        ],
+      },
+      {
+        title: 'Natural Resources',
+        lessons: [
+          'Air, water and soil as resources',
+          'What the atmosphere does',
+          'The water cycle',
+          'The carbon and nitrogen cycles',
+          'Pollution and its effects',
+          'The ozone layer',
+        ],
+      },
+      {
+        title: 'Improving Food Resources',
+        lessons: [
+          'Why food production has to improve',
+          'Crop variety improvement',
+          'Crop production management',
+          'Crop protection and pest management',
+          'Animal husbandry',
+          'Fisheries and beekeeping',
+        ],
+      },
+      {
+        title: 'Life Processes — An Introduction',
+        lessons: [
+          'What makes something alive',
+          'Nutrition in plants and animals',
+          'Respiration',
+          'Transport in living things',
+          'Excretion',
+          'Control and coordination',
+        ],
+      },
+      {
+        title: 'Working as a Biologist',
+        lessons: [
+          'Using a microscope properly',
+          'Preparing and staining a slide',
+          'Drawing what you actually see',
+          'Designing a biological experiment',
+          'Reading data and drawing a conclusion',
+        ],
+      },
+    ],
+  },
+
+  'biology:10': {
+    modules: [
+      {
+        title: 'Nutrition and Respiration',
+        lessons: [
+          'Autotrophic nutrition and photosynthesis',
+          'Heterotrophic nutrition',
+          'The human digestive system',
+          'Aerobic and anaerobic respiration',
+          'The human respiratory system',
+          'Gas exchange in plants',
+        ],
+      },
+      {
+        title: 'Transport and Excretion',
+        lessons: [
+          'Blood and its components',
+          'The human heart and circulation',
+          'Blood vessels and blood pressure',
+          'Transport in plants: xylem and phloem',
+          'Excretion in humans, and the kidney',
+          'Excretion in plants',
+        ],
+      },
+      {
+        title: 'Control and Coordination',
+        lessons: [
+          'The nervous system and the neuron',
+          'Reflex action and the reflex arc',
+          'The human brain',
+          'Hormones in animals',
+          'Coordination in plants: tropisms',
+          'Plant hormones',
+        ],
+      },
+      {
+        title: 'Reproduction',
+        lessons: [
+          'Why organisms reproduce',
+          'Asexual reproduction',
+          'Sexual reproduction in flowering plants',
+          'The human reproductive system',
+          'Reproductive health',
+        ],
+      },
+      {
+        title: 'Heredity',
+        lessons: [
+          'Inherited traits and acquired traits',
+          'Mendel’s experiments',
+          'Monohybrid and dihybrid crosses',
+          'The rules of inheritance',
+          'Sex determination',
+          'Genes, chromosomes and DNA',
+        ],
+      },
+      {
+        title: 'Evolution',
+        lessons: [
+          'Variation, and why it matters',
+          'Natural selection',
+          'Speciation',
+          'Fossils as evidence',
+          'Homologous and analogous organs',
+          'Human evolution',
+        ],
+      },
+      {
+        title: 'Our Environment',
+        lessons: [
+          'Ecosystems and their components',
+          'Food chains and food webs',
+          'Energy flow through an ecosystem',
+          'Ozone depletion',
+          'Waste management',
+          'Biodegradable and non-biodegradable waste',
+        ],
+      },
+      {
+        title: 'Managing Natural Resources',
+        lessons: [
+          'Why resources need managing at all',
+          'Forests and wildlife',
+          'Water harvesting and dams',
+          'Coal and petroleum',
+          'Sustainable development in practice',
+        ],
+      },
+    ],
+  },
+
+  'biology:11': {
+    modules: [
+      {
+        title: 'The Living World and Classification',
+        lessons: [
+          'What is living, and how we define it',
+          'Taxonomic categories and nomenclature',
+          'The five kingdoms',
+          'Monera, Protista and Fungi',
+          'Viruses, viroids and lichens',
+          'Taxonomical aids: herbaria and museums',
+        ],
+      },
+      {
+        title: 'Plant and Animal Diversity',
+        lessons: [
+          'Algae, bryophytes and pteridophytes',
+          'Gymnosperms and angiosperms',
+          'Plant life cycles and alternation of generations',
+          'The basis of animal classification',
+          'The invertebrate phyla',
+          'Phylum Chordata and its classes',
+        ],
+      },
+      {
+        title: 'Structural Organisation',
+        lessons: [
+          'Morphology of a flowering plant',
+          'Anatomy of root, stem and leaf',
+          'Inflorescence, flower, fruit and seed',
+          'How to describe a plant family',
+          'Animal tissues',
+          'Organisation in earthworm, cockroach and frog',
+        ],
+      },
+      {
+        title: 'Cell Structure and Function',
+        lessons: [
+          'The cell theory, and types of cell',
+          'The cell membrane and the cell wall',
+          'Cell organelles in detail',
+          'The nucleus and the chromosomes',
+          'The cell cycle, mitosis and meiosis',
+        ],
+      },
+      {
+        title: 'Biomolecules and Enzymes',
+        lessons: [
+          'Carbohydrates and lipids',
+          'Proteins and amino acids',
+          'Nucleic acids',
+          'Enzymes and their properties',
+          'Enzyme action and inhibition',
+          'Metabolic pathways',
+        ],
+      },
+      {
+        title: 'Plant Physiology',
+        lessons: [
+          'Transport in plants',
+          'Mineral nutrition',
+          'Photosynthesis in higher plants',
+          'Respiration in plants',
+          'Plant growth and development',
+          'Plant growth regulators',
+        ],
+      },
+      {
+        title: 'Human Physiology I',
+        lessons: [
+          'Digestion and absorption',
+          'Breathing and the exchange of gases',
+          'Body fluids and circulation',
+          'Excretory products and their elimination',
+          'The kidney and osmoregulation',
+          'Disorders of these systems',
+        ],
+      },
+      {
+        title: 'Human Physiology II',
+        lessons: [
+          'Locomotion and movement',
+          'The skeletal and muscular systems',
+          'Neural control and coordination',
+          'The endocrine system',
+          'Homeostasis: the systems working together',
+        ],
+      },
+    ],
+  },
+
+  'biology:12': {
+    modules: [
+      {
+        title: 'Reproduction in Organisms and Plants',
+        lessons: [
+          'Modes of reproduction',
+          'Sexual reproduction in flowering plants',
+          'Pre-fertilisation structures and events',
+          'Pollination and its agents',
+          'Double fertilisation, and what follows it',
+          'Apomixis and polyembryony',
+        ],
+      },
+      {
+        title: 'Human Reproduction',
+        lessons: [
+          'The male reproductive system',
+          'The female reproductive system',
+          'Gametogenesis',
+          'The menstrual cycle',
+          'Fertilisation, implantation and pregnancy',
+          'Parturition and lactation',
+        ],
+      },
+      {
+        title: 'Reproductive Health',
+        lessons: [
+          'Reproductive health, and what threatens it',
+          'Population and birth control',
+          'Medical termination of pregnancy',
+          'Sexually transmitted infections',
+          'Infertility and assisted reproduction',
+          'Amniocentesis, and its misuse',
+        ],
+      },
+      {
+        title: 'Principles of Inheritance',
+        lessons: [
+          'Mendel’s laws, revisited',
+          'Deviations from Mendelism',
+          'The chromosomal theory of inheritance',
+          'Linkage and recombination',
+          'Sex determination and mutation',
+        ],
+      },
+      {
+        title: 'Molecular Basis of Inheritance',
+        lessons: [
+          'How we learned DNA is the genetic material',
+          'The structure of DNA and RNA',
+          'DNA replication',
+          'Transcription',
+          'The genetic code and translation',
+          'Gene regulation and the Human Genome Project',
+        ],
+      },
+      {
+        title: 'Evolution',
+        lessons: [
+          'The origin of life',
+          'The evidence for evolution',
+          'Darwin and natural selection',
+          'Hardy–Weinberg equilibrium',
+          'Adaptive radiation and speciation',
+          'Human evolution',
+        ],
+      },
+      {
+        title: 'Human Welfare and Biotechnology',
+        lessons: [
+          'Human health and disease',
+          'Immunity and vaccines',
+          'Microbes in human welfare',
+          'The principles and tools of biotechnology',
+          'Recombinant DNA technology',
+          'Biotechnology in agriculture and medicine',
+        ],
+      },
+      {
+        title: 'Ecology and Environment',
+        lessons: [
+          'Organisms and populations',
+          'Ecosystem structure and function',
+          'Ecological succession and nutrient cycling',
+          'Biodiversity and conservation',
+          'Environmental issues, and what actually works',
+        ],
+      },
+    ],
+  },
+
+  /* ── Physics and Chemistry, grades 7–8 ───────────────────────────────────
+   * The years school first splits Science into named subjects. Pitched as
+   * explanation rather than formula: at this age the job is to make the
+   * subject feel knowable, because grade 9 is where students who found it
+   * alien quietly decide they are "not a science person".
+   */
+
+  'physics:7': {
+    modules: [
+      {
+        title: 'Motion and Time',
+        lessons: [
+          'What it means for something to move',
+          'Fast and slow: comparing motion',
+          'Measuring speed',
+          'Measuring time, and the simple pendulum',
+          'Distance–time graphs',
+          'Types of motion in the world around you',
+        ],
+      },
+      {
+        title: 'Forces and Their Effects',
+        lessons: [
+          'What a force can do',
+          'Push, pull, and forces in contact',
+          'Forces that act at a distance',
+          'Friction: helpful and unhelpful',
+          'Reducing and increasing friction',
+          'Pressure, and why it depends on area',
+        ],
+      },
+      {
+        title: 'Heat',
+        lessons: [
+          'Hot, cold, and what temperature measures',
+          'Thermometers and how to read them',
+          'Conduction',
+          'Convection',
+          'Radiation',
+          'Keeping heat in and out: clothes and buildings',
+        ],
+      },
+      {
+        title: 'Light',
+        lessons: [
+          'How light travels, and how we see',
+          'Reflection from a plane mirror',
+          'Images in a plane mirror',
+          'Curved mirrors and what they do',
+          'Lenses, and the images they make',
+        ],
+      },
+      {
+        title: 'Electricity and Magnetism',
+        lessons: [
+          'Electric circuits and circuit symbols',
+          'The heating effect of current',
+          'The magnetic effect of current',
+          'Electromagnets and where they are used',
+          'The electric bell',
+          'Staying safe with electricity',
+        ],
+      },
+      {
+        title: 'Sound',
+        lessons: [
+          'How sound is produced',
+          'How sound travels, and what it needs',
+          'Loudness and pitch',
+          'How we hear',
+          'Noise, and what it does to us',
+          'Sound in music and in nature',
+        ],
+      },
+      {
+        title: 'Weather, Air and Water',
+        lessons: [
+          'Air, wind, and why air moves',
+          'Air pressure in everyday life',
+          'Storms, cyclones and how they form',
+          'Weather and climate',
+          'The water cycle',
+          'Water as a resource under pressure',
+        ],
+      },
+      {
+        title: 'Measuring and Investigating',
+        lessons: [
+          'Choosing the right instrument',
+          'Reading a scale without error',
+          'Recording results in a table',
+          'Drawing a graph from your own data',
+          'Asking a question science can answer',
+        ],
+      },
+    ],
+  },
+
+  'physics:8': {
+    modules: [
+      {
+        title: 'Force and Pressure',
+        lessons: [
+          'Force as a push or a pull, revisited',
+          'Contact and non-contact forces',
+          'Pressure exerted by solids',
+          'Pressure in liquids',
+          'Atmospheric pressure',
+          'Solving simple pressure problems',
+        ],
+      },
+      {
+        title: 'Friction',
+        lessons: [
+          'What causes friction',
+          'Static, sliding and rolling friction',
+          'Friction as a necessary evil',
+          'Increasing and reducing friction',
+          'Fluid friction and drag',
+          'Streamlining in nature and design',
+        ],
+      },
+      {
+        title: 'Sound',
+        lessons: [
+          'Sound produced by vibration',
+          'Sound needs a medium',
+          'Amplitude, frequency and time period',
+          'Loudness and pitch, quantified',
+          'The human ear and audible range',
+          'Noise pollution and how to reduce it',
+        ],
+      },
+      {
+        title: 'Electricity and Its Effects',
+        lessons: [
+          'Conductors and insulators of electricity',
+          'Chemical effects of electric current',
+          'Electroplating and where it is used',
+          'Lightning and electric charge',
+          'Earthquakes, and measuring their energy',
+        ],
+      },
+      {
+        title: 'Light and Vision',
+        lessons: [
+          'Laws of reflection',
+          'Regular and diffused reflection',
+          'Multiple reflection and the kaleidoscope',
+          'Dispersion: splitting white light',
+          'The human eye and how it focuses',
+          'Caring for your eyes, and Braille',
+        ],
+      },
+      {
+        title: 'Stars and the Solar System',
+        lessons: [
+          'The moon and its phases',
+          'Stars and constellations',
+          'The planets of the solar system',
+          'Other members: asteroids, meteors and comets',
+          'Artificial satellites and what they do',
+          'Why we study the sky at all',
+        ],
+      },
+      {
+        title: 'Chemical Effects and Materials',
+        lessons: [
+          'Synthetic fibres and how they are made',
+          'Plastics, and the problem with them',
+          'Metals and non-metals in physical terms',
+          'Combustion and flame',
+          'Fuels and their calorific value',
+          'Air pollution and its causes',
+        ],
+      },
+      {
+        title: 'Investigating Like a Physicist',
+        lessons: [
+          'Turning an observation into a question',
+          'Controlling one variable at a time',
+          'Measuring carefully and repeating',
+          'Presenting results honestly',
+          'Explaining a result you did not expect',
+        ],
+      },
+    ],
+  },
+
+  'chemistry:7': {
+    modules: [
+      {
+        title: 'Matter Around Us',
+        lessons: [
+          'Everything is made of something',
+          'Solids, liquids and gases',
+          'Changing state',
+          'Pure substances and mixtures',
+          'Separating mixtures at home and in the lab',
+          'Solutions, and what dissolves in what',
+        ],
+      },
+      {
+        title: 'Physical and Chemical Change',
+        lessons: [
+          'Telling a physical change from a chemical one',
+          'Signs that a chemical change has happened',
+          'Rusting, and how to prevent it',
+          'Crystallisation',
+          'Reversible and irreversible change',
+          'Chemical change in the kitchen',
+        ],
+      },
+      {
+        title: 'Acids, Bases and Salts',
+        lessons: [
+          'What acids are, and where you meet them',
+          'Bases and their properties',
+          'Natural indicators',
+          'Neutralisation',
+          'Neutralisation in everyday life',
+          'Making and using common salts',
+        ],
+      },
+      {
+        title: 'Fibres and Materials',
+        lessons: [
+          'Natural fibres: cotton, wool and silk',
+          'From fibre to fabric',
+          'Synthetic fibres',
+          'Choosing the right material for a job',
+          'Materials and the environment',
+        ],
+      },
+      {
+        title: 'Heat, Fire and Fuels',
+        lessons: [
+          'What burning actually is',
+          'Conditions needed for combustion',
+          'Types of flame',
+          'Fuels and how they compare',
+          'Putting out a fire safely',
+          'The cost of burning fuel',
+        ],
+      },
+      {
+        title: 'Water and Air',
+        lessons: [
+          'Water as a chemical substance',
+          'Hard and soft water',
+          'Water purification',
+          'What air is made of',
+          'Oxygen and the things that need it',
+          'Air pollution, chemically explained',
+        ],
+      },
+      {
+        title: 'Soil, Plants and Chemistry',
+        lessons: [
+          'What soil is made of',
+          'Soil profile and soil types',
+          'Nutrients plants take from soil',
+          'Fertilisers and manures',
+          'Photosynthesis as a chemical reaction',
+          'Respiration as a chemical reaction',
+        ],
+      },
+      {
+        title: 'Working Safely and Carefully',
+        lessons: [
+          'Lab rules, and the reasons behind them',
+          'Handling chemicals and heat',
+          'Measuring volume and mass accurately',
+          'Recording an experiment properly',
+          'Reading a hazard label',
+        ],
+      },
+    ],
+  },
+
+  'chemistry:8': {
+    modules: [
+      {
+        title: 'Synthetic Materials',
+        lessons: [
+          'Synthetic fibres and how they are made',
+          'Types of synthetic fibre and their uses',
+          'Plastics, and why they behave as they do',
+          'Thermoplastics and thermosetting plastics',
+          'Plastics and the environment',
+          'Choosing a material responsibly',
+        ],
+      },
+      {
+        title: 'Metals and Non-Metals',
+        lessons: [
+          'Physical properties of metals',
+          'Physical properties of non-metals',
+          'Chemical properties of metals',
+          'Reactions with acids, bases and water',
+          'Displacement reactions',
+          'Metals and non-metals in daily life',
+        ],
+      },
+      {
+        title: 'Coal, Petroleum and Combustion',
+        lessons: [
+          'How coal and petroleum formed',
+          'Refining petroleum',
+          'Natural gas and its uses',
+          'Exhaustible and inexhaustible resources',
+          'Combustion, and what it needs',
+          'Calorific value and choosing a fuel',
+        ],
+      },
+      {
+        title: 'Air, Fire and Pollution',
+        lessons: [
+          'Types of flame and their structure',
+          'Fire control, and the science of it',
+          'Air pollutants and their sources',
+          'Acid rain',
+          'The greenhouse effect, chemically',
+        ],
+      },
+      {
+        title: 'Chemistry of the Cell and the Kitchen',
+        lessons: [
+          'Micro-organisms and what they do chemically',
+          'Fermentation',
+          'Food preservation',
+          'Nitrogen fixation and the nitrogen cycle',
+          'Food spoilage, and how to slow it',
+          'Reading a food label chemically',
+        ],
+      },
+      {
+        title: 'Crop Chemistry and Soil',
+        lessons: [
+          'Nutrients a crop needs',
+          'Manure and fertiliser compared',
+          'Irrigation and water chemistry',
+          'Weedicides and pesticides',
+          'Soil health and what damages it',
+          'Sustainable farming, chemically',
+        ],
+      },
+      {
+        title: 'Chemical Reactions and Change',
+        lessons: [
+          'Recognising a chemical reaction',
+          'Word equations',
+          'Combination and decomposition',
+          'Oxidation in everyday life',
+          'Neutralisation revisited',
+          'Predicting whether a reaction will happen',
+        ],
+      },
+      {
+        title: 'Investigating Like a Chemist',
+        lessons: [
+          'Framing a testable question',
+          'Setting up a controlled test',
+          'Observing and recording accurately',
+          'Drawing a conclusion from evidence',
+          'Explaining an unexpected result',
+        ],
+      },
+    ],
+  },
+
+  /* Biology 7–8 completes the third science across every grade it is offered. */
+
+  'biology:7': {
+    modules: [
+      {
+        title: 'Nutrition in Plants',
+        lessons: [
+          'How plants make their own food',
+          'Photosynthesis: what goes in',
+          'Photosynthesis: what comes out',
+          'Other ways plants get nutrition',
+          'Parasites, saprotrophs and insectivorous plants',
+          'How nutrients get back into the soil',
+        ],
+      },
+      {
+        title: 'Nutrition in Animals',
+        lessons: [
+          'The different ways animals feed',
+          'The human digestive system',
+          'Digestion in the mouth and the stomach',
+          'Absorption in the small intestine',
+          'Digestion in grass-eating animals',
+          'Feeding in single-celled organisms',
+        ],
+      },
+      {
+        title: 'Respiration in Organisms',
+        lessons: [
+          'Why every living thing respires',
+          'Aerobic and anaerobic respiration',
+          'Breathing in humans',
+          'Breathing in other animals',
+          'Respiration in plants',
+          'What happens when you exercise',
+        ],
+      },
+      {
+        title: 'Transport in Plants and Animals',
+        lessons: [
+          'Why a body needs a transport system',
+          'Blood and the circulatory system',
+          'The heart',
+          'How water moves up a plant',
+          'How food moves through a plant',
+        ],
+      },
+      {
+        title: 'Reproduction in Plants',
+        lessons: [
+          'Modes of reproduction in plants',
+          'Vegetative propagation',
+          'The parts of a flower',
+          'Pollination',
+          'Fertilisation and seed formation',
+          'Seed dispersal',
+        ],
+      },
+      {
+        title: 'Weather, Climate and Adaptation',
+        lessons: [
+          'Weather, and how we measure it',
+          'Climate, and how it differs from weather',
+          'Adaptations to the polar regions',
+          'Adaptations to the rainforest',
+          'Animals and their habitats',
+          'Migration, and why animals do it',
+        ],
+      },
+      {
+        title: 'Forests, Soil and Water',
+        lessons: [
+          'Forests as ecosystems',
+          'Why forests matter beyond timber',
+          'Soil, and what lives in it',
+          'Water as a scarce resource',
+          'Wastewater and how it is treated',
+          'Sanitation and health',
+        ],
+      },
+      {
+        title: 'Studying Living Things',
+        lessons: [
+          'Observing with a hand lens and a microscope',
+          'Keeping a field notebook',
+          'Classifying what you find',
+          'Designing a simple biology experiment',
+          'Presenting biological data',
+        ],
+      },
+    ],
+  },
+
+  'biology:8': {
+    modules: [
+      {
+        title: 'Crop Production and Management',
+        lessons: [
+          'Agricultural practices, and why they matter',
+          'Preparing the soil',
+          'Sowing, and choosing good seed',
+          'Manure and fertilisers',
+          'Irrigation, weeding and harvesting',
+          'Storage, and food from animals',
+        ],
+      },
+      {
+        title: 'Microorganisms',
+        lessons: [
+          'The world too small to see',
+          'Bacteria, fungi, protozoa and algae',
+          'Microorganisms that help us',
+          'Antibiotics and vaccines',
+          'Harmful microorganisms and disease',
+          'Food preservation and nitrogen fixation',
+        ],
+      },
+      {
+        title: 'The Cell',
+        lessons: [
+          'Discovering the cell',
+          'Cell shape, size and number',
+          'The structure of a cell',
+          'The nucleus and the organelles',
+          'Plant cells and animal cells compared',
+          'Looking at real cells under a microscope',
+        ],
+      },
+      {
+        title: 'Reproduction in Animals',
+        lessons: [
+          'Sexual and asexual reproduction',
+          'Male and female reproductive organs',
+          'Fertilisation, internal and external',
+          'Development of the embryo',
+          'Metamorphosis, and asexual reproduction in animals',
+        ],
+      },
+      {
+        title: 'Reaching Adolescence',
+        lessons: [
+          'The changes of adolescence',
+          'Secondary sexual characters',
+          'What hormones do',
+          'The reproductive phase of life',
+          'Hormones in other life processes',
+          'Nutrition, hygiene and health at this age',
+        ],
+      },
+      {
+        title: 'Conservation of Plants and Animals',
+        lessons: [
+          'Deforestation and its causes',
+          'What deforestation leads to',
+          'Biodiversity, and why it matters',
+          'Sanctuaries and national parks',
+          'Endangered species and extinction',
+          'Recycling paper, and replanting forests',
+        ],
+      },
+      {
+        title: 'Pollution and the Environment',
+        lessons: [
+          'Air pollution and where it comes from',
+          'The greenhouse effect and global warming',
+          'Water pollution',
+          'Potable water, and how we get it',
+          'What one person can actually change',
+          'Reading environmental data honestly',
+        ],
+      },
+      {
+        title: 'Doing Biology Well',
+        lessons: [
+          'Preparing a slide and observing it',
+          'Recording observations accurately',
+          'Drawing biological diagrams',
+          'Designing a controlled biological test',
+          'Explaining a result with evidence',
+        ],
+      },
+    ],
+  },
 };
 
 export function buildGradeSyllabus(subjectSlug: string, grade: number): GradeSyllabus {
