@@ -335,7 +335,16 @@ un-attribute them.**
 - **Tests exist now — 43 of them.** `npm test`. See §16. `mastery.ts` and
   `identity.ts` are still uncovered and are the next two worth doing.
 - Nav is 12 items. Merging Explore/Courses (§0.3) helps.
-- `prisma@8.0.0-rc.12` is in dependencies — a release candidate.
+- **Prisma is unused scaffolding.** `src/lib/db.ts` exports a `PrismaClient` that
+  **nothing imports** — the app is Supabase throughout. `prisma/schema.prisma`
+  still carries `User` and `Post` models from a Next.js starter alongside the
+  real ones.
+  The RC has been dealt with: the CLI was `^8.0.0-rc.12` while the client was
+  `^7.10.0` — a release candidate *and* a major-version mismatch. Pinned to
+  `^7.10.0` to match the client, which removed 353 packages.
+  **Still open, and a founder call:** delete Prisma entirely, or keep the schema
+  as documentation of the DB shape? It is dead weight either way, but the schema
+  does partly describe real tables.
 
 ---
 
