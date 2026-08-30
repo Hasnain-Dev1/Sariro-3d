@@ -1,5 +1,28 @@
 import type { NextConfig } from "next";
 import { CSP } from "./src/lib/security/csp";
+import { execSync } from "node:child_process";
+
+/**
+ * Stamp the build so the running server can say WHICH build it is.
+ *
+ * A deploy that pulls new source and restarts the process serves the same
+ * compiled app unless `next build` actually runs — see src/lib/build-info.ts.
+ * These two values change only when a build happens, which makes
+ * `/api/health` able to answer "did my deploy take?" in one request.
+ *
+ * Wrapped in try/catch because a build host may have no git history (a shallow
+ * clone or an uploaded tarball). Losing the commit is fine; the timestamp alone
+ * still answers the question.
+ */
+function gitCommit(): string {
+  try {
+    return execSync("git rev-parse --short HEAD", { stdio: ["ignore", "pipe", "ignore"] })
+      .toString()
+      .trim();
+  } catch {
+    return "unknown";
+  }
+}
 
 /**
  * SARIRO — Production security headers
@@ -50,6 +73,10 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  env: {
+    NEXT_PUBLIC_BUILD_COMMIT: gitCommit(),
+    NEXT_PUBLIC_BUILD_TIME: new Date().toISOString(),
+  },
   typescript: {
     // Was `true`, which meant `next build` did not type-check at all — a type
     // error could reach production and the build would cheerfully say nothing.

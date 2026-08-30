@@ -6,32 +6,65 @@
 
 ---
 
-## 0. REDEPLOY FIRST — nothing below works without it
+## 0. THE DEPLOY IS NOT REBUILDING — fix this first
 
-Checked 30 Aug 2026: **sariro.com is running old code.** The homepage still
-titles itself "AI & Technology Education", the nav still has Explore + Subjects,
-`/subjects` still returns 200 instead of redirecting, and
-`/api/cron/class-reminders` returns **404**.
+**Diagnosed 30 Aug 2026.** A redeploy was run. The server restarted (uptime
+confirmed it: 399 seconds). The site still served code from 25 commits back.
 
-Everything from this session is pushed to GitHub and none of it is deployed —
-the curriculum, the homepage, the copy, the warm palette, the CSP fix, the
-reminders. **Pull `main` on Hostinger and rebuild.** One deploy makes it all live.
+That is not a failed deploy and not a caching problem, though it looks like
+both. `x-hcdn-cache-status: BYPASS` ruled out the CDN, and the fresh process
+ruled out a stale server.
 
-Setting `CRON_SECRET` before this does nothing: the route it protects does not
-exist in production yet.
+### The cause
 
-Verify the deploy took:
-```bash
-curl -s https://sariro.com | grep -o '<title>[^<]*</title>'
-# want: Sariro — live classes in maths, science, English and coding
-curl -s -o /dev/null -w "%{http_code}
-" https://sariro.com/api/cron/class-reminders
-# want: 401 (route exists, secret not set yet) — NOT 404
+```json
+"start": "NODE_ENV=production bun .next/standalone/server.js"
 ```
+
+That runs a **pre-built artifact**. Pulling new source and restarting changes
+nothing — unless `next build` runs, the restarted server recompiles nothing and
+re-serves the same app. Forever.
+
+### The fix
+
+Hostinger's deploy must run the build **before** starting:
+
+```bash
+npm ci && npm run build && npm start
+```
+
+In Hostinger's Node app settings, that is usually a **Build command** field
+separate from the start command. If it is empty, or only says `npm install`,
+that is the bug. It needs `npm run build`.
+
+### How to tell, in one request
+
+`/api/health` now reports which build is running:
+
+```bash
+curl -s https://sariro.com/api/health | python -m json.tool
+```
+
+```json
+"build": { "commit": "9b52f3c", "builtAt": "...", "builtAgo": "just now" }
+```
+
+- `builtAgo` still saying **hours ago** right after a deploy → **the build did
+  not run.** That is the whole diagnosis, in one line.
+- `commit` should match the top of `git log --oneline -1`.
+
+This exists because working it out the first time took an hour of comparing page
+titles and 404s. It should never take more than one curl again.
+
+### About the 500 you saw on /courses
+
+Transient. It happened while the server was restarting — every request during
+that window fails. Checked afterwards: all chunks 200, no console errors, no
+failing requests. Nothing to fix.
 
 ---
 
-## 1. Turn on class reminders (5 minutes, after the deploy)
+## 1. Turn on class reminders (5 minutes, after a REAL deploy)
 
 The migration is **already done** — you ran `scripts/class-reminders.sql` and got
 "Success. No rows returned", which is correct for DDL. Only the secret and the

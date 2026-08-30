@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { BUILD_COMMIT, BUILD_TIME, buildAgeLabel } from '@/lib/build-info';
 
 /**
  * SARIRO — GET /api/health
@@ -24,6 +25,15 @@ export async function GET() {
   const razorpayKey = process.env.RAZORPAY_KEY_ID;
   const razorpaySecret = process.env.RAZORPAY_KEY_SECRET;
   const razorpayWebhook = process.env.RAZORPAY_WEBHOOK_SECRET;
+
+  // Which build is this? Stamped at build time, so if the deploy restarted the
+  // process without running `next build`, these stay old and say so. See
+  // src/lib/build-info.ts for why that failure mode is easy to misread.
+  const build = {
+    commit: BUILD_COMMIT,
+    builtAt: BUILD_TIME,
+    builtAgo: buildAgeLabel(),
+  };
 
   const checks = {
     supabase: {
@@ -56,6 +66,7 @@ export async function GET() {
         typeof process !== 'undefined' && process.uptime
           ? `${Math.round(process.uptime())}s`
           : 'unknown',
+      build,
       checks,
     },
     { status: allOk ? 200 : 200 } // always 200 so monitoring doesn't alert on partial config
