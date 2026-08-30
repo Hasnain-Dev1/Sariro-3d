@@ -50,7 +50,7 @@ export default function RefundsPage() {
           {/* The guarantee highlight */}
           <div
             className="rounded-2xl p-6 sm:p-8 mb-10 text-white relative overflow-hidden"
-            style={{ background: 'linear-gradient(135deg, #16A34A 0%, #0F172A 100%)' }}
+            style={{ background: 'linear-gradient(135deg, #16A34A 0%, #1A1611 100%)' }}
           >
             <div
               className="absolute inset-0 opacity-20 pointer-events-none"

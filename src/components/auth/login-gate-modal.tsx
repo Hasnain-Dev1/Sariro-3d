@@ -35,7 +35,7 @@ export function LoginGateModal({ open, onClose, nextPath, courseName }: LoginGat
           >
             <div
               className="relative p-6 text-white overflow-hidden"
-              style={{ background: 'linear-gradient(135deg, #2563EB 0%, #7C3AED 50%, #0F172A 100%)' }}
+              style={{ background: 'linear-gradient(135deg, #2563EB 0%, #7C3AED 50%, #1A1611 100%)' }}
             >
               <div
                 className="absolute inset-0 opacity-20 pointer-events-none"

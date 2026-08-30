@@ -174,7 +174,7 @@ export default function EventsPage() {
                       <div
                         className="relative h-28 overflow-hidden"
                         style={{
-                          background: `linear-gradient(135deg, ${accent} 0%, #0F172A 100%)`,
+                          background: `linear-gradient(135deg, ${accent} 0%, #1A1611 100%)`,
                         }}
                       >
                         {/* Decorative grid */}
@@ -270,7 +270,7 @@ export default function EventsPage() {
         </div>
       </section>
 
-      <WaveDivider3D fromColor="#FFFFFF" toColor="#F8FAFC" />
+      <WaveDivider3D fromColor="#FFFFFF" toColor="#FBF9F6" />
 
       {/* ====== Sticky story ====== */}
       <StickyScrollSection pinHeight="150vh">
@@ -365,7 +365,7 @@ export default function EventsPage() {
         </div>
       </section>
 
-      <WaveDivider3D fromColor="#F8FAFC" toColor="#FFFFFF" />
+      <WaveDivider3D fromColor="#FBF9F6" toColor="#FFFFFF" />
 
       {/* ====== Bottom CTA ====== */}
       <section className="relative py-20 sm:py-28 overflow-hidden">

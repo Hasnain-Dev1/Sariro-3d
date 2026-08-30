@@ -661,7 +661,7 @@ function RecommendedNextCard({ rec, completedTrackName, completedLevel }: {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2 }}
       className="rounded-3xl p-6 sm:p-7 text-white relative overflow-hidden"
-      style={{ background: 'linear-gradient(135deg, #2563EB 0%, #7C3AED 50%, #0F172A 100%)' }}
+      style={{ background: 'linear-gradient(135deg, #2563EB 0%, #7C3AED 50%, #1A1611 100%)' }}
     >
       <div
         className="absolute inset-0 opacity-15 pointer-events-none"

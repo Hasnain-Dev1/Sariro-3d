@@ -16,17 +16,17 @@ interface UpsellPopupProps {
 
 const PITCH_STYLES = {
   beginner_to_intermediate: {
-    gradient: 'linear-gradient(135deg, #2563EB 0%, #7C3AED 50%, #0F172A 100%)',
+    gradient: 'linear-gradient(135deg, #2563EB 0%, #7C3AED 50%, #1A1611 100%)',
     accent: '#60A5FA',
     icon: Sparkles,
   },
   intermediate_to_advanced: {
-    gradient: 'linear-gradient(135deg, #7C3AED 0%, #DB2777 50%, #0F172A 100%)',
+    gradient: 'linear-gradient(135deg, #7C3AED 0%, #DB2777 50%, #1A1611 100%)',
     accent: '#C4B5FD',
     icon: GraduationCap,
   },
   advanced_to_next_track: {
-    gradient: 'linear-gradient(135deg, #F59E0B 0%, #DC2626 50%, #0F172A 100%)',
+    gradient: 'linear-gradient(135deg, #F59E0B 0%, #DC2626 50%, #1A1611 100%)',
     accent: '#FCD34D',
     icon: PartyPopper,
   },

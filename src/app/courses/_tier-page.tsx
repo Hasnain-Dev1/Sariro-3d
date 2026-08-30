@@ -227,7 +227,7 @@ export default function TierPage({ tier }: { tier: Tier }) {
               <div
                 className="rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden"
                 style={{
-                  background: `linear-gradient(135deg, ${cfg.accentColor} 0%, #0F172A 100%)`,
+                  background: `linear-gradient(135deg, ${cfg.accentColor} 0%, #1A1611 100%)`,
                 }}
               >
                 <div
@@ -312,7 +312,7 @@ export default function TierPage({ tier }: { tier: Tier }) {
         </div>
       </section>
 
-      <WaveDivider3D fromColor="#FFFFFF" toColor="#F8FAFC" />
+      <WaveDivider3D fromColor="#FFFFFF" toColor="#FBF9F6" />
 
       {/* ====== Full course catalog for this tier ====== */}
       <section className="relative py-14 sm:py-20 overflow-hidden">
@@ -352,7 +352,7 @@ export default function TierPage({ tier }: { tier: Tier }) {
         </div>
       </section>
 
-      <WaveDivider3D fromColor="#F8FAFC" toColor="#FFFFFF" />
+      <WaveDivider3D fromColor="#FBF9F6" toColor="#FFFFFF" />
 
       {/* ====== Sticky story section ====== */}
       <StickyScrollSection pinHeight="140vh">
@@ -479,7 +479,7 @@ function CourseDetailCard({
       <div
         className="relative p-6 sm:p-8 text-white overflow-hidden"
         style={{
-          background: `linear-gradient(135deg, ${accentColor} 0%, #0F172A 100%)`,
+          background: `linear-gradient(135deg, ${accentColor} 0%, #1A1611 100%)`,
         }}
       >
         <div

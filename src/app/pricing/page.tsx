@@ -398,7 +398,7 @@ export default function PricingPage() {
         </div>
       </section>
 
-      <WaveDivider3D fromColor="#FFFFFF" toColor="#F8FAFC" />
+      <WaveDivider3D fromColor="#FFFFFF" toColor="#FBF9F6" />
 
       {/* ====== Trust badges ====== */}
       <section className="relative py-14 sm:py-20 mesh-bg-soft-blue overflow-hidden">
@@ -443,7 +443,7 @@ export default function PricingPage() {
         </div>
       </section>
 
-      <WaveDivider3D fromColor="#F8FAFC" toColor="#FFFFFF" />
+      <WaveDivider3D fromColor="#FBF9F6" toColor="#FFFFFF" />
 
       {/* ====== Sticky comparison ====== */}
       <StickyScrollSection pinHeight="160vh">
@@ -569,7 +569,7 @@ export default function PricingPage() {
         </div>
       </section>
 
-      <WaveDivider3D fromColor="#FFFFFF" toColor="#F8FAFC" />
+      <WaveDivider3D fromColor="#FFFFFF" toColor="#FBF9F6" />
 
       {/* ====== FAQ ====== */}
       <section className="relative py-14 sm:py-20 mesh-bg-soft-blue overflow-hidden">
@@ -627,7 +627,7 @@ export default function PricingPage() {
         </div>
       </section>
 
-      <WaveDivider3D fromColor="#F8FAFC" toColor="#FFFFFF" />
+      <WaveDivider3D fromColor="#FBF9F6" toColor="#FFFFFF" />
 
       {/* ====== Bottom CTA ====== */}
       <section className="relative py-20 sm:py-28 overflow-hidden">

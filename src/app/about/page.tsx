@@ -183,7 +183,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <WaveDivider3D fromColor="#FFFFFF" toColor="#F8FAFC" />
+      <WaveDivider3D fromColor="#FFFFFF" toColor="#FBF9F6" />
 
       {/* ============================================================
           SECTION 2 — MIMO PATRA (founder, with floating stat pills)
@@ -353,7 +353,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <WaveDivider3D fromColor="#F8FAFC" toColor="#FFFFFF" />
+      <WaveDivider3D fromColor="#FBF9F6" toColor="#FFFFFF" />
 
       {/* ============================================================
           SECTION 3 — TEAM (after Mimo)
@@ -439,7 +439,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <WaveDivider3D fromColor="#FFFFFF" toColor="#F8FAFC" />
+      <WaveDivider3D fromColor="#FFFFFF" toColor="#FBF9F6" />
 
       {/* ============================================================
           SECTION 4 — Philosophy (scroll target, sticky principles)
@@ -517,7 +517,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <WaveDivider3D fromColor="#F8FAFC" toColor="#FFFFFF" />
+      <WaveDivider3D fromColor="#FBF9F6" toColor="#FFFFFF" />
 
       {/* ====== Quote pull (dark card) ====== */}
       <section className="relative py-14 sm:py-20 overflow-hidden">
@@ -527,7 +527,7 @@ export default function AboutPage() {
             <div
               className="relative rounded-3xl overflow-hidden"
               style={{
-                background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
+                background: 'linear-gradient(135deg, #1A1611 0%, #1E293B 100%)',
               }}
             >
               {/* Decorative accent glow */}

@@ -176,8 +176,8 @@ export function SectionDivider({
   variant?: 'light-to-dark' | 'dark-to-light' | 'light-to-light';
 }) {
   const colors = {
-    'light-to-dark': { from: '#FFFFFF', to: '#0B1120' },
-    'dark-to-light': { from: '#0B1120', to: '#FFFFFF' },
+    'light-to-dark': { from: '#FFFFFF', to: '#14100C' },
+    'dark-to-light': { from: '#14100C', to: '#FFFFFF' },
     'light-to-light': { from: '#FFFFFF', to: '#FFFFFF' },
   }[variant];
 

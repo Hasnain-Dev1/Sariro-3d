@@ -23,7 +23,7 @@ function SignInPageInner() {
   return (
     <AuthShell
       accent={{
-        from: '#0B1120',
+        from: '#14100C',
         to: '#1E3A8A',
         glow: '#2563EB',
         chipBg: 'rgba(37, 99, 235, 0.18)',

@@ -42,37 +42,78 @@
   --radius-2xl: 2rem;
 }
 
+/* ============================================================
+   THE WARM NEUTRAL RAMP  —  read this before changing a colour
+   ============================================================
+   Sariro read as "all black and white". The cause was NOT a lack of accent
+   colour: the accents (blue, green, amber, violet, cyan) were already there.
+   The cause is that `slate-*` is used 2,580 times across the app, and Tailwind's
+   slate is a COLD grey — it carries a cyan cast. Two and a half thousand cold
+   greys is what makes a page feel like a bank statement, and no amount of
+   accent colour sprinkled on top fixes the ground it sits on.
+
+   So we redefine the ramp itself rather than repaint the components. Every
+   `text-slate-600`, `bg-slate-50` and `border-slate-200` already written — and
+   every one written from now on — warms at once. Reverting is deleting this
+   block; nothing downstream knows it happened.
+
+   Why override `slate` instead of switching the codebase to `stone`: rewriting
+   2,580 class names across ~100 files is a huge, risky, review-proof diff to
+   achieve the identical pixels. The cost of this approach is that the NAME
+   "slate" now lies — hence this comment. Treat `slate-*` as "our neutral".
+
+   Lightness steps are matched to Tailwind's originals so hierarchy and contrast
+   survive the swap. Verified against WCAG before landing: zero pairs crossed a
+   threshold, and 8 of 10 tested text/background pairs came out slightly HIGHER
+   contrast than the cold ramp (e.g. slate-500 on white 4.76 -> 4.91).
+   ============================================================ */
+@theme {
+  --color-slate-50: #FBF9F6;
+  --color-slate-100: #F5F1EB;
+  --color-slate-200: #E9E2D8;
+  --color-slate-300: #D6CCBF;
+  --color-slate-400: #A69B8C;
+  --color-slate-500: #7A6F61;
+  --color-slate-600: #5C5348;
+  --color-slate-700: #443D34;
+  --color-slate-800: #2A251F;
+  --color-slate-900: #1A1611;
+  --color-slate-950: #0D0B08;
+}
+
 :root {
   /* Card depth, shared by `.card` and the legacy `.card-3d`.
      Shadow as LIGHT, not grey: a tight contact shadow to sit the card on
-     the page, and a wide ambient one tinted with the element's accent. */
-  --card-border: rgb(226 232 240 / 0.8);
+     the page, and a wide ambient one tinted with the element's accent.
+     Warm-tinted to match the neutral ramp above — a cold shadow under a warm
+     card is the tell that makes a "warmed up" palette still feel synthetic. */
+  --card-border: rgb(233 226 216 / 0.9);
   --card-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.04),
-    0 8px 24px -16px rgba(15, 23, 42, 0.1);
+    0 1px 2px rgba(42, 37, 31, 0.04),
+    0 8px 24px -16px rgba(42, 37, 31, 0.12);
   --card-shadow-hover:
-    0 1px 2px rgba(15, 23, 42, 0.05),
-    0 18px 40px -22px color-mix(in srgb, var(--accent, #2563eb) 55%, rgb(15 23 42));
+    0 1px 2px rgba(42, 37, 31, 0.05),
+    0 18px 40px -22px color-mix(in srgb, var(--accent, #2563eb) 55%, rgb(42 37 31));
 
   /* SARIRO brand tokens */
   --background: #FFFFFF;
-  --foreground: #0F172A;
+  --foreground: #1A1611;
   --card: #FFFFFF;
-  --card-foreground: #0F172A;
+  --card-foreground: #1A1611;
   --popover: #FFFFFF;
-  --popover-foreground: #0F172A;
+  --popover-foreground: #1A1611;
   --primary: #2563EB;
   --primary-foreground: #FFFFFF;
-  --secondary: #F8FAFC;
-  --secondary-foreground: #0F172A;
-  --muted: #F1F5F9;
-  --muted-foreground: #475569;
+  --secondary: #FBF9F6;
+  --secondary-foreground: #1A1611;
+  --muted: #F5F1EB;
+  --muted-foreground: #5C5348;
   --accent: #2563EB;
   --accent-foreground: #FFFFFF;
   --destructive: #DC2626;
   --destructive-foreground: #FFFFFF;
-  --border: #E2E8F0;
-  --input: #E2E8F0;
+  --border: #E9E2D8;
+  --input: #E9E2D8;
   --ring: #2563EB;
 
   /* Brand extras */
@@ -80,30 +121,30 @@
   --brand-blue-dark: #1D4ED8;
   --brand-green: #16A34A;
   --brand-green-dark: #15803D;
-  --brand-panel: #F8FAFC;
-  --brand-deep: #0F172A;
+  --brand-panel: #FBF9F6;
+  --brand-deep: #1A1611;
   --brand-amber: #F59E0B;
   --brand-violet: #7C3AED;
   --brand-cyan: #06B6D4;
 }
 
 .dark {
-  --background: #0B1120;
-  --foreground: #F8FAFC;
-  --card: #111827;
-  --card-foreground: #F8FAFC;
-  --popover: #111827;
-  --popover-foreground: #F8FAFC;
+  --background: #14100C;
+  --foreground: #F7F4EF;
+  --card: #1F1A15;
+  --card-foreground: #F7F4EF;
+  --popover: #1F1A15;
+  --popover-foreground: #F7F4EF;
   --primary: #3B82F6;
   --primary-foreground: #FFFFFF;
-  --secondary: #1E293B;
-  --secondary-foreground: #F8FAFC;
-  --muted: #1E293B;
-  --muted-foreground: #94A3B8;
+  --secondary: #2A251F;
+  --secondary-foreground: #F7F4EF;
+  --muted: #2A251F;
+  --muted-foreground: #A69B8C;
   --accent: #3B82F6;
   --accent-foreground: #FFFFFF;
-  --border: #1E293B;
-  --input: #1E293B;
+  --border: #2A251F;
+  --input: #2A251F;
   --ring: #3B82F6;
 }
 
@@ -184,7 +225,7 @@
   color: var(--brand-deep);
   border: 1px solid var(--border);
   box-shadow: 0 8px 0 -1px var(--border),
-              0 12px 24px -12px rgba(15, 23, 42, 0.15);
+              0 12px 24px -12px rgba(42, 37, 31, 0.15);
 }
 .btn-tactile-light:hover { transform: translateY(-2px); }
 .btn-tactile-light:active { transform: translateY(5px); }
@@ -193,7 +234,7 @@
   background: var(--brand-deep);
   color: #fff;
   box-shadow: 0 10px 0 -1px #000,
-              0 18px 30px -12px rgba(15, 23, 42, 0.55);
+              0 18px 30px -12px rgba(26, 22, 17, 0.55);
 }
 .btn-tactile-deep:hover { transform: translateY(-2px); }
 .btn-tactile-deep:active { transform: translateY(6px); }
@@ -265,12 +306,12 @@ button.card-3d:hover {
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.6);
   box-shadow:
-    0 8px 32px -8px rgba(15, 23, 42, 0.18),
+    0 8px 32px -8px rgba(42, 37, 31, 0.16),
     0 1px 0 rgba(255, 255, 255, 0.7) inset;
 }
 
 .glass-dark {
-  background: rgba(15, 23, 42, 0.55);
+  background: rgba(26, 22, 17, 0.55);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -311,17 +352,23 @@ button.card-3d:hover {
 }
 
 .gradient-text-deep {
-  background: linear-gradient(135deg, #0F172A 0%, #2563EB 100%);
+  background: linear-gradient(135deg, #1A1611 0%, #2563EB 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
   color: transparent;
 }
 
+/* Every stop here used to be COOL — blue, violet, green, cyan. Four cool
+   gradients over a cool grey is why the hero felt like software rather than a
+   school. The amber stop is the one that changes the temperature of the whole
+   page; it sits bottom-left, opposite the cyan, so the hero has a warm side and
+   a cool side instead of one flat cast. */
 .mesh-bg {
   background:
     radial-gradient(at 20% 20%, rgba(37, 99, 235, 0.12) 0px, transparent 50%),
     radial-gradient(at 80% 0%, rgba(124, 58, 237, 0.10) 0px, transparent 50%),
+    radial-gradient(at 5% 75%, rgba(245, 158, 11, 0.14) 0px, transparent 50%),
     radial-gradient(at 0% 50%, rgba(22, 163, 74, 0.08) 0px, transparent 50%),
     radial-gradient(at 80% 80%, rgba(6, 182, 212, 0.10) 0px, transparent 50%);
 }
@@ -333,7 +380,7 @@ button.card-3d:hover {
     radial-gradient(at 90% 10%, rgba(124, 58, 237, 0.07) 0px, transparent 50%),
     radial-gradient(at 50% 100%, rgba(22, 163, 74, 0.06) 0px, transparent 50%),
     radial-gradient(at 0% 80%, rgba(6, 182, 212, 0.06) 0px, transparent 50%),
-    linear-gradient(180deg, #FFFFFF 0%, #FAFBFF 100%);
+    linear-gradient(180deg, #FFFFFF 0%, #FDFAF5 100%);
 }
 
 /* Per-accent soft backgrounds — use when a section should match the page accent */
@@ -442,7 +489,7 @@ button.card-3d:hover {
   100% { background-position: 200% 0; }
 }
 .shimmer-text {
-  background: linear-gradient(90deg, #475569 25%, #0F172A 50%, #475569 75%);
+  background: linear-gradient(90deg, #5C5348 25%, #1A1611 50%, #5C5348 75%);
   background-size: 200% auto;
   -webkit-background-clip: text;
   background-clip: text;
@@ -510,7 +557,7 @@ button.card-3d:hover {
 /* Selection */
 ::selection {
   background: rgba(37, 99, 235, 0.25);
-  color: #0F172A;
+  color: #1A1611;
 }
 
 /* ============================================================
@@ -652,8 +699,8 @@ html[data-syllabus-open="true"] header {
       transition: none;
       transform: none;
       box-shadow:
-        0 1px 2px rgba(15, 23, 42, 0.04),
-        0 8px 24px -16px rgba(15, 23, 42, 0.1);
+        0 1px 2px rgba(42, 37, 31, 0.04),
+        0 8px 24px -16px rgba(42, 37, 31, 0.1);
     }
   }
 

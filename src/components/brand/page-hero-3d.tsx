@@ -60,7 +60,7 @@ function CoursesScene({ color }: { color: string }) {
           <mesh position={[0, -0.17, 0.2]}><boxGeometry args={[1.25, 0.005, 0.65]} /><meshStandardMaterial color="#374151" metalness={0.3} roughness={0.7} /></mesh>
           <group position={[0, -0.2, -0.25]} rotation={[-1.35, 0, 0]}>
             <mesh position={[0, 0.55, -0.03]}><boxGeometry args={[1.5, 1.05, 0.05]} /><meshStandardMaterial color="#C4CAD2" metalness={0.75} roughness={0.25} /></mesh>
-            <mesh position={[0, 0.55, 0.01]}><planeGeometry args={[1.4, 0.95]} /><meshStandardMaterial color="#0F172A" metalness={0.3} roughness={0.05} /></mesh>
+            <mesh position={[0, 0.55, 0.01]}><planeGeometry args={[1.4, 0.95]} /><meshStandardMaterial color="#1A1611" metalness={0.3} roughness={0.05} /></mesh>
             <mesh ref={screenRef} position={[-0.3, 0.6, 0.02]}><planeGeometry args={[0.5, 0.6]} /><meshBasicMaterial color="#14B8A6" transparent opacity={0.75} /></mesh>
             <mesh position={[0.2, 0.7, 0.02]}><planeGeometry args={[0.45, 0.22]} /><meshBasicMaterial color="#7C3AED" transparent opacity={0.65} /></mesh>
           </group>
@@ -192,7 +192,7 @@ function SchoolsScene({ color }: { color: string }) {
       <mesh position={[0, 0, -1.8]} rotation={[0, 0, 0]}>
         <planeGeometry args={[7, 5]} />
         <meshStandardMaterial
-          color="#F8FAFC"
+          color="#FBF9F6"
           metalness={0.05}
           roughness={0.95}
           side={THREE.DoubleSide}
@@ -321,12 +321,12 @@ function EventsScene({ color }: { color: string }) {
         {/* Tear-off perforation line (right third of ticket) */}
         <mesh position={[0.32, 0, 0.025]}>
           <boxGeometry args={[0.005, 0.5, 0.01]} />
-          <meshBasicMaterial color="#0F172A" transparent opacity={0.25} />
+          <meshBasicMaterial color="#1A1611" transparent opacity={0.25} />
         </mesh>
         {[-0.18, -0.09, 0, 0.09, 0.18].map((y, i) => (
           <mesh key={`perf-${i}`} position={[0.32, y, 0.03]}>
             <sphereGeometry args={[0.018, 8, 8]} />
-            <meshBasicMaterial color="#0F172A" transparent opacity={0.4} />
+            <meshBasicMaterial color="#1A1611" transparent opacity={0.4} />
           </mesh>
         ))}
 
@@ -339,7 +339,7 @@ function EventsScene({ color }: { color: string }) {
         {/* "ADMIT ONE" tiny chip — top-right of left section */}
         <mesh position={[-0.4, 0.05, 0.025]}>
           <boxGeometry args={[0.18, 0.04, 0.005]} />
-          <meshBasicMaterial color="#0F172A" transparent opacity={0.6} />
+          <meshBasicMaterial color="#1A1611" transparent opacity={0.6} />
         </mesh>
 
         {/* Text line abstracts on left section */}
@@ -354,7 +354,7 @@ function EventsScene({ color }: { color: string }) {
         {[-0.05, -0.03, -0.01, 0.01, 0.03, 0.05, 0.07, 0.09, 0.11, 0.13, 0.15, 0.17].map((x, i) => (
           <mesh key={`barcode-${i}`} position={[0.45 + x * 0.5, 0.1, 0.025]}>
             <boxGeometry args={[0.005 + (i % 3) * 0.003, 0.18, 0.005]} />
-            <meshBasicMaterial color="#0F172A" transparent opacity={0.85} />
+            <meshBasicMaterial color="#1A1611" transparent opacity={0.85} />
           </mesh>
         ))}
 
@@ -410,7 +410,7 @@ function EventsScene({ color }: { color: string }) {
       {[0, 1, 2, 3].map((i) => (
         <mesh key={i} ref={(el) => { if (el) paperRefs.current[i] = el; }} position={[0, 0, 0]}>
           <planeGeometry args={[0.2, 0.28]} />
-          <meshStandardMaterial color={i % 2 === 0 ? '#FFFFFF' : '#F8FAFC'} metalness={0.05} roughness={0.5} side={THREE.DoubleSide} transparent opacity={0.8} />
+          <meshStandardMaterial color={i % 2 === 0 ? '#FFFFFF' : '#FBF9F6'} metalness={0.05} roughness={0.5} side={THREE.DoubleSide} transparent opacity={0.8} />
         </mesh>
       ))}
     </group>
@@ -596,7 +596,7 @@ function ContactScene({ color }: { color: string }) {
       {/* Soft ground shadow */}
       <mesh position={[0, -1.0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[0.9, 48]} />
-        <meshBasicMaterial color="#0F172A" transparent opacity={0.10} />
+        <meshBasicMaterial color="#1A1611" transparent opacity={0.10} />
       </mesh>
 
       {/* Envelope (glass) */}

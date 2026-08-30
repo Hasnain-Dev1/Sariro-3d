@@ -645,10 +645,10 @@ export default function CinematicIntro() {
           <motion.div
             animate={{
               background: phase === 'field'
-                ? 'radial-gradient(circle at center, #0B1120 0%, #000 100%)'
+                ? 'radial-gradient(circle at center, #14100C 0%, #000 100%)'
                 : phase === 'network'
-                ? 'radial-gradient(circle at center, #1E1B4B 0%, #0B1120 70%)'
-                : 'radial-gradient(circle at center, #1E3A8A 0%, #0B1120 70%)'
+                ? 'radial-gradient(circle at center, #1E1B4B 0%, #14100C 70%)'
+                : 'radial-gradient(circle at center, #1E3A8A 0%, #14100C 70%)'
             }}
             transition={{ duration: 1 }}
             className="absolute inset-0"

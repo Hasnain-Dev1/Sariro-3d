@@ -192,7 +192,7 @@ export default function ProfileCompletionModal() {
             <div
               className="relative p-6 text-white overflow-hidden"
               style={{
-                background: 'linear-gradient(135deg, #2563EB 0%, #7C3AED 50%, #0F172A 100%)',
+                background: 'linear-gradient(135deg, #2563EB 0%, #7C3AED 50%, #1A1611 100%)',
               }}
             >
               <div

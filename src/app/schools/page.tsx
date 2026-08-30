@@ -305,7 +305,7 @@ export default function SchoolsPage() {
         </div>
       </section>
 
-      <WaveDivider3D fromColor="#FFFFFF" toColor="#F8FAFC" />
+      <WaveDivider3D fromColor="#FFFFFF" toColor="#FBF9F6" />
 
       {/* ====== Process steps ====== */}
       <section className="relative py-14 sm:py-20 mesh-bg-soft-green overflow-hidden">
@@ -374,7 +374,7 @@ export default function SchoolsPage() {
         </div>
       </section>
 
-      <WaveDivider3D fromColor="#F8FAFC" toColor="#FFFFFF" />
+      <WaveDivider3D fromColor="#FBF9F6" toColor="#FFFFFF" />
 
       {/* ====== Sticky story ====== */}
       <StickyScrollSection pinHeight="150vh">

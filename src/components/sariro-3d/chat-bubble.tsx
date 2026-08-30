@@ -278,7 +278,7 @@ export default function ChatBubble() {
               <div
                 className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center shadow-2xl cursor-pointer border-2 border-white/20"
                 style={{
-                  background: 'linear-gradient(135deg, #2563EB 0%, #7C3AED 60%, #0F172A 100%)',
+                  background: 'linear-gradient(135deg, #2563EB 0%, #7C3AED 60%, #1A1611 100%)',
                 }}
               >
                 <MessageCircle
@@ -340,7 +340,7 @@ export default function ChatBubble() {
             transition={{ type: 'spring', stiffness: 220, damping: 22 }}
             className="fixed bottom-0 right-0 sm:bottom-5 sm:right-5 sm:rounded-3xl z-[55] w-full sm:w-[400px] h-[100dvh] sm:h-[600px] sm:max-h-[80vh] flex flex-col overflow-hidden shadow-2xl border border-white/10 sariro-chat-panel"
             style={{
-              background: 'linear-gradient(180deg, #0B1120 0%, #111827 100%)',
+              background: 'linear-gradient(180deg, #14100C 0%, #111827 100%)',
               backdropFilter: 'blur(20px) saturate(180%)',
               // Honor iOS safe areas so the header (and close button) is never
               // hidden under the status bar / notch / dynamic island.

@@ -358,7 +358,7 @@ export default function ResourcesPage() {
         </div>
       </section>
 
-      <WaveDivider3D fromColor="#FFFFFF" toColor="#F8FAFC" />
+      <WaveDivider3D fromColor="#FFFFFF" toColor="#FBF9F6" />
 
       {/* ====== Sticky story ====== */}
       <StickyScrollSection pinHeight="150vh">
@@ -431,7 +431,7 @@ export default function ResourcesPage() {
         </div>
       </section>
 
-      <WaveDivider3D fromColor="#F8FAFC" toColor="#FFFFFF" />
+      <WaveDivider3D fromColor="#FBF9F6" toColor="#FFFFFF" />
 
       {/* ====== Newsletter CTA ====== */}
       <section className="relative py-20 sm:py-28 overflow-hidden">

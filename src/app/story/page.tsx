@@ -102,7 +102,7 @@ export default function StoryPage() {
         </div>
       </section>
 
-      <WaveDivider3D fromColor="#0B1120" toColor="#FFFFFF" />
+      <WaveDivider3D fromColor="#14100C" toColor="#FFFFFF" />
 
       {/* Values */}
       <section className="relative py-14 sm:py-20 overflow-hidden">
@@ -134,7 +134,7 @@ export default function StoryPage() {
         </div>
       </section>
 
-      <WaveDivider3D fromColor="#FFFFFF" toColor="#F8FAFC" />
+      <WaveDivider3D fromColor="#FFFFFF" toColor="#FBF9F6" />
 
       {/* Impact numbers */}
       <section className="relative py-14 sm:py-20 mesh-bg-soft-violet overflow-hidden">
@@ -171,7 +171,7 @@ export default function StoryPage() {
         </div>
       </section>
 
-      <WaveDivider3D fromColor="#F8FAFC" toColor="#FFFFFF" />
+      <WaveDivider3D fromColor="#FBF9F6" toColor="#FFFFFF" />
 
       {/* Closing CTA */}
       <section className="relative py-20 sm:py-28 overflow-hidden">

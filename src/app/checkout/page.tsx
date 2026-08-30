@@ -105,7 +105,7 @@ function CheckoutPageInner() {
           <Reveal>
             <div
               className="rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden mb-8"
-              style={{ background: `linear-gradient(135deg, ${accent} 0%, #0F172A 100%)` }}
+              style={{ background: `linear-gradient(135deg, ${accent} 0%, #1A1611 100%)` }}
             >
               <div
                 className="absolute inset-0 opacity-20 pointer-events-none"

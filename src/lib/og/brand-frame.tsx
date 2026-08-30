@@ -61,7 +61,7 @@ export function buildOgImage({
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
-          background: '#0F172A',
+          background: '#1A1611',
           backgroundImage:
             'radial-gradient(circle at 85% 15%, rgba(245, 158, 11, 0.18) 0%, transparent 45%), radial-gradient(circle at 15% 85%, rgba(124, 58, 237, 0.12) 0%, transparent 50%)',
           padding: '80px',
@@ -109,7 +109,7 @@ export function buildOgImage({
               display: 'flex',
               fontSize: '32px',
               fontWeight: 700,
-              color: '#F8FAFC',
+              color: '#FBF9F6',
               letterSpacing: '-0.02em',
             }}
           >
@@ -142,7 +142,7 @@ export function buildOgImage({
             fontWeight: 800,
             lineHeight: 1.05,
             letterSpacing: '-0.03em',
-            color: '#F8FAFC',
+            color: '#FBF9F6',
             marginBottom: '24px',
             maxWidth: '1000px',
           }}
