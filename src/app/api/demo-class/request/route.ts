@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClientHelper, createServiceClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
+import { sendEmail } from '@/lib/email/hostinger';
+import { notifyUsers } from '@/lib/notify';
 
 /**
  * SARIRO — POST /api/demo-class/request
@@ -19,7 +21,7 @@ import { assertSameOrigin } from '@/lib/security/origin-check';
  *   4. Honeypot check (silently succeed if filled)
  *   5. Validate payload (required fields, length limits, email format, phone digits)
  *   6. Insert into demo_class_requests table (RLS allows public INSERT)
- *   7. Send notification email to admin (if RESEND_API_KEY or SENDGRID_API_KEY set)
+ *   7. Email the team inbox and raise an in-app notification for admins/sellers
  *   8. Return { ok }
  *
  * Security:
@@ -273,11 +275,48 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Log admin notification
-    const adminEmail = process.env.DEMO_CLASS_NOTIFY_EMAIL || 'support@sariro.in';
-    console.log(
-      `[demo-class] New request from ${body.student_name} (${body.phone}) for ${slotLabel} — notify ${adminEmail}`
-    );
+    // ── Actually tell somebody ──────────────────────────────────────
+    // This used to be a console.log interpolating an env var that was never
+    // read by anything that sends mail. A demo request — the top of the whole
+    // funnel — landed in the database and a server log, and reached a human
+    // only if one happened to look at the table.
+    //
+    // Now: an email to the team inbox, and an in-app notification for every
+    // admin so it shows up on the bell with the chime.
+    const teamInbox = process.env.DEMO_CLASS_NOTIFY_EMAIL || 'contact@sariro.com';
+    const summary = `${body.student_name} · ${body.phone} · wants ${slotLabel}`;
+
+    await sendEmail({
+      to: teamInbox,
+      subject: `Demo class request — ${body.student_name}`,
+      html: `<div style="font-family: Inter, sans-serif; padding: 24px;">
+        <h2 style="margin:0 0 12px;">New demo class request</h2>
+        <p style="margin:0 0 6px;"><strong>Name:</strong> ${body.student_name}</p>
+        <p style="margin:0 0 6px;"><strong>Phone:</strong> ${body.phone}</p>
+        <p style="margin:0 0 6px;"><strong>Preferred window:</strong> ${slotLabel}</p>
+        <p style="margin:16px 0 0; color:#64748b; font-size:13px;">
+          Call them within 24 hours — that promise is on the booking page.
+        </p>
+      </div>`,
+    });
+
+    // Bell + chime for anyone who can act on it.
+    const { data: admins } = await supabase
+      .from('profiles')
+      .select('id')
+      .in('role', ['admin', 'super_admin', 'seller']);
+
+    if (admins?.length) {
+      await notifyUsers(
+        admins.map((a: { id: string }) => ({
+          userId: a.id,
+          type: 'general' as const,
+          title: 'New demo class request',
+          message: summary,
+          link: '/dashboard/admin',
+        }))
+      );
+    }
   } catch {
     // ignore email errors — DB insert is the source of truth
   }
