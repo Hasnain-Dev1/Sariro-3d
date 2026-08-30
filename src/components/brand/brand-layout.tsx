@@ -51,11 +51,13 @@ const EMAIL_ICONS: Record<string, React.ComponentType<{ className?: string; stro
 
 const NAV_ITEMS = [
   { href: '/', label: 'Home' },
-  // The map sits ahead of Courses on purpose: the learner picks a direction
-  // first, and courses are one way to travel it — not the entry point.
-  { href: '/explore', label: 'Explore' },
-  { href: '/subjects', label: 'Subjects' },
-  { href: '/courses', label: 'Courses' },
+  // ONE browse item. Explore (the map), Subjects and Courses used to sit here as
+  // three peers, which asked the visitor to know our internal taxonomy before
+  // they could look at anything: a parent wanting maths landed on a coding
+  // catalogue. All three routes still resolve — /courses is now the single front
+  // door that offers coding and every school subject side by side, and links on
+  // to the map for anyone who is not shopping by subject.
+  { href: '/courses', label: 'Learn' },
   { href: '/schools', label: 'Schools' },
   { href: '/events', label: 'Events' },
   { href: '/pricing', label: 'Pricing' },

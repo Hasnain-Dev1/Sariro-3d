@@ -60,7 +60,7 @@ export default function EnrollClient() {
           The link may be out of date. Pick a subject and we will take you straight back here.
         </p>
         <Link
-          href="/subjects"
+          href="/courses#learn"
           className="inline-flex items-center gap-2 h-12 px-6 rounded-xl bg-slate-900 text-white font-semibold"
         >
           Browse subjects

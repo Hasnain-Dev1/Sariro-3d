@@ -35,6 +35,7 @@ import {
   StickyScrollSection,
 } from '@/components/brand/effects-kit';
 import { COURSES, TRACKS, discountPercent, DISCOUNT_LABEL } from '@/lib/sariro-data';
+import LearnChooser from '@/app/courses/learn-chooser';
 import { useAuth } from '@/components/auth/auth-provider';
 import { createClient } from '@/lib/supabase/client';
 
@@ -90,26 +91,31 @@ function CoursesPageInner() {
   return (
     <BrandLayout>
       <PageHero
-        eyebrow="Cohort-based learning"
+        eyebrow="Live, mentored, small batches"
         accentColor="#2563EB"
-        breadcrumb="Courses"
+        breadcrumb="Learn"
         variant="courses"
         title={
           <>
-            Courses that ship <span className="gradient-text">real builders.</span>
+            Maths, science, English, coding — <span className="gradient-text">taught by someone who knows your name.</span>
           </>
         }
-        subtitle="No video dumps. No copy-paste tutorials. Every Sariro cohort is live, mentored, and ends with something you can actually show an employer, a client, or a school."
+        subtitle="No video dumps. No copy-paste tutorials. Every Sariro class is live, capped at four learners, and taught by a mentor who notices when you are stuck."
       >
-        <Link href="#catalog" className="btn-tactile btn-tactile-primary px-5 py-3 text-sm">
+        <Link href="#learn" className="btn-tactile btn-tactile-primary px-5 py-3 text-sm">
           <LayoutGrid className="w-4 h-4" />
-          Browse catalog
+          Pick a subject
         </Link>
         <Link href="/pricing" className="btn-tactile btn-tactile-light px-5 py-3 text-sm">
           See pricing
           <ArrowRight className="w-4 h-4" />
         </Link>
       </PageHero>
+
+      {/* ====== The one chooser: coding as a peer of every school subject ====== */}
+      <div id="learn" className="scroll-mt-20">
+        <LearnChooser />
+      </div>
 
       {/* ====== Filter + Catalog ====== */}
       <section id="catalog" className="relative py-14 sm:py-20 overflow-hidden scroll-mt-20">
@@ -120,10 +126,10 @@ function CoursesPageInner() {
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-10">
             <div className="max-w-xl">
               <span
-                className="inline-block text-xs font-bold uppercase tracking-[0.18em] text-blue-600 mb-3"
+                className="inline-block text-xs font-bold uppercase tracking-[0.18em] text-orange-600 mb-3"
                 style={{ fontFamily: 'var(--font-grotesk)' }}
               >
-                The catalog
+                Coding · the catalog
               </span>
               <h2
                 className="text-3xl sm:text-4xl font-extrabold text-slate-900"
@@ -133,7 +139,9 @@ function CoursesPageInner() {
               </h2>
               <Reveal delay={0.15}>
                 <p className="mt-3 text-slate-600">
-                  Hover (or tap) a course to flip it over and read the outcomes — the things you'll be able to do on Monday morning after cohort ends.
+                  Coding is sorted by what you can already do, not by your age. Hover (or tap) a
+                  course to flip it over and read the outcomes — the things you&apos;ll be able to
+                  do on Monday morning after cohort ends.
                 </p>
               </Reveal>
             </div>
@@ -318,7 +326,7 @@ function CoursesPageInner() {
       {/* ====== Syllabus modal ====== */}
       <SyllabusModal course={syllabusCourse} onClose={() => setSyllabusCourse(null)} />
 
-      <WaveDivider3D fromColor="#FFFFFF" toColor="#F8FAFC" />
+      <WaveDivider3D fromColor="#FFFFFF" toColor="#FBF9F6" />
 
       {/* ====== Cohort value strip ====== */}
       <section className="relative py-14 sm:py-20 mesh-bg-soft-blue overflow-hidden">
@@ -368,7 +376,7 @@ function CoursesPageInner() {
         </div>
       </section>
 
-      <WaveDivider3D fromColor="#F8FAFC" toColor="#FFFFFF" />
+      <WaveDivider3D fromColor="#FBF9F6" toColor="#FFFFFF" />
 
       {/* ====== Sticky story section ====== */}
       <StickyScrollSection pinHeight="160vh">
@@ -584,7 +592,7 @@ function CourseBack({
     <div
       className="h-full p-6 flex flex-col rounded-[1.25rem] text-white relative overflow-hidden"
       style={{
-        background: `linear-gradient(135deg, ${accent} 0%, #0F172A 100%)`,
+        background: `linear-gradient(135deg, ${accent} 0%, #1A1611 100%)`,
         boxShadow: '0 12px 30px -12px rgba(15, 23, 42, 0.4)',
       }}
     >
@@ -793,7 +801,7 @@ function SyllabusModal({ course, onClose }: { course: Course | null; onClose: ()
             <div
               className="relative p-5 sm:p-8 text-white overflow-hidden shrink-0"
               style={{
-                background: `linear-gradient(135deg, ${ACCENT_HEX[course.accent] ?? '#2563EB'} 0%, #0F172A 100%)`,
+                background: `linear-gradient(135deg, ${ACCENT_HEX[course.accent] ?? '#2563EB'} 0%, #1A1611 100%)`,
               }}
             >
               <div

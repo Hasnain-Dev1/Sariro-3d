@@ -70,7 +70,7 @@ export default async function SpecialisationPage({ params }: Params) {
       <section className="pt-28 sm:pt-32 pb-12 bg-gradient-to-b from-slate-50 to-white">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <Link
-            href="/subjects"
+            href="/courses#learn"
             className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 transition mb-8"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -149,7 +149,7 @@ export default async function SpecialisationPage({ params }: Params) {
           <p className="mt-8 inline-flex items-center gap-2 text-[14px] text-slate-600">
             <ClipboardList className="w-4 h-4" />
             Need a full school year instead?
-            <Link href="/subjects" className="font-semibold text-slate-900 hover:underline underline-offset-4">
+            <Link href="/courses#learn" className="font-semibold text-slate-900 hover:underline underline-offset-4">
               See subjects by grade
             </Link>
           </p>
