@@ -15,13 +15,19 @@
  */
 
 import {
+  AUTHORED_TITLES,
   GRADE_GROUPS,
   LESSONS_PER_GRADE,
   LESSONS_PER_GROUP,
+  LESSONS_PER_MODULE,
+  MODULES_PER_GRADE,
   SCHOOL_SUBJECTS,
   buildGradeSyllabus,
   enrolmentOptions,
+  getSubject,
+  gradeGroupFor,
   subjectsForGroup,
+  testPositions,
 } from '../src/lib/school/curriculum';
 import { flattenTaxonomy } from '../src/lib/capabilities/taxonomy';
 import {
@@ -96,6 +102,83 @@ for (const subject of SCHOOL_SUBJECTS) {
     }
   }
 }
+
+/* ── authored content must fit the scaffold exactly ─────────────────────────
+ * The checks above pass whether or not a single title is written — they only
+ * measure the generated scaffold. These check the AUTHORING, which is where the
+ * expensive mistakes live: a module with seven lessons pushes a title into a
+ * slot that does not exist and it vanishes with no error, and a title written
+ * into slot 24 or 48 is overwritten by the assessment and also vanishes. Both
+ * failures are invisible in the UI — the page just renders "Lesson 24".
+ */
+console.log('\nauthored curriculum\n' + '-'.repeat(62));
+
+for (const [key, authored] of Object.entries(AUTHORED_TITLES)) {
+  const [subjectSlug, gradeRaw] = key.split(':');
+  const grade = Number(gradeRaw);
+  const subject = getSubject(subjectSlug);
+  const group = gradeGroupFor(grade);
+
+  if (!subject) {
+    problems.push(`authored "${key}": no such subject`);
+    continue;
+  }
+  if (!group || !subject.groups.includes(group.slug)) {
+    problems.push(`authored "${key}": ${subject.name} is not offered for grade ${grade}`);
+    continue;
+  }
+  if (authored.modules.length !== MODULES_PER_GRADE) {
+    problems.push(`authored "${key}": ${authored.modules.length} modules, expected ${MODULES_PER_GRADE}`);
+  }
+
+  const testSlots = new Set(testPositions(MODULES_PER_GRADE * LESSONS_PER_MODULE));
+  const titles = new Map<string, number>();
+
+  authored.modules.forEach((mod, i) => {
+    const num = i + 1;
+    // Slots 24 and 48 are assessments and land on the LAST slot of modules 4
+    // and 8, so those modules carry five teachable lessons, not six.
+    const slots = Array.from({ length: LESSONS_PER_MODULE }, (_, l) => (num - 1) * LESSONS_PER_MODULE + l + 1);
+    const teachable = slots.filter((s) => !testSlots.has(s)).length;
+
+    if (!mod.title?.trim()) problems.push(`authored "${key}" module ${num}: empty module title`);
+    if (mod.lessons.length !== teachable) {
+      problems.push(
+        `authored "${key}" module ${num}: ${mod.lessons.length} lessons, expected ${teachable}` +
+        (teachable < LESSONS_PER_MODULE ? ' (an assessment takes the last slot of this module)' : '')
+      );
+    }
+    mod.lessons.forEach((title, l) => {
+      if (!title?.trim()) problems.push(`authored "${key}" module ${num} lesson ${l + 1}: empty title`);
+      titles.set(title, (titles.get(title) ?? 0) + 1);
+    });
+  });
+
+  for (const [title, count] of titles) {
+    if (count > 1) problems.push(`authored "${key}": lesson title "${title}" appears ${count} times`);
+  }
+
+  const syl = buildGradeSyllabus(subjectSlug, grade);
+  const modulesNamed = syl.modules.filter((m) => m.authored).length;
+  console.log(
+    `  ${key.padEnd(16)} ${String(syl.authoredCount).padStart(2)}/${syl.lessonCount} lessons` +
+    `  ${modulesNamed}/${MODULES_PER_GRADE} modules named`
+  );
+}
+
+/* ── what is still blank ────────────────────────────────────────────────── */
+const gradeKeys: string[] = [];
+for (const subject of SCHOOL_SUBJECTS) {
+  for (const group of GRADE_GROUPS) {
+    if (!subject.groups.includes(group.slug)) continue;
+    for (const grade of group.grades) gradeKeys.push(`${subject.slug}:${grade}`);
+  }
+}
+const done = gradeKeys.filter((k) => AUTHORED_TITLES[k]).length;
+console.log(
+  `\n  coverage: ${done}/${gradeKeys.length} subject-grades authored` +
+  `  · ${gradeKeys.length - done} still render as "Lesson N"`
+);
 
 /* ── tests inside the scaffold ──────────────────────────────────────────── */
 const sample = buildGradeSyllabus('mathematics', 8);

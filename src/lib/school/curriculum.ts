@@ -364,8 +364,491 @@ export function testPositions(totalSlots: number): number[] {
  * is the point: **a batch can be sold, scheduled, staffed and attended before a
  * single lesson title is written.** Content is written ahead of the class that
  * needs it, not ahead of the business.
+ *
+ * ── Two rules for anyone authoring here ────────────────────────────────────
+ *
+ * 1. **Modules 4 and 8 carry FIVE lessons, not six.** `testPositions(48)` puts
+ *    the assessments at slots 24 and 48, which are the last slots of modules 4
+ *    and 8. `buildGradeSyllabus` overrides those titles, so a sixth entry in
+ *    those arrays is silently discarded. Writing five says so out loud.
+ *    6 modules × 6 + 2 modules × 5 = 46 lessons + 2 tests = 48 slots.
+ *
+ * 2. **Names are board-neutral on purpose.** Sariro sells worldwide at one flat
+ *    USD price, so the syllabus has to read as *this parent's* syllabus in
+ *    Lucknow, Lagos, Dubai and Toronto alike. The topic spine for maths 6–10 is
+ *    near-identical across NCERT, Cambridge, Common Core and the IB — but the
+ *    vocabulary is not. "Mensuration", "practical geometry" and "comparing
+ *    quantities" are South-Asian textbook words; outside that market they read
+ *    as a foreign curriculum. "Area, Surface Area and Volume" is recognised by
+ *    everyone, including the CBSE parent looking for their mensuration chapter.
+ *    The translation only fails in one direction, so we always pick the global
+ *    name. Lesson titles stay concrete — a parent skims these to decide whether
+ *    we actually know the subject.
  */
-export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons: string[] }[] }> = {};
+export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons: string[] }[] }> = {
+  /* ── Mathematics ──────────────────────────────────────────────────────────
+   * Grades 6–10 authored first: the years where a child either keeps up or
+   * quietly decides they are "not a maths person", and where parents are most
+   * willing to pay for help.
+   */
+
+  'mathematics:6': {
+    modules: [
+      {
+        title: 'Numbers and Place Value',
+        lessons: [
+          'Reading and writing large numbers',
+          'Place value, and what each digit is worth',
+          'Comparing and ordering large numbers',
+          'Rounding and estimating',
+          'Roman numerals and other ways to write numbers',
+          'Solving word problems with large numbers',
+        ],
+      },
+      {
+        title: 'Whole Numbers, Factors and Multiples',
+        lessons: [
+          'The number line and how whole numbers behave',
+          'Properties of addition and multiplication',
+          'Factors, multiples and divisibility rules',
+          'Prime and composite numbers',
+          'Highest common factor',
+          'Lowest common multiple',
+        ],
+      },
+      {
+        title: 'Integers — Numbers Below Zero',
+        lessons: [
+          'Why negative numbers had to be invented',
+          'Integers on the number line',
+          'Adding integers',
+          'Subtracting integers',
+          'Comparing and ordering integers',
+          'Integers in the real world: temperature, debt, sea level',
+        ],
+      },
+      {
+        // Five lessons: slot 24 is the mid-year assessment.
+        title: 'Fractions',
+        lessons: [
+          'What a fraction actually means',
+          'Equivalent fractions and simplest form',
+          'Comparing and ordering fractions',
+          'Adding and subtracting fractions',
+          'Multiplying fractions, and why the answer gets smaller',
+        ],
+      },
+      {
+        title: 'Decimals',
+        lessons: [
+          'Decimals as another way of writing fractions',
+          'Place value after the decimal point',
+          'Comparing and ordering decimals',
+          'Adding and subtracting decimals',
+          'Multiplying and dividing decimals',
+          'Decimals in money and measurement',
+        ],
+      },
+      {
+        title: 'Geometry — Lines, Angles and Shapes',
+        lessons: [
+          'Points, lines, rays and segments',
+          'Measuring and drawing angles',
+          'Types of angles and how they pair up',
+          'Triangles and how they are classified',
+          'Quadrilaterals and polygons',
+          'Circles: centre, radius, diameter and chord',
+        ],
+      },
+      {
+        title: 'Algebra, Ratio and Proportion',
+        lessons: [
+          'Using a letter to stand for a number',
+          'Writing an expression from a sentence',
+          'Solving simple equations',
+          'Ratio — comparing two quantities',
+          'Proportion and equivalent ratios',
+          'The unitary method: finding the price of one',
+        ],
+      },
+      {
+        // Five lessons: slot 48 is the final assessment.
+        title: 'Perimeter, Area and Data',
+        lessons: [
+          'Perimeter of rectangles and polygons',
+          'Area of squares and rectangles',
+          'Collecting and organising data',
+          'Bar graphs and pictographs',
+          'Reading and interpreting a graph',
+        ],
+      },
+    ],
+  },
+
+  'mathematics:7': {
+    modules: [
+      {
+        title: 'Integers and Their Operations',
+        lessons: [
+          'Integers on the number line, revisited',
+          'Multiplying integers',
+          'Dividing integers',
+          'Properties of integer operations',
+          'Order of operations',
+          'Solving integer word problems',
+        ],
+      },
+      {
+        title: 'Fractions, Decimals and Rational Numbers',
+        lessons: [
+          'Multiplying fractions by fractions',
+          'Dividing fractions, and the reciprocal',
+          'Multiplying and dividing decimals',
+          'Rational numbers — fractions that can be negative',
+          'Placing rational numbers on the number line',
+          'Operations with rational numbers',
+        ],
+      },
+      {
+        title: 'Data and Statistics',
+        lessons: [
+          'Collecting data and organising it',
+          'The mean as a balancing point',
+          'Median and mode',
+          'Choosing the right average',
+          'Bar graphs and double bar graphs',
+          'Chance, and the language of probability',
+        ],
+      },
+      {
+        title: 'Simple Equations',
+        lessons: [
+          'From arithmetic to algebra',
+          'Building an equation from a story',
+          'Solving equations by keeping the balance',
+          'Equations with the variable on both sides',
+          'Checking a solution, and what a wrong answer tells you',
+        ],
+      },
+      {
+        title: 'Lines and Angles',
+        lessons: [
+          'Complementary and supplementary angles',
+          'Adjacent angles and linear pairs',
+          'Vertically opposite angles',
+          'Parallel lines cut by a transversal',
+          'Corresponding, alternate and co-interior angles',
+          'Proving that two lines are parallel',
+        ],
+      },
+      {
+        title: 'Triangles',
+        lessons: [
+          'The angle sum of a triangle',
+          'The exterior angle property',
+          'Classifying triangles by side and by angle',
+          'Congruence — when two triangles are the same',
+          'The congruence conditions: SSS, SAS, ASA and RHS',
+          'The Pythagorean relationship',
+        ],
+      },
+      {
+        title: 'Ratio, Percentage and Money',
+        lessons: [
+          'Ratio and proportion, revisited',
+          'Percentage — a ratio out of one hundred',
+          'Converting between fractions, decimals and percentages',
+          'Percentage increase and decrease',
+          'Profit, loss and discount',
+          'Simple interest',
+        ],
+      },
+      {
+        title: 'Perimeter, Area and Symmetry',
+        lessons: [
+          'Area of a parallelogram',
+          'Area of a triangle',
+          'Circumference of a circle',
+          'Area of a circle',
+          'Symmetry, reflection and rotation',
+        ],
+      },
+    ],
+  },
+
+  'mathematics:8': {
+    modules: [
+      {
+        title: 'Rational Numbers',
+        lessons: [
+          'The rational number system',
+          'Properties of rational numbers',
+          'Finding rational numbers between two others',
+          'Operations, and the shortcuts worth knowing',
+          'Rational numbers in word problems',
+          'Where rational numbers run out — a first look at irrationals',
+        ],
+      },
+      {
+        title: 'Exponents and Powers',
+        lessons: [
+          'Why repeated multiplication gets its own notation',
+          'The laws of exponents',
+          'Negative exponents',
+          'Powers of ten and standard form',
+          'Very large and very small numbers in science',
+          'Comparing quantities written in standard form',
+        ],
+      },
+      {
+        title: 'Squares, Cubes and Roots',
+        lessons: [
+          'Square numbers and the patterns inside them',
+          'Finding square roots',
+          'Square roots of fractions and decimals',
+          'Cube numbers',
+          'Finding cube roots',
+          'Estimating roots that are not exact',
+        ],
+      },
+      {
+        title: 'Algebraic Expressions and Identities',
+        lessons: [
+          'Terms, coefficients and like terms',
+          'Adding and subtracting expressions',
+          'Multiplying a monomial by a polynomial',
+          'Multiplying two binomials',
+          'The standard identities, and how to spot one',
+        ],
+      },
+      {
+        title: 'Linear Equations in One Variable',
+        lessons: [
+          'Variables on both sides',
+          'Equations with brackets',
+          'Equations with fractions',
+          'Turning a word problem into an equation',
+          'Age, money and distance problems',
+          'Equations with no solution, and equations always true',
+        ],
+      },
+      {
+        title: 'Quadrilaterals and Geometric Constructions',
+        lessons: [
+          'The angle sum of a polygon',
+          'Properties of a parallelogram',
+          'Rhombus, rectangle and square',
+          'Trapezium and kite',
+          'Constructing a quadrilateral',
+          'Constructing triangles, bisectors and perpendiculars',
+        ],
+      },
+      {
+        title: 'Percentage, Profit and Interest',
+        lessons: [
+          'Percentage increase and decrease, revisited',
+          'Marked price, discount and selling price',
+          'Profit and loss as a percentage',
+          'Tax, and the everyday forms it takes',
+          'Compound interest — interest on interest',
+          'Growth and depreciation over time',
+        ],
+      },
+      {
+        title: 'Area, Volume and Graphs',
+        lessons: [
+          'Area of a trapezium and of a general quadrilateral',
+          'Surface area of a cube and a cuboid',
+          'Surface area and volume of a cylinder',
+          'Volume and capacity',
+          'Plotting points and reading line graphs',
+        ],
+      },
+    ],
+  },
+
+  'mathematics:9': {
+    modules: [
+      {
+        title: 'The Real Number System',
+        lessons: [
+          'Natural, whole, integer and rational numbers',
+          'Decimal expansions: terminating and recurring',
+          'Irrational numbers, and why they had to exist',
+          'Representing real numbers on the number line',
+          'Operations with surds',
+          'Rationalising a denominator',
+        ],
+      },
+      {
+        title: 'Polynomials',
+        lessons: [
+          'What a polynomial is, and what it is not',
+          'Degree, terms and types of polynomial',
+          'Zeroes of a polynomial',
+          'The remainder theorem',
+          'The factor theorem',
+          'Factorising polynomials',
+        ],
+      },
+      {
+        title: 'Linear Equations in Two Variables',
+        lessons: [
+          'Equations with two unknowns',
+          'Solutions as ordered pairs',
+          'Graphing a linear equation',
+          'Lines parallel to the axes',
+          'Reading a solution off a graph',
+          'Modelling a real situation with two variables',
+        ],
+      },
+      {
+        title: 'Coordinate Geometry',
+        lessons: [
+          'The Cartesian plane',
+          'Plotting points and naming quadrants',
+          'Distance between two points',
+          'Midpoints and the section formula',
+          'Area of a triangle from its vertices',
+        ],
+      },
+      {
+        title: 'Lines, Angles and Triangles',
+        lessons: [
+          'Axioms, theorems, and what a proof actually is',
+          'Angle relationships, proved',
+          'The congruence criteria, proved',
+          'Properties of isosceles triangles',
+          'Inequalities in a triangle',
+          'Writing a geometric proof of your own',
+        ],
+      },
+      {
+        title: 'Quadrilaterals and Circles',
+        lessons: [
+          'The parallelogram and its proofs',
+          'The midpoint theorem',
+          'Chords of a circle and their properties',
+          'Angles subtended by an arc',
+          'Cyclic quadrilaterals',
+          'Tangents — a first look',
+        ],
+      },
+      {
+        title: 'Area, Surface Area and Volume',
+        lessons: [
+          'Area of a triangle from its three sides',
+          'Surface area of cuboids and cylinders',
+          'Surface area of cones and spheres',
+          'Volume of cylinders and cones',
+          'Volume of spheres and hemispheres',
+          'Combined solids and real objects',
+        ],
+      },
+      {
+        title: 'Statistics and Probability',
+        lessons: [
+          'Organising data into a frequency table',
+          'Histograms and frequency polygons',
+          'Mean, median and mode of grouped data',
+          'Probability from experiments',
+          'The probability of an event, and what it cannot tell you',
+        ],
+      },
+    ],
+  },
+
+  'mathematics:10': {
+    modules: [
+      {
+        title: 'Real Numbers',
+        lessons: [
+          'Rational and irrational numbers, revisited',
+          'The fundamental theorem of arithmetic',
+          'Highest common factor and lowest common multiple by prime factorisation',
+          'Proving that a number is irrational',
+          'Decimal expansions and what they reveal',
+          'Real numbers in problem solving',
+        ],
+      },
+      {
+        title: 'Polynomials',
+        lessons: [
+          'Degree, zeroes and the shape of a graph',
+          'The relationship between zeroes and coefficients',
+          'Quadratic polynomials in depth',
+          'The division algorithm for polynomials',
+          'Cubic polynomials and their zeroes',
+          'Building a polynomial from its zeroes',
+        ],
+      },
+      {
+        title: 'Pairs of Linear Equations',
+        lessons: [
+          'Two equations, two unknowns',
+          'Solving graphically',
+          'The substitution method',
+          'The elimination method',
+          'Consistent, inconsistent and dependent pairs',
+          'Word problems: speed, age, work and money',
+        ],
+      },
+      {
+        title: 'Quadratic Equations',
+        lessons: [
+          'Recognising a quadratic equation',
+          'Solving by factorisation',
+          'Completing the square',
+          'The quadratic formula',
+          'The discriminant and the nature of the roots',
+        ],
+      },
+      {
+        title: 'Sequences and Arithmetic Progressions',
+        lessons: [
+          'Patterns and sequences',
+          'The nth term of an arithmetic progression',
+          'Finding a term, and finding which term',
+          'The sum of the first n terms',
+          'Applications: savings, salaries and stacks',
+          'Sequences that are not arithmetic',
+        ],
+      },
+      {
+        title: 'Triangles and Similarity',
+        lessons: [
+          'Similar figures and similar triangles',
+          'The basic proportionality theorem',
+          'The criteria for similarity',
+          'Areas of similar triangles',
+          'The Pythagorean theorem, proved',
+          'The converse of Pythagoras, and what it is used for',
+        ],
+      },
+      {
+        title: 'Circles and Trigonometry',
+        lessons: [
+          'The tangent to a circle and its properties',
+          'How many tangents can be drawn from a point',
+          'Trigonometric ratios in a right triangle',
+          'Trigonometric ratios of the standard angles',
+          'Trigonometric identities',
+          'Heights and distances',
+        ],
+      },
+      {
+        title: 'Solids, Statistics and Probability',
+        lessons: [
+          'Surface area of combined solids',
+          'Volume of combined solids, and converting one shape into another',
+          'The mean of grouped data, three ways',
+          'Median, mode and the cumulative frequency curve',
+          'Theoretical probability, and where it stops being useful',
+        ],
+      },
+    ],
+  },
+};
 
 export function buildGradeSyllabus(subjectSlug: string, grade: number): GradeSyllabus {
   const authored = AUTHORED_TITLES[`${subjectSlug}:${grade}`];

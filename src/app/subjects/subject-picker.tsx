@@ -53,6 +53,14 @@ export interface SubjectPickerProps {
   grades: GradeChoice[];
   /** Keyed `${grade}:grade` and `${grade}:group`. */
   prices: Record<string, ScopePrice>;
+  /**
+   * Controlled by `SubjectPlan`, because the syllabus outline further down the
+   * page has to follow the same grade. When the picker owned this state, the
+   * outline was stuck on whichever grade the server happened to render first —
+   * grade 1 for maths — so a parent choosing grade 8 was shown grade 1's plan.
+   */
+  grade: number;
+  onGradeChange: (grade: number) => void;
 }
 
 export default function SubjectPicker({
@@ -61,13 +69,12 @@ export default function SubjectPicker({
   accent,
   grades,
   prices,
+  grade,
+  onGradeChange,
 }: SubjectPickerProps) {
   const reduced = useReducedMotion();
   const spring = reduced ? REDUCED : SPRING_QUICK;
 
-  // Default to the middle of the range: most enquiries are for older children,
-  // and a default of grade 1 makes the product look like it is for toddlers.
-  const [grade, setGrade] = useState(grades[Math.floor(grades.length / 2)]?.grade ?? grades[0].grade);
   const [scope, setScope] = useState<'grade' | 'group'>('grade');
   const [cadence, setCadence] = useState<'monthly' | 'quarterly' | 'full'>('monthly');
 
@@ -86,7 +93,7 @@ export default function SubjectPicker({
           return (
             <button
               key={g.grade}
-              onClick={() => setGrade(g.grade)}
+              onClick={() => onGradeChange(g.grade)}
               aria-pressed={active}
               className="h-10 min-w-[3rem] px-3 rounded-xl border text-sm font-semibold tabular-nums transition-colors duration-200"
               style={

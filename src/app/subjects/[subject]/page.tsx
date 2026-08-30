@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, ArrowRight, ClipboardList, Users } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Users } from 'lucide-react';
 import BrandLayout from '@/components/brand/brand-layout';
 import {
   GRADE_GROUPS,
@@ -14,7 +14,8 @@ import {
 } from '@/lib/school/curriculum';
 import { cadencePlans, formatPrice, perMonthFor } from '@/lib/school/pricing';
 import { DOMAINS } from '@/lib/capabilities/taxonomy';
-import SubjectPicker, { type GradeChoice, type ScopePrice } from '@/app/subjects/subject-picker';
+import { type GradeChoice, type ScopePrice } from '@/app/subjects/subject-picker';
+import SubjectPlan, { type GradePlan } from '@/app/subjects/subject-plan';
 
 /**
  * SARIRO — /subjects/[subject]
@@ -90,14 +91,27 @@ export default async function SubjectPage({ params }: Params) {
     }
   }
 
-  const sample = buildGradeSyllabus(subject.slug, grades[0].grade);
+  // Every offered grade's outline, so the plan below the picker follows the
+  // grade a parent chooses instead of being frozen on whichever one is first.
+  const plans: Record<number, GradePlan> = {};
+  for (const { grade } of grades) {
+    const syllabus = buildGradeSyllabus(subject.slug, grade);
+    plans[grade] = {
+      testCount: syllabus.testCount,
+      authored: syllabus.modules.every((m) => m.authored),
+      modules: syllabus.modules.map((m) => {
+        const tests = m.lessons.filter((l) => l.kind === 'test').length;
+        return { num: m.num, title: m.title, lessons: m.lessons.length - tests, tests };
+      }),
+    };
+  }
 
   return (
     <BrandLayout>
       <section className="pt-28 sm:pt-32 pb-12 bg-gradient-to-b from-slate-50 to-white">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <Link
-            href="/subjects"
+            href="/courses#learn"
             className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 transition mb-8"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -120,63 +134,16 @@ export default async function SubjectPage({ params }: Params) {
         </div>
       </section>
 
-      {/* ── choose + price ─────────────────────────────────────────────── */}
-      <section className="py-14 sm:py-20 bg-white">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <SubjectPicker
-            subjectSlug={subject.slug}
-            subjectName={subject.name}
-            accent={accent}
-            grades={grades}
-            prices={prices}
-          />
-        </div>
-      </section>
-
-      {/* ── what a year looks like ─────────────────────────────────────── */}
-      <section className="py-14 sm:py-20 bg-slate-50 border-t border-slate-100">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-2xl sm:text-[1.75rem] font-bold tracking-[-0.02em] text-slate-900 mb-2">What a year looks like</h2>
-          <p className="prose-measure text-slate-600 text-[15px] leading-[1.65] mb-7">
-            {LESSONS_PER_GRADE} classes across {sample.modules.length} modules — one class a week,
-            four a month. {sample.testCount} of those classes are assessments rather than lessons,
-            so you always know whether it is working.
-          </p>
-
-          <ol className="space-y-2.5">
-            {sample.modules.map((m) => {
-              const tests = m.lessons.filter((l) => l.kind === 'test').length;
-              return (
-                <li
-                  key={m.num}
-                  className="card card--compact flex items-center gap-4"
-                >
-                  <span
-                    className="shrink-0 w-8 h-8 rounded-lg text-xs font-bold flex items-center justify-center tabular-nums"
-                    style={{ background: `${accent}12`, color: accent }}
-                  >
-                    {m.num}
-                  </span>
-                  <span className="flex-1 font-medium text-slate-800 text-[14.5px]">{m.title}</span>
-                  <span className="text-[12.5px] text-slate-500 tabular-nums shrink-0">
-                    {m.lessons.length - tests} lessons
-                    {tests > 0 && (
-                      <span className="inline-flex items-center gap-1 ml-2 font-semibold" style={{ color: accent }}>
-                        <ClipboardList className="w-3.5 h-3.5" />
-                        test
-                      </span>
-                    )}
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
-
-          <p className="text-[13px] text-slate-500 mt-5">
-            Module titles are finalised with your child&apos;s teacher to match their school board.
-          </p>
-        </div>
-      </section>
+      {/* ── choose + price, and the year that choice buys ──────────────── */}
+      <SubjectPlan
+        subjectSlug={subject.slug}
+        subjectName={subject.name}
+        accent={accent}
+        grades={grades}
+        prices={prices}
+        plans={plans}
+        totalSlots={LESSONS_PER_GRADE}
+      />
 
       {/* ── what it builds ─────────────────────────────────────────────── */}
       <section className="py-14 sm:py-20 bg-white border-t border-slate-100">
