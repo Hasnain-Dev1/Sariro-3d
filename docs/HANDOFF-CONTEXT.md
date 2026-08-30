@@ -8,7 +8,7 @@
 > **→ `FOUNDER-TODO.md` is the short list of things only the founder can do** —
 > accounts, dashboards and decisions, with the exact steps for each. Nothing on
 > it is blocked on engineering.
-> **Last updated:** 30 Aug 2026, at commit `ca9288f` + uncommitted tests.
+> **Last updated:** 30 Aug 2026, at commit `b023da4` + the security pass (§17).
 
 ---
 
@@ -38,7 +38,7 @@ on the merged `/courses` page.
 | # | What | Why |
 |---|---|---|
 | 1 | ~~Class reminder~~ | **BUILT — needs two things only you can do.** See §15. |
-| 2 | **Cloudflare in front** | TTFB ≈ 946 ms is the whole site's ceiling; this is config, not code. Bypass `/dashboard/*` and `/api/*`. |
+| 2 | **Cloudflare in front** | Measured: TTFB 0.59–1.2 s, of which ~320 ms is connection setup and ~630 ms is transferring a **444 KB** homepage. Hostinger already runs a CDN (`Server: hcdn`), so the speed case is smaller than it looked — the stronger case is **security**: free WAF and edge rate limiting (§17). See `FOUNDER-TODO.md` §2. |
 | 3 | ~~Student-side conflict check~~ | **DONE** — `studentConflicts` / `cohortStudentConflicts` in `schedule-ops-server.ts`, wired into both `POST /api/admin/schedule` and `POST /api/schedule/reschedule`. Returns 409 `student_conflict` naming the learners. |
 | 4 | ~~`/pricing` school prices~~ | **DONE** — `/pricing` rendered only the coding tiers, so a parent clicking Pricing for maths saw a bootcamp price list. `src/app/pricing/school-pricing.tsx` adds the per-class pricing and the three cadences, sourced from `school/pricing.ts` so it cannot drift from the subject pages. |
 | 5 | ~~Surface `student_conflict` in the admin UI~~ | **DONE, and it was worse than expected.** `schedule-batch` and `manage-batches` read `json.error` (the machine slug) and never `json.message`, so admins had *always* seen "teacher_conflict" instead of the sentence explaining it. Both now prefer `message`. |
@@ -520,3 +520,64 @@ suite nobody has watched fail is decoration.
 like a mistake, which costs more than three cents". The test now pins the
 exception rather than asserting the naive multiple, so it cannot quietly grow
 into a general licence to round customers up.
+
+## 17. Security — what was audited, found and fixed (30 Aug 2026)
+
+### FIXED — the CSP never reached a browser
+
+Measured against the live site, not assumed:
+
+```
+local dev   →  Content-Security-Policy: default-src 'self'; script-src 'self' …
+sariro.com  →  Content-Security-Policy: upgrade-insecure-requests
+```
+
+Hostinger's CDN (`Server: hcdn`) **replaces** that one header. Every other
+security header from `next.config.ts` arrives intact — `X-Frame-Options`,
+`nosniff`, `Referrer-Policy`, HSTS, `Permissions-Policy` — so this is a targeted
+override of the CSP, not a general strip. The allowlist was written, reviewed,
+and discarded at the edge.
+
+**Fix:** the same policy is now also a `<meta http-equiv>` tag in the root
+layout. It lives in the document body, so a CDN cannot rewrite it without
+rewriting the HTML. Both are kept — if the override is ever removed the header
+takes over and nothing changes. One source of truth in `src/lib/security/csp.ts`.
+
+Verified before enforcing: zero CSP violations across `/`, `/courses`,
+`/pricing`, `/subjects/[subject]`, `/about`; those pages reference **no external
+origins at all** (fonts self-hosted via `next/font`).
+
+**Worth asking Hostinger** whether that CSP override can be disabled. If it can,
+the header is the better mechanism and the meta tag becomes belt-and-braces.
+
+### FIXED — a scaffold route was live in production
+`GET https://sariro.com/api` returned `{"message":"Hello, world!"}` — a Next.js
+starter leftover. Harmless, but it is a public endpoint that signals an
+unmaintained surface. Deleted.
+
+### CHECKED — clean
+
+| Check | Result |
+|---|---|
+| Service-role key in any client component | none — all 8 references are server-only |
+| Service-role key in the built client bundle | **not present in `.next/static`** |
+| API routes without an auth/permission gate | none. `lessons/content` and `lessons/list` return 401/403 via `resolveViewerProgress`; `exit-impersonation` is gated on the `sariro_impersonator` cookie and is idempotent by design |
+
+### STILL OPEN — `unsafe-inline` / `unsafe-eval`
+Both remain in `script-src`. They genuinely weaken the policy, but the step that
+mattered was going from *no enforced policy* to *an enforced one* — a policy with
+`unsafe-inline` still blocks every unlisted origin, which is what stops an
+injected script exfiltrating anywhere. Nonce-based CSP with Next.js,
+framer-motion and inline styles is a change that can break the whole site and
+deserves its own session.
+
+### STILL OPEN — rate limiting is per-instance
+`src/lib/rate-limit/` is in-memory, so a deploy clears every block. Note what is
+and is not worth persisting: a **60-second sliding window** is meaningless across
+a restart; the **IP blocklist** is a durable judgment and is the only part worth
+storing.
+
+**Cloudflare's free tier solves this better than code can** — edge rate limiting
+and WAF reject abuse before it ever reaches Hostinger, and survive deploys by
+definition. That is the stronger argument for Cloudflare than speed (see
+`FOUNDER-TODO.md` §2), because Hostinger already runs a CDN.

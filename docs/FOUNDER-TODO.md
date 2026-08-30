@@ -47,11 +47,31 @@ cron URL once you have.
 
 ## 2. Put Cloudflare in front of sariro.com (30 minutes)
 
-**Why this one is worth doing before any further code.** TTFB is ~946 ms. That is
-the ceiling on every page, and no amount of front-end work gets under it — the
-server takes that long to answer. Cloudflare caches the static pages at the edge
-and serves them in tens of milliseconds. It is the single biggest speed win
-available, and it is configuration, not code.
+**I overstated this earlier — here is the measured picture.** You already have a
+CDN: `sariro.com` returns `Server: hcdn` (Hostinger's), and Next.js caching is
+working (`x-nextjs-cache: HIT`). So Cloudflare is not the transformation I first
+implied, and you were right to ask.
+
+What the numbers actually say, measured 30 Aug 2026:
+
+| Phase | Time | What fixes it |
+|---|---|---|
+| DNS + TCP + TLS | ~320 ms | A closer edge — Cloudflare has ~330 locations, Hostinger far fewer. This is the part Cloudflare genuinely fixes. |
+| Server thinking | ~270 ms | Nothing at the CDN. This is Hostinger + Supabase. |
+| **Transferring the page** | **~630 ms** | **The homepage is 444 KB of HTML (already Brotli'd). No CDN fixes a page that big — it only moves it closer.** |
+
+So: Cloudflare buys you maybe 300 ms of the ~1.2 s, and the single biggest win is
+actually shipping a smaller homepage — that is engineering work, not config.
+
+**The stronger reason to do it is security, not speed.** The free tier gives a
+WAF, DDoS protection, and **edge rate limiting**. Sariro's own rate limiter is
+in-memory, so every deploy clears every block; Cloudflare rejects abuse before it
+reaches Hostinger at all and survives deploys by definition. That fixes a real
+gap that would otherwise need code and another migration.
+
+**If you only do one thing here, do the cache rules in step 5** — those are what
+keep dashboards and APIs uncached, and getting them wrong is the only way this
+change can hurt you.
 
 1. **Add the site.** Cloudflare → Add a site → `sariro.com` → Free plan.
 2. **Point the nameservers.** Cloudflare gives you two. Set them at your domain
