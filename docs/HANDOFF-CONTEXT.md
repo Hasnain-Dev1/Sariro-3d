@@ -4,7 +4,7 @@
 > without losing what has been built. Companion docs: `SARIRO-VISION.md`,
 > `STAGE-2-PLAN.md`, `STAGE-2-BUILD.md`, `PLATFORM-PLAN.md`,
 > `IMPROVEMENT-PLAN.md`, `UI-2077-PLAN.md`.
-> **Last updated:** 30 Aug 2026, at commit `a517e06` + uncommitted class reminders.
+> **Last updated:** 30 Aug 2026, at commit `ca9288f` + uncommitted tests.
 
 ---
 
@@ -328,7 +328,8 @@ un-attribute them.**
   most of its purpose. Nonce-based CSP is the fix.
 - **TTFB ≈ 946 ms** on Hostinger — Cloudflare in front is the single biggest
   speed win available. Bypass `/dashboard/*` and `/api/*`.
-- **No tests at all.** `mastery.ts` and `identity.ts` deserve them first.
+- **Tests exist now — 43 of them.** `npm test`. See §16. `mastery.ts` and
+  `identity.ts` are still uncovered and are the next two worth doing.
 - Nav is 12 items. Merging Explore/Courses (§0.3) helps.
 - `prisma@8.0.0-rc.12` is in dependencies — a release candidate.
 
@@ -465,3 +466,44 @@ every ten minutes.
 
 Students **and** the teacher are reminded — a teacher who forgets costs more,
 because the whole batch sits in an empty room.
+
+## 16. Tests — the first ones in the repository
+
+```bash
+npm test                 # 43 tests, ~2s, no database, no network
+npm run audit:curriculum # the content guard, unchanged
+```
+
+Node's **built-in** test runner via `tsx`. No Vitest, no Jest, no config file —
+this repo has already been bitten once by a dependency it did not control
+(§8b, `lucide-react` deleting every brand icon), so the test stack adds exactly
+one devDependency and nothing at runtime.
+
+**`tsx` is now a declared devDependency.** It was not before, which meant every
+`npx tsx scripts/audit-*.ts` — the gate this doc calls required — silently
+fetched an unpinned version from the registry at run time, and did not work
+offline at all.
+
+### What is covered, and why these first
+
+| File | Why |
+|---|---|
+| `school/pricing.test.ts` (21) | It decides what real people are charged. Everything else that breaks is embarrassing; this is the only module where a bug takes money from someone. |
+| `school/curriculum.test.ts` (22) | The shape the scheduler, credits and attendance all assume. A parent buys 48 classes and must receive exactly 48 slots. |
+
+The interesting assertions are the **properties**, not the fixed numbers:
+rounding never goes up (except the one documented 3¢ case), more commitment
+never costs more, a quoted saving always equals monthly-minus-lifetime, slot
+numbers run 1..48 with no gaps, and an authored title can never overwrite an
+assessment slot.
+
+**The suite was verified to actually fail.** Changing `PRICE_PER_CLASS_GROUP`
+from 6.99 to 7.99 broke 5 tests; the file was then restored from git. A test
+suite nobody has watched fail is decoration.
+
+### One thing the tests found
+`4 × $6.99 = $27.96`, but the advertised monthly is `$27.99`. That is
+**deliberate and documented** in `pricing.ts` — "a price ending in .96 looks
+like a mistake, which costs more than three cents". The test now pins the
+exception rather than asserting the naive multiple, so it cannot quietly grow
+into a general licence to round customers up.
