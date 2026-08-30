@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { CSP } from "./src/lib/security/csp";
 
 /**
  * SARIRO — Production security headers
@@ -29,29 +30,10 @@ import type { NextConfig } from "next";
  *   - framer-motion + Next.js inline styles via 'unsafe-inline'
  */
 
-const csp = [
-  "default-src 'self'",
-  // Scripts: self + Razorpay checkout + inline (Next.js eval in dev)
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://cdn.razorpay.com",
-  // Styles: self + inline (Next.js injects a lot of inline styles)
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  // Images: self + data: (SVGs) + https (Razorpay logos, etc.)
-  "img-src 'self' data: https: blob:",
-  // Fonts: self + Google Fonts
-  "font-src 'self' data: https://fonts.gstatic.com",
-  // Connects: self + Supabase + Razorpay API + drei HDRI assets
-  //   (drei <Environment preset="..."> loads HDR files from
-  //    raw.githubusercontent.com/pmndrs/drei-assets — without this,
-  //    the 3D scenes crash with a NetworkError on the homepage.)
-  "connect-src 'self' https://*.supabase.co https://api.razorpay.com wss://*.supabase.co https://raw.githubusercontent.com",
-  // Frames: Razorpay checkout opens in an iframe
-  "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com",
-  // Form actions: self + Razorpay (legacy Payment Pages flow)
-  "form-action 'self' https://api.razorpay.com https://checkout.razorpay.com",
-  // Base + object: lock down
-  "base-uri 'self'",
-  "object-src 'none'",
-].join('; ');
+// The policy itself lives in src/lib/security/csp.ts, because the same string
+// is also rendered as a <meta> tag — Hostinger's CDN replaces this header in
+// production, so the meta tag is what actually reaches a browser. See that file.
+const csp = CSP;
 
 const securityHeaders = [
   { key: 'Content-Security-Policy', value: csp },

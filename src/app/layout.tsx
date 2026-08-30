@@ -8,6 +8,7 @@ import ProfileCompletionModal from "@/components/auth/profile-completion-modal";
 import { ErrorTracker } from "@/components/observability/error-tracker";
 import { ImpersonationBanner } from "@/components/security/impersonation-banner";
 import WelcomePopup from "@/components/welcome/welcome-popup";
+import { CSP } from "@/lib/security/csp";
 
 // Font weights trimmed to what the UI actually leans on (measured: 700 and
 // 800 dominate; 400/500/900 are rare). Fewer weight files = less to download
@@ -111,6 +112,15 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* THE CSP THAT ACTUALLY REACHES A BROWSER.
+            The response header set in next.config.ts is replaced in production
+            by Hostinger's CDN with a bare `upgrade-insecure-requests`, so until
+            that override is removed this tag is the only enforced policy on
+            sariro.com. A CDN cannot rewrite it without rewriting the body.
+            Full explanation in src/lib/security/csp.ts. */}
+        <meta httpEquiv="Content-Security-Policy" content={CSP} />
+      </head>
       <body
         className={`${inter.variable} ${jakarta.variable} ${grotesk.variable} antialiased`}
       >
