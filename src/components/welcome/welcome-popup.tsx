@@ -51,6 +51,19 @@ export default function WelcomePopup() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [open, setOpen] = useState(false);
+  /**
+   * Dismissal has to live in STATE, not only in sessionStorage.
+   *
+   * The first version of this wrote sessionStorage and closed the popup, but
+   * left the `mouseout` listener attached — the effect only re-runs when auth
+   * changes, so nothing ever removed it. Dismiss, move the mouse toward the tab
+   * bar again, and the popup came back. Every time. That is worse than the
+   * timer it replaced: the timer fired once per page load, this fired once per
+   * mouse movement.
+   *
+   * Making it a dependency is what actually detaches the listener.
+   */
+  const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     // Don't show if auth is still loading (we need to know if user is logged in)
@@ -58,6 +71,9 @@ export default function WelcomePopup() {
 
     // Don't show for logged-in users — they're already enrolled
     if (user) return;
+
+    // Dismissed during this render's lifetime — stop listening entirely.
+    if (dismissed) return;
 
     // Converted once — never ask again, on any visit.
     try {
@@ -94,7 +110,7 @@ export default function WelcomePopup() {
     };
     document.addEventListener('mouseout', onLeave);
     return () => document.removeEventListener('mouseout', onLeave);
-  }, [user, authLoading]);
+  }, [user, authLoading, dismissed]);
 
   /* ─── Handlers ─── */
 
@@ -105,6 +121,7 @@ export default function WelcomePopup() {
     } catch {
       // ignore
     }
+    setDismissed(true);
     setOpen(false);
     router.push('/welcome');
   };
@@ -114,9 +131,11 @@ export default function WelcomePopup() {
     try {
       sessionStorage.setItem(SESSION_CLOSE_KEY, '1');
     } catch {
-      // sessionStorage might be blocked — the popup simply asks again, which is
-      // the old behaviour and an acceptable fallback for a private-mode visitor.
+      // sessionStorage might be blocked (private mode). The state flag below
+      // still holds for this page, so it cannot loop even then.
     }
+    // Both: sessionStorage survives navigation, state detaches the listener now.
+    setDismissed(true);
     setOpen(false);
   };
 
