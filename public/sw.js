@@ -31,7 +31,12 @@
  *   - Everything else → untouched passthrough to the network.
  */
 
-const CACHE_VERSION = 'sariro-v1';
+// Bumped to v2 with the respondWith fix below. The activate handler deletes
+// every cache whose name does not match the current version, so bumping this
+// is what evicts anything the broken worker stored. skipWaiting + clients.claim
+// are already in place, so the fixed worker takes over on the next page load
+// rather than waiting for every tab to close.
+const CACHE_VERSION = 'sariro-v2';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const PAGE_CACHE = `${CACHE_VERSION}-pages`;
 
@@ -101,13 +106,36 @@ self.addEventListener('fetch', (event) => {
   // Everything else: no-op, let the browser handle it normally.
 });
 
+/**
+ * A handler passed to `respondWith` MUST resolve to a Response. If it rejects,
+ * or resolves to undefined, the browser does not fall back to the network — it
+ * fails the request outright with
+ *
+ *   TypeError: Failed to convert value to 'Response'
+ *
+ * and the user sees a broken asset or, for a navigation, a broken page. That is
+ * strictly worse than having no service worker at all: a cache meant to make
+ * the site faster took the site down on a bad connection.
+ *
+ * Both helpers below therefore guarantee a Response on every path.
+ */
 async function cacheFirst(request, cacheName) {
   const cache = await caches.open(cacheName);
   const cached = await cache.match(request);
   if (cached) return cached;
-  const response = await fetch(request);
-  if (response.ok) cache.put(request, response.clone());
-  return response;
+
+  try {
+    const response = await fetch(request);
+    // Only cache real successes. An opaque or error response cached here would
+    // be served forever from a URL that is content-hashed and never revisited.
+    if (response.ok) cache.put(request, response.clone());
+    return response;
+  } catch {
+    // Network failed and we have nothing cached. Hand back a real Response so
+    // the page degrades (a missing image) instead of the whole request tearing
+    // down with a TypeError.
+    return Response.error();
+  }
 }
 
 async function staleWhileRevalidate(request, cacheName) {
@@ -119,7 +147,14 @@ async function staleWhileRevalidate(request, cacheName) {
       if (response.ok) cache.put(request, response.clone());
       return response;
     })
-    .catch(() => cached); // offline / network failure — fall back to cache
+    // `.catch(() => cached)` used to be the whole fallback, and when there was
+    // NOTHING cached it resolved to `undefined` — which is not a Response, so
+    // the navigation failed with "Failed to convert value to 'Response'". A
+    // first-time visitor on a flaky connection got a dead page from the very
+    // thing meant to make the site resilient.
+    .catch(() => cached ?? Response.error());
 
+  // Cached copy first when we have one (that is the "stale" half); otherwise
+  // wait on the network, which now always yields a Response.
   return cached || networkFetch;
 }
