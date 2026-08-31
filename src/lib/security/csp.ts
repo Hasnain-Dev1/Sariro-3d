@@ -61,10 +61,19 @@ const DEV_CONNECT = process.env.NODE_ENV === 'development'
 
 export const CSP_DIRECTIVES = [
   "default-src 'self'",
-  // Scripts: self + Razorpay checkout. See the note above on 'unsafe-*'.
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://cdn.razorpay.com",
+  // Scripts: self, Razorpay checkout, and Google Identity Services.
+  //
+  // accounts.google.com was missing, and enforcing this policy therefore BROKE
+  // "Sign in with Google" on both auth pages: the GSI script is injected at
+  // runtime from accounts.google.com/gsi/client, the load was refused, and
+  // `window.google` never existed — so the button silently never rendered.
+  // It had worked until then only because Hostinger was stripping the CSP
+  // entirely, which is the hazard of a policy that has never actually run.
+  //
+  // See the note above on 'unsafe-*'.
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://cdn.razorpay.com https://accounts.google.com",
   // Styles: self + inline (Next.js and framer-motion both inject inline styles)
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
   // Images: self + data: (SVGs) + https (Razorpay logos, avatars) + blob:
   "img-src 'self' data: https: blob:",
   "font-src 'self' data: https://fonts.gstatic.com",
@@ -76,9 +85,10 @@ export const CSP_DIRECTIVES = [
   // provider's subdomains one CSP violation at a time is a losing game. We
   // already execute their script; allowing their own hosts to be talked to is
   // not a meaningful widening.
-  `connect-src 'self' https://*.supabase.co https://*.razorpay.com wss://*.supabase.co https://raw.githubusercontent.com${DEV_CONNECT}`,
-  // Razorpay checkout opens in an iframe, and moves between their own hosts.
-  "frame-src 'self' https://*.razorpay.com",
+  `connect-src 'self' https://*.supabase.co https://*.razorpay.com wss://*.supabase.co https://accounts.google.com https://raw.githubusercontent.com${DEV_CONNECT}`,
+  // Razorpay checkout opens in an iframe and moves between their own hosts.
+  // Google One Tap renders its prompt in an iframe from accounts.google.com.
+  "frame-src 'self' https://*.razorpay.com https://accounts.google.com",
   "form-action 'self' https://*.razorpay.com",
   "base-uri 'self'",
   "object-src 'none'",

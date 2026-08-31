@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import SystemHealthPanel from '@/components/dashboard/system-health-panel';
+import AnalyticsPanel from '@/components/dashboard/analytics-panel';
 import { useAuth } from '@/components/auth/auth-provider';
 import { TRACKS, COURSES, RAZORPAY_LINKS, RAZORPAY_LINKS_PREMIUM } from '@/lib/sariro-data';
 import { createClient } from '@/lib/supabase/client';
@@ -824,6 +825,11 @@ function SuperAdminDashboardInner() {
             broken, and the stat cards below say how big the system is, never
             whether it works. */}
         <SystemHealthPanel />
+
+        {/* Health first, then the funnel. What is broken outranks what is
+            selling — a super-admin who reads the numbers before the alarms
+            makes confident decisions on a system that is quietly failing. */}
+        <AnalyticsPanel />
 
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-10">
           <StatCard icon={Users} color="bg-blue-100 text-blue-600" value={stats?.totalUsers ?? 0} label="Total users" loading={statsLoading} />
