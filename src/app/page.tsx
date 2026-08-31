@@ -32,6 +32,21 @@ const CTA3D = dynamic(() => import('@/components/sariro-3d/cta-3d'));
 
 export default function Home() {
   const heroRef = useRef<HTMLElement>(null);
+  /**
+   * The Oryzo scene is heavy WebGL that sits seven sections down the page, and
+   * it used to mount at first paint and hold a GL context for the whole visit.
+   *
+   * Browsers cap the number of simultaneous WebGL contexts and silently DROP
+   * THE OLDEST when that cap is hit — which is exactly what
+   * "THREE.WebGLRenderer: Context Lost" is. With the intro, the background
+   * particles and the companion orb already holding one each on every page,
+   * plus the hero scene, an unconditional fifth was enough to start the churn.
+   *
+   * Mounting it only when it is near the viewport is the same treatment the
+   * hero scene already had, and drops the steady-state count by one.
+   */
+  const oryzoRef = useRef<HTMLDivElement>(null);
+  const oryzoNear = useInView(oryzoRef, { margin: '400px' });
   const scrollProgressRef = useRef(0);
   const inView = useInView(heroRef, { margin: '200px' });
   const heavyVisuals = useHeavyVisuals();
@@ -259,7 +274,7 @@ export default function Home() {
       <WaveDivider3D fromColor="#FBF9F6" toColor="#14100C" />
       {/* ORYZO-STYLE CINEMATIC SCROLL: camera orbits 360°.
           Real WebGL — desktop only, so phones don't hit it on scroll. */}
-      {heavyVisuals && <OryzoSection />}
+      <div ref={oryzoRef}>{heavyVisuals && oryzoNear && <OryzoSection />}</div>
       <WaveDivider3D fromColor="#14100C" toColor="#FBF9F6" />
 
       {/* 6 — proof, price, and the ask. */}
