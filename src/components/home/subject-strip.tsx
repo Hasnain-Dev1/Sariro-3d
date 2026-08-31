@@ -10,6 +10,7 @@ import {
   Dna,
   FlaskConical,
   Microscope,
+  Mic,
   Sigma,
   type LucideIcon,
 } from 'lucide-react';
@@ -54,6 +55,7 @@ const ONE_LINERS: Record<string, string> = {
 };
 
 const CODING_ACCENT = '#EA580C';
+const SPEAKING_ACCENT = '#DB2777';
 
 export default function SubjectStrip() {
   const monthly = formatPrice(perMonthFor('1:4'));
@@ -72,10 +74,10 @@ export default function SubjectStrip() {
             className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-[-0.02em]"
             style={{ fontFamily: 'var(--font-jakarta)' }}
           >
-            Seven subjects. One class size.
+            Eight subjects. One class size.
           </h2>
           <p className="mt-3 text-slate-600 text-[15px] leading-[1.65]">
-            Grades 1 to 12, and coding at any age. {LESSONS_PER_GRADE} live classes a year, never
+            Grades 1 to 12, plus coding and public speaking at any age. {LESSONS_PER_GRADE} live classes a year, never
             more than four learners in the room — from {monthly} a month.
           </p>
         </div>
@@ -99,9 +101,9 @@ export default function SubjectStrip() {
               >
                 <Code2 className="w-4.5 h-4.5" strokeWidth={2.2} />
               </span>
-              <p className="font-bold text-slate-900 text-[15px] mb-1">Coding</p>
+              <p className="font-bold text-slate-900 text-[15px] mb-1">Coding &amp; AI</p>
               <p className="text-[13px] leading-[1.55] text-slate-600 flex-1">
-                From first steps to shipping
+                From first steps to building with AI
               </p>
               <span className="mt-3 flex items-center justify-between">
                 <span
@@ -157,6 +159,44 @@ export default function SubjectStrip() {
               </motion.div>
             );
           })}
+
+          {/* Public speaking sits with the subjects, not buried among the focus
+              courses. It is the one thing here that is not remediation — nobody
+              arrives "behind" at speaking — and it is the only card an adult
+              buys for themselves. Hiding it costs us the audience least served
+              by a grade-shaped catalogue. */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-40px' }}
+            transition={{ duration: 0.4, delay: 0.35 }}
+          >
+            <Link
+              href="/subjects/focus/public-speaking"
+              className="card group flex flex-col h-full"
+              style={{ ['--accent' as string]: SPEAKING_ACCENT }}
+            >
+              <span
+                className="w-9 h-9 rounded-lg flex items-center justify-center mb-3"
+                style={{ background: `${SPEAKING_ACCENT}14`, color: SPEAKING_ACCENT }}
+              >
+                <Mic className="w-4.5 h-4.5" strokeWidth={2.2} />
+              </span>
+              <p className="font-bold text-slate-900 text-[15px] mb-1">Public Speaking</p>
+              <p className="text-[13px] leading-[1.55] text-slate-600 flex-1">
+                Say it so people listen
+              </p>
+              <span className="mt-3 flex items-center justify-between">
+                <span
+                  className="text-[11px] font-semibold uppercase tracking-wider"
+                  style={{ color: SPEAKING_ACCENT }}
+                >
+                  Any age
+                </span>
+                <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-600 group-hover:translate-x-0.5 transition-all duration-300" />
+              </span>
+            </Link>
+          </motion.div>
         </div>
 
         <div className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-2">

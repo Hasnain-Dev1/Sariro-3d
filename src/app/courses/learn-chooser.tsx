@@ -8,6 +8,7 @@ import {
   Dna,
   FlaskConical,
   Microscope,
+  Mic,
   Sigma,
   type LucideIcon,
 } from 'lucide-react';
@@ -49,6 +50,7 @@ const SUBJECT_ICONS: Record<string, LucideIcon> = {
 };
 
 const CODING_ACCENT = '#EA580C';
+const SPEAKING_ACCENT = '#DB2777';
 
 export default function LearnChooser() {
   return (
@@ -97,7 +99,7 @@ export default function LearnChooser() {
               </span>
 
               <h3 className="text-xl font-bold text-slate-900 tracking-[-0.01em] mb-2">
-                Coding Beyond School
+                Coding & AI
               </h3>
               <p className="text-[14px] leading-[1.6] text-slate-600 flex-1">
                 Not tied to a grade. Four tracks by what you can already do — from first steps to
@@ -105,7 +107,7 @@ export default function LearnChooser() {
               </p>
 
               <span className="card-meta flex items-center justify-between">
-                <span className="text-[13px] text-slate-500">4 tracks · all levels</span>
+                <span className="text-[13px] text-slate-500">4 tracks · any age</span>
                 <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-slate-600 group-hover:translate-x-0.5 transition-all duration-300" />
               </span>
             </Link>
@@ -154,6 +156,47 @@ export default function LearnChooser() {
                 </Link>
               );
             })}
+
+            {/* Public speaking is technically a focus course, and is deliberately
+                promoted out of that section to sit with the subjects. It is the
+                only thing we sell that is not remediation — nobody arrives
+                "behind" at speaking — and the only one an adult buys for
+                themselves rather than for a child. */}
+            <Link
+              href="/subjects/focus/public-speaking"
+              className="card card--feature group flex flex-col"
+              style={{ ['--accent' as string]: SPEAKING_ACCENT }}
+            >
+              <span className="flex items-center gap-3 mb-3">
+                <span
+                  className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                  style={{ background: `${SPEAKING_ACCENT}14`, color: SPEAKING_ACCENT }}
+                >
+                  <Mic className="w-5 h-5" strokeWidth={2.2} />
+                </span>
+                <span
+                  className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                  style={{ color: SPEAKING_ACCENT, background: `${SPEAKING_ACCENT}14` }}
+                >
+                  Any age
+                </span>
+              </span>
+
+              <h3 className="text-xl font-bold text-slate-900 tracking-[-0.01em] mb-2">
+                Public Speaking &amp; Presence
+              </h3>
+              <p className="text-[14px] leading-[1.6] text-slate-600 flex-1">
+                The skill every other subject is eventually judged by — a viva, an interview, a
+                room. Learnable, and almost never taught.
+              </p>
+
+              <span className="card-meta flex items-center justify-between">
+                <span className="text-[13px] text-slate-500 tabular-nums">
+                  {LESSONS_PER_GRADE} classes
+                </span>
+                <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-slate-600 group-hover:translate-x-0.5 transition-all duration-300" />
+              </span>
+            </Link>
           </div>
         </div>
       </section>
