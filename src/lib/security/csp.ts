@@ -71,10 +71,15 @@ export const CSP_DIRECTIVES = [
   // Connects: Supabase (REST + Realtime), Razorpay API, and the drei HDRI
   // assets the 3D scenes fetch — without the last one the homepage scenes
   // crash with a NetworkError.
-  `connect-src 'self' https://*.supabase.co https://api.razorpay.com wss://*.supabase.co https://raw.githubusercontent.com${DEV_CONNECT}`,
-  // Razorpay checkout opens in an iframe.
-  "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com",
-  "form-action 'self' https://api.razorpay.com https://checkout.razorpay.com",
+  // *.razorpay.com, not just api — their checkout also calls
+  // lumberjack.razorpay.com for telemetry, and enumerating a payment
+  // provider's subdomains one CSP violation at a time is a losing game. We
+  // already execute their script; allowing their own hosts to be talked to is
+  // not a meaningful widening.
+  `connect-src 'self' https://*.supabase.co https://*.razorpay.com wss://*.supabase.co https://raw.githubusercontent.com${DEV_CONNECT}`,
+  // Razorpay checkout opens in an iframe, and moves between their own hosts.
+  "frame-src 'self' https://*.razorpay.com",
+  "form-action 'self' https://*.razorpay.com",
   "base-uri 'self'",
   "object-src 'none'",
 ];
