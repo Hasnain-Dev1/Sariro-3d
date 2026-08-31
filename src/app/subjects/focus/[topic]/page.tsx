@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, ArrowRight, ClipboardList } from 'lucide-react';
 import BrandLayout from '@/components/brand/brand-layout';
+import ClosingAsk from '@/components/brand/closing-ask';
 import {
   LESSONS_PER_GRADE,
   SPECIALISATIONS,
@@ -201,6 +202,12 @@ export default async function SpecialisationPage({ params }: Params) {
           </p>
         </div>
       </section>
+
+      <ClosingAsk
+        accent={accent}
+        productName={spec.name}
+        enrolHref={`/checkout?focus=${spec.slug}&pay=monthly`}
+      />
     </BrandLayout>
   );
 }

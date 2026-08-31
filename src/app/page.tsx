@@ -138,16 +138,17 @@ export default function Home() {
                 transition={{ duration: 0.7, delay: 0.4 }}
                 className="mt-10 max-w-2xl"
               >
-                {/* These are MIMO'S numbers, earned before Sariro existed — not
-                    the platform's. Unattributed they read as "5,000 students have
-                    been through Sariro", which is not true and is the kind of
-                    claim a parent can disprove in one search. Attributed, they do
-                    more work: they answer "who is teaching my child?" */}
+                {/* Sariro is the subject of the sentence, not Mimo — a school
+                    should not read as one person's CV. But the numbers are still
+                    HIS, earned before Sariro existed, so the line says "built on"
+                    rather than claiming Sariro did them. "Sariro has taught 5,000
+                    students" would be false and disprovable in one search; "built
+                    on a decade of teaching" is true and does the same work. */}
                 <p
                   className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-3"
                   style={{ fontFamily: 'var(--font-grotesk)' }}
                 >
-                  Before founding Sariro, {BRAND.founder} —
+                  Sariro is built on a decade of teaching — {BRAND.founder}&apos;s, before it existed
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {HERO_STATS.map((s) => (
@@ -200,7 +201,7 @@ export default function Home() {
         <div className="absolute bottom-0 left-0 right-0 z-20 pb-4 pt-6 bg-gradient-to-t from-white via-white/80 to-transparent">
           <div className="max-w-7xl mx-auto px-4">
             <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-3" style={{ fontFamily: 'var(--font-grotesk)' }}>
-              {BRAND.founder} has taught educators and learners from
+              Sariro&apos;s teaching has reached learners from
             </p>
             <div className="relative overflow-hidden mask-fade">
               <div className="flex gap-10 animate-marquee whitespace-nowrap">

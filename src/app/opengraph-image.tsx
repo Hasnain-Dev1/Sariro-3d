@@ -9,7 +9,7 @@ import { buildOgImage } from '@/lib/og/brand-frame';
  * into the layout's <head>.
  */
 
-export const alt = 'Sariro — AI & Technology Education by Mimo Patra';
+export const alt = 'Sariro — live classes in maths, science, English and coding';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 

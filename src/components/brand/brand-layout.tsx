@@ -11,6 +11,7 @@ import { CustomCursor } from '@/components/sariro-3d/scroll-effects';
 import ChapterNav, { ScrollHueShift } from '@/components/sariro-3d/chapter-nav';
 import SmoothScrollProvider from '@/components/sariro-3d/smooth-scroll-provider';
 import CookieConsent from '@/components/brand/cookie-consent';
+import StickyCta from '@/components/brand/sticky-cta';
 import ChatBubble from '@/components/sariro-3d/chat-bubble';
 import ServiceWorkerRegistration from '@/components/sariro-3d/service-worker-registration';
 import { useHeavyVisuals } from '@/lib/use-heavy-visuals';
@@ -348,7 +349,7 @@ function BrandFooter() {
               </div>
             </div>
             <p className="text-sm text-slate-400 mb-6 leading-relaxed">
-              {BRAND.tagline} Live, mentored classes in maths, science, English and coding, for grades 1 to 12 and beyond — by educator {BRAND.founder}.
+              {BRAND.tagline} Live, mentored classes in maths, science, English and coding, for grades 1 to 12 and beyond. Founded by educator {BRAND.founder}.
             </p>
             <div className="flex flex-wrap items-center gap-2 mt-6">
               {NAV_ITEMS.slice(1).map((item) => (
@@ -500,6 +501,9 @@ export default function BrandLayout({ children }: { children: ReactNode }) {
       </PageTransition>
       <ChatBubble />
       <CookieConsent />
+      {/* The ask, always reachable. See sticky-cta.tsx for where it stays out
+          of the way — checkout, dashboard, and anyone already signed in. */}
+      <StickyCta />
     </SmoothScrollProvider>
   );
 }

@@ -71,7 +71,7 @@ export default function Footer3D() {
             </motion.div>
 
             <p className="text-sm text-slate-400 mb-6 leading-relaxed">
-              {BRAND.tagline} Live, mentored classes in maths, science, English and coding, for grades 1 to 12 and beyond — by educator {BRAND.founder}.
+              {BRAND.tagline} Live, mentored classes in maths, science, English and coding, for grades 1 to 12 and beyond. Founded by educator {BRAND.founder}.
             </p>
 
             {/* Connect — full email directory */}

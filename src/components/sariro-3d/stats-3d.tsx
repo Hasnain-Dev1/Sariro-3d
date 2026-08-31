@@ -149,13 +149,14 @@ export default function Stats3D() {
             — Who is teaching —
           </span>
           <h2 className="text-4xl sm:text-5xl font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
-            <SplitText3D text="A decade of teaching," highlight="decade" highlightClassName="gradient-text" />
+            <SplitText3D text="Sariro did not start" highlight="Sariro" highlightClassName="gradient-text" />
             <br />
-            <SplitText3D text="before the first Sariro class." highlight="first Sariro class." highlightClassName="gradient-text" delay={0.3} />
+            <SplitText3D text="from nothing." highlight="from nothing." highlightClassName="gradient-text" delay={0.3} />
           </h2>
           <p className="mt-5 text-lg text-slate-600">
-            Sariro was founded by {BRAND.founder}. These are his numbers from the years before it
-            existed — the reason a parent can trust who is on the other side of the screen.
+            A decade of teaching came first. These are {BRAND.founder}&apos;s numbers from the years
+            before Sariro existed — the foundation it was built on, and the reason a parent can
+            trust who is on the other side of the screen.
           </p>
         </motion.div>
 

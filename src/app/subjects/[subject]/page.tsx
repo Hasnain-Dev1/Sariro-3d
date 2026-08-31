@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, ArrowRight, Users } from 'lucide-react';
 import BrandLayout from '@/components/brand/brand-layout';
+import ClosingAsk from '@/components/brand/closing-ask';
 import {
   GRADE_GROUPS,
   LESSONS_PER_GRADE,
@@ -199,6 +200,14 @@ export default async function SubjectPage({ params }: Params) {
           </div>
         </div>
       </section>
+
+      {/* The page spent everything above proving it teaches this well, then used
+          to end on a link to a different subject. */}
+      <ClosingAsk
+        accent={accent}
+        productName={subject.name}
+        enrolHref={`/checkout?subject=${subject.slug}&grade=${grades[Math.floor(grades.length / 2)]?.grade ?? grades[0].grade}&scope=grade&pay=monthly`}
+      />
     </BrandLayout>
   );
 }
