@@ -15,7 +15,8 @@ import { useAuth } from '@/components/auth/auth-provider';
    - Click "Maybe later" or X → gone for the REST OF THIS VISIT (sessionStorage)
    - Hidden for logged-in users (they're already enrolled)
 
-   TRIGGER: 6 seconds after page load, at most ONCE per visit.
+   TRIGGER: exit intent on desktop (cursor leaving the top of the viewport),
+   a 25s fallback on touch devices. At most ONCE per visit.
 
    Why it changed: this used to reappear on every page load, every 6 seconds,
    for every logged-out visitor, and neither X nor "Maybe later" wrote anything —
@@ -30,7 +31,21 @@ import { useAuth } from '@/components/auth/auth-provider';
 
 const LOCAL_DISMISS_KEY = 'sariro-welcome-dismissed'; // never show again
 const SESSION_CLOSE_KEY = 'sariro-welcome-session-closed'; // hide this session only
-const TRIGGER_DELAY_MS = 6000; // 6 seconds
+/**
+ * Desktop fires on EXIT INTENT — the cursor leaving the top of the viewport,
+ * which is the mouse travelling toward the tab bar or the close button. That is
+ * the moment someone has decided to go, and the only moment where interrupting
+ * costs nothing: they were leaving anyway.
+ *
+ * A timer interrupts the opposite person. Six seconds in, a visitor is reading
+ * — the popup lands on the most engaged ones and asks them to stop.
+ *
+ * Touch devices have no cursor and therefore no exit intent, so they keep a
+ * timer. It is longer than the old six seconds because on a phone the first
+ * screenful takes longer to get through, and the fallback should still land
+ * after someone has seen something worth deciding about.
+ */
+const TOUCH_FALLBACK_MS = 25_000;
 
 export default function WelcomePopup() {
   const router = useRouter();
@@ -60,9 +75,25 @@ export default function WelcomePopup() {
       // sessionStorage might be blocked — continue
     }
 
-    // Trigger after 6 seconds
-    const timer = setTimeout(() => setOpen(true), TRIGGER_DELAY_MS);
-    return () => clearTimeout(timer);
+    // Touch devices: no cursor, so no exit intent. Fall back to a timer.
+    const isTouch =
+      typeof window !== 'undefined' &&
+      (window.matchMedia?.('(hover: none)').matches || 'ontouchstart' in window);
+
+    if (isTouch) {
+      const timer = setTimeout(() => setOpen(true), TOUCH_FALLBACK_MS);
+      return () => clearTimeout(timer);
+    }
+
+    // `clientY <= 0` is the cursor crossing the TOP edge — toward the tab bar,
+    // the address bar, or the close button. Leaving sideways or downward is not
+    // an exit signal (that is a second monitor, or the taskbar), and firing on
+    // those is what makes exit-intent popups feel broken.
+    const onLeave = (e: MouseEvent) => {
+      if (e.clientY <= 0) setOpen(true);
+    };
+    document.addEventListener('mouseout', onLeave);
+    return () => document.removeEventListener('mouseout', onLeave);
   }, [user, authLoading]);
 
   /* ─── Handlers ─── */
