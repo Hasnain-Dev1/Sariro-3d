@@ -36,7 +36,7 @@ export default async function CoursePathOgImage({ params }: OgProps) {
     return buildOgImage({
       eyebrow: 'Course path',
       title: 'Sariro Course Path',
-      subtitle: 'Cohort-based AI education.',
+      subtitle: 'Live, mentored classes.',
       accent: 'amber',
       footerRight: 'sariro.com',
     });

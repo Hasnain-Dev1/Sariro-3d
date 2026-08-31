@@ -1,6 +1,6 @@
 /**
  * SARIRO — Centralized content (derived from the SARIRO blueprint).
- * Brand: "Teaching the future. We teach thinking, not just coding."
+ * Brand: "Big enough to teach anything. Small enough to know your name."
  */
 
 export const BRAND = {
@@ -102,7 +102,7 @@ export const SARIRO_ABOUT = {
   eyebrow: "About Sariro",
   headline: "An education brand that refuses to teach the easy way.",
   lead:
-    "Sariro is a cohort-based AI education studio founded in San Francisco. We teach thinking, not just typing — and we back it up with curriculum that ships real, working AI artifacts, not 'hello world' demos.",
+    "Sariro is a live, mentor-led school. Maths, science, physics, chemistry, biology, English and coding — grades 1 to 12, never more than four learners to a class, anywhere in the world.",
   paragraphs: [
     "We started Sariro after a decade of watching smart students graduate unable to build anything real. They could pass exams. They could recite definitions. But ship a working AI feature? Freeze. The fix was not more tutorials — it was teaching thinking.",
     "Every Sariro course runs in small 3-4 live cohorts with a special 1:1 cohort option — live, mentor-led, and project-first. No pre-recorded video dumps. No copy-paste notebooks. You build, you ship, you defend your work — and you leave with a portfolio you can show an employer, a client, or a school.",
@@ -240,8 +240,8 @@ export const AUDIENCE_TRACKS = [
   {
     id: "students",
     title: "For Students",
-    tagline: "Become an AI builder, not just an AI user",
-    description: "Cohort-based courses that take you from curious beginner to confident AI builder. Real projects, real mentorship, real outcomes.",
+    tagline: "Understand the subject, not just the syllabus",
+    description: "Live classes in every school subject and coding, from first steps to real fluency. Four to a room, real mentorship, real outcomes.",
     icon: "GraduationCap",
     accent: "blue",
     points: ["3-4 live cohorts + special 1:1 cohort", "Personalized project feedback", "Lifetime community access", "Job-ready portfolio in 12 weeks"],
@@ -1320,7 +1320,7 @@ export const MIMO = {
     },
     {
       title: "Accessible by design",
-      body: "AI education shouldn't be gatekept by jargon. We teach in plain language. An 8-year-old and a grandpa should both be able to follow along.",
+      body: "No subject should be gatekept by jargon. We teach in plain language. An 8-year-old and a grandpa should both be able to follow along.",
     },
     {
       title: "Community, not customers",

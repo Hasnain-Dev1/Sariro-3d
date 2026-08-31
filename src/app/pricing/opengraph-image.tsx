@@ -4,7 +4,7 @@ import { buildOgImage } from '@/lib/og/brand-frame';
  * OG image for /pricing.
  */
 
-export const alt = 'Sariro Pricing — Cohort-based AI courses from $199';
+export const alt = 'Sariro Pricing — live classes from $6.99, four to a room';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 

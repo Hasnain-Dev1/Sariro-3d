@@ -167,7 +167,7 @@ function BrandNavbar() {
                   {BRAND.name}
                 </span>
                 <span className="text-[10px] uppercase tracking-[0.18em] text-slate-500 font-semibold" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                  AI Education
+                  Live Classes
                 </span>
               </div>
             </Link>
@@ -343,12 +343,12 @@ function BrandFooter() {
                   {BRAND.name}
                 </div>
                 <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500 font-semibold" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                  AI Education
+                  Live Classes
                 </div>
               </div>
             </div>
             <p className="text-sm text-slate-400 mb-6 leading-relaxed">
-              {BRAND.tagline} Cohort-based AI education for students, schools, and professionals — by educator {BRAND.founder}.
+              {BRAND.tagline} Live, mentored classes in maths, science, English and coding, for grades 1 to 12 and beyond — by educator {BRAND.founder}.
             </p>
             <div className="flex flex-wrap items-center gap-2 mt-6">
               {NAV_ITEMS.slice(1).map((item) => (

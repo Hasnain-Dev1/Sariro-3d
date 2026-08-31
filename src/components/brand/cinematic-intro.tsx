@@ -503,7 +503,7 @@ function TypingLogo({ visible, isMobile }: { visible: boolean; isMobile: boolean
         className={`font-bold uppercase tracking-[0.3em] text-blue-400 ${isMobile ? 'text-[10px]' : 'text-sm'}`}
         style={{ fontFamily: 'var(--font-grotesk)' }}
       >
-        AI Education
+        Live Classes
       </motion.div>
 
       <motion.p
@@ -512,7 +512,7 @@ function TypingLogo({ visible, isMobile }: { visible: boolean; isMobile: boolean
         transition={{ duration: 0.5, delay: 1 }}
         className={`mt-4 text-slate-400 text-center max-w-xs ${isMobile ? 'text-[10px] px-6' : 'text-sm'}`}
       >
-        Teaching the future. We teach thinking, not just coding.
+        Big enough to teach anything. Small enough to know your name.
       </motion.p>
     </motion.div>
   );

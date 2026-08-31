@@ -91,7 +91,7 @@ export default function Hero3D() {
                 <path d="M2 9 Q 50 1, 100 6 T 198 4" stroke="#16A34A" strokeWidth="3" strokeLinecap="round" fill="none" />
               </svg>
             </span>
-            ,<br /> not just coding.
+            .
           </motion.h1>
 
           {/* Subhead */}

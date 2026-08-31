@@ -78,7 +78,6 @@ export const metadata: Metadata = {
     "small group tutoring",
     "live online classes",
     "coding for kids",
-    "AI education",
     "Mimo Patra",
   ],
   authors: [{ name: "Mimo Patra" }],

@@ -15,9 +15,9 @@ export const contentType = 'image/png';
 
 export default function HomeOgImage() {
   return buildOgImage({
-    eyebrow: 'Cohort-based AI education',
+    eyebrow: 'Live classes, four to a room',
     title: 'Teaching the future.',
-    subtitle: 'We teach thinking, not just coding. Live cohorts, real projects, ship-and-defend learning.',
+    subtitle: 'Maths, science, English and coding. Grades 1 to 12, taught live by mentors who know your name.',
     accent: 'amber',
     footerRight: 'sariro.com',
   });

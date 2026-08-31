@@ -5,7 +5,7 @@ import { BRAND } from '@/lib/sariro-data';
 
 export const metadata = {
   title: 'Terms of Service — Sariro',
-  description: 'The terms that govern your use of Sariro\'s cohort-based AI education platform.',
+  description: 'The terms that govern your use of Sariro\'s live, mentored learning platform.',
 };
 
 export default function TermsPage() {
@@ -94,7 +94,7 @@ export default function TermsPage() {
               <p className="text-sm sm:text-base mb-3">You agree NOT to:</p>
               <ul className="list-disc pl-6 space-y-2 text-sm sm:text-base">
                 <li>Share, sell, or redistribute cohort recordings, slides, or any paid Sariro content</li>
-                <li>Use the Services to build competing AI education products without written permission</li>
+                <li>Use the Services to build a competing education product without written permission</li>
                 <li>Harass, discriminate against, or disrupt other students, mentors, or staff in cohort spaces</li>
                 <li>Attempt to hack, scrape, or reverse-engineer the Sariro platform</li>
                 <li>Submit plagiarized or AI-generated work as your own without disclosure (per our academic honesty policy)</li>

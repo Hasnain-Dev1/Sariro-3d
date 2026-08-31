@@ -54,7 +54,7 @@ export default function Navbar3D() {
                   {BRAND.name}
                 </span>
                 <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-semibold" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                  AI Education
+                  Live Classes
                 </span>
               </div>
             </button>

@@ -27,7 +27,7 @@ export default function NotFound() {
           </div>
           <div className="flex flex-col leading-none">
             <span className="font-bold text-lg tracking-tight text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>Sariro</span>
-            <span className="text-[10px] uppercase tracking-[0.18em] text-slate-500 font-semibold" style={{ fontFamily: 'var(--font-grotesk)' }}>AI Education</span>
+            <span className="text-[10px] uppercase tracking-[0.18em] text-slate-500 font-semibold" style={{ fontFamily: 'var(--font-grotesk)' }}>Live Classes</span>
           </div>
         </Link>
       </nav>

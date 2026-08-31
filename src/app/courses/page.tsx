@@ -391,7 +391,7 @@ function CoursesPageInner() {
             className="text-3xl sm:text-5xl font-extrabold text-slate-900 mb-5"
             style={{ fontFamily: 'var(--font-jakarta)' }}
           >
-            <SplitText text="We don't ship courses. We ship builders." highlight="builders." highlightClassName="gradient-text" />
+            <SplitText text="We don't sell recordings. We teach people." highlight="teach people." highlightClassName="gradient-text" />
           </h2>
           <Reveal delay={0.2}>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">

@@ -87,7 +87,7 @@ export default function AuthShell({
               {BRAND.name}
             </div>
             <div className="text-[10px] uppercase tracking-[0.2em] text-white/55 font-semibold mt-1" style={{ fontFamily: 'var(--font-grotesk)' }}>
-              AI Education
+              Live Classes
             </div>
           </div>
         </Link>
@@ -169,7 +169,7 @@ export default function AuthShell({
               {BRAND.name}
             </div>
             <div className="text-[9px] uppercase tracking-[0.18em] text-slate-400 font-semibold mt-1" style={{ fontFamily: 'var(--font-grotesk)' }}>
-              AI Education
+              Live Classes
             </div>
           </div>
         </Link>

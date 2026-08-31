@@ -28,7 +28,7 @@ export const FAQ_KNOWLEDGE_BASE: FaqEntry[] = [
     id: 'about-what-is-sariro',
     question: 'What is Sariro?',
     answer:
-      "Sariro is a cohort-based AI education studio founded in San Francisco by Mimo Patra. We teach AI the way real builders learn it — through live cohorts, project-first curriculum, and senior mentor feedback. Every cohort ends with a real, working AI artifact you can show an employer, client, or school. We don't sell tutorials — we ship builders.",
+      "Sariro is a live, mentor-led school founded by Mimo Patra. We teach maths, science, physics, chemistry, biology, English and coding to grades 1 to 12 — and coding at any age. Every class is live and capped at four learners, so a teacher notices the moment someone is lost. We don't sell recordings; we teach people.",
     category: 'about',
     keywords: ['sariro', 'what is sariro', 'about', 'company', 'brand', 'who', 'intro', 'explain'],
     priority: 10,
@@ -44,7 +44,7 @@ export const FAQ_KNOWLEDGE_BASE: FaqEntry[] = [
   },
   {
     id: 'about-different',
-    question: 'What makes Sariro different from other AI courses?',
+    question: 'What makes Sariro different from other online classes?',
     answer:
       'Three things: (1) Cohort-based, not self-paced — our completion rate is 87% vs 4% for self-paced courses. (2) Mentor-led, not video-led — every cohort is run by a senior builder who has shipped AI to production. (3) Project-first — every module ends with something working, not a quiz. We also teach in plain language with no gatekeeping jargon.',
     category: 'about',
@@ -73,7 +73,7 @@ export const FAQ_KNOWLEDGE_BASE: FaqEntry[] = [
     id: 'about-philosophy',
     question: 'What is the Sariro philosophy?',
     answer:
-      "Four principles shape every Sariro course: (1) Thinking over typing — we teach you to reason about problems, the typing comes naturally after. (2) Build real things — every course ends with a working AI artifact, not a hello world. (3) Accessible by design — plain language, no jargon, an 8-year-old and a grandpa should both follow along. (4) Community, not customers — once you're in, you're in for life with our alumni Slack.",
+      "Four principles shape every Sariro class: (1) Thinking over typing — we teach you to reason about problems, the typing comes naturally after. (2) Understand, do not memorise — a grade is a receipt for remembering; we teach until the reasoning holds on its own. (3) Accessible by design — plain language, no jargon, an 8-year-old and a grandpa should both follow along. (4) Community, not customers — once you're in, you're in for life with our alumni Slack.",
     category: 'about',
     keywords: ['philosophy', 'principles', 'values', 'method', 'approach', 'teaching', 'thinking'],
     priority: 8,

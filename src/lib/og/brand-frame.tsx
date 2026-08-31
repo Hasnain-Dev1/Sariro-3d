@@ -187,7 +187,7 @@ export function buildOgImage({
               letterSpacing: '0.05em',
             }}
           >
-            Teaching the future. We teach thinking, not just coding.
+            Big enough to teach anything. Small enough to know your name.
           </div>
           {footerRight && (
             <div
