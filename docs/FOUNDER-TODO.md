@@ -74,27 +74,34 @@ vector, and a reminder at 3am costs more trust than a missed class.
 
 **Set the secret and schedule it.**
 
-```bash
-openssl rand -hex 32          # generate the secret
+Generate one — and do NOT paste it into a chat, an issue, or a commit. A secret
+that has been anywhere but the server is not a secret.
+
+```powershell
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-Put it in **Hostinger → env config** as `CRON_SECRET`, then add a cron every
-10 minutes:
+Put it in **Hostinger → env config** as `CRON_SECRET`.
+
+⚠️ **The cron command itself runs on Hostinger (Linux), so it uses real curl:**
 
 ```bash
 curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://sariro.com/api/cron/class-reminders
 ```
 
-**Check it before trusting it.** `?dryRun=1` lists what *would* be reminded
-without sending or claiming anything:
+**Testing it from your own Windows machine is different.** PowerShell's `curl`
+is an alias for `Invoke-WebRequest`, which cannot take `-H "string"` and fails
+with *"Cannot bind parameter 'Headers'"*. Use `curl.exe` to get the real one:
 
-```bash
-curl -fsS -H "Authorization: Bearer $CRON_SECRET" "https://sariro.com/api/cron/class-reminders?dryRun=1"
+```powershell
+curl.exe -fsS -H "Authorization: Bearer YOUR_SECRET" "https://sariro.com/api/cron/class-reminders?dryRun=1"
 ```
 
+`?dryRun=1` lists what *would* be reminded without sending or claiming anything.
+
 Expect `{"ok":true,...}`. If you get `401`, the secret is not set or does not
-match. If you get `column bookings.reminder_sent_at does not exist`, step 1 has
-not run.
+match. If you get `column bookings.reminder_sent_at does not exist`, the
+migration has not run (it has — you ran it on 30 Aug).
 
 Reminders go **in-app only** until you decide D4 below. Add `?email=1` to the
 cron URL once you have.
@@ -201,3 +208,37 @@ because the browser tooling could not screenshot scrolled pages on this site.
 - **The new homepage sections** (`Seven subjects. One class size.` and
   `Four steps, and the first one is free.`) have never been seen rendered by
   anyone.
+
+---
+
+## 6. Running things on Windows — the two traps
+
+**PowerShell's `curl` is not curl.** It is an alias for `Invoke-WebRequest`, with
+completely different parameters. `-H "Authorization: ..."` fails with *"Cannot
+bind parameter 'Headers'"*. Two ways out:
+
+```powershell
+curl.exe -fsS -H "Authorization: Bearer XXX" https://sariro.com/api/health
+```
+
+```powershell
+Invoke-RestMethod -Uri "https://sariro.com/api/health" -Headers @{ Authorization = "Bearer XXX" }
+```
+
+`curl.exe` is real curl, shipped with Windows 10+, and every command in these
+docs works with it unchanged. Prefer it.
+
+**SQL does not run in a terminal.** A query like
+
+```sql
+select key, value from app_settings where key like '%price%' order by key;
+```
+
+goes in **Supabase → SQL Editor**, the same place the migration ran. Pasted into
+PowerShell it is read as a `Select-Object` command and fails with *"A positional
+parameter cannot be found that accepts argument 'from'"*.
+
+That particular query is worth running, by the way: it shows whether any price
+has been overridden in `app_settings`. Those overrides win over the code
+defaults in `src/lib/pricing/coding.ts`, so if a displayed price ever looks
+wrong, that table is the first place to check.
