@@ -81,6 +81,24 @@ async function getDisplayPrice(
 }
 
 export async function POST(req: NextRequest) {
+  try {
+    return await handlePost(req);
+  } catch (err) {
+    // Anything that throws below reached the client as a bare 500 with no clue
+    // what happened — the single least debuggable outcome for a payment route.
+    console.error('[create-order] unhandled:', err);
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'unhandled',
+        message: err instanceof Error ? err.message : String(err),
+      },
+      { status: 500 }
+    );
+  }
+}
+
+async function handlePost(req: NextRequest) {
   // ── CSRF check — must come from the same origin ────────────────────
   const csrfFail = assertSameOrigin(req);
   if (csrfFail) return csrfFail;
@@ -277,9 +295,18 @@ export async function POST(req: NextRequest) {
       .select('id')
       .single();
     if (createErr || !created?.id) {
-      console.warn('[create-order] insert intent error:', createErr?.message);
+      console.error('[create-order] insert intent error:', createErr);
+      // The founder has no access to server logs on Hostinger, so a bare 500
+      // here is undiagnosable from the outside. The Postgres code and message
+      // describe our own schema, not user data — safe to return, and the
+      // difference between "undiagnosable" and "fixed in a minute".
       return NextResponse.json(
-        { ok: false, error: 'intent_create_failed' },
+        {
+          ok: false,
+          error: 'intent_create_failed',
+          code: createErr?.code ?? null,
+          message: createErr?.message ?? 'purchase_intents insert returned no row',
+        },
         { status: 500 }
       );
     }
