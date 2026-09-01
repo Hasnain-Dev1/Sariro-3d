@@ -53,16 +53,58 @@ export default function WelcomePage() {
           <Rocket className="w-4 h-4" />
           Book my demo class
         </a>
-        <a href="#testimonials" className="btn-tactile btn-tactile-light px-5 py-3 text-sm">
+        <a href="#why" className="btn-tactile btn-tactile-light px-5 py-3 text-sm">
           <Star className="w-4 h-4" />
-          See what students say
+          What happens in the class
         </a>
       </PageHero>
 
-      <WaveDivider3D fromColor="#FFFFFF" toColor="#FFFBEB" />
+      <WaveDivider3D fromColor="#FFFFFF" toColor="#F0FDF4" />
+
+      {/* =================== BOOK A DEMO CLASS FORM =================== */}
+      <section id="book" className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8 bg-green-50/50">
+        <div className="max-w-2xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            className="text-center mb-10"
+          >
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-bold mb-3" style={{ fontFamily: 'var(--font-grotesk)' }}>
+              <Calendar className="w-3 h-3" />
+              BOOK A DEMO CLASS
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-3" style={{ fontFamily: 'var(--font-jakarta)' }}>
+              Let&apos;s find your slot
+            </h2>
+            <p className="text-base text-slate-600">
+              Fill this out and we&apos;ll call you within 24 hours to confirm. We auto-detected your timezone so you don&apos;t have to do the math.
+            </p>
+
+            <ul className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[13px] font-semibold text-slate-600">
+              {[
+                '30 minutes',
+                'A real mentor, live',
+                'No credit card',
+                'No sales call',
+              ].map((item) => (
+                <li key={item} className="inline-flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </motion.div>
+
+          <DemoClassForm />
+        </div>
+      </section>
+
+      <WaveDivider3D fromColor="#F0FDF4" toColor="#FFFBEB" />
 
       {/* =================== WHY TAKE A DEMO =================== */}
-      <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8 bg-amber-50/50">
+      <section id="why" className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8 bg-amber-50/50">
         <div className="max-w-6xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -138,35 +180,7 @@ export default function WelcomePage() {
         </div>
       </section>
 
-      <WaveDivider3D fromColor="#FFFFFF" toColor="#F0FDF4" />
-
-      {/* =================== BOOK A DEMO CLASS FORM =================== */}
-      <section id="book" className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8 bg-green-50/50">
-        <div className="max-w-2xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-            className="text-center mb-10"
-          >
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-bold mb-3" style={{ fontFamily: 'var(--font-grotesk)' }}>
-              <Calendar className="w-3 h-3" />
-              BOOK A DEMO CLASS
-            </div>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-3" style={{ fontFamily: 'var(--font-jakarta)' }}>
-              Let&apos;s find your slot
-            </h2>
-            <p className="text-base text-slate-600">
-              Fill this out and we&apos;ll call you within 24 hours to confirm. We auto-detected your timezone so you don&apos;t have to do the math.
-            </p>
-          </motion.div>
-
-          <DemoClassForm />
-        </div>
-      </section>
-
-      <WaveDivider3D fromColor="#F0FDF4" toColor="#FFFFFF" />
+      <WaveDivider3D fromColor="#FFFFFF" toColor="#FFFFFF" />
 
       {/* =================== FOOTER CTA =================== */}
       <section className="py-16 px-4 sm:px-6 lg:px-8">

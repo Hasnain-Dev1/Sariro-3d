@@ -96,11 +96,11 @@ export default function PricingPage() {
             One price. <span className="gradient-text">No surprises.</span>
           </>
         }
-        subtitle="Every cohort includes live sessions, recordings, mentor feedback, and community access. 14-day money-back guarantee on every enrollment — no questions asked."
+        subtitle="School subjects are priced by the month, one live class a week in a batch of four. Coding &amp; AI is a cohort you buy once. Both come with a 14-day money-back guarantee — no questions asked — and the first class is free either way."
       >
-        <Link href="#tiers" className="btn-tactile btn-tactile-primary px-5 py-3 text-sm">
+        <Link href="/welcome#book" className="btn-tactile btn-tactile-primary px-5 py-3 text-sm">
           <Sparkles className="w-4 h-4" />
-          Compare plans
+          Start with a free class
         </Link>
         <Link href="/contact" className="btn-tactile btn-tactile-light px-5 py-3 text-sm">
           <MessageCircle className="w-4 h-4" />
@@ -108,7 +108,21 @@ export default function PricingPage() {
         </Link>
       </PageHero>
 
-      {/* ====== Pricing tiers ====== */}
+      {/* ====== School subjects, first ======
+               This page opened with three coding tiers at $199-$699 and put
+               school pricing underneath them. The volume product is school
+               classes from $27.99 a month, and the person who clicks "Pricing"
+               is usually a parent pricing one subject for one child — they met
+               the most expensive, least relevant number first and drew the
+               obvious conclusion about what Sariro costs. */}
+      <SchoolPricing />
+
+      <WaveDivider3D fromColor="#FFFFFF" toColor="#FBF9F6" />
+
+      {/* ====== Coding & AI tiers ======
+               A different product shape: a cohort bought once, not a month
+               renewed. Labelled so the two are not read as competing prices
+               for the same thing. */}
       <section id="tiers" className="relative py-14 sm:py-20 overflow-hidden">
         <ParallaxOrb color="rgba(37, 99, 235, 0.10)" size={420} speed={120} position="top-10 -left-20" />
         <ParallaxOrb color="rgba(124, 58, 237, 0.08)" size={340} speed={-90} position="bottom-10 -right-20" />
@@ -399,13 +413,6 @@ export default function PricingPage() {
           </Reveal>
         </div>
       </section>
-
-      {/* ====== School subjects — the half of the catalogue this page used to
-               omit entirely. A parent clicking "Pricing" for maths landed on a
-               bootcamp price list. ====== */}
-      <SchoolPricing />
-
-      <WaveDivider3D fromColor="#FFFFFF" toColor="#FBF9F6" />
 
       {/* ====== Trust badges ====== */}
       <section className="relative py-14 sm:py-20 mesh-bg-soft-blue overflow-hidden">

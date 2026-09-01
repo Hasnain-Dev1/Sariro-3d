@@ -176,7 +176,7 @@ export const FAQ_KNOWLEDGE_BASE: FaqEntry[] = [
     id: 'pricing-hidden-fees',
     question: 'Are there any hidden fees?',
     answer:
-      'No. One price covers everything: live sessions, recordings, mentor feedback, community access during the cohort, and your certificate. The only upsell is the Builder tier (vs Starter), which adds 1:1 mentor sessions, lifetime community access, and 3 portfolio projects reviewed instead of 1. We will never charge you for "premium content" or "bonus modules".',
+      'No. One price covers everything: live sessions, recordings, mentor feedback, community access during the cohort, and your certificate. Higher tiers are not the same course with things withheld — Intermediate adds 1:1 mentor sessions and more project reviews, Expert adds weekly 1:1s and a capstone shipped to production. School subjects are billed by the month rather than as one course fee. We will never charge you for "premium content" or "bonus modules".',
     category: 'pricing',
     keywords: ['hidden', 'fees', 'extra', 'upsell', 'additional', 'surprise', 'transparent'],
     priority: 6,
