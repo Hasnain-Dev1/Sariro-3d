@@ -1137,6 +1137,8 @@ export const COURSES = [
 export const EVENTS = [
   {
     id: "summer-cohort-2026",
+    startsOn: "2026-08-12",
+    endsOn: "2026-10-04",
     title: "Summer AI Builder Cohort",
     type: "Cohort",
     date: "Aug 12 — Oct 04, 2026",
@@ -1149,6 +1151,8 @@ export const EVENTS = [
   },
   {
     id: "ai-hackathon-fall",
+    startsOn: "2026-09-20",
+    endsOn: "2026-09-22",
     title: "AI for Good Hackathon",
     type: "Hackathon",
     date: "Sep 20 — Sep 22, 2026",
@@ -1161,6 +1165,8 @@ export const EVENTS = [
   },
   {
     id: "prompt-jam-webinar",
+    startsOn: "2026-07-22",
+    endsOn: "2026-07-22",
     title: "Prompt Jam: Live Workshop",
     type: "Webinar",
     date: "Jul 22, 2026 · 6pm PT",
@@ -1172,6 +1178,61 @@ export const EVENTS = [
       "Build a production-grade prompt library in 90 minutes. Bring your laptop.",
   },
 ];
+
+/**
+ * SARIRO -- events that cannot go stale
+ * =========================================================
+ * On 31 Aug 2026 the /events page and the homepage were both advertising, under
+ * the heading "Upcoming events", a workshop that had happened on 22 Jul -- 40
+ * days earlier -- plus a cohort that had already started. Nothing was broken;
+ * the dates were hardcoded DISPLAY STRINGS, so no code could tell that "Jul 22,
+ * 2026 . 6pm PT" was in the past. "Upcoming" was a promise the page had no way
+ * to keep.
+ *
+ * The fix is not to correct those three rows -- it is to make the mistake
+ * unrepresentable. Every event now carries machine-readable `startsOn`/`endsOn`
+ * alongside its human `date` string, and nothing renders an event the filter
+ * has not confirmed is still ahead.
+ *
+ * An event stays visible through its FINAL day: day two of a three-day
+ * hackathon is still on, and dropping it at the first sunrise would be wrong.
+ *
+ * The day is computed in UTC, deliberately. /events is a client component, so
+ * this runs once on the server and again in the browser; a LOCAL day would let
+ * those two disagree near midnight, and React would hydrate a different list
+ * than it rendered. UTC makes both sides agree by construction. The cost is a
+ * few hours of skew on an event's last day for readers far from UTC, which is
+ * a much smaller problem than a hydration mismatch on the events page.
+ */
+export type EventStatus = 'upcoming' | 'in-progress';
+
+export interface DatedEvent {
+  id: string;
+  startsOn: string;
+  endsOn: string;
+  status: EventStatus;
+  [key: string]: unknown;
+}
+
+/** UTC YYYY-MM-DD -- identical on the server and in the browser. */
+function utcDay(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Everything that has not finished yet, soonest first, each tagged with whether
+ * it is still ahead or already running. Returns an empty array when there is
+ * nothing on -- which is a real state the UI must handle, not an error.
+ */
+export function upcomingEvents(now: Date = new Date()) {
+  const today = utcDay(now);
+  return EVENTS.filter((e) => e.endsOn >= today)
+    .map((e) => ({
+      ...e,
+      status: (e.startsOn > today ? 'upcoming' : 'in-progress') as EventStatus,
+    }))
+    .sort((a, b) => a.startsOn.localeCompare(b.startsOn));
+}
 
 export const TESTIMONIALS = [
   {
@@ -1334,6 +1395,89 @@ export const MIMO = {
    cohort price; `price` is the discounted price shown live. */
 export const DISCOUNT_LABEL = 'Summer launch — 25% off';
 export const DISCOUNT_DEADLINE = 'Aug 12, 2026';
+
+/**
+ * SARIRO — the deadline, as a date a machine can check
+ * =========================================================
+ * DISCOUNT_DEADLINE above is a display string, and on 1 Sep 2026 the homepage
+ * was using it to run a red "Limited-time pricing" banner reading "locked in
+ * for every cohort starting before Aug 12, 2026" — twenty days after that date
+ * had passed. The discounted prices were still being charged, so the site was
+ * simultaneously running an expired offer and shouting about a deadline it had
+ * already broken.
+ *
+ * This is the same failure the events list had: a date held only as prose, with
+ * nothing in the code able to tell it had gone by. The fix is the same — give
+ * the date a machine-readable twin and let the UI ask.
+ *
+ * Keep the two in step. `events.test.ts` does this for EVENTS; the pricing test
+ * does it here.
+ */
+export const DISCOUNT_ENDS_ON = '2026-08-12';
+
+/**
+ * Whether the launch discount is still running.
+ *
+ * Compared in UTC so the server and the browser agree — /pricing and the
+ * homepage both render this on the client after an SSR pass, and a local-time
+ * comparison lets those two disagree near midnight.
+ */
+export function discountActive(now: Date = new Date()): boolean {
+  return now.toISOString().slice(0, 10) <= DISCOUNT_ENDS_ON;
+}
+
+/**
+ * SARIRO — what a coding cohort costs PER CLASS
+ * =========================================================
+ * The pricing cards showed "$699 per cohort" and stopped there. lib/school/pricing.ts
+ * already states the reason that is a bad idea, about the other half of the
+ * catalogue: "A parent shown $999 leaves. A parent shown '$27.99 a month'
+ * listens. Both are true; only one gets read."
+ *
+ * The doctrine was written for school and never applied to coding, so the two
+ * halves of the same site argued with each other — school quoted a small
+ * monthly number, coding quoted a large lump sum, and a reader comparing them
+ * concluded coding was in a different price class entirely.
+ *
+ * It is not. Every coding course at a level carries the same lesson count
+ * (verified: 30 / 42 / 96 across all 31 courses), so:
+ *
+ *     Beginner      $199 over 30 classes  = $6.63 a class
+ *     Intermediate  $299 over 42 classes  = $7.12 a class
+ *     Expert        $699 over 96 classes  = $7.28 a class
+ *
+ * against school at $6.99 a class. They were always the same product shape at
+ * the same rate; only the framing hid it.
+ *
+ * The lump sum stays on the card, because it is what actually gets charged and
+ * a coding cohort is genuinely one payment. The per-class figure sits beside it
+ * as the number that makes the lump sum mean something.
+ */
+
+/** Tier ids and course levels disagree on one name: the top tier is "expert" here, "advanced" there. */
+const TIER_LEVEL: Record<string, string> = {
+  beginner: 'beginner',
+  intermediate: 'intermediate',
+  expert: 'advanced',
+};
+
+/**
+ * Classes in a cohort at this tier, read from the catalogue rather than typed
+ * here — so it cannot drift from what the course pages promise.
+ */
+export function classesForTier(tierId: string): number | null {
+  const level = TIER_LEVEL[tierId];
+  if (!level) return null;
+  const course = COURSES.find((c) => String(c.level).toLowerCase() === level);
+  return course && typeof course.lessons === 'number' && course.lessons > 0 ? course.lessons : null;
+}
+
+/** Price per class, or null when the tier has no comparable class count. */
+export function perClassForTier(tierId: string, price: number): number | null {
+  const classes = classesForTier(tierId);
+  if (!classes) return null;
+  return price / classes;
+}
 
 /** Returns the integer discount percent for a tier/course, or 0 if no discount. */
 export function discountPercent(price: number | null, original?: number | null): number {

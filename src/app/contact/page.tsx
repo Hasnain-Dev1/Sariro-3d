@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
@@ -94,14 +95,53 @@ const SUBJECTS = [
 ];
 
 export default function ContactPage() {
+  // useSearchParams needs a Suspense boundary in the app router.
+  return (
+    <Suspense fallback={null}>
+      <ContactPageInner />
+    </Suspense>
+  );
+}
+
+function ContactPageInner() {
+  const params = useSearchParams();
+  /**
+   * Checkout sends bank-transfer buyers here with the product on the query
+   * string (`?intent=bank-transfer&product=…&scope=…&pay=…&ratio=…`). Carrying
+   * it into the message means HR can quote the right amount without a round
+   * trip, and the buyer does not have to describe what they are buying.
+   */
+  const isBankTransfer = params.get('intent') === 'bank-transfer';
+  const productSlug = params.get('product') ?? '';
+  const scopeLabel = params.get('scope') ?? '';
+  const cadence = params.get('pay') ?? '';
+  const ratio = params.get('ratio') ?? '';
+
   const [form, setForm] = useState({
     name: '',
     email: '',
+    phone: '',
+    website: '', // honeypot — see the API route
     subject: '',
     message: '',
   });
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
+
+  // Set once, after mount: reading the query string during render would make
+  // the server and client disagree about the initial field values.
+  useEffect(() => {
+    if (!isBankTransfer) return;
+    setForm((f) => ({
+      ...f,
+      subject: f.subject || 'billing',
+      message:
+        f.message ||
+        `I would like to pay by bank transfer${scopeLabel ? ` for ${scopeLabel}` : ''}${
+          cadence ? ` (${cadence})` : ''
+        }. Please send me the account details and a reference.`,
+    }));
+  }, [isBankTransfer, scopeLabel, cadence]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,14 +154,46 @@ export default function ContactPage() {
       return;
     }
     setSubmitting(true);
-    // Simulate async send (no backend required for this demo)
-    await new Promise((r) => setTimeout(r, 900));
+    // This used to be `await new Promise(r => setTimeout(r, 900))` followed by a
+    // success toast — 900ms of theatre, and the message thrown away. It now
+    // actually goes somewhere, and the toast only claims success if it did.
+    try {
+      const res = await fetch('/api/payment-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          kind: isBankTransfer ? 'bank_transfer' : 'contact',
+          full_name: form.name,
+          email: form.email,
+          phone: form.phone,
+          subject: form.subject,
+          message: form.message,
+          product_slug: productSlug,
+          scope_label: scopeLabel,
+          cadence,
+          ratio,
+          website: form.website,
+        }),
+      });
+      const json = await res.json().catch(() => ({ ok: false }));
+      if (!json.ok) {
+        setSubmitting(false);
+        toast.error(
+          json.errors?.[0] ?? 'That did not send. Please try again, or email us directly.'
+        );
+        return;
+      }
+    } catch {
+      setSubmitting(false);
+      toast.error('That did not send — check your connection and try again.');
+      return;
+    }
     setSubmitting(false);
     setSent(true);
     toast.success('Message sent!', {
       description: `Thanks ${form.name.split(' ')[0]} — we'll reply within 24 hours.`,
     });
-    setForm({ name: '', email: '', subject: '', message: '' });
+    setForm({ name: '', email: '', phone: '', website: '', subject: '', message: '' });
   };
 
   return (
@@ -229,6 +301,41 @@ export default function ContactPage() {
                           onChange={(e) => setForm({ ...form, email: e.target.value })}
                           className="h-11"
                           required
+                        />
+                      </div>
+
+                      {/* Phone. Optional in general, but the fastest way to
+                          settle a bank transfer is a two-minute call, so it is
+                          asked for prominently when that is why they are here. */}
+                      <div className="space-y-2 sm:col-span-2">
+                        <Label htmlFor="phone" className="text-xs font-bold uppercase tracking-wider text-slate-600" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                          Phone {isBankTransfer ? <span className="text-slate-400 normal-case font-semibold">— fastest way to settle a transfer</span> : <span className="text-slate-400 normal-case font-semibold">— optional</span>}
+                        </Label>
+                        <Input
+                          id="phone"
+                          type="tel"
+                          inputMode="tel"
+                          autoComplete="tel"
+                          placeholder="+91 98765 43210"
+                          value={form.phone}
+                          onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                          className="h-11"
+                        />
+                      </div>
+
+                      {/* Honeypot: hidden from people, irresistible to bots.
+                          A filled value makes the API return success without
+                          writing anything, so a bot cannot tell it failed. */}
+                      <div className="hidden" aria-hidden>
+                        <label htmlFor="website">Website</label>
+                        <input
+                          id="website"
+                          name="website"
+                          type="text"
+                          tabIndex={-1}
+                          autoComplete="off"
+                          value={form.website}
+                          onChange={(e) => setForm({ ...form, website: e.target.value })}
                         />
                       </div>
                     </div>

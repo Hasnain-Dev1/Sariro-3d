@@ -14,7 +14,12 @@ import {
   Sigma,
   type LucideIcon,
 } from 'lucide-react';
-import { GRADE_GROUPS, LESSONS_PER_GRADE, SCHOOL_SUBJECTS } from '@/lib/school/curriculum';
+import {
+  AUTHORED_TITLES,
+  GRADE_GROUPS,
+  LESSONS_PER_GRADE,
+  SCHOOL_SUBJECTS,
+} from '@/lib/school/curriculum';
 import { formatPrice, perMonthFor } from '@/lib/school/pricing';
 
 /**
@@ -45,14 +50,40 @@ const SUBJECT_ICONS: Record<string, LucideIcon> = {
 };
 
 /** One short, concrete line per subject — what it is, in a parent's words. */
-const ONE_LINERS: Record<string, string> = {
-  mathematics: 'The reasoning under the sums',
-  science: 'Before it splits into three',
-  physics: 'Forces, energy, and why they work',
-  chemistry: 'Why things react and change',
-  biology: 'Cells, systems, and living things',
-  english: 'Reading closely, writing clearly',
+/**
+ * What each card SHOWS, and why it is no longer a slogan.
+ *
+ * These lines used to be mood copy - "The reasoning under the sums", "Before it
+ * splits into three". They read nicely and told a parent nothing. Someone
+ * deciding whether Sariro covers their child's Class 8 syllabus cannot answer
+ * that from a poem, and that is the only question being asked on this part of
+ * the page.
+ *
+ * So the cards show the real thing. The topics are pulled live from
+ * AUTHORED_TITLES - the same 2,530-lesson curriculum the course pages and the
+ * syllabus audit read. Nothing is written twice: rename a module in the
+ * curriculum and this card follows, which also means it can never advertise a
+ * topic that is not actually taught.
+ */
+
+/** A grade each subject really runs at - Science stops before 9, the three sciences start there. */
+const TOPIC_SAMPLE_GRADE: Record<string, number> = {
+  mathematics: 8,
+  science: 5,
+  physics: 9,
+  chemistry: 9,
+  biology: 9,
+  english: 8,
 };
+
+/** First three real module titles for a subject, or null if unauthored. */
+function topicsFor(slug: string): string[] | null {
+  const grade = TOPIC_SAMPLE_GRADE[slug];
+  if (!grade) return null;
+  const entry = AUTHORED_TITLES[`${slug}:${grade}`];
+  if (!entry?.modules?.length) return null;
+  return entry.modules.slice(0, 3).map((m) => m.title);
+}
 
 const CODING_ACCENT = '#EA580C';
 const SPEAKING_ACCENT = '#DB2777';
@@ -143,8 +174,11 @@ export default function SubjectStrip() {
                     <Icon className="w-4.5 h-4.5" strokeWidth={2.2} />
                   </span>
                   <p className="font-bold text-slate-900 text-[15px] mb-1">{subject.name}</p>
-                  <p className="text-[13px] leading-[1.55] text-slate-600 flex-1">
-                    {ONE_LINERS[subject.slug]}
+                  {/* Real module titles, straight from the curriculum. Three is
+                      enough to be recognised as "yes, that is our syllabus"
+                      without turning the card into a contents page. */}
+                  <p className="text-[12.5px] leading-[1.5] text-slate-500 flex-1">
+                    {topicsFor(subject.slug)?.join(' · ') ?? `${subject.name}, grade by grade`}
                   </p>
                   <span className="mt-3 flex items-center justify-between">
                     <span

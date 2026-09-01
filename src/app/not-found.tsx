@@ -7,7 +7,6 @@ import { ArrowRight, Home, Sparkles } from 'lucide-react';
 const QUICK_LINKS = [
   { href: '/', label: 'Home' },
   { href: '/courses', label: 'Courses' },
-  { href: '/schools', label: 'Schools' },
   { href: '/events', label: 'Events' },
   { href: '/pricing', label: 'Pricing' },
   { href: '/about', label: 'About' },

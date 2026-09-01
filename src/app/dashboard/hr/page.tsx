@@ -13,6 +13,7 @@ import {
 import { TRACKS } from '@/lib/sariro-data';
 import SalesEarningsReport from '@/components/dashboard/sales-earnings-report';
 import MyTeachers from '@/components/dashboard/my-teachers';
+import PaymentRequestsPanel from '@/components/dashboard/payment-requests-panel';
 
 export default function HRDashboard() {
   const { user, loading } = useAuth();
@@ -23,7 +24,7 @@ export default function HRDashboard() {
   const [teachers, setTeachers] = useState<TeacherProfile[]>([]);
   const [students, setStudents] = useState<StudentProfile[]>([]);
   const [loadingData, setLoadingData] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'my_teachers' | 'incentives' | 'payments' | 'credits' | 'tiers'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'my_teachers' | 'incentives' | 'payments' | 'credits' | 'tiers' | 'enquiries'>('overview');
   const { toast, showToast } = useDashboardToast();
   const [showSales, setShowSales] = useState(false);
 
@@ -185,10 +186,11 @@ export default function HRDashboard() {
               { key: 'incentives', label: 'Incentives' },
               { key: 'payments', label: 'Payments' },
               { key: 'credits', label: 'Credits & Tiers' },
+              { key: 'enquiries', label: 'Enquiries' },
             ].map((tab) => (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key as 'overview' | 'my_teachers' | 'incentives' | 'payments' | 'credits')}
+                onClick={() => setActiveTab(tab.key as 'overview' | 'my_teachers' | 'incentives' | 'payments' | 'credits' | 'enquiries')}
                 className={`min-h-[44px] px-4 text-xs font-bold transition-colors touch-manipulation whitespace-nowrap ${
                   activeTab === tab.key
                     ? 'text-violet-700 border-b-2 border-violet-600'
@@ -209,6 +211,11 @@ export default function HRDashboard() {
             <>
               {/* ─── MY TEACHERS TAB ─── */}
               {activeTab === 'my_teachers' && <MyTeachers field="hr" />}
+
+              {/* ─── ENQUIRIES TAB ───
+                  Contact messages and bank-transfer requests. Before this they
+                  were discarded by the form that collected them. */}
+              {activeTab === 'enquiries' && <PaymentRequestsPanel />}
 
               {/* ─── OVERVIEW TAB ─── */}
               {activeTab === 'overview' && (

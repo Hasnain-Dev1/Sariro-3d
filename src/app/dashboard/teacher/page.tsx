@@ -12,7 +12,8 @@ import {
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import { BatchRescheduleModal } from '@/components/dashboard/batch-reschedule-modal';
 import { DesktopClock } from '@/components/dashboard/desktop-clock';
-import { JOIN_OPENS_MINUTES_BEFORE } from '@/lib/dashboard/join-window';
+import { JOIN_OPENS_MINUTES_BEFORE, humanCountdown } from '@/lib/dashboard/join-window';
+import { useLiveJoinWindow } from '@/lib/dashboard/use-join-window';
 import NextClassCard from '@/components/dashboard/next-class-card';
 import TeacherEarnings from '@/components/dashboard/teacher-earnings';
 import TeacherManagers from '@/components/dashboard/teacher-managers';
@@ -171,10 +172,21 @@ function BookingCard({
   const [startInfo, setStartInfo] = useState<string | null>(null);
   const [earlyMsg, setEarlyMsg] = useState<string | null>(null);
 
-  // Teachers can only join from 5 minutes before start.
-  // Shared with the student side and the server — see join-window.ts.
+  // Doors open JOIN_OPENS_MINUTES_BEFORE (15) minutes before the start — the
+  // same constant the student side and the server use, so all three agree.
+  //
+  // The comment here used to say "5 minutes" while the constant said 15. Nobody
+  // was misled by the code, which read the constant; the next person to touch
+  // this would have been.
   const EARLY_JOIN_MIN = JOIN_OPENS_MINUTES_BEFORE;
   const joinOpensMs = new Date(booking.slot_start).getTime() - EARLY_JOIN_MIN * 60_000;
+
+  // Live: this is what makes the button appear ON ITS OWN at T-15 instead of
+  // waiting for a reload that a teacher sitting on the dashboard never does.
+  // Null for the first frame — see use-join-window.ts on hydration.
+  const win = useLiveJoinWindow(booking.slot_start, booking.slot_end ?? null);
+  const doorsOpen = win?.state === 'open';
+  const classEnded = win?.state === 'ended';
 
   const handleStatus = async (newStatus: 'completed' | 'no_show' | 'cancelled') => {
     setProcessing(true);
@@ -237,6 +249,49 @@ function BookingCard({
           <div className="text-xs text-slate-500 mt-0.5">
             {formatSessionTime(booking.slot_start, timezone)}
           </div>
+
+          {/* Live timing + roster size.
+              The card showed a wall-clock time and left the arithmetic to the
+              teacher: "17:30" tells you nothing about whether to put the coffee
+              down. This says how long there is, and updates itself.
+              Renders only after mount — `win` is null on the server. */}
+          {win && booking.status === 'scheduled' && (
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+              <span
+                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10.5px] font-bold ${
+                  doorsOpen
+                    ? 'bg-green-100 text-green-700'
+                    : classEnded
+                      ? 'bg-slate-100 text-slate-500'
+                      : 'bg-amber-100 text-amber-800'
+                }`}
+              >
+                <Clock className="w-3 h-3" />
+                {doorsOpen
+                  ? 'Doors open now'
+                  : classEnded
+                    ? 'Ended'
+                    : `Starts ${humanCountdown(
+                        new Date(booking.slot_start).getTime() - Date.now()
+                      )}`}
+              </span>
+              {booking.student_names.length > 0 && (
+                <span className="inline-flex items-center gap-1 text-[10.5px] font-bold text-slate-500">
+                  <Users className="w-3 h-3" />
+                  {booking.student_names.length}
+                  {booking.student_names.length === 1 ? ' student' : ' students'}
+                </span>
+              )}
+              {!meetUrl && (
+                // Worth shouting about: without a link the class cannot happen,
+                // and the teacher should find out now rather than at 17:29.
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10.5px] font-bold bg-red-100 text-red-700">
+                  <AlertCircle className="w-3 h-3" />
+                  No meet link
+                </span>
+              )}
+            </div>
+          )}
         </div>
         <span className={`shrink-0 px-2 py-0.5 rounded-md text-[10px] font-bold ${status.bg} ${status.text}`}>
           {status.label.toUpperCase()}
@@ -245,17 +300,35 @@ function BookingCard({
 
       {/* Meet link + actions */}
       <div className="flex items-center gap-2 flex-wrap">
-        {meetUrl && (
-          <button
-            type="button"
-            onClick={handleJoin}
-            disabled={processing}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-green-50 hover:bg-green-100 text-green-700 text-xs font-bold transition-colors disabled:opacity-50 min-h-[40px]"
-            style={{ fontFamily: 'var(--font-grotesk)' }}
-          >
-            {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Video className="w-4 h-4" />}
-            {started ? (startInfo ?? 'Joined ✓') : 'Join Meet'}
-          </button>
+        {/* The join control tells the teacher WHICH of three situations they are
+            in, rather than offering one button that rejects the click. Before
+            this, "Join Meet" was always live-looking and answered an early
+            press with a telling-off — the card knew the class was hours away
+            and said nothing until clicked. */}
+        {meetUrl && !classEnded && (
+          doorsOpen || started ? (
+            <button
+              type="button"
+              onClick={handleJoin}
+              disabled={processing}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-bold transition-colors disabled:opacity-50 min-h-[40px] shadow-sm"
+              style={{ fontFamily: 'var(--font-grotesk)' }}
+            >
+              {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Video className="w-4 h-4" />}
+              {started ? (startInfo ?? 'Joined ✓') : 'Join Meet'}
+            </button>
+          ) : (
+            // Not a disabled button: there is nothing to press yet, and a
+            // greyed-out control invites the press anyway. This is the answer.
+            <span
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-100 text-slate-500 text-xs font-bold min-h-[40px]"
+              style={{ fontFamily: 'var(--font-grotesk)' }}
+              title={`The link opens ${EARLY_JOIN_MIN} minutes before the class starts`}
+            >
+              <Clock className="w-4 h-4" />
+              {win ? `Opens ${humanCountdown(win.msUntilOpen)}` : 'Checking…'}
+            </span>
+          )
         )}
 
         {/* Students + Reschedule buttons — available for all bookings */}

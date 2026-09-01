@@ -14,7 +14,8 @@ import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import { DesktopClock } from '@/components/dashboard/desktop-clock';
 import { TzBadge } from '@/components/dashboard/tz-badge';
 import { CancelClassModal } from '@/components/dashboard/cancel-class-modal';
-import { canJoinNow } from '@/lib/dashboard/join-window';
+import { canJoinNow, humanCountdown } from '@/lib/dashboard/join-window';
+import { useLiveJoinWindow } from '@/lib/dashboard/use-join-window';
 import StudentNextUp from '@/components/dashboard/student-next-up';
 import TeacherLatePopup from '@/components/dashboard/teacher-late-popup';
 import { useAuth } from '@/components/auth/auth-provider';
@@ -478,10 +479,12 @@ function ScheduleCard({ booking, cohort, timezone, credits }: { booking: Booking
     && new Date(booking.slot_start).getTime() > Date.now();
 
   const router = useRouter();
-  // Recomputed on render rather than stored: the window opens while the page is
-  // sitting there, and a stale boolean would strand a learner outside a class
-  // that has already started.
-  const joinable = canJoinNow(booking.slot_start, booking.slot_end ?? null);
+  // The intent here was already right — "the window opens while the page is
+  // sitting there" — but recomputing on render only helps if a render happens,
+  // and nothing caused one. A learner watching this card at 16:59 for a 17:00
+  // class saw 16:44's answer until they reloaded. Now it ticks.
+  const win = useLiveJoinWindow(booking.slot_start, booking.slot_end ?? null);
+  const joinable = win?.state === 'open';
 
   const handleJoinClass = async () => {
     // Outside the join window this is not a failure — it is a question. Send the
@@ -623,7 +626,15 @@ function ScheduleCard({ booking, cohort, timezone, credits }: { booking: Booking
             style={{ fontFamily: 'var(--font-grotesk)' }}
           >
             {joining ? <Loader2 className="w-4 h-4 animate-spin" /> : <Video className="w-4 h-4" />}
-            {joined ? 'Joined ✓' : joinable ? 'Join Class' : 'See when your class is'}
+            {joined
+              ? 'Joined ✓'
+              : joinable
+                ? 'Join Class'
+                : win
+                  // Says WHEN, not just "not yet". Pressing it still opens the
+                  // next-class page, so an early tap is answered either way.
+                  ? `Opens ${humanCountdown(win.msUntilOpen)}`
+                  : 'See when your class is'}
           </button>
         ) : meetUrl ? (
           <a

@@ -1,9 +1,19 @@
 'use client';
 
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Check, Star, ArrowRight, Sparkles, Tag } from 'lucide-react';
-import { PRICING_TIERS, DISCOUNT_LABEL, DISCOUNT_DEADLINE, discountPercent } from '@/lib/sariro-data';
+import {
+  PRICING_TIERS,
+  DISCOUNT_LABEL,
+  DISCOUNT_DEADLINE,
+  discountActive,
+  discountPercent,
+  classesForTier,
+  perClassForTier,
+} from '@/lib/sariro-data';
+import Link from 'next/link';
+import { PRICE_PER_MONTH_GROUP, PRICE_PER_MONTH_ONE_TO_ONE, CURRENCY } from '@/lib/school/pricing';
 import { SplitText3D, MagneticButton, TiltCard3D } from './scroll-effects';
 
 const ACCENT_MAP: Record<string, { text: string; bg: string; soft: string; border: string; gradient: string }> = {
@@ -14,6 +24,21 @@ const ACCENT_MAP: Record<string, { text: string; bg: string; soft: string; borde
 
 export default function Pricing3D() {
   const sectionRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * Set after mount, never during render.
+   *
+   * discountActive() reads the clock, and anything derived from the clock at
+   * render time gives the server and the browser different answers — React does
+   * not patch attribute mismatches up, it leaves the subtree half-hydrated.
+   * Starting false means the honest state (no urgency banner) is what renders
+   * if JS never arrives, which is the right way round for a claim about a
+   * deadline.
+   */
+  const [showDiscount, setShowDiscount] = useState(false);
+  useEffect(() => {
+    setShowDiscount(discountActive());
+  }, []);
   const { scrollYProgress } = useScroll({
     target: sectionRef,
     offset: ['start end', 'end start'],
@@ -57,6 +82,12 @@ export default function Pricing3D() {
         </motion.div>
 
         {/* Summer launch discount banner */}
+        {/* Only while the offer is genuinely live. This banner ran for twenty
+            days past its own deadline, shouting urgency about a date that had
+            gone — see discountActive() in sariro-data.ts. An expired countdown
+            does not just fail to persuade; it tells a careful reader that
+            nothing else on the page is checked either. */}
+        {showDiscount && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -91,13 +122,91 @@ export default function Pricing3D() {
             </p>
           </div>
         </motion.div>
+        )}
+
+        {/* ── What most families actually buy ──────────────────────────────
+            The three cards below this are coding tiers at $199-$699. They were
+            the whole of the pricing section, on the homepage of a school whose
+            volume product is live school classes from $27.99 a month.
+
+            A parent scrolling here saw the most expensive, least relevant thing
+            we sell and concluded Sariro was a pricey AI bootcamp. The cheapest
+            and most relevant offer was not on the page at all.
+
+            Figures come from lib/school/pricing.ts, the same module the school
+            checkout prices from, so this cannot drift away from what is
+            charged. */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-60px' }}
+          className="mb-12 mx-auto max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 sm:p-8"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-5">
+            <div>
+              <p
+                className="text-xs font-bold uppercase tracking-[0.18em] mb-2"
+                style={{ fontFamily: 'var(--font-grotesk)', color: '#16A34A' }}
+              >
+                School subjects · Grades 1–12
+              </p>
+              <h3
+                className="text-2xl sm:text-3xl font-extrabold text-slate-900 leading-tight"
+                style={{ fontFamily: 'var(--font-jakarta)' }}
+              >
+                Maths, Science, Physics, Chemistry,
+                <br className="hidden sm:block" /> Biology and English
+              </h3>
+              <p className="text-[15px] text-slate-600 mt-2.5 leading-[1.6]">
+                Live classes, once a week, on your child&rsquo;s own syllabus. Priced by the month —
+                not a course fee up front.
+              </p>
+            </div>
+
+            <div className="shrink-0 text-left sm:text-right">
+              <p className="text-[12.5px] font-semibold uppercase tracking-wider text-slate-500">
+                From
+              </p>
+              <p
+                className="text-4xl font-extrabold text-slate-900 leading-none tabular-nums"
+                style={{ fontFamily: 'var(--font-jakarta)' }}
+              >
+                {CURRENCY}
+                {PRICE_PER_MONTH_GROUP}
+                <span className="text-base font-bold text-slate-500"> /month</span>
+              </p>
+              <p className="text-[13px] text-slate-500 mt-1.5 tabular-nums">
+                One to one: {CURRENCY}
+                {PRICE_PER_MONTH_ONE_TO_ONE}/month
+              </p>
+              <Link
+                href="/courses"
+                className="mt-4 inline-flex items-center justify-center h-11 px-5 rounded-xl bg-green-600 hover:bg-green-700 text-white text-sm font-bold transition-colors"
+                style={{ fontFamily: 'var(--font-grotesk)' }}
+              >
+                See subjects &amp; grades
+              </Link>
+            </div>
+          </div>
+        </motion.div>
       </div>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* The coding & AI ladder — a different product shape: a cohort you buy
+            once, not a month you renew. Labelled so the two are not read as
+            competing prices for the same thing. */}
+        <p
+          className="text-xs font-bold uppercase tracking-[0.18em] mb-4 text-slate-500"
+          style={{ fontFamily: 'var(--font-grotesk)' }}
+        >
+          Coding &amp; AI · any age
+        </p>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-stretch">
           {PRICING_TIERS.map((tier, i) => {
             const a = ACCENT_MAP[tier.accent] ?? ACCENT_MAP.blue;
             const pct = discountPercent(tier.price, tier.originalPrice);
+            const classes = classesForTier(tier.id);
+            const perClass = tier.price === null ? null : perClassForTier(tier.id, tier.price);
             return (
               <motion.div
                 key={tier.id}
@@ -164,6 +273,19 @@ export default function Pricing3D() {
                             </span>
                             <span className="text-sm font-semibold text-slate-500">/ {tier.period}</span>
                           </div>
+                          {/* The number that makes the lump sum mean something.
+                              $699 reads as expensive; "$7.28 a class, 96 of them"
+                              reads as what it is - and puts coding beside school's
+                              $6.99 rather than in another price class entirely.
+                              Derived from the catalogue, never typed here. */}
+                          {perClass !== null && (
+                            <p className="text-[13px] text-slate-600 mt-1.5 tabular-nums">
+                              <span className="font-bold text-slate-800">
+                                ${perClass.toFixed(2)} a class
+                              </span>{' '}
+                              · {classes} classes
+                            </p>
+                          )}
                           {pct > 0 && (
                             <p
                               className="text-xs font-bold mt-1.5"

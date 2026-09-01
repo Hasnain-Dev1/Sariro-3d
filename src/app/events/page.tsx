@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -29,7 +29,7 @@ import {
   ParallaxOrb,
   StickyScrollSection,
 } from '@/components/brand/effects-kit';
-import { EVENTS } from '@/lib/sariro-data';
+import { upcomingEvents } from '@/lib/sariro-data';
 
 type FilterKey = 'All' | 'Cohort' | 'Hackathon' | 'Webinar';
 
@@ -66,8 +66,13 @@ const FORMAT_ICON: Record<string, typeof Video> = {
 export default function EventsPage() {
   const [filter, setFilter] = useState<FilterKey>('All');
 
+  /* Only events that have not finished. See upcomingEvents() for why this is
+     a filter and not three corrected rows: the page used to advertise a July
+     workshop under the heading "Upcoming events" all through August. */
+  const open = useMemo(() => upcomingEvents(), []);
+
   const visible =
-    filter === 'All' ? EVENTS : EVENTS.filter((e) => e.type === filter);
+    filter === 'All' ? open : open.filter((e) => e.type === filter);
 
   return (
     <BrandLayout>
@@ -123,8 +128,8 @@ export default function EventsPage() {
                 const active = filter === f.key;
                 const count =
                   f.key === 'All'
-                    ? EVENTS.length
-                    : EVENTS.filter((e) => e.type === f.key).length;
+                    ? open.length
+                    : open.filter((e) => e.type === f.key).length;
                 return (
                   <button
                     key={f.key}
@@ -264,7 +269,20 @@ export default function EventsPage() {
           {visible.length === 0 && (
             <div className="text-center py-20">
               <CalendarDays className="w-12 h-12 mx-auto text-slate-300 mb-3" />
-              <p className="text-slate-500">No events of this type scheduled right now. Check back soon.</p>
+              <p className="text-slate-500">
+                {open.length === 0
+                  ? 'Nothing on the calendar right now.'
+                  : 'No events of this type scheduled right now.'}
+              </p>
+              {open.length === 0 && (
+                <Link
+                  href="/welcome#book"
+                  className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-violet-600 hover:text-violet-700"
+                >
+                  Book a free class instead
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              )}
             </div>
           )}
         </div>

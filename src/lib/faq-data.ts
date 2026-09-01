@@ -187,7 +187,7 @@ export const FAQ_KNOWLEDGE_BASE: FaqEntry[] = [
     id: 'schools-visit',
     question: 'Can Sariro come to my school?',
     answer:
-      'Yes. We partner with schools and districts to deliver AI curriculum on campus. Options range from single workshops (1-2 days) to full-semester AI labs (12-16 weeks). We handle curriculum, teacher training, and ongoing mentor support. Visit the /schools page or email schools@sariro.com to start a conversation.',
+      'Yes. We partner with schools and districts to deliver AI curriculum on campus. Options range from single workshops (1-2 days) to full-semester AI labs (12-16 weeks). We handle curriculum, teacher training, and ongoing mentor support. Email schools@sariro.com to start a conversation.',
     category: 'schools',
     keywords: ['school', 'campus', 'visit', 'partner', 'district', 'workshop', 'on site', 'class'],
     priority: 9,

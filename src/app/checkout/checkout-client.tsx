@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, CheckCircle2, CreditCard, Landmark, Loader2, Users } from 'lucide-react';
+import Button3D from '@/components/brand/button-3d';
+import { getBankDetails, transferReference } from '@/lib/checkout/bank-details';
 import { RazorpayCheckoutButton } from '@/components/auth/razorpay-checkout';
 import { resolveCheckoutItem } from '@/lib/checkout/resolve';
 import type { LearningRatio } from '@/lib/sariro-data';
@@ -64,6 +66,22 @@ export default function CheckoutClient() {
       }),
     [params, ratio, cadence]
   );
+
+  /**
+   * Both of these must sit ABOVE the `if (!item)` return below.
+   *
+   * `reference` is a hook, and a hook after an early return is called on some
+   * renders and not others — React counts hooks by position, so the first
+   * render with a resolvable item after one without would throw "rendered more
+   * hooks than during the previous render". `getBankDetails()` is a plain read
+   * and is kept alongside it so the pair cannot drift apart later.
+   *
+   * Memoised because the reference embeds the current minute: recomputing it on
+   * every render would quietly change the number a buyer is copying into their
+   * banking app while they are looking at it.
+   */
+  const bank = getBankDetails();
+  const reference = useMemo(() => transferReference(item?.slug ?? ''), [item?.slug]);
 
   if (!item) {
     return (
@@ -238,19 +256,69 @@ export default function CheckoutClient() {
             ) : (
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
                 <p className="font-semibold text-slate-900 mb-2">Bank transfer</p>
-                <p className="text-[14px] text-slate-600 leading-[1.65] mb-4">
-                  Tell us a little about the learner and we will send you the account details for
-                  your country, along with a reference so we can match your transfer straight away.
-                </p>
-                <Link
-                  href={bankHref}
-                  className="inline-flex items-center justify-center h-12 px-6 rounded-xl bg-slate-900 text-white text-[15px] font-semibold hover:bg-slate-800 transition-colors w-full"
-                >
-                  Request bank details
-                </Link>
-                <p className="text-[12.5px] text-slate-500 mt-3">
-                  Bank details are sent to you directly rather than published here.
-                </p>
+
+                {bank ? (
+                  /* Details are configured, so show them: the buyer can pay now
+                     rather than waiting for a reply. See bank-details.ts for the
+                     trade this makes and how to switch it off. */
+                  <>
+                    <p className="text-[14px] text-slate-600 leading-[1.65] mb-4">
+                      Transfer to the account below and quote the reference — that is what lets us
+                      match your payment to this enrolment without asking you.
+                    </p>
+                    <dl className="rounded-lg border border-slate-200 bg-white divide-y divide-slate-100 mb-4">
+                      {[
+                        ['Account name', bank.accountName],
+                        ['Account number', bank.accountNumber],
+                        ['Bank', bank.bankName],
+                        ['IFSC', bank.ifsc],
+                        ['SWIFT', bank.swift],
+                        ['UPI', bank.upi],
+                      ]
+                        .filter(([, v]) => v)
+                        .map(([label, value]) => (
+                          <div key={label as string} className="flex items-baseline justify-between gap-3 px-3.5 py-2.5">
+                            <dt className="text-[12.5px] font-semibold text-slate-500 shrink-0">{label}</dt>
+                            <dd className="text-[13.5px] font-bold text-slate-900 text-right break-all tabular-nums">
+                              {value}
+                            </dd>
+                          </div>
+                        ))}
+                      <div className="flex items-baseline justify-between gap-3 px-3.5 py-2.5 bg-amber-50">
+                        <dt className="text-[12.5px] font-bold text-amber-800 shrink-0">Reference</dt>
+                        <dd className="text-[13.5px] font-black text-amber-900 text-right break-all">
+                          {reference}
+                        </dd>
+                      </div>
+                    </dl>
+                    {/* Still offered: a transfer nobody tells us about is a
+                        payment we cannot match to a learner. */}
+                    <Button3D href={bankHref} color="#B45309" edge="#7C2D12">
+                      <Landmark className="w-4 h-4" />
+                      Tell us you have paid
+                    </Button3D>
+                    <p className="text-[12.5px] text-slate-500 mt-3">
+                      Sending the reference speeds this up a lot — otherwise a transfer arrives as a
+                      name and an amount, and we have to work out whose class it is.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-[14px] text-slate-600 leading-[1.65] mb-4">
+                      Tell us a little about the learner and we will send you the account details for
+                      your country, along with a reference so we can match your transfer straight
+                      away.
+                    </p>
+                    <Button3D href={bankHref} color="#B45309" edge="#7C2D12">
+                      <Landmark className="w-4 h-4" />
+                      Request bank details
+                    </Button3D>
+                    <p className="text-[12.5px] text-slate-500 mt-3">
+                      Bank details are sent to you directly rather than published here — usually the
+                      same day.
+                    </p>
+                  </>
+                )}
               </div>
             )}
           </div>

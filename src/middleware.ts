@@ -25,7 +25,6 @@ import { createServerClient } from '@supabase/ssr';
 const PUBLIC_PATHS = [
   '/',
   '/courses',
-  '/schools',
   '/events',
   '/pricing',
   '/about',

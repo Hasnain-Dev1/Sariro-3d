@@ -25,7 +25,7 @@ const HowItWorks = dynamic(() => import('@/components/home/how-it-works'));
 const Tracks3D = dynamic(() => import('@/components/sariro-3d/tracks-3d'));
 const Stats3D = dynamic(() => import('@/components/sariro-3d/stats-3d'));
 const Philosophy3D = dynamic(() => import('@/components/sariro-3d/philosophy-3d'));
-const Events3D = dynamic(() => import('@/components/sariro-3d/events-3d'));
+const FirstClassFree = dynamic(() => import('@/components/home/first-class-free'));
 const Testimonials3D = dynamic(() => import('@/components/sariro-3d/testimonials-3d'));
 const Pricing3D = dynamic(() => import('@/components/sariro-3d/pricing-3d'));
 const CTA3D = dynamic(() => import('@/components/sariro-3d/cta-3d'));
@@ -45,8 +45,14 @@ export default function Home() {
    * Mounting it only when it is near the viewport is the same treatment the
    * hero scene already had, and drops the steady-state count by one.
    */
-  const oryzoRef = useRef<HTMLDivElement>(null);
-  const oryzoNear = useInView(oryzoRef, { margin: '400px' });
+  /* PARKED with the scene itself, and it has to stay parked with it.
+     `useInView` observes ref.current; commenting out the <div ref={oryzoRef}>
+     below while leaving this here left the hook watching an element that never
+     mounts, and framer went straight to
+     "can't access property addEventListener, target is null" on every render of
+     the homepage. Uncomment these two lines at the same time as the JSX block. */
+  // const oryzoRef = useRef<HTMLDivElement>(null);
+  // const oryzoNear = useInView(oryzoRef, { margin: '400px' });
   const scrollProgressRef = useRef(0);
   const inView = useInView(heroRef, { margin: '200px' });
   const heavyVisuals = useHeavyVisuals();
@@ -271,17 +277,37 @@ export default function Home() {
               abstract thing here, and abstraction is a poor opening move. */}
       <MapTeaser />
 
+      {/* ── The Oryzo cinematic scene — PARKED, not deleted ────────────────
+          A black WebGL band dropped between the warm sections either side of
+          it. Two reasons it is off:
+
+            1. Flow. Everything around it is cream; this slammed to #14100C and
+               back over about two screens, and the page read as two different
+               sites stitched together at that seam.
+            2. Cost. It holds a WebGL context, and this site already logs
+               "THREE.WebGLRenderer: Context Lost" — the browser destroying its
+               OLDEST context because the page is at the cap. The scene furthest
+               from the buying decision is the one that should give its context
+               back first.
+
+          The component, its lazy import, and the oryzoRef/oryzoNear viewport
+          gate above are all intact. Uncomment this block to bring it back —
+          nothing else needs restoring. */}
+      {/*
       <WaveDivider3D fromColor="#FBF9F6" toColor="#14100C" />
-      {/* ORYZO-STYLE CINEMATIC SCROLL: camera orbits 360°.
-          Real WebGL — desktop only, so phones don't hit it on scroll. */}
       <div ref={oryzoRef}>{heavyVisuals && oryzoNear && <OryzoSection />}</div>
       <WaveDivider3D fromColor="#14100C" toColor="#FBF9F6" />
+      */}
 
       {/* 6 — proof, price, and the ask. */}
       <Testimonials3D />
-      <WaveDivider3D fromColor="#FFFFFF" toColor="#14100C" />
-      <Events3D />
-      <WaveDivider3D fromColor="#14100C" toColor="#FBF9F6" />
+      {/* These two used to fade to and from #14100C, because the slot between
+          them held the dark events carousel. It now holds FirstClassFree, which
+          is cream (#FFFDF9), so the old dividers wedged a black band above and
+          below it. Matched to the real section colours. */}
+      <WaveDivider3D fromColor="#FFFFFF" toColor="#FFFDF9" />
+      <FirstClassFree />
+      <WaveDivider3D fromColor="#FFFDF9" toColor="#FBF9F6" />
       <Pricing3D />
       <CTA3D />
     </BrandLayout>

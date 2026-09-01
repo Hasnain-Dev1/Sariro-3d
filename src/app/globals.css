@@ -769,3 +769,12 @@ html[data-syllabus-open="true"] header {
 .prose-measure {
   max-width: 65ch;
 }
+
+/* Button3D: the tilt and travel are decoration. Inline styles carry them, so
+   overriding needs !important — this is the one place that is correct. */
+@media (prefers-reduced-motion: reduce) {
+  [data-btn3d] {
+    transition: none !important;
+    transform: none !important;
+  }
+}

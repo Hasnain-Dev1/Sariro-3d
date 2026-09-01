@@ -59,7 +59,6 @@ const NAV_ITEMS = [
   // door that offers coding and every school subject side by side, and links on
   // to the map for anyone who is not shopping by subject.
   { href: '/courses', label: 'Learn' },
-  { href: '/schools', label: 'Schools' },
   { href: '/events', label: 'Events' },
   { href: '/pricing', label: 'Pricing' },
   { href: '/about', label: 'About' },
@@ -369,7 +368,7 @@ function BrandFooter() {
               Learn
             </h4>
             <ul className="space-y-2.5">
-              {NAV_ITEMS.filter(i => ['/courses', '/schools', '/events', '/pricing'].includes(i.href)).map((item) => (
+              {NAV_ITEMS.filter(i => ['/courses', '/events', '/pricing'].includes(i.href)).map((item) => (
                 <li key={item.href}>
                   <Link href={item.href} className="text-sm text-slate-400 hover:text-white transition-colors">
                     {item.label}
