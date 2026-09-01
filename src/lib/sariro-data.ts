@@ -15,7 +15,25 @@ export const BRAND = {
   mission:
     "Maths, science, physics, chemistry, English and coding — taught live in batches of four, by mentors who notice the moment a learner goes quiet. Not the syllabus read aloud: the thinking underneath it, so the next grade gets easier instead of harder.",
   email: "contact@sariro.com",
-  phone: "+1 (415) 555-0142",
+  // Was "+1 (415) 555-0142" — the 555 range is reserved for fiction, so this
+  // was placeholder data sitting in the brand record. Nothing rendered it, so
+  // it was never shown to anyone; it is corrected here so the next thing that
+  // reaches for a phone number gets a real one.
+  phone: "+91 6295 461 132",
+  /**
+   * The same number, digits only, for wa.me click-to-chat links.
+   *
+   * Kept beside `phone` rather than in an env var: it is public contact
+   * information that we WANT published, it has to survive a deploy without
+   * anyone remembering to set a variable, and having one record of "how to
+   * reach Sariro" is what stops the two drifting apart. NEXT_PUBLIC_WHATSAPP_NUMBER
+   * still overrides it, for testing against a different handset.
+   *
+   * Sariro also has a branded short link (wa.me/message/NDAMWOPNYEWGE1). The
+   * number form is used instead because only it accepts a prefilled `?text=`,
+   * and arriving with the question already typed is most of the value.
+   */
+  whatsapp: "916295461132",
   location: "San Francisco · Remote-first · Worldwide",
 };
 
@@ -1393,8 +1411,29 @@ export const MIMO = {
 /* Summer 2026 launch pricing — early-bird discount window
    (active until Aug 12, 2026). `originalPrice` is the standard
    cohort price; `price` is the discounted price shown live. */
-export const DISCOUNT_LABEL = 'Summer launch — 25% off';
-export const DISCOUNT_DEADLINE = 'Aug 12, 2026';
+/**
+ * The offer, and the two places it is stated.
+ *
+ * DISCOUNT_LABEL and DISCOUNT_DEADLINE are what a reader sees; DISCOUNT_ENDS_ON
+ * below is what the code checks. All three describe one fact and must move
+ * together — events.test.ts fails if the prose and the date drift apart.
+ *
+ * Extended from 12 Aug to 30 Sep 2026 on 1 Sep. The old deadline had passed
+ * twenty days earlier while the 25% was still being applied, so the site was
+ * running the offer and simultaneously announcing it had ended. Extending keeps
+ * what customers actually pay unchanged; ending it would have been a 25% price
+ * rise, which is a business decision and not a tidy-up.
+ *
+ * "Summer" went with it — a summer launch advertised in autumn dates the page
+ * as surely as an expired deadline does.
+ *
+ * To END the offer instead: set DISCOUNT_ENDS_ON to a past date. The banner
+ * disappears on its own. Note that PRICING_TIERS.price is the DISCOUNTED figure
+ * and originalPrice the pre-discount one, so genuinely ending the promotion
+ * also means swapping those — the banner is presentation, the prices are not.
+ */
+export const DISCOUNT_LABEL = 'Launch offer — 25% off';
+export const DISCOUNT_DEADLINE = 'Sep 30, 2026';
 
 /**
  * SARIRO — the deadline, as a date a machine can check
@@ -1413,7 +1452,7 @@ export const DISCOUNT_DEADLINE = 'Aug 12, 2026';
  * Keep the two in step. `events.test.ts` does this for EVENTS; the pricing test
  * does it here.
  */
-export const DISCOUNT_ENDS_ON = '2026-08-12';
+export const DISCOUNT_ENDS_ON = '2026-09-30';
 
 /**
  * Whether the launch discount is still running.

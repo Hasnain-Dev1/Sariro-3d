@@ -99,8 +99,16 @@ describe('upcomingEvents', () => {
  */
 describe('launch discount', () => {
   test('stops claiming to be live once its deadline has passed', () => {
-    assert.equal(discountActive(new Date('2026-08-12T23:00:00Z')), true, 'still on, on the day');
-    assert.equal(discountActive(new Date('2026-08-13T00:01:00Z')), false, 'over, the day after');
+    // Derived from DISCOUNT_ENDS_ON, not hardcoded. The first version of this
+    // pinned 12 Aug and failed the moment the offer was legitimately extended —
+    // a test that breaks on a correct change tests the calendar, not the rule.
+    // What matters is the boundary: live through the last day, over the next.
+    const end = new Date(`${DISCOUNT_ENDS_ON}T00:00:00Z`);
+    const lastMoment = new Date(end.getTime() + 23 * 60 * 60 * 1000);
+    const dayAfter = new Date(end.getTime() + 25 * 60 * 60 * 1000);
+
+    assert.equal(discountActive(lastMoment), true, 'still on, on the final day');
+    assert.equal(discountActive(dayAfter), false, 'over, the day after');
   });
 
   test('the date shown to a reader is the date the code checks', () => {

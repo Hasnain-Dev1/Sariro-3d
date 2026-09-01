@@ -38,7 +38,7 @@ export default function Testimonials3D() {
   const prev = () => { setActive((v) => (v - 1 + TESTIMONIALS.length) % TESTIMONIALS.length); setAuto(false); };
 
   return (
-    <section id="testimonials" ref={sectionRef} data-chapter="testimonials" data-chapter-label="Voices" className="relative py-24 sm:py-32 overflow-hidden bg-gradient-to-b from-slate-50 to-white">
+    <section id="testimonials" ref={sectionRef} data-chapter="testimonials" data-chapter-label="Reviews" className="relative py-24 sm:py-32 overflow-hidden bg-gradient-to-b from-slate-50 to-white">
       <div className="absolute inset-0 mesh-bg opacity-60" />
       <motion.div
         style={{ y: orb1Y }}

@@ -35,7 +35,7 @@ export default function Philosophy3D() {
   const portraitRotate = useTransform(scrollYProgress, [0, 1], [4, -4]);
 
   return (
-    <section ref={ref} data-chapter="philosophy" data-chapter-label="Mimo" className="relative py-24 sm:py-32 overflow-hidden bg-white">
+    <section ref={ref} data-chapter="philosophy" data-chapter-label="How we teach" className="relative py-24 sm:py-32 overflow-hidden bg-white">
       <div className="absolute inset-0 grid-bg opacity-50" />
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-start">

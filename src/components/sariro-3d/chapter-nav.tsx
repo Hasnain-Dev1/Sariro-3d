@@ -23,17 +23,55 @@ export default function ChapterNav() {
   // Discover chapters from the DOM (data-chapter + data-chapter-label)
   // This is a legitimate "sync external state → React state" pattern.
   // The setState calls happen after DOM is ready, not synchronously during render.
+  /**
+   * Discover chapters from the DOM, and KEEP discovering.
+   *
+   * This used to be a single scan on mount. Every section it looks for is a
+   * `dynamic()` import on the homepage, so at the moment ChapterNav mounted
+   * almost none of them existed yet — the scan found an empty list, and
+   * `chapters.length === 0` below returns null. The jump navigation was not
+   * merely hidden on small screens; it rendered nothing at all, on every
+   * viewport, on the longest page of the site.
+   *
+   * A MutationObserver keeps it in step as the lazy sections arrive, and
+   * disconnects once the DOM settles. Cheap: it only reacts to nodes being
+   * added or removed, and the rescan is a single querySelectorAll.
+   */
   useEffect(() => {
-    const els = Array.from(document.querySelectorAll<HTMLElement>('[data-chapter]'));
-    const found: Chapter[] = els.map((el) => ({
-      id: el.dataset.chapter || el.id,
-      label: el.dataset.chapterLabel || el.id,
-    }));
-    // Defer to next tick to avoid cascading renders during mount
-    queueMicrotask(() => {
-      setChapters(found);
-      if (found[0]) setActiveId(found[0].id);
+    let frame = 0;
+
+    const scan = () => {
+      const els = Array.from(document.querySelectorAll<HTMLElement>('[data-chapter]'));
+      const found: Chapter[] = els.map((el) => ({
+        id: el.dataset.chapter || el.id,
+        label: el.dataset.chapterLabel || el.id,
+      }));
+      setChapters((prev) => {
+        // Same list, same order: keep the old array so the observer effect
+        // below is not torn down and rebuilt on every unrelated mutation.
+        const same =
+          prev.length === found.length && prev.every((c, i) => c.id === found[i].id);
+        return same ? prev : found;
+      });
+      if (found[0]) setActiveId((cur) => cur || found[0].id);
+    };
+
+    scan();
+
+    const observer = new MutationObserver(() => {
+      // Coalesce bursts of mutations into one scan per frame.
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        scan();
+      });
     });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    return () => {
+      observer.disconnect();
+      if (frame) cancelAnimationFrame(frame);
+    };
   }, []);
 
   // Track which chapter is currently in view using IntersectionObserver
@@ -71,7 +109,7 @@ export default function ChapterNav() {
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: 1.2, duration: 0.6 }}
-      className="fixed right-4 sm:right-6 top-1/2 -translate-y-1/2 z-40 hidden lg:flex flex-col gap-3"
+      className="fixed right-1.5 sm:right-4 lg:right-6 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-2 sm:gap-3"
     >
       {chapters.map((ch) => {
         const isActive = activeId === ch.id;
@@ -85,7 +123,22 @@ export default function ChapterNav() {
             className="group relative flex items-center justify-end cursor-pointer"
             aria-label={`Jump to ${ch.label}`}
           >
-            {/* Tooltip label */}
+            {/* The label.
+                On a pointer device it appears on hover. On touch there is no
+                hover, so the rail would be nine unlabelled dots — you would be
+                tapping blind. The ACTIVE chapter therefore carries its label
+                permanently below lg, which doubles as a "you are here" marker
+                on a page that is roughly twenty phone screens long.
+                Decided in CSS, not by measuring the viewport in JS: a
+                render-time width check cannot agree between server and client. */}
+            {isActive && (
+              <span
+                className="lg:hidden absolute right-5 mr-1 px-2 py-0.5 rounded-md glass-panel text-[10px] font-bold text-slate-700 whitespace-nowrap pointer-events-none"
+                style={{ fontFamily: 'var(--font-grotesk)' }}
+              >
+                {ch.label}
+              </span>
+            )}
             <AnimatePresence>
               {isHovered && (
                 <motion.span
@@ -93,7 +146,7 @@ export default function ChapterNav() {
                   animate={{ opacity: 1, x: 0, scale: 1 }}
                   exit={{ opacity: 0, x: 8, scale: 0.9 }}
                   transition={{ duration: 0.18 }}
-                  className="absolute right-7 mr-1 px-2.5 py-1 rounded-md glass-panel text-[11px] font-bold text-slate-700 whitespace-nowrap pointer-events-none"
+                  className="hidden lg:block absolute right-7 mr-1 px-2.5 py-1 rounded-md glass-panel text-[11px] font-bold text-slate-700 whitespace-nowrap pointer-events-none"
                   style={{ fontFamily: 'var(--font-grotesk)' }}
                 >
                   {ch.label}

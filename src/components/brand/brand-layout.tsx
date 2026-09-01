@@ -9,6 +9,7 @@ import { Menu, X, GraduationCap, Sparkles, Mail, LifeBuoy, Briefcase, Handshake,
 import { BRAND, EMAILS } from '@/lib/sariro-data';
 import { CustomCursor } from '@/components/sariro-3d/scroll-effects';
 import ChapterNav, { ScrollHueShift } from '@/components/sariro-3d/chapter-nav';
+import WhatsAppButton from '@/components/brand/whatsapp-button';
 import SmoothScrollProvider from '@/components/sariro-3d/smooth-scroll-provider';
 import CookieConsent from '@/components/brand/cookie-consent';
 import StickyCta from '@/components/brand/sticky-cta';
@@ -486,6 +487,8 @@ export default function BrandLayout({ children }: { children: ReactNode }) {
       {heavyVisuals && <BackgroundParticles3D />}
       <ScrollHueShift />
       <ChapterNav />
+      {/* Renders nothing unless NEXT_PUBLIC_WHATSAPP_NUMBER is set. */}
+      <WhatsAppButton />
       {heavyVisuals && <CompanionOrb3D />}
       <ScrollProgressBar />
       <NeuralMotifBg />

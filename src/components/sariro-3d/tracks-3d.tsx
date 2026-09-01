@@ -95,7 +95,7 @@ export default function Tracks3D() {
   const headerRotate = useTransform(scrollYProgress, [0, 1], [0, 0]);
 
   return (
-    <section id="tracks" ref={sectionRef} data-chapter="tracks" data-chapter-label="Tracks" className="relative py-24 sm:py-32 overflow-hidden">
+    <section id="tracks" ref={sectionRef} data-chapter="tracks" data-chapter-label="Who it is for" className="relative py-24 sm:py-32 overflow-hidden">
       <div className="absolute inset-0 mesh-bg opacity-50" />
       {/* Floating background shapes that parallax */}
       <motion.div

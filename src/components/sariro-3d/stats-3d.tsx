@@ -69,7 +69,7 @@ function Counter({ value, suffix, index }: { value: number; suffix: string; inde
       />
 
       <div
-        className="card-3d p-8 text-center h-full relative overflow-hidden"
+        className="card-3d p-5 sm:p-8 text-center h-full relative overflow-hidden"
         style={{ transformStyle: 'preserve-3d' }}
       >
         {/* Glow */}
@@ -82,15 +82,15 @@ function Counter({ value, suffix, index }: { value: number; suffix: string; inde
         <motion.div
           animate={{ y: [0, -6, 0] }}
           transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut', delay: index * 0.3 }}
-          className={`inline-flex w-14 h-14 rounded-2xl bg-gradient-to-br ${a.bg} items-center justify-center shadow-xl ${a.shadow} mb-5`}
+          className={`inline-flex w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br ${a.bg} items-center justify-center shadow-xl ${a.shadow} mb-3 sm:mb-5`}
           style={{ transform: 'translateZ(40px)' }}
         >
-          <Icon className="w-7 h-7 text-white" strokeWidth={2.4} />
+          <Icon className="w-5 h-5 sm:w-7 sm:h-7 text-white" strokeWidth={2.4} />
         </motion.div>
 
         {/* 3D Number Flip counter */}
         <div
-          className={`text-5xl sm:text-6xl font-extrabold ${a.text} flex items-center justify-center`}
+          className={`text-[2rem] sm:text-5xl lg:text-6xl font-extrabold ${a.text} flex items-center justify-center tabular-nums`}
           style={{ fontFamily: 'var(--font-jakarta)', transform: 'translateZ(25px)' }}
         >
           <span ref={ref}>
@@ -101,7 +101,7 @@ function Counter({ value, suffix, index }: { value: number; suffix: string; inde
 
         {/* Label */}
         <div
-          className="mt-2 text-sm font-bold uppercase tracking-wider text-slate-500"
+          className="mt-1.5 sm:mt-2 text-[10.5px] sm:text-sm font-bold uppercase tracking-wider text-slate-500 leading-tight"
           style={{ fontFamily: 'var(--font-grotesk)', transform: 'translateZ(15px)' }}
         >
           {HERO_STATS[index].label}
@@ -122,7 +122,7 @@ export default function Stats3D() {
   const orb2Y = useTransform(scrollYProgress, [0, 1], [-80, 80]);
 
   return (
-    <section id="stats" ref={sectionRef} data-chapter="stats" data-chapter-label="Impact" className="relative py-24 sm:py-32 overflow-hidden bg-gradient-to-b from-white via-slate-50 to-white">
+    <section id="stats" ref={sectionRef} data-chapter="stats" data-chapter-label="Who teaches" className="relative py-24 sm:py-32 overflow-hidden bg-gradient-to-b from-white via-slate-50 to-white">
       <div className="absolute inset-0 grid-bg opacity-60" />
       <motion.div
         style={{ y: orb1Y }}
@@ -139,7 +139,7 @@ export default function Stats3D() {
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center max-w-3xl mx-auto mb-16"
+          className="text-center max-w-3xl mx-auto mb-9 sm:mb-16"
         >
           {/* Second place these same numbers appear — the hero is the other.
               They are Mimo's career, earned before Sariro existed, so they are
@@ -148,19 +148,19 @@ export default function Stats3D() {
           <span className="text-xs font-bold uppercase tracking-[0.2em] text-blue-600 mb-4 block" style={{ fontFamily: 'var(--font-grotesk)' }}>
             — Who is teaching —
           </span>
-          <h2 className="text-4xl sm:text-5xl font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
+          <h2 className="text-[1.75rem] sm:text-4xl lg:text-5xl font-extrabold text-slate-900 leading-[1.15]" style={{ fontFamily: 'var(--font-jakarta)' }}>
             <SplitText3D text="Sariro did not start" highlight="Sariro" highlightClassName="gradient-text" />
             <br />
             <SplitText3D text="from nothing." highlight="from nothing." highlightClassName="gradient-text" delay={0.3} />
           </h2>
-          <p className="mt-5 text-lg text-slate-600">
+          <p className="mt-4 text-[15px] sm:text-lg text-slate-600 leading-[1.6]">
             A decade of teaching came first. These are {BRAND.founder}&apos;s numbers from the years
             before Sariro existed — the foundation it was built on, and the reason a parent can
             trust who is on the other side of the screen.
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 lg:gap-6">
           {HERO_STATS.map((s, i) => (
             <Counter key={s.label} value={s.value} suffix={s.suffix} index={i} />
           ))}
@@ -172,7 +172,7 @@ export default function Stats3D() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ delay: 0.3 }}
-          className="mt-12 glass-panel rounded-3xl p-8 sm:p-10 text-center"
+          className="mt-8 sm:mt-12 glass-panel rounded-3xl p-6 sm:p-10 text-center"
         >
           <p className="text-xl sm:text-2xl font-bold text-slate-800 max-w-3xl mx-auto" style={{ fontFamily: 'var(--font-jakarta)' }}>
             "Every number on this page started with one student who decided to take a class. We're still counting."

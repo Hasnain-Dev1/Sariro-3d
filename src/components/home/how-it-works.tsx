@@ -54,7 +54,12 @@ const STEPS = [
 
 export default function HowItWorks() {
   return (
-    <section className="relative py-14 sm:py-20 bg-slate-50 border-t border-slate-100">
+    <section
+      id="how-it-works"
+      data-chapter="how-it-works"
+      data-chapter-label="How it works"
+      className="relative py-14 sm:py-20 bg-slate-50 border-t border-slate-100"
+    >
       <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="max-w-2xl mb-10">
           <span

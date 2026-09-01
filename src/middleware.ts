@@ -7,7 +7,7 @@ import { createServerClient } from '@supabase/ssr';
  * 
  * Two jobs:
  * 1. Gate /dashboard/* and /settings — redirect to /auth/sign-in?next=... if no session
- * 2. Redirect / to /dashboard if user is logged in (the "professional" pattern)
+ * 2. Send signed-in visitors away from the auth screens (nothing to do there)
  * 
  * Public routes (no auth required, accessible to all):
  *   /, /courses, /schools, /events, /pricing, /about, /story,
@@ -95,12 +95,24 @@ export async function middleware(req: NextRequest) {
   const { data: { session } } = await supabase.auth.getSession();
   const isLoggedIn = !!session;
 
-  // 1. Redirect / → /dashboard if logged in (professional pattern)
-  if (pathname === '/' && isLoggedIn) {
-    const url = req.nextUrl.clone();
-    url.pathname = '/dashboard';
-    return NextResponse.redirect(url);
-  }
+  /* 1. REMOVED: "/ -> /dashboard if logged in (professional pattern)".
+   *
+   * Every "Back to website" link in the product points at "/" — the dashboard
+   * sidebar, the dashboard error page, and "Back to site" on both auth screens.
+   * This rule bounced logged-in users straight back, so the one link offering a
+   * way out of the dashboard was unusable by the only people who could see it.
+   * The same rule made "Back to site" on the sign-in screen a no-op for anyone
+   * already signed in.
+   *
+   * It also cost more than a broken link. Sariro's public site is a sales
+   * surface: a signed-in parent browsing /courses to pick next term's subject,
+   * checking /pricing, or opening the homepage to send it to another parent all
+   * had to sign out first.
+   *
+   * Nothing is lost by dropping it. The navbar's avatar menu already carries
+   * role-aware links — "My Courses", "My Schedule", "Admin Panel" — so the
+   * dashboard stays one click away from anywhere on the public site.
+   */
 
   // 2. Gate dashboard routes
   if (isDashboardPath(pathname) && !isLoggedIn) {

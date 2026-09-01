@@ -91,8 +91,17 @@ const SPEAKING_ACCENT = '#DB2777';
 export default function SubjectStrip() {
   const monthly = formatPrice(perMonthFor('1:4'));
 
+  /* Chapter marker: this section answers "what do you teach", and it and
+     HowItWorks were the only two on the homepage without one - so the jump
+     nav skipped from the hero straight to a stats block, past the two
+     sections a first-time visitor most needs. */
   return (
-    <section className="relative py-14 sm:py-20 bg-white border-t border-slate-100">
+    <section
+      id="subjects"
+      data-chapter="subjects"
+      data-chapter-label="Subjects"
+      className="relative py-14 sm:py-20 bg-white border-t border-slate-100"
+    >
       <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="max-w-2xl mb-9">
           <span
