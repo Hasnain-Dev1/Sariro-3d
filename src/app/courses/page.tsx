@@ -946,7 +946,13 @@ function SyllabusModal({ course, onClose }: { course: Course | null; onClose: ()
                   Tuition
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-xs font-bold line-through text-red-500">${course.originalPrice}</span>
+                  {/* Guarded: every other site checks pct > 0, this one did not,
+                      so a null price would have rendered a bare "$". */}
+                  {course.originalPrice && (
+                    <span className="text-xs font-bold line-through text-red-500">
+                      ${course.originalPrice}
+                    </span>
+                  )}
                   <span
                     className="text-xl font-extrabold"
                     style={{ color: ACCENT_HEX[course.accent] ?? '#2563EB', fontFamily: 'var(--font-jakarta)' }}

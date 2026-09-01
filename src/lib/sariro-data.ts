@@ -433,7 +433,7 @@ export const COURSES = [
     title: "Web Builder Pro — Beginner",
     tagline: "Build modern AI-powered websites and web apps from scratch",
     level: "Beginner", audience: "Students", durationWeeks: 8, modules: 5, lessons: 30,
-    price: 199, originalPrice: 398, nextCohort: "Aug 12, 2026", featured: true, accent: "cyan",
+    price: 199, originalPrice: null, nextCohort: "Aug 12, 2026", featured: true, accent: "cyan",
     outcomes: ["Build real projects from scratch", "Understand the fundamentals", "Ship your first portfolio piece", "Join the Sariro community"],
     syllabus: [
       { num: "01", name: "HTML + CSS Foundations", project: "Build a personal landing page", lessons: ["HTML structure + semantic tags", "CSS selectors + the box model", "Flexbox layouts", "Responsive design with media queries", "Google Fonts + icons", "Landing page project"] },
@@ -449,7 +449,7 @@ export const COURSES = [
     title: "Web Builder Pro — Intermediate",
     tagline: "Build Orbit, a real team-collaboration SaaS, feature by feature — dashboard, database, auth, AI, real-time, and a live launch.",
     level: "Intermediate", audience: "Students", durationWeeks: 12, modules: 7, lessons: 42,
-    price: 299, originalPrice: 854, nextCohort: "Sep 03, 2026", featured: false, accent: "cyan",
+    price: 299, originalPrice: null, nextCohort: "Sep 03, 2026", featured: false, accent: "cyan",
     outcomes: ["Ship one real SaaS product end-to-end, not disconnected demos", "Master advanced architecture patterns", "Implement authentication + payments + AI the way production apps do", "Launch Orbit publicly with a portfolio case study"],
     syllabus: [
       { num: "01", name: "Next.js App Router Deep Dive", project: "Ship Orbit's multi-workspace dashboard shell", lessons: ["Server vs Client Components — architecting Orbit's shell", "Layouts, loading & error states for the workspace switcher", "Dynamic routes: /workspace/[id]/project/[id]", "Server Actions — creating a project without an API route", "Middleware & edge — workspace-scoped routing and redirects", "Dashboard shell project"] },
@@ -467,7 +467,7 @@ export const COURSES = [
     title: "Web Builder Pro — Advanced",
     tagline: "Build for millions. Multi-region infra, edge rendering, and the patterns FAANG engineers actually use.",
     level: "Advanced", audience: "Students", durationWeeks: 16, modules: 16, lessons: 96,
-    price: 699, originalPrice: 2330, nextCohort: "Oct 14, 2026", featured: false, accent: "violet",
+    price: 699, originalPrice: null, nextCohort: "Oct 14, 2026", featured: false, accent: "violet",
     outcomes: ["Architect enterprise-grade systems", "Lead development teams", "Implement advanced DevOps + security", "Ship at production scale"],
     syllabus: [
       { num: "01", name: "Enterprise Architecture", project: "Design an enterprise system", lessons: ["Distributed systems", "Microservices patterns", "Event-driven architecture", "Message queues (Kafka)", "Service mesh (Istio)", "API gateways"] },
@@ -494,7 +494,7 @@ export const COURSES = [
     title: "App Builder Studio — Beginner",
     tagline: "Build real iOS and Android apps with AI features using React Native",
     level: "Beginner", audience: "Students", durationWeeks: 8, modules: 5, lessons: 30,
-    price: 199, originalPrice: 398, nextCohort: "Aug 12, 2026", featured: true, accent: "blue",
+    price: 199, originalPrice: null, nextCohort: "Aug 12, 2026", featured: true, accent: "blue",
     outcomes: ["Build real projects from scratch", "Understand the fundamentals", "Ship your first portfolio piece", "Join the Sariro community"],
     syllabus: [
       { num: "01", name: "React Native Setup", project: "Build a hello-world app on your phone", lessons: ["Installing Expo + React Native", "Your first component", "Hot reload + dev tools", "Running on iOS simulator", "Running on Android emulator", "Hello-world app project"] },
@@ -510,7 +510,7 @@ export const COURSES = [
     title: "App Builder Studio — Intermediate",
     tagline: "Build Pulse, a real hyperlocal community app, feature by feature — feed, offline sync, push, camera, motion, and a store launch.",
     level: "Intermediate", audience: "Students", durationWeeks: 12, modules: 7, lessons: 42,
-    price: 299, originalPrice: 854, nextCohort: "Sep 03, 2026", featured: false, accent: "blue",
+    price: 299, originalPrice: null, nextCohort: "Sep 03, 2026", featured: false, accent: "blue",
     outcomes: ["Ship one real mobile app end-to-end, not disconnected demos", "Master offline-first mobile architecture", "Implement push, camera & native features the way production apps do", "Launch Pulse to the App Store / Play Store with a portfolio case study"],
     syllabus: [
       { num: "01", name: "Advanced Navigation + State", project: "Ship Pulse's social feed screen", lessons: ["Deep linking + URL routing for Pulse", "Redux Toolkit setup for feed state", "Redux Persist + offline caching", "Pull-to-refresh + infinite scroll on the feed", "Skeleton loaders for a native feel", "Feed screen project"] },
@@ -528,7 +528,7 @@ export const COURSES = [
     title: "App Builder Studio — Advanced",
     tagline: "Master performance, native modules, and store-grade releases — the apps that hit #1.",
     level: "Advanced", audience: "Students", durationWeeks: 16, modules: 16, lessons: 96,
-    price: 699, originalPrice: 2330, nextCohort: "Oct 14, 2026", featured: false, accent: "violet",
+    price: 699, originalPrice: null, nextCohort: "Oct 14, 2026", featured: false, accent: "violet",
     outcomes: ["Architect enterprise-grade systems", "Lead development teams", "Implement advanced DevOps + security", "Ship at production scale"],
     syllabus: [
       { num: "01", name: "Native Performance", project: "Optimize an app to 60fps", lessons: ["React Native performance profiling", "Bridge bottlenecks", "JSI + Fabric architecture", "Hermes engine", "List virtualization", "Memory management"] },
@@ -555,7 +555,7 @@ export const COURSES = [
     title: "SaaS Forge — Beginner",
     tagline: "Build and launch AI-powered SaaS products that make real money",
     level: "Beginner", audience: "Professionals", durationWeeks: 8, modules: 5, lessons: 30,
-    price: 199, originalPrice: 398, nextCohort: "Aug 12, 2026", featured: true, accent: "green",
+    price: 199, originalPrice: null, nextCohort: "Aug 12, 2026", featured: true, accent: "green",
     outcomes: ["Build real projects from scratch", "Understand the fundamentals", "Ship your first portfolio piece", "Join the Sariro community"],
     syllabus: [
       { num: "01", name: "SaaS Fundamentals", project: "Build a SaaS landing page + waitlist", lessons: ["What makes a SaaS?", "Landing page that converts", "Email capture + waitlist", "Pricing page design", "SaaS metrics (MRR, churn, LTV)", "Landing page project"] },
@@ -571,7 +571,7 @@ export const COURSES = [
     title: "SaaS Forge — Intermediate",
     tagline: "Build Ledgerly, a real subscription-billing SaaS, feature by feature — billing, teams, admin, API, email, and the metrics investors check.",
     level: "Intermediate", audience: "Professionals", durationWeeks: 12, modules: 7, lessons: 42,
-    price: 299, originalPrice: 854, nextCohort: "Sep 03, 2026", featured: false, accent: "green",
+    price: 299, originalPrice: null, nextCohort: "Sep 03, 2026", featured: false, accent: "green",
     outcomes: ["Ship one real SaaS product end-to-end, not disconnected demos", "Master multi-tenant SaaS architecture", "Implement billing, teams & integrations the way production SaaS does", "Launch Ledgerly with real revenue metrics + a portfolio case study"],
     syllabus: [
       { num: "01", name: "Subscription Billing", project: "Ship Ledgerly's subscription billing", lessons: ["Payment gateway billing setup", "Subscription plans + tiers for Ledgerly", "Webhook handling for payment events", "Dunning + failed payment recovery", "Upgrades + downgrades flow", "Billing project"] },
@@ -589,7 +589,7 @@ export const COURSES = [
     title: "SaaS Forge — Advanced",
     tagline: "Scale to 10k+ customers. SOC2, usage-based billing, and the playbook to cross $1M ARR.",
     level: "Advanced", audience: "Professionals", durationWeeks: 16, modules: 16, lessons: 96,
-    price: 699, originalPrice: 2330, nextCohort: "Oct 14, 2026", featured: false, accent: "violet",
+    price: 699, originalPrice: null, nextCohort: "Oct 14, 2026", featured: false, accent: "violet",
     outcomes: ["Architect enterprise-grade systems", "Lead development teams", "Implement advanced DevOps + security", "Ship at production scale"],
     syllabus: [
       { num: "01", name: "SOC2 + Security", project: "Build a SOC2-ready SaaS", lessons: ["SOC2 requirements", "Access controls + audit logs", "Data encryption at rest", "Vulnerability scanning", "Penetration testing", "SOC2 project"] },
@@ -616,7 +616,7 @@ export const COURSES = [
     title: "Agent Architect — Beginner",
     tagline: "Build autonomous AI agents and multi-agent systems that work on their own",
     level: "Beginner", audience: "Professionals", durationWeeks: 8, modules: 5, lessons: 30,
-    price: 199, originalPrice: 398, nextCohort: "Aug 12, 2026", featured: true, accent: "violet",
+    price: 199, originalPrice: null, nextCohort: "Aug 12, 2026", featured: true, accent: "violet",
     outcomes: ["Build real projects from scratch", "Understand the fundamentals", "Ship your first portfolio piece", "Join the Sariro community"],
     syllabus: [
       { num: "01", name: "What Are AI Agents?", project: "Build a simple Q&A agent", lessons: ["Agents vs chatbots", "LLM fundamentals", "Prompt engineering basics", "Claude API setup", "Your first agent", "Q&A agent project"] },
@@ -632,7 +632,7 @@ export const COURSES = [
     title: "Agent Architect — Intermediate",
     tagline: "Build Scout, a real multi-agent AI platform, feature by feature — orchestration, tools, RAG, guardrails, memory, and evals.",
     level: "Intermediate", audience: "Professionals", durationWeeks: 12, modules: 7, lessons: 42,
-    price: 299, originalPrice: 854, nextCohort: "Sep 03, 2026", featured: false, accent: "violet",
+    price: 299, originalPrice: null, nextCohort: "Sep 03, 2026", featured: false, accent: "violet",
     outcomes: ["Ship one real multi-agent platform end-to-end, not disconnected demos", "Master multi-agent orchestration patterns", "Implement guardrails, memory & evals the way production agents need", "Launch Scout to real users with a portfolio case study"],
     syllabus: [
       { num: "01", name: "Multi-Agent Systems", project: "Ship Scout's research-agent team", lessons: ["Agent orchestration patterns", "CrewAI / LangGraph setup for Scout", "Role-based agents (researcher, critic, writer)", "Inter-agent communication", "Task delegation", "Research team project"] },
@@ -650,7 +650,7 @@ export const COURSES = [
     title: "Agent Architect — Advanced",
     tagline: "Deploy autonomous fleets at enterprise scale. Observability, evals, and the SRE playbook for agents.",
     level: "Advanced", audience: "Professionals", durationWeeks: 16, modules: 16, lessons: 96,
-    price: 699, originalPrice: 2330, nextCohort: "Oct 14, 2026", featured: false, accent: "violet",
+    price: 699, originalPrice: null, nextCohort: "Oct 14, 2026", featured: false, accent: "violet",
     outcomes: ["Architect enterprise-grade systems", "Lead development teams", "Implement advanced DevOps + security", "Ship at production scale"],
     syllabus: [
       { num: "01", name: "Agent Fleet Architecture", project: "Design an agent fleet", lessons: ["Fleet orchestration", "Agent specialization", "Load balancing agents", "Agent versioning", "Fleet observability", "Fleet design project"] },
@@ -677,7 +677,7 @@ export const COURSES = [
     title: "Data Intelligence Studio — Beginner",
     tagline: "Turn raw data into AI-powered insights, dashboards, and prediction systems",
     level: "Beginner", audience: "Professionals", durationWeeks: 8, modules: 5, lessons: 30,
-    price: 199, originalPrice: 398, nextCohort: "Aug 12, 2026", featured: true, accent: "green",
+    price: 199, originalPrice: null, nextCohort: "Aug 12, 2026", featured: true, accent: "green",
     outcomes: ["Build real projects from scratch", "Understand the fundamentals", "Ship your first portfolio piece", "Join the Sariro community"],
     syllabus: [
       { num: "01", name: "Data Fundamentals", project: "Build a data explorer", lessons: ["What is data science?", "Python + pandas setup", "Loading + exploring data", "Data cleaning basics", "Summary statistics", "Data explorer project"] },
@@ -693,7 +693,7 @@ export const COURSES = [
     title: "Data Intelligence Studio — Intermediate",
     tagline: "Build Northstar, a real analytics platform, feature by feature — pipeline, warehouse, dashboard, ML, streaming, and governance.",
     level: "Intermediate", audience: "Professionals", durationWeeks: 12, modules: 7, lessons: 42,
-    price: 299, originalPrice: 854, nextCohort: "Sep 03, 2026", featured: false, accent: "green",
+    price: 299, originalPrice: null, nextCohort: "Sep 03, 2026", featured: false, accent: "green",
     outcomes: ["Ship one real data platform end-to-end, not disconnected demos", "Master data pipeline + warehouse architecture", "Deploy ML models & real-time streaming the way production teams do", "Launch Northstar with a portfolio case study"],
     syllabus: [
       { num: "01", name: "Data Pipelines", project: "Ship Northstar's ETL pipeline", lessons: ["ETL fundamentals", "Airflow / Prefect setup for Northstar", "Data extraction (APIs + DBs)", "Transformation (dbt)", "Loading + scheduling", "ETL pipeline project"] },
@@ -711,7 +711,7 @@ export const COURSES = [
     title: "Data Intelligence Studio — Advanced",
     tagline: "Architect lakehouses, real-time streams, and LLMOps — the stack behind serious AI products.",
     level: "Advanced", audience: "Professionals", durationWeeks: 16, modules: 16, lessons: 96,
-    price: 699, originalPrice: 2330, nextCohort: "Oct 14, 2026", featured: false, accent: "violet",
+    price: 699, originalPrice: null, nextCohort: "Oct 14, 2026", featured: false, accent: "violet",
     outcomes: ["Architect enterprise-grade systems", "Lead development teams", "Implement advanced DevOps + security", "Ship at production scale"],
     syllabus: [
       { num: "01", name: "Lakehouse Architecture", project: "Build a lakehouse", lessons: ["Data lake vs warehouse vs lakehouse", "Delta Lake + Apache Iceberg", "Medallion architecture", "Lakehouse on Databricks", "Migration strategies", "Lakehouse project"] },
@@ -738,7 +738,7 @@ export const COURSES = [
     title: "Cloud and DevOps Launchpad — Beginner",
     tagline: "Deploy, scale, and manage modern AI products in the cloud like a professional",
     level: "Beginner", audience: "Professionals", durationWeeks: 8, modules: 5, lessons: 30,
-    price: 199, originalPrice: 398, nextCohort: "Aug 12, 2026", featured: true, accent: "amber",
+    price: 199, originalPrice: null, nextCohort: "Aug 12, 2026", featured: true, accent: "amber",
     outcomes: ["Build real projects from scratch", "Understand the fundamentals", "Ship your first portfolio piece", "Join the Sariro community"],
     syllabus: [
       { num: "01", name: "Linux + Command Line", project: "Set up a Linux server", lessons: ["Linux fundamentals", "File system + permissions", "Bash + shell scripting", "SSH + remote access", "Package managers", "Server setup project"] },
@@ -754,7 +754,7 @@ export const COURSES = [
     title: "Cloud and DevOps Launchpad — Intermediate",
     tagline: "Build Ascent, a real production platform, feature by feature — containers, Kubernetes, CI/CD, IaC, monitoring, and security.",
     level: "Intermediate", audience: "Professionals", durationWeeks: 12, modules: 7, lessons: 42,
-    price: 299, originalPrice: 854, nextCohort: "Sep 03, 2026", featured: false, accent: "amber",
+    price: 299, originalPrice: null, nextCohort: "Sep 03, 2026", featured: false, accent: "amber",
     outcomes: ["Stand up one real production platform end-to-end, not disconnected demos", "Master Kubernetes + Infrastructure as Code", "Implement CI/CD, monitoring & security the way production teams do", "Launch Ascent with zero-downtime deploys + a portfolio case study"],
     syllabus: [
       { num: "01", name: "Docker Deep Dive", project: "Containerize Ascent's multi-service app", lessons: ["Multi-stage builds", "Image optimization", "Docker networks", "Docker volumes + persistence", "Docker Compose at scale", "Multi-container project"] },
@@ -772,7 +772,7 @@ export const COURSES = [
     title: "Cloud and DevOps Launchpad — Advanced",
     tagline: "Run multi-region, multi-cluster platforms — the SRE skills that command $300k+ offers.",
     level: "Advanced", audience: "Professionals", durationWeeks: 16, modules: 16, lessons: 96,
-    price: 699, originalPrice: 2330, nextCohort: "Oct 14, 2026", featured: false, accent: "violet",
+    price: 699, originalPrice: null, nextCohort: "Oct 14, 2026", featured: false, accent: "violet",
     outcomes: ["Architect enterprise-grade systems", "Lead development teams", "Implement advanced DevOps + security", "Ship at production scale"],
     syllabus: [
       { num: "01", name: "K8s Advanced", project: "Build a multi-cluster K8s platform", lessons: ["Custom Resource Definitions", "Operators + controllers", "Helm package management", "Service mesh (Istio)", "Multi-cluster federation", "Multi-cluster project"] },
@@ -799,7 +799,7 @@ export const COURSES = [
     title: "Design to Product — Beginner",
     tagline: "Go from idea to shipped product — design, prototype, and build with AI",
     level: "Beginner", audience: "Students", durationWeeks: 8, modules: 5, lessons: 30,
-    price: 199, originalPrice: 398, nextCohort: "Aug 12, 2026", featured: true, accent: "amber",
+    price: 199, originalPrice: null, nextCohort: "Aug 12, 2026", featured: true, accent: "amber",
     outcomes: ["Build real projects from scratch", "Understand the fundamentals", "Ship your first portfolio piece", "Join the Sariro community"],
     syllabus: [
       { num: "01", name: "Design Fundamentals", project: "Design a mobile app screen", lessons: ["Color theory basics", "Typography fundamentals", "Spacing + layout", "Visual hierarchy", "Designing for mobile", "App screen project"] },
@@ -815,7 +815,7 @@ export const COURSES = [
     title: "Design to Product — Intermediate",
     tagline: "Design Lumen, a real personal-finance app, feature by feature — design system, Figma-to-code, AI tooling, and a shipped product.",
     level: "Intermediate", audience: "Students", durationWeeks: 12, modules: 7, lessons: 42,
-    price: 299, originalPrice: 854, nextCohort: "Sep 03, 2026", featured: false, accent: "amber",
+    price: 299, originalPrice: null, nextCohort: "Sep 03, 2026", featured: false, accent: "amber",
     outcomes: ["Design one real product end-to-end, not disconnected exercises", "Master design systems + Figma-to-code workflows", "Use AI design tools the way production teams do", "Ship Lumen's design with a portfolio case study"],
     syllabus: [
       { num: "01", name: "Design Systems at Scale", project: "Build Lumen's production design system", lessons: ["Design system architecture", "Token systems (Style Dictionary)", "Component libraries for Lumen", "Documentation + Storybook", "Versioning + governance", "Design system project"] },
@@ -833,7 +833,7 @@ export const COURSES = [
     title: "Design to Product — Advanced",
     tagline: "Lead product orgs. Design ops, vision, and the craft behind products people love.",
     level: "Advanced", audience: "Students", durationWeeks: 16, modules: 16, lessons: 96,
-    price: 699, originalPrice: 2330, nextCohort: "Oct 14, 2026", featured: false, accent: "violet",
+    price: 699, originalPrice: null, nextCohort: "Oct 14, 2026", featured: false, accent: "violet",
     outcomes: ["Architect enterprise-grade systems", "Lead development teams", "Implement advanced DevOps + security", "Ship at production scale"],
     syllabus: [
       { num: "01", name: "Design Vision + Strategy", project: "Build a design vision", lessons: ["Design vision fundamentals", "Brand + product alignment", "Long-term design roadmap", "Stakeholder buy-in", "Vision communication", "Vision project"] },
@@ -860,7 +860,7 @@ export const COURSES = [
     title: "Game Studio AI — Beginner",
     tagline: "Build real games with AI — web games, mobile games, and AI-powered game mechanics",
     level: "Beginner", audience: "Students", durationWeeks: 8, modules: 5, lessons: 30,
-    price: 199, originalPrice: 398, nextCohort: "Aug 12, 2026", featured: true, accent: "cyan",
+    price: 199, originalPrice: null, nextCohort: "Aug 12, 2026", featured: true, accent: "cyan",
     outcomes: ["Build real projects from scratch", "Understand the fundamentals", "Ship your first portfolio piece", "Join the Sariro community"],
     syllabus: [
       { num: "01", name: "Game Dev Fundamentals", project: "Build a clicker game", lessons: ["What is game dev?", "HTML5 Canvas basics", "Game loop + requestAnimationFrame", "Sprites + rendering", "Input handling", "Clicker game project"] },
@@ -876,7 +876,7 @@ export const COURSES = [
     title: "Game Studio AI — Intermediate",
     tagline: "Build Fracture, a real 3D co-op dungeon crawler, feature by feature — world, physics, multiplayer, AI NPCs, procedural levels, and a release.",
     level: "Intermediate", audience: "Students", durationWeeks: 12, modules: 7, lessons: 42,
-    price: 299, originalPrice: 854, nextCohort: "Sep 03, 2026", featured: false, accent: "cyan",
+    price: 299, originalPrice: null, nextCohort: "Sep 03, 2026", featured: false, accent: "cyan",
     outcomes: ["Ship one real 3D game end-to-end, not disconnected demos", "Master 3D physics + multiplayer netcode", "Implement AI NPCs & procedural generation the way shipped games do", "Release Fracture on itch.io with a portfolio case study"],
     syllabus: [
       { num: "01", name: "3D Game Dev (Three.js)", project: "Build Fracture's 3D dungeon scene", lessons: ["Three.js setup for Fracture", "3D models + meshes", "Camera + controls", "Lighting + materials", "Physics (Cannon.js) foundation", "Dungeon scene project"] },
@@ -894,7 +894,7 @@ export const COURSES = [
     title: "Game Studio AI — Advanced",
     tagline: "Ship console-grade titles. Engine architecture, rendering pipelines, and the business of games.",
     level: "Advanced", audience: "Students", durationWeeks: 16, modules: 16, lessons: 96,
-    price: 699, originalPrice: 2330, nextCohort: "Oct 14, 2026", featured: false, accent: "violet",
+    price: 699, originalPrice: null, nextCohort: "Oct 14, 2026", featured: false, accent: "violet",
     outcomes: ["Architect enterprise-grade systems", "Lead development teams", "Implement advanced DevOps + security", "Ship at production scale"],
     syllabus: [
       { num: "01", name: "Engine Architecture", project: "Build a custom game engine", lessons: ["Engine design patterns", "Entity Component System (ECS)", "Scene graphs", "Memory management", "Plugin architecture", "Engine project"] },
@@ -921,7 +921,7 @@ export const COURSES = [
     title: "AI Automation Agency — Beginner",
     tagline: "Build AI automations for real businesses and sell them as a service",
     level: "Beginner", audience: "Professionals", durationWeeks: 8, modules: 5, lessons: 30,
-    price: 199, originalPrice: 398, nextCohort: "Aug 12, 2026", featured: true, accent: "green",
+    price: 199, originalPrice: null, nextCohort: "Aug 12, 2026", featured: true, accent: "green",
     outcomes: ["Build real projects from scratch", "Understand the fundamentals", "Ship your first portfolio piece", "Join the Sariro community"],
     syllabus: [
       { num: "01", name: "Automation Fundamentals", project: "Automate a daily task", lessons: ["What is automation?", "Python for automation", "Working with APIs", "Scheduling tasks (cron)", "Error handling + logging", "Task automation project"] },
@@ -937,7 +937,7 @@ export const COURSES = [
     title: "AI Automation Agency — Intermediate",
     tagline: "Launch Flowcraft, your own AI automation agency, client by client — CRM, social, e-commerce, and a paid $5k+ project.",
     level: "Intermediate", audience: "Professionals", durationWeeks: 12, modules: 7, lessons: 42,
-    price: 299, originalPrice: 854, nextCohort: "Sep 03, 2026", featured: false, accent: "green",
+    price: 299, originalPrice: null, nextCohort: "Sep 03, 2026", featured: false, accent: "green",
     outcomes: ["Land real client automation work, not disconnected exercises", "Master n8n + custom AI workflow architecture", "Deliver CRM, social & e-commerce automations the way agencies do", "Land Flowcraft's first paid client with a portfolio case study"],
     syllabus: [
       { num: "01", name: "n8n Advanced", project: "Stand up Flowcraft's n8n foundation", lessons: ["n8n self-hosting (Docker)", "Custom nodes + expressions", "Webhooks + triggers", "Error workflows + retry", "Credentials management", "n8n foundation project"] },
@@ -955,7 +955,7 @@ export const COURSES = [
     title: "AI Automation Agency — Advanced",
     tagline: "Scale to a 7-figure agency. Hiring, retainers, and the playbook to productize your services.",
     level: "Advanced", audience: "Professionals", durationWeeks: 16, modules: 16, lessons: 96,
-    price: 699, originalPrice: 2330, nextCohort: "Oct 14, 2026", featured: false, accent: "violet",
+    price: 699, originalPrice: null, nextCohort: "Oct 14, 2026", featured: false, accent: "violet",
     outcomes: ["Architect enterprise-grade systems", "Lead development teams", "Implement advanced DevOps + security", "Ship at production scale"],
     syllabus: [
       { num: "01", name: "Agency Operations", project: "Build agency operations", lessons: ["Agency business model", "Pricing + packaging", "Client acquisition", "Project management", "Team + contractor management", "Agency ops project"] },
@@ -982,7 +982,7 @@ export const COURSES = [
     title: "AI Security Engineer — Beginner",
     tagline: "Build AI-powered security systems, ethical hacking tools, and cybersecurity products",
     level: "Beginner", audience: "Professionals", durationWeeks: 8, modules: 5, lessons: 30,
-    price: 199, originalPrice: 398, nextCohort: "Aug 12, 2026", featured: true, accent: "blue",
+    price: 199, originalPrice: null, nextCohort: "Aug 12, 2026", featured: true, accent: "blue",
     outcomes: ["Build real projects from scratch", "Understand the fundamentals", "Ship your first portfolio piece", "Join the Sariro community"],
     syllabus: [
       { num: "01", name: "Security Fundamentals", project: "Build a security audit tool", lessons: ["Security mindset", "Common attack vectors", "OWASP Top 10 overview", "Security tooling setup", "Reading security news", "Audit tool project"] },
@@ -998,7 +998,7 @@ export const COURSES = [
     title: "AI Security Engineer — Intermediate",
     tagline: "Build Sentinel, a real AI security platform, feature by feature — offense, defense, LLM red-teaming, guardrails, cloud security, and automation.",
     level: "Intermediate", audience: "Professionals", durationWeeks: 12, modules: 7, lessons: 42,
-    price: 299, originalPrice: 854, nextCohort: "Sep 03, 2026", featured: false, accent: "blue",
+    price: 299, originalPrice: null, nextCohort: "Sep 03, 2026", featured: false, accent: "blue",
     outcomes: ["Ship one real security platform end-to-end, not disconnected demos", "Master offensive + defensive security fundamentals", "Red-team & defend LLM applications the way production teams do", "Launch Sentinel with a portfolio case study"],
     syllabus: [
       { num: "01", name: "Offensive Security", project: "Build Sentinel's pentest toolkit", lessons: ["Pentesting methodology", "Recon + enumeration", "Exploitation basics", "Burp Suite + OWASP ZAP", "Privilege escalation", "Pentest toolkit project"] },
@@ -1016,7 +1016,7 @@ export const COURSES = [
     title: "AI Security Engineer — Advanced",
     tagline: "Lead AI security at enterprise scale. Threat modeling, compliance, and the OWASP LLM Top 10.",
     level: "Advanced", audience: "Professionals", durationWeeks: 16, modules: 16, lessons: 96,
-    price: 699, originalPrice: 2330, nextCohort: "Oct 14, 2026", featured: false, accent: "violet",
+    price: 699, originalPrice: null, nextCohort: "Oct 14, 2026", featured: false, accent: "violet",
     outcomes: ["Architect enterprise-grade systems", "Lead development teams", "Implement advanced DevOps + security", "Ship at production scale"],
     syllabus: [
       { num: "01", name: "Advanced Threat Modeling", project: "Threat-model an enterprise system", lessons: ["STRIDE + PASTA methodologies", "Attack trees + kill chains", "Data flow diagrams", "Threat modeling at scale", "Risk prioritization", "Threat modeling project"] },
@@ -1050,7 +1050,7 @@ export const COURSES = [
     title: "Python Basics — Elementary",
     tagline: "Start your coding journey with Python — the world's most beginner-friendly language.",
     level: "Elementary", audience: "Students", durationWeeks: 12, modules: 8, lessons: 48,
-    price: 249, originalPrice: 498, nextCohort: "Aug 12, 2026", featured: true, accent: "green",
+    price: 249, originalPrice: null, nextCohort: "Aug 12, 2026", featured: true, accent: "green",
     outcomes: ["Write your first Python programs", "Understand variables, loops, and functions", "Build simple games and tools", "Gain confidence to tackle bigger projects"],
     syllabus: [
       { num: "01", name: "Your First Python Program", project: "Print your name + a greeting", lessons: ["Installing Python 3", "Using the IDLE REPL", "print() and comments", "Variables and strings", "Numbers and math operators", "Your first .py script"] },
@@ -1071,7 +1071,7 @@ export const COURSES = [
     title: "Java Basics — Elementary",
     tagline: "Learn Java from scratch — the language behind AP Computer Science and enterprise apps.",
     level: "Elementary", audience: "Students", durationWeeks: 12, modules: 8, lessons: 48,
-    price: 249, originalPrice: 498, nextCohort: "Aug 12, 2026", featured: true, accent: "blue",
+    price: 249, originalPrice: null, nextCohort: "Aug 12, 2026", featured: true, accent: "blue",
     outcomes: ["Set up Java + write your first programs", "Understand variables, types, and methods", "Build object-oriented programs", "Prepare for AP Computer Science"],
     syllabus: [
       { num: "01", name: "Java Setup + First Program", project: "Hello World + a personal greeting", lessons: ["Installing the JDK", "Installing an IDE (IntelliJ / VS Code)", "public static void main", "System.out.println", "Comments + code style", "Compiling + running .java files"] },
@@ -1092,7 +1092,7 @@ export const COURSES = [
     title: "Website Development Basics — Elementary",
     tagline: "Build your first website with HTML, CSS, and JavaScript — no experience needed.",
     level: "Elementary", audience: "Students", durationWeeks: 12, modules: 8, lessons: 48,
-    price: 249, originalPrice: 498, nextCohort: "Aug 12, 2026", featured: false, accent: "cyan",
+    price: 249, originalPrice: null, nextCohort: "Aug 12, 2026", featured: false, accent: "cyan",
     outcomes: ["Build a real website from scratch", "Understand HTML structure + CSS styling", "Add interactivity with JavaScript", "Deploy your site live to the web"],
     syllabus: [
       { num: "01", name: "HTML Foundations", project: "Build a personal about-me page", lessons: ["What is a website?", "HTML tags + structure", "Headings, paragraphs, lists", "Links (a href) + images", "Semantic HTML (header, nav, main)", "About-me page project"] },
@@ -1113,7 +1113,7 @@ export const COURSES = [
     title: "Scratch with Machine Learning — Elementary",
     tagline: "Learn coding and AI with MIT Scratch — build games and train ML models visually.",
     level: "Elementary", audience: "Students", durationWeeks: 12, modules: 8, lessons: 48,
-    price: 249, originalPrice: 498, nextCohort: "Aug 12, 2026", featured: true, accent: "amber",
+    price: 249, originalPrice: null, nextCohort: "Aug 12, 2026", featured: true, accent: "amber",
     outcomes: ["Build animated games in Scratch", "Understand coding logic without typing", "Train ML models with Teachable Machine", "Create AI-powered Scratch projects"],
     syllabus: [
       { num: "01", name: "Scratch Basics", project: "Make a sprite dance", lessons: ["What is Scratch?", "The stage + sprites", "Blocks + scripts", "Events (green flag, key press)", "Movement blocks (move, glide)", "Dancing sprite project"] },
@@ -1138,7 +1138,7 @@ export const COURSES = [
     title: "AP Computer Science — Intermediate",
     tagline: "Master Java + the AP CSA exam by building Campus Manager, one real console app — then prove it on a full mock exam.",
     level: "Intermediate", audience: "Students", durationWeeks: 12, modules: 7, lessons: 42,
-    price: 299, originalPrice: 854, nextCohort: "Sep 03, 2026", featured: true, accent: "violet",
+    price: 299, originalPrice: null, nextCohort: "Sep 03, 2026", featured: true, accent: "violet",
     outcomes: ["Score 4-5 on the AP CSA exam", "Master Java OOP + data structures by building one real app", "Solve every FRQ type with confidence", "Ship Campus Manager, a portfolio-ready Java application"],
     syllabus: [
       { num: "01", name: "Java Fundamentals Review", project: "Start Campus Manager: student records + grades", lessons: ["Types, variables, operators", "Control flow (if, for, while)", "Methods + parameters", "String methods", "Wrapper classes", "Campus Manager: grade tracker"] },
@@ -1315,7 +1315,7 @@ export const PRICING_TIERS = [
     name: "Beginner",
     price: 199,
     oneOnOnePrice: 299,
-    originalPrice: 398,
+    originalPrice: null,
     period: "per cohort",
     accent: "green",
     tagline: "Start here. Zero-to-builder courses for first-time makers.",
@@ -1336,7 +1336,7 @@ export const PRICING_TIERS = [
     name: "Intermediate",
     price: 299,
     oneOnOnePrice: 399,
-    originalPrice: 854,
+    originalPrice: null,
     period: "per cohort",
     accent: "blue",
     tagline: "Go deeper. Build real, shippable AI products with mentor feedback.",
@@ -1358,7 +1358,7 @@ export const PRICING_TIERS = [
     name: "Expert",
     price: 699,
     oneOnOnePrice: 899,
-    originalPrice: 2330,
+    originalPrice: null,
     period: "per cohort",
     accent: "violet",
     tagline: "Ship production-grade AI. For serious builders who want to lead.",
@@ -1432,8 +1432,21 @@ export const MIMO = {
  * and originalPrice the pre-discount one, so genuinely ending the promotion
  * also means swapping those — the banner is presentation, the prices are not.
  */
-export const DISCOUNT_LABEL = 'Launch offer — 25% off';
-export const DISCOUNT_DEADLINE = 'Sep 30, 2026';
+export const DISCOUNT_LABEL = 'Launch offer';
+/**
+ * Kept in step with DISCOUNT_ENDS_ON below, which is what the code checks.
+ *
+ * This read "Sep 30, 2026" while the machine-readable date said 2000-01-01 —
+ * the prose and the check disagreeing is precisely the drift that put an
+ * expired deadline on the homepage for twenty days in the first place. The
+ * test in events.test.ts caught it here rather than a customer catching it in
+ * production.
+ *
+ * Neither is displayed while the offer is inactive; they are paired anyway, so
+ * that turning a promotion back on is one honest edit rather than an
+ * archaeology exercise.
+ */
+export const DISCOUNT_DEADLINE = 'Jan 1, 2000';
 
 /**
  * SARIRO — the deadline, as a date a machine can check
@@ -1452,7 +1465,25 @@ export const DISCOUNT_DEADLINE = 'Sep 30, 2026';
  * Keep the two in step. `events.test.ts` does this for EVENTS; the pricing test
  * does it here.
  */
-export const DISCOUNT_ENDS_ON = '2026-09-30';
+/**
+ * Deliberately in the past: there is no live discount.
+ *
+ * The prices customers pay ARE the prices - confirmed by the founder on
+ * 1 Sep 2026. The struck-through "was" figures beside them (Beginner $398,
+ * Intermediate $854, Expert $2,330) had never been charged, and neither had
+ * the "25% off" the banner announced.
+ *
+ * A struck-through price that was never the selling price is fake reference
+ * pricing. It is restricted under the EU Omnibus Directive, the UK CPRs, FTC
+ * guidance and ASCI in India, and this site sells to parents - the audience
+ * those rules exist to protect. It also costs nothing real: $199 over 30
+ * classes is $6.63 a class, which persuades on its own and happens to be true.
+ *
+ * The machinery is intact. To run a GENUINE promotion later: set the tiers'
+ * originalPrice to a figure you actually charged for a meaningful period, and
+ * move this date into the future.
+ */
+export const DISCOUNT_ENDS_ON = '2000-01-01';
 
 /**
  * Whether the launch discount is still running.

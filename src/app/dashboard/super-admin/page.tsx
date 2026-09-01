@@ -12,6 +12,7 @@ import {
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import SystemHealthPanel from '@/components/dashboard/system-health-panel';
 import AnalyticsPanel from '@/components/dashboard/analytics-panel';
+import DemandPanel from '@/components/dashboard/demand-panel';
 import { useAuth } from '@/components/auth/auth-provider';
 import { TRACKS, COURSES, RAZORPAY_LINKS, RAZORPAY_LINKS_PREMIUM } from '@/lib/sariro-data';
 import { createClient } from '@/lib/supabase/client';
@@ -831,6 +832,8 @@ function SuperAdminDashboardInner() {
             selling — a super-admin who reads the numbers before the alarms
             makes confident decisions on a system that is quietly failing. */}
         <AnalyticsPanel />
+        {/* The funnel says how many got through; this says who they were. */}
+        <DemandPanel />
 
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-10">
           <StatCard icon={Users} color="bg-blue-100 text-blue-600" value={stats?.totalUsers ?? 0} label="Total users" loading={statsLoading} />
