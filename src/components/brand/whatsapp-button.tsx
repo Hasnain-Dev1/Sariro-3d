@@ -29,6 +29,19 @@ import { BRAND } from '@/lib/sariro-data';
  * piece of work; see decisions D3/D4 about reminders over WhatsApp vs email.
  * This button is the front door, not that.
  *
+ * ── Stacking, and why it stays at z-40 ──────────────────────────────────────
+ * The cookie banner is z-45 and covers the bottom of a phone screen, so on a
+ * first visit this button is behind it and unreachable. That is deliberate:
+ * consent UI should be the topmost thing on the page, and a green circle
+ * floating over a consent card reads as a rendering bug. The banner is
+ * dismissed once and the button is available from then on.
+ *
+ * What DID need fixing was the companion orb - a 90x90 "Back to top" control
+ * at bottom-5 left-5 with z-50, in exactly this corner. On any machine with a
+ * GPU it rendered on top of this button, which is why the button looked absent
+ * on desktop while being present and correct in the DOM. That orb is now
+ * parked in brand-layout.tsx.
+ *
  * ── Where it does NOT appear ────────────────────────────────────────────────
  * Not in the dashboards. A signed-in family has a support channel already, and
  * a floating button over a lesson page competes with the actual work. It is a

@@ -123,22 +123,16 @@ export default function ChapterNav() {
             className="group relative flex items-center justify-end cursor-pointer"
             aria-label={`Jump to ${ch.label}`}
           >
-            {/* The label.
-                On a pointer device it appears on hover. On touch there is no
-                hover, so the rail would be nine unlabelled dots — you would be
-                tapping blind. The ACTIVE chapter therefore carries its label
-                permanently below lg, which doubles as a "you are here" marker
-                on a page that is roughly twenty phone screens long.
-                Decided in CSS, not by measuring the viewport in JS: a
-                render-time width check cannot agree between server and client. */}
-            {isActive && (
-              <span
-                className="lg:hidden absolute right-5 mr-1 px-2 py-0.5 rounded-md glass-panel text-[10px] font-bold text-slate-700 whitespace-nowrap pointer-events-none"
-                style={{ fontFamily: 'var(--font-grotesk)' }}
-              >
-                {ch.label}
-              </span>
-            )}
+            {/* The label is pointer-only, on purpose.
+                It was briefly shown permanently for the active chapter below
+                lg, on the reasoning that touch has no hover and nine
+                unlabelled dots means tapping blind. Seen on a real 375px
+                screen, that label landed across the hero headline - the rail
+                sits at the screen edge and the content runs edge to edge, so
+                any label wide enough to read overlaps the text underneath it.
+                A word covering the headline is worse than a word missing: the
+                dots still show position, and tapping one lands you somewhere
+                you can immediately see. */}
             <AnimatePresence>
               {isHovered && (
                 <motion.span

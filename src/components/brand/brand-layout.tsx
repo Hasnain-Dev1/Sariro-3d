@@ -489,7 +489,25 @@ export default function BrandLayout({ children }: { children: ReactNode }) {
       <ChapterNav />
       {/* Renders nothing unless NEXT_PUBLIC_WHATSAPP_NUMBER is set. */}
       <WhatsAppButton />
-      {heavyVisuals && <CompanionOrb3D />}
+      {/* ── Companion orb / "Back to top" — PARKED, not deleted ──────────
+          It was a 90x90 control at `bottom-5 left-5 ... z-50` labelled
+          "<chapter> · Back to top". Three reasons it is off:
+
+            1. It sat in the same corner as the WhatsApp button, at a higher
+               z-index, so it covered it. On a machine with a GPU the orb
+               renders and the WhatsApp button is simply not reachable - which
+               is why it looked missing on desktop while being present in the
+               DOM.
+            2. It is a third way to get to the top of the page, after the logo
+               and the chapter rail, and the rail now works on every viewport.
+            3. It holds a WebGL context on EVERY page. This site logs
+               "THREE.WebGLRenderer: Context Lost", which is the browser
+               destroying its oldest context because the page is at the cap.
+
+          The component and its lazy import above are intact; uncomment this
+          line to bring it back. If it returns, move it off the bottom-left
+          corner or raise the WhatsApp button above it. */}
+      {/* {heavyVisuals && <CompanionOrb3D />} */}
       <ScrollProgressBar />
       <NeuralMotifBg />
       <BrandNavbar />
