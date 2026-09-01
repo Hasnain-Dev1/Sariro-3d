@@ -65,7 +65,7 @@ const INFO_CARDS = [
   {
     icon: Clock,
     title: 'Response time',
-    value: 'Within 24 hours',
+    value: 'Within 24 hours · faster on WhatsApp',
     sub: 'Mon–Fri. Weekends are for building.',
     accent: '#2563EB',
   },
@@ -216,6 +216,22 @@ function ContactPageInner() {
           <Send className="w-4 h-4" />
           Send a message
         </a>
+        {/* WhatsApp sits beside the form CTA because it genuinely is the
+            faster path - a message here waits for someone to open the inbox.
+            Saying which is quicker costs nothing and stops people choosing the
+            slow door by accident. */}
+        <a
+          href={`https://wa.me/${BRAND.whatsapp}?text=${encodeURIComponent(
+            'Hi Sariro — I have a question about your classes.'
+          )}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-tactile px-5 py-3 text-sm text-white"
+          style={{ background: '#25D366', boxShadow: '0 10px 0 -1px #128C7E' }}
+        >
+          <MessageCircle className="w-4 h-4" />
+          WhatsApp — fastest reply
+        </a>
         <a href={`mailto:${BRAND.email}`} className="btn-tactile btn-tactile-light px-5 py-3 text-sm">
           <Mail className="w-4 h-4" />
           {BRAND.email}
@@ -272,6 +288,36 @@ function ContactPageInner() {
                     </button>
                   </motion.div>
                 ) : (
+                  <>
+                  {/* Offered before the form, not after: telling someone about
+                      the faster channel once they have typed five fields is a
+                      worse experience than not telling them at all. */}
+                  <a
+                    href={`https://wa.me/${BRAND.whatsapp}?text=${encodeURIComponent(
+                      'Hi Sariro — I have a question about your classes.'
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mb-5 flex items-center gap-3 rounded-xl border p-3.5 transition-colors hover:bg-green-50"
+                    style={{ borderColor: 'rgba(37,211,102,0.4)', background: 'rgba(37,211,102,0.06)' }}
+                  >
+                    <span
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                      style={{ background: '#25D366' }}
+                    >
+                      <MessageCircle className="h-4.5 w-4.5 text-white" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-[14px] font-bold text-slate-900">
+                        In a hurry? Message us on WhatsApp.
+                      </span>
+                      <span className="block text-[12.5px] text-slate-600">
+                        Quickest way to reach a person — the form below is fine too, it just waits
+                        for the inbox.
+                      </span>
+                    </span>
+                  </a>
+
                   <form onSubmit={handleSubmit} className="space-y-5">
                     {/* Name + Email */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -402,6 +448,7 @@ function ContactPageInner() {
                       We never sell your data.
                     </p>
                   </form>
+                  </>
                 )}
               </div>
             </Reveal>

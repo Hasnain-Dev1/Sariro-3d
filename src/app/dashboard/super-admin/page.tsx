@@ -40,6 +40,7 @@ import { UserManagementModal } from '@/components/dashboard/user-management-moda
 import { BatchRescheduleModal } from '@/components/dashboard/batch-reschedule-modal';
 import { LeadPipeline } from '@/app/dashboard/super-admin/lead-pipeline';
 import { useRealtime } from '@/lib/dashboard/use-realtime';
+import { describeChoice } from '@/lib/demo/learner-choice';
 
 /* ───── Helpers (shared with admin) ───── */
 function levelDisplay(level: string): string {
@@ -1115,6 +1116,10 @@ interface DemoRequestRow {
   phone_country_code: string | null;
   email: string | null;
   course_interest: string | null;
+  subject: string | null;
+  focus: string | null;
+  learner_stage: string | null;
+  learner_grade: number | null;
   preferred_slot: string;
   preferred_slot_label: string;
   timezone: string;
@@ -1289,7 +1294,17 @@ function DemoRequestModal({
           <DemoDetailRow icon={<Phone className="w-4 h-4" />} label="Phone" value={`${request.phone_country_code ? request.phone_country_code + ' ' : ''}${request.phone}`} />
           {request.parent_name && <DemoDetailRow icon={<Users className="w-4 h-4" />} label="Parent" value={request.parent_name} />}
           {request.email && <DemoDetailRow icon={<Mail className="w-4 h-4" />} label="Email" value={request.email} link={`mailto:${request.email}`} />}
-          {request.course_interest && <DemoDetailRow icon={<BookOpen className="w-4 h-4" />} label="Course interest" value={request.course_interest} />}
+          {(request.subject || request.learner_stage || request.course_interest) && (
+            <DemoDetailRow
+              icon={<BookOpen className="w-4 h-4" />}
+              label="Wants"
+              value={
+                request.subject || request.learner_stage
+                  ? describeChoice(request.subject, request.focus, request.learner_stage, request.learner_grade)
+                  : request.course_interest!
+              }
+            />
+          )}
           <DemoDetailRow icon={<Calendar className="w-4 h-4" />} label="Preferred slot" value={request.preferred_slot_label} />
           <DemoDetailRow icon={<Clock className="w-4 h-4" />} label="Timezone" value={`${request.timezone} (UTC${(request.timezone_offset ?? 0) >= 0 ? '+' : ''}${(request.timezone_offset ?? 0) / 60})`} />
         </div>

@@ -26,7 +26,7 @@ export default function MobileScrollTop() {
           transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
           whileTap={{ scale: 0.9 }}
-          className="lg:hidden fixed bottom-5 right-5 z-40 w-12 h-12 rounded-full bg-blue-600 text-white shadow-lg shadow-blue-500/40 flex items-center justify-center cursor-pointer active:bg-blue-700 transition-colors"
+          className="lg:hidden fixed bottom-[184px] right-4 z-40 w-12 h-12 rounded-full bg-blue-600 text-white shadow-lg shadow-blue-500/40 flex items-center justify-center cursor-pointer active:bg-blue-700 transition-colors"
           style={{ minHeight: '48px', minWidth: '48px' }}
           aria-label="Scroll to top"
         >

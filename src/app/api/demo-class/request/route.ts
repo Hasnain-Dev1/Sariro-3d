@@ -4,6 +4,7 @@ import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import { sendEmail } from '@/lib/email/hostinger';
 import { notifyUsers } from '@/lib/notify';
+import { parseStage, describeChoice } from '@/lib/demo/learner-choice';
 
 /**
  * SARIRO — POST /api/demo-class/request
@@ -43,6 +44,10 @@ interface DemoRequestBody {
   phone?: string;
   email?: string;
   course_interest?: string;
+  subject?: string;
+  focus?: string;
+  /** One value from stageGroups(); split into stage + grade before storing. */
+  learner_stage_value?: string;
   preferred_slot?: string;
   preferred_slot_window?: string;
   timezone?: string;
@@ -171,6 +176,16 @@ export async function POST(req: NextRequest) {
     errors.push('Invalid course interest');
   }
 
+  // Subject / focus are slugs chosen from a fixed list; length is the only
+  // thing worth asserting here, because the list they came from is derived from
+  // the curriculum and will legitimately grow.
+  if (body.subject && body.subject.length > 50) errors.push('Invalid subject');
+  if (body.focus && body.focus.length > 50) errors.push('Invalid focus');
+  // learner_stage_value is NOT validated by pattern: parseStage below returns
+  // nulls for anything it does not recognise, so a bad value is discarded
+  // rather than rejected. A visitor should never lose a booking over an
+  // optional field.
+
   // Preferred slot window — optional display label (e.g. "Morning · 9:00 AM – 12:00 PM")
   if (body.preferred_slot_window && body.preferred_slot_window.length > 100) {
     errors.push('Invalid preferred slot window');
@@ -225,6 +240,12 @@ export async function POST(req: NextRequest) {
       phone_country_code: body.phone_country_code ?? null,
       email: body.email?.trim() || null,
       course_interest: body.course_interest || null,
+      subject: body.subject || null,
+      focus: body.focus || null,
+      ...(() => {
+        const { stage, grade } = parseStage(body.learner_stage_value ?? '');
+        return { learner_stage: stage, learner_grade: grade };
+      })(),
       preferred_slot: body.preferred_slot!,
       preferred_slot_label: slotLabel,
       timezone: body.timezone!,
@@ -284,7 +305,16 @@ export async function POST(req: NextRequest) {
     // Now: an email to the team inbox, and an in-app notification for every
     // admin so it shows up on the bell with the chime.
     const teamInbox = process.env.DEMO_CLASS_NOTIFY_EMAIL || 'contact@sariro.com';
-    const summary = `${body.student_name} · ${body.phone} · wants ${slotLabel}`;
+    const parsed = parseStage(body.learner_stage_value ?? '');
+    // The whole point of the new fields: an admin should be able to tell a
+    // Class 6 child from a working professional without opening the row.
+    const wants = describeChoice(
+      body.subject ?? null,
+      body.focus ?? null,
+      parsed.stage,
+      parsed.grade
+    );
+    const summary = `${body.student_name} · ${wants} · ${slotLabel}`;
 
     await sendEmail({
       to: teamInbox,
@@ -293,6 +323,7 @@ export async function POST(req: NextRequest) {
         <h2 style="margin:0 0 12px;">New demo class request</h2>
         <p style="margin:0 0 6px;"><strong>Name:</strong> ${body.student_name}</p>
         <p style="margin:0 0 6px;"><strong>Phone:</strong> ${body.phone}</p>
+        <p style="margin:0 0 6px;"><strong>Wants:</strong> ${wants}</p>
         <p style="margin:0 0 6px;"><strong>Preferred window:</strong> ${slotLabel}</p>
         <p style="margin:16px 0 0; color:#64748b; font-size:13px;">
           Call them within 24 hours — that promise is on the booking page.

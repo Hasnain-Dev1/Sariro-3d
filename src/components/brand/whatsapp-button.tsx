@@ -57,12 +57,27 @@ export default function WhatsAppButton() {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat with Sariro on WhatsApp"
-      /* Bottom-LEFT: the right side already carries the chapter rail on the
-         marketing pages, and the sticky CTA bar owns the bottom edge. */
-      className="fixed bottom-20 left-4 sm:bottom-6 sm:left-6 z-40 inline-flex items-center justify-center w-13 h-13 sm:w-14 sm:h-14 rounded-full shadow-lg transition-transform hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+      /**
+       * Bottom-LEFT, and high enough to clear the sticky CTA.
+       *
+       * The right edge already carries the chapter rail, so the left corner is
+       * the only free one. The bottom of that corner is contested though: the
+       * sticky CTA is a `max-w-3xl` card centred at the bottom of the page, and
+       * being centred it only clears `left-6` once the viewport is wider than
+       * roughly 940px. Below that the two share the corner - measured at 375px,
+       * the card sits 12-98px from the bottom and the button sat at 80-132px,
+       * so they overlapped by about 18px.
+       *
+       * So the button rides above the card until lg, and drops to the normal
+       * corner offset once there is room beside it. `bottom-28` clears the
+       * card's tallest form (86px + 12px padding) with a gap left over.
+       *
+       * Sizing is one source now: it previously carried `w-13 h-13 sm:w-14`
+       * (w-13 is not a Tailwind class at all) AND an inline width/height that
+       * overrode the responsive one, so it was 52px everywhere by accident.
+       */
+      className="fixed bottom-28 left-4 lg:bottom-6 lg:left-6 z-40 inline-flex h-[52px] w-[52px] items-center justify-center rounded-full shadow-lg transition-transform hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
       style={{
-        width: 52,
-        height: 52,
         background: '#25D366',
         boxShadow: '0 8px 24px -6px rgba(37,211,102,0.55)',
       }}

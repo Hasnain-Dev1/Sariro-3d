@@ -251,7 +251,7 @@ export default function ChatBubble() {
             exit={{ scale: 0, opacity: 0, transition: { duration: 0.2 } }}
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.92 }}
-            className="fixed bottom-5 right-5 sm:bottom-7 sm:right-7 z-[55] group sariro-chat-bubble"
+            className="fixed bottom-28 right-4 sm:bottom-7 sm:right-7 z-[55] group sariro-chat-bubble"
           >
             {/* Idle bob — gentle vertical float */}
             <motion.div

@@ -12,6 +12,14 @@ import BrandLayout from '@/components/brand/brand-layout';
 import PageHero from '@/components/brand/page-hero';
 import { WaveDivider3D } from '@/components/sariro-3d/kit-3d';
 import { TESTIMONIALS, TRACKS } from '@/lib/sariro-data';
+import {
+  subjectGroups,
+  focusGroupsFor,
+  stageGroups,
+  gradeFromFocus,
+  gradeValue,
+  type ChoiceGroup,
+} from '@/lib/demo/learner-choice';
 import { HoneypotField } from '@/components/security/honeypot';
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -397,7 +405,20 @@ function DemoClassForm() {
   const [parentName, setParentName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [courseInterest, setCourseInterest] = useState('');
+  /**
+   * What they want to learn, and who is learning it.
+   *
+   * `subject` drives `focus`: the second select's options are derived from the
+   * first, so a parent who picks Chemistry is offered Grades 7-12 and Organic
+   * Chemistry, not fifteen coding courses. `stage` is a separate question -
+   * see lib/demo/learner-choice.ts on why it is not the same as `focus`.
+   */
+  const [subject, setSubject] = useState('');
+  const [focus, setFocus] = useState('');
+  const [stage, setStage] = useState('');
+
+  /** Null when the chosen subject needs no refinement, so the field hides. */
+  const focusConfig = focusGroupsFor(subject);
   const [selectedSlot, setSelectedSlot] = useState<string>('');
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [tzInfo, setTzInfo] = useState<TimezoneInfo | null>(null);
@@ -461,7 +482,12 @@ function DemoClassForm() {
           parent_name: parentName.trim() || undefined,
           phone: phone.trim(),
           email: email.trim() || undefined,
-          course_interest: courseInterest || undefined,
+          subject: subject || undefined,
+          focus: focus || undefined,
+          learner_stage_value: stage || undefined,
+          // Still sent: existing rows have it, and the admin list reads it.
+          // A coding pick maps straight onto the old field.
+          course_interest: (subject === 'coding' ? focus : '') || undefined,
           preferred_slot: selectedSlot,
           preferred_slot_window: getSlotWindowLabel(selectedSlot) || undefined,
           timezone: tzInfo?.timezone ?? 'UTC',
@@ -593,23 +619,55 @@ function DemoClassForm() {
           />
         </Field>
 
-        {/* Course interest (optional) */}
-        <Field label="Course interest (optional)" icon={<GraduationCap className="w-4 h-4" />}>
-          <div className="relative">
-            <select
-              value={courseInterest}
-              onChange={(e) => setCourseInterest(e.target.value)}
+        {/* ── What to learn, and who is learning ──────────────────────────
+            Was a single flat <select> of fifteen coding courses. See
+            lib/demo/learner-choice.ts for why it is three questions now. */}
+        <Field label="Subject (optional)" icon={<GraduationCap className="w-4 h-4" />}>
+          <SelectField
+            value={subject}
+            onChange={(v) => {
+              setSubject(v);
+              // The old focus belongs to the old subject. Keeping it would send
+              // "Chemistry · Web Builder Pro".
+              setFocus('');
+            }}
+            disabled={submitting}
+            placeholder="No preference — just want to try Sariro"
+            groups={subjectGroups()}
+          />
+        </Field>
+
+        {focusConfig && (
+          <Field label={focusConfig.label} icon={<GraduationCap className="w-4 h-4" />}>
+            <SelectField
+              value={focus}
+              onChange={(v) => {
+                setFocus(v);
+                // A grade answers both questions for the common case, so fill
+                // the stage in rather than asking a school parent twice. Only
+                // when stage is untouched - never overwrite a real answer.
+                const g = gradeFromFocus(v);
+                if (g !== null && !stage) setStage(gradeValue(g));
+              }}
               disabled={submitting}
-              className="w-full min-h-[44px] rounded-xl border border-slate-300 px-3.5 py-2.5 text-base text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500 disabled:opacity-50 appearance-none pr-10"
-              style={{ fontFamily: 'var(--font-inter)', fontSize: '16px' }}
-            >
-              <option value="">No preference — just want to try Sariro</option>
-              {TRACKS.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-          </div>
+              placeholder="Not sure yet"
+              groups={focusConfig.groups}
+            />
+          </Field>
+        )}
+
+        <Field label="Where is the learner right now? (optional)" icon={<User className="w-4 h-4" />}>
+          <SelectField
+            value={stage}
+            onChange={setStage}
+            disabled={submitting}
+            placeholder="Prefer not to say"
+            groups={stageGroups()}
+          />
+          <p className="mt-1.5 text-xs text-slate-500">
+            So we match you with the right mentor — a Class 6 child and a working professional
+            need very different classes.
+          </p>
         </Field>
 
         {/* Preferred time slot — 2-step: pick date, then pick time */}
@@ -939,6 +997,55 @@ function SuccessScreen({
 /* ════════════════════════════════════════════════════════════════════════
    Field wrapper
    ════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * A grouped <select>, styled like the form's inputs.
+ *
+ * Native <select> + <optgroup> on purpose. A custom listbox would have to
+ * reimplement keyboard handling, typeahead and the mobile wheel picker, and the
+ * mobile picker in particular is better than anything rendered in-page - which
+ * matters here because these lists run to a dozen entries.
+ *
+ * 16px font is not a style choice: iOS Safari zooms the viewport on focus for
+ * anything smaller, and the page never zooms back out.
+ */
+function SelectField({
+  value,
+  onChange,
+  disabled,
+  placeholder,
+  groups,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+  placeholder: string;
+  groups: ChoiceGroup[];
+}) {
+  return (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        className="w-full min-h-[44px] rounded-xl border border-slate-300 px-3.5 py-2.5 text-base text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500 disabled:opacity-50 appearance-none pr-10"
+        style={{ fontFamily: 'var(--font-inter)', fontSize: '16px' }}
+      >
+        <option value="">{placeholder}</option>
+        {groups.map((g) => (
+          <optgroup key={g.label} label={g.label}>
+            {g.options.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+    </div>
+  );
+}
 
 function Field({
   label,

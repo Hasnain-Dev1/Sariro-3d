@@ -35,6 +35,7 @@ import ScheduleBatchModal from '@/components/dashboard/schedule-batch';
 import ManageBatchesModal from '@/components/dashboard/manage-batches';
 import { BatchRescheduleModal } from '@/components/dashboard/batch-reschedule-modal';
 import MyTeachers from '@/components/dashboard/my-teachers';
+import { describeChoice } from '@/lib/demo/learner-choice';
 
 /* ───── Helpers ───── */
 function levelDisplay(level: string): string {
@@ -1972,6 +1973,10 @@ interface DemoRequestRow {
   phone_country_code: string | null;
   email: string | null;
   course_interest: string | null;
+  subject: string | null;
+  focus: string | null;
+  learner_stage: string | null;
+  learner_grade: number | null;
   preferred_slot: string;
   preferred_slot_label: string;
   timezone: string;
@@ -2165,8 +2170,25 @@ function DemoRequestModal({
           {request.email && (
             <DetailRow icon={<Mail className="w-4 h-4" />} label="Email" value={request.email} link={`mailto:${request.email}`} />
           )}
-          {request.course_interest && (
-            <DetailRow icon={<BookOpen className="w-4 h-4" />} label="Course interest" value={request.course_interest} />
+          {/* One line covering subject, what inside it, and who the learner
+               is - so an admin can tell a Class 6 child from a working
+               professional without opening the row. Falls back to the legacy
+               course_interest for bookings taken before those fields existed. */}
+          {(request.subject || request.learner_stage || request.course_interest) && (
+            <DetailRow
+              icon={<BookOpen className="w-4 h-4" />}
+              label="Wants"
+              value={
+                request.subject || request.learner_stage
+                  ? describeChoice(
+                      request.subject,
+                      request.focus,
+                      request.learner_stage,
+                      request.learner_grade
+                    )
+                  : request.course_interest!
+              }
+            />
           )}
           <DetailRow icon={<Calendar className="w-4 h-4" />} label="Preferred slot" value={request.preferred_slot_label} />
           <DetailRow icon={<Clock className="w-4 h-4" />} label="Timezone" value={`${request.timezone} (UTC${(request.timezone_offset ?? 0) >= 0 ? '+' : ''}${(request.timezone_offset ?? 0) / 60})`} />
