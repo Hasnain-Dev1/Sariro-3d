@@ -102,7 +102,20 @@ export default async function SubjectPage({ params }: Params) {
       authored: syllabus.modules.every((m) => m.authored),
       modules: syllabus.modules.map((m) => {
         const tests = m.lessons.filter((l) => l.kind === 'test').length;
-        return { num: m.num, title: m.title, lessons: m.lessons.length - tests, tests };
+        return {
+          num: m.num,
+          title: m.title,
+          lessons: m.lessons.length - tests,
+          tests,
+          // The lesson titles were built here and then thrown away — the card
+          // showed "6 lessons" and a parent had no way to find out which six.
+          // They cost nothing to carry: buildGradeSyllabus already made them.
+          items: m.lessons.map((l) => ({
+            number: l.number,
+            title: l.title,
+            isTest: l.kind === 'test',
+          })),
+        };
       }),
     };
   }
