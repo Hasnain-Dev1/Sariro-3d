@@ -52,6 +52,16 @@ export function LessonsViewer({ courseId }: { courseId: string }) {
   const [structured, setStructured] = useState<StructuredLesson | null>(null);
   const [contentLoading, setContentLoading] = useState(false);
   const [contentError, setContentError] = useState<string | null>(null);
+  /**
+   * The lesson whose page could not be loaded, and why.
+   *
+   * "Not written yet" and "locked" are different situations and were being
+   * shown with the same grey sentence. Locked is a rule the learner can act on
+   * (their class has not reached it). Unwritten is our gap, not theirs — and it
+   * is the common case: written pages exist for two and a half of forty-eight
+   * courses, so every school subject lands here.
+   */
+  const [missingFor, setMissingFor] = useState<LessonRow | null>(null);
 
   // Courses listed in the curriculum registry render as rich 5-tab lessons
   // from codebase data instead of the DB html_content path.
@@ -77,13 +87,16 @@ export function LessonsViewer({ courseId }: { courseId: string }) {
   const openLesson = useCallback(async (l: LessonRow) => {
     if (!l.viewable) return;
     const key = `${l.module_num}:${l.lesson_index}`;
-    setActiveKey(key); setContent(null); setStructured(null); setContentError(null);
+    setActiveKey(key); setContent(null); setStructured(null); setContentError(null); setMissingFor(null);
 
     // Structured curriculum: render straight from codebase data, no fetch.
     if (structuredCourse) {
       const lesson = getStructuredLesson(courseId, l.module_num, l.lesson_index);
       if (lesson) { setStructured(lesson); return; }
-      setContentError('This lesson has not been written yet.');
+      // Same situation as a course with no structured curriculum at all: the
+      // page is missing, the class still happens. web-201 alone puts 41
+      // lessons through here.
+      setMissingFor(l);
       return;
     }
 
@@ -91,8 +104,14 @@ export function LessonsViewer({ courseId }: { courseId: string }) {
     try {
       const res = await fetch(`/api/lessons/content?courseId=${encodeURIComponent(courseId)}&module=${l.module_num}&index=${l.lesson_index}`);
       const j = await res.json();
-      if (j.ok) setContent({ html: j.page.html_content || '', name: j.page.lesson_name });
-      else setContentError(j.error === 'not_found' ? 'This lesson page has not been created yet.' : 'This lesson is locked.');
+      if (j.ok) {
+        setContent({ html: j.page.html_content || '', name: j.page.lesson_name });
+      } else if (j.error === 'not_found') {
+        // Not an error the learner caused, so it does not get an error voice.
+        setMissingFor(l);
+      } else {
+        setContentError('This lesson unlocks when your class reaches it.');
+      }
     } catch {
       setContentError('Network error.');
     } finally {
@@ -170,6 +189,22 @@ export function LessonsViewer({ courseId }: { courseId: string }) {
           <div className="flex items-center justify-center py-16 text-slate-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
         ) : contentError ? (
           <div className="text-center py-16 text-sm text-slate-500">{contentError}</div>
+        ) : missingFor ? (
+          /* Sariro classes are taught live by a mentor — the written page is a
+             companion to that, not the product. Saying "has not been created
+             yet" to someone who has paid reads as a broken app; saying what the
+             lesson IS and where it happens is both true and useful. */
+          <div className="py-14 px-6 text-center">
+            <BookOpen className="w-8 h-8 mx-auto mb-3 text-slate-300" />
+            <p className="font-bold text-slate-900 text-[15px] mb-1.5">{missingFor.lesson_name}</p>
+            <p className="text-[13.5px] text-slate-600 leading-[1.65] max-w-md mx-auto">
+              This one is taught live with your mentor — there is no written page for it yet. Your
+              teacher brings the plan to the class.
+            </p>
+            <p className="text-[12.5px] text-slate-400 mt-3">
+              Module {missingFor.module_num} · {missingFor.module_name}
+            </p>
+          </div>
         ) : structured ? (
           <StructuredLessonView lesson={structured} />
         ) : content ? (
