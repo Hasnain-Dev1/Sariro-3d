@@ -55,6 +55,18 @@ export default function CoursePathPage() {
     }
   }, [selectedLevel]);
 
+  // Computed BEFORE the not-found guard below. The guard depends on the route
+  // param, so navigating client-side from a valid track to an invalid one (or
+  // back) changes how many hooks this component calls, which React treats as an
+  // error. Cheap to hoist; impossible to debug when it fires.
+  const selectedCourseForStrands = selectedLevel
+    ? COURSES.filter((c) => c.trackId === trackId).find((c) => c.level === selectedLevel)
+    : null;
+  const courseStrands = useMemo(
+    () => (selectedCourseForStrands ? strandsForCourse(selectedCourseForStrands.id) : []),
+    [selectedCourseForStrands]
+  );
+
   if (!track || courses.length === 0) {
     return (
       <BrandLayout>
@@ -71,11 +83,7 @@ export default function CoursePathPage() {
 
   const accent = ACCENT_HEX[track.accent] ?? '#2563EB';
   const selectedCourse = selectedLevel ? courses.find((c) => c.level === selectedLevel) : null;
-  // The strands this programme develops — the link back to the map.
-  const courseStrands = useMemo(
-    () => (selectedCourse ? strandsForCourse(selectedCourse.id) : []),
-    [selectedCourse]
-  );
+  // courseStrands is computed above the not-found guard — see the note there.
 
   return (
     <BrandLayout>

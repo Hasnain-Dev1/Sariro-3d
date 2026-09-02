@@ -9,6 +9,13 @@ import DashboardToast, { useDashboardToast } from '@/components/dashboard/dashbo
 export default function SellerDashboard() {
   const { user, profile, loading } = useAuth();
 
+  // Above the loading guard, deliberately. It used to sit below it, which meant
+  // this component called a different NUMBER of hooks before and after auth
+  // resolved — and React counts hooks by position, so that threw on every load.
+  // Was `console.log`. A seller updating a lead saw nothing at all happen —
+  // every action looked like it might have failed.
+  const { toast, showToast } = useDashboardToast();
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -16,10 +23,6 @@ export default function SellerDashboard() {
       </div>
     );
   }
-
-  // Was `console.log`. A seller updating a lead saw nothing at all happen —
-  // every action looked like it might have failed.
-  const { toast, showToast } = useDashboardToast();
 
   return (
     <DashboardLayout>
