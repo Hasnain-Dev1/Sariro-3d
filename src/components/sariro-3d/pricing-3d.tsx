@@ -148,18 +148,18 @@ export default function Pricing3D() {
                 className="text-xs font-bold uppercase tracking-[0.18em] mb-2"
                 style={{ fontFamily: 'var(--font-grotesk)', color: '#16A34A' }}
               >
-                School subjects · Grades 1–12
+                School subjects · Grades 1–12 · Public Speaking, any age
               </p>
               <h3
                 className="text-2xl sm:text-3xl font-extrabold text-slate-900 leading-tight"
                 style={{ fontFamily: 'var(--font-jakarta)' }}
               >
-                Maths, Science, Physics, Chemistry,
-                <br className="hidden sm:block" /> Biology and English
+                Maths, Science, Physics, Chemistry, Biology,
+                <br className="hidden sm:block" /> English and Public Speaking
               </h3>
               <p className="text-[15px] text-slate-600 mt-2.5 leading-[1.6]">
-                Live classes, once a week, on your child&rsquo;s own syllabus. Priced by the month —
-                not a course fee up front.
+                Live classes, once a week, on your child&rsquo;s own syllabus — and Public
+                Speaking for any age. Priced by the month, not a course fee up front.
               </p>
             </div>
 

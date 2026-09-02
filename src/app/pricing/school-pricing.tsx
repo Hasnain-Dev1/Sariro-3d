@@ -51,13 +51,13 @@ export default function SchoolPricing() {
             className="inline-block text-xs font-bold uppercase tracking-[0.18em] text-blue-600 mb-3"
             style={{ fontFamily: 'var(--font-grotesk)' }}
           >
-            School subjects
+            School subjects & Public Speaking
           </span>
           <h2
             className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-[-0.02em]"
             style={{ fontFamily: 'var(--font-jakarta)' }}
           >
-            Maths, science and English are priced per class.
+            Maths, science, English and Public Speaking are priced per class.
           </h2>
           <p className="mt-3 text-slate-600 text-[15px] leading-[1.65]">
             One class a week, {LESSONS_PER_GRADE} a year, the same price everywhere in the world.
