@@ -35,6 +35,15 @@ export interface TeacherBookingRow {
   // Names of the (active) students enrolled in this booking's cohort — the
   // roster, so a teacher can tell whose class this is at a glance.
   student_names: string[];
+  /**
+   * The class recording, and the moment the teacher closed the class.
+   *
+   * Both must be present before a student sees a Watch button — the URL alone
+   * is not enough, because a teacher can paste a link while still working
+   * through the roster. See scripts/class-recordings.sql.
+   */
+  recording_url: string | null;
+  attendance_finalized_at: string | null;
 }
 
 export interface TeacherStudentRow {
@@ -209,6 +218,9 @@ export async function fetchTeacherBookings(filter: 'upcoming' | 'past' | 'all' =
         cohort_meet_url: (cohort?.google_meet_url as string) ?? null,
         batch_code: (cohort?.batch_code as string) ?? null,
         student_names: rosterMap.get(b.cohort_id) ?? [],
+        // select('*') already returns these; they just were not mapped through.
+        recording_url: (b.recording_url as string) ?? null,
+        attendance_finalized_at: (b.attendance_finalized_at as string) ?? null,
       };
     });
   } catch (err) {
@@ -361,7 +373,7 @@ export async function fetchSessionStudents(bookingId: string): Promise<SessionSt
     // Schema-correct columns: student_id (not user_id), marked_at (not recorded_at).
     const { data: attendance, error: attErr } = await supabase
       .from('session_attendance')
-      .select('student_id, status')
+      .select('student_id, status, note')
       .eq('booking_id', bookingId)
       .in('student_id', userIds);
     if (attErr) throw attErr;
@@ -369,22 +381,27 @@ export async function fetchSessionStudents(bookingId: string): Promise<SessionSt
       (attendance ?? []).map((a) => [a.student_id as string, a.status as string])
     );
 
-    // 5. Session notes (teacher-scoped — one note per booking+teacher)
-    let notesMap = new Map<string, string>();
-    if (teacherId) {
-      const { data: notes, error: notesErr } = await supabase
-        .from('session_notes')
-        .select('content')
-        .eq('booking_id', bookingId)
-        .eq('teacher_id', teacherId)
-        .maybeSingle();
-      if (!notesErr && notes) {
-        // session_notes is a single row per (booking, teacher) — applies
-        // to the whole roster, so we set the same content for every student.
-        const content = (notes as { content?: string | null }).content ?? null;
-        notesMap = new Map(userIds.map((uid) => [uid, content ?? '']));
-      }
-    }
+    /**
+     * Notes, per student.
+     *
+     * These used to come from `session_notes`, which is unique on
+     * (booking_id, teacher_id) — ONE note per class, which the old code then
+     * copied onto every student in the roster. So a teacher writing "joined
+     * eight minutes late" against one child saw it appear against all four,
+     * and there was no way to say anything about one learner.
+     *
+     * They now live on session_attendance, which is already keyed per student
+     * per class. session_notes is untouched and still holds the class-wide
+     * note it was designed for.
+     */
+    const noteMap = new Map<string, string>(
+      (attendance ?? [])
+        .filter((a) => (a as { note?: string | null }).note)
+        .map((a) => [a.student_id as string, (a as { note?: string | null }).note as string])
+    );
+
+    // 5. Notes are per student now — see noteMap above.
+    const notesMap = noteMap;
 
     // 6. Lesson progress counts per enrollment
     const { data: progress, error: progErr } = await supabase
@@ -483,20 +500,34 @@ export async function saveSessionNote(
       return { success: false, error: 'No authenticated teacher' };
     }
 
-    // session_notes is unique on (booking_id, teacher_id). We pass
-    // studentId through so the call signature matches the spec, but
-    // the note is teacher-scoped for the whole booking.
-    void studentId;
+    /**
+     * Written against the student, not the class.
+     *
+     * The previous implementation discarded `studentId` outright — the
+     * signature promised per-student and session_notes could not deliver it.
+     *
+     * A note can be written before attendance is marked, so the row may not
+     * exist yet: the upsert carries a status, and preserves whatever is
+     * already there rather than resetting a marked student to 'unknown'.
+     */
+    const { data: existing } = await supabase
+      .from('session_attendance')
+      .select('status')
+      .eq('booking_id', bookingId)
+      .eq('student_id', studentId)
+      .maybeSingle();
 
     const { error } = await supabase
-      .from('session_notes')
+      .from('session_attendance')
       .upsert(
         {
           booking_id: bookingId,
-          teacher_id: teacherId,
-          content: note ?? '',
+          student_id: studentId,
+          status: (existing as { status?: string } | null)?.status ?? 'unknown',
+          marked_by: teacherId,
+          note: note ?? null,
         },
-        { onConflict: 'booking_id,teacher_id' }
+        { onConflict: 'booking_id,student_id' }
       );
 
     if (error) throw error;

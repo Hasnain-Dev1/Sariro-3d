@@ -532,6 +532,16 @@ function SessionDetailsModal({
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   const [savingNote, setSavingNote] = useState<Record<string, boolean>>({});
   const [attBusy, setAttBusy] = useState<Record<string, boolean>>({});
+  /**
+   * The class recording, and whether this class has been closed.
+   *
+   * Submitting the link is what makes the recording visible to the students in
+   * the class — V2 §18-19. Until it is submitted they see nothing at all, not a
+   * disabled button, because there is nothing to promise yet.
+   */
+  const [recordingDraft, setRecordingDraft] = useState('');
+  const [savingRecording, setSavingRecording] = useState(false);
+  const [finalizedAt, setFinalizedAt] = useState<string | null>(null);
 
   useEffect(() => {
     if (!booking) return;
@@ -541,6 +551,8 @@ function SessionDetailsModal({
       setRoster([]);
       setNoteDrafts({});
       setActiveTab('roster');
+      setRecordingDraft(booking.recording_url ?? '');
+      setFinalizedAt(booking.attendance_finalized_at ?? null);
     });
     fetchSessionStudents(booking.id).then(rows => {
       if (cancelled) return;
@@ -566,6 +578,32 @@ function SessionDetailsModal({
     } else {
       onToast(res.error || 'Failed to update attendance', 'error');
     }
+  };
+
+  const handleFinalize = async () => {
+    const url = recordingDraft.trim();
+    if (!url) {
+      onToast('Please submit the class recording link before finalizing attendance.', 'error');
+      return;
+    }
+    setSavingRecording(true);
+    try {
+      const res = await fetch('/api/teacher/finalize-attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: booking.id, recordingUrl: url }),
+      });
+      const j = await res.json().catch(() => ({ ok: false }));
+      if (j.ok) {
+        setFinalizedAt((prev) => prev ?? new Date().toISOString());
+        onToast(j.updated ? 'Recording link updated' : 'Class closed — students can watch it now', 'success');
+      } else {
+        onToast(j.message || 'Could not save the recording', 'error');
+      }
+    } catch {
+      onToast('Network error — the recording was not saved', 'error');
+    }
+    setSavingRecording(false);
   };
 
   const handleSaveNote = async (studentId: string) => {
@@ -655,6 +693,62 @@ function SessionDetailsModal({
               <X className="w-4 h-4" />
             </button>
           </div>
+        </div>
+
+        {/* ── Class recording ────────────────────────────────────────────
+            Submitting this is what makes the recording visible to the students
+            in this class. Until it is submitted they see nothing — V2 §18-19.
+            Placed above the roster because it gates the roster's purpose: a
+            class is not closed until this exists. */}
+        <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/60 shrink-0">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <label
+              htmlFor="recording-url"
+              className="text-[11px] font-bold uppercase tracking-wider text-slate-500"
+              style={{ fontFamily: 'var(--font-grotesk)' }}
+            >
+              Class recording
+            </label>
+            {finalizedAt ? (
+              <span className="inline-flex items-center gap-1 text-[10.5px] font-bold px-1.5 py-0.5 rounded bg-green-100 text-green-700">
+                <CheckCircle2 className="w-3 h-3" />
+                Students can watch this
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-[10.5px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
+                <AlertCircle className="w-3 h-3" />
+                Not shared yet
+              </span>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <input
+              id="recording-url"
+              type="url"
+              inputMode="url"
+              value={recordingDraft}
+              onChange={(e) => setRecordingDraft(e.target.value)}
+              placeholder="https://… paste the recording link"
+              disabled={savingRecording}
+              className="flex-1 min-w-0 min-h-[40px] rounded-lg border border-slate-300 px-3 text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-green-500/40 focus:border-green-500 disabled:opacity-50"
+              style={{ fontFamily: 'var(--font-inter)', fontSize: '16px' }}
+            />
+            <button
+              type="button"
+              onClick={handleFinalize}
+              disabled={savingRecording || !recordingDraft.trim()}
+              className="inline-flex items-center gap-1.5 px-3 min-h-[40px] rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+              style={{ fontFamily: 'var(--font-grotesk)' }}
+            >
+              {savingRecording ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Video className="w-3.5 h-3.5" />}
+              {finalizedAt ? 'Update' : 'Share'}
+            </button>
+          </div>
+          <p className="text-[11.5px] text-slate-500 mt-1.5 leading-snug">
+            {finalizedAt
+              ? 'Students in this class can watch it from their dashboard.'
+              : 'Students cannot see a recording until you share it here.'}
+          </p>
         </div>
 
         {/* Tab bar — Roster / Submissions */}

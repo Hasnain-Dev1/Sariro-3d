@@ -46,6 +46,15 @@ interface AttendanceBody {
   bookingId?: string;
   studentId?: string;
   status?: 'present' | 'absent' | 'late' | 'excused' | 'unknown';
+  /**
+   * V2 §16 — a note about THIS student in THIS class.
+   *
+   * Per student, not per class: "joined 8 minutes late" belongs to one child,
+   * and a class-wide remark cannot say that. Optional, and an omitted note
+   * leaves any existing one alone rather than blanking it — a teacher
+   * correcting a status should not silently lose what they wrote earlier.
+   */
+  note?: string;
 }
 
 interface BookingRow {
@@ -132,6 +141,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'invalid_json' }, { status: 400 });
   }
   const { bookingId, studentId, status } = body;
+
+  /**
+   * Trimmed and clamped, and `undefined` when the caller sent nothing.
+   *
+   * An empty string IS meaningful — it is a teacher clearing a note they had
+   * written — so it is kept and stored as null. Only an absent field leaves
+   * the existing note untouched.
+   */
+  const noteText =
+    body.note === undefined ? undefined : body.note.trim().slice(0, 1000) || null;
   if (!bookingId || !studentId) {
     return NextResponse.json(
       { ok: false, error: 'missing_params', message: 'bookingId and studentId are required' },
@@ -198,6 +217,10 @@ export async function POST(req: NextRequest) {
         status,
         marked_by: teacherId,
         marked_at: new Date().toISOString(),
+        // Only written when supplied, so re-marking a status does not wipe a
+        // note the teacher wrote a moment ago. `undefined` is dropped by
+        // supabase-js; `null` would overwrite.
+        ...(noteText !== undefined ? { note: noteText } : {}),
       },
       { onConflict: 'booking_id,student_id' }
     );

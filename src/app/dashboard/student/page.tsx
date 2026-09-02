@@ -64,6 +64,16 @@ interface Booking {
   lesson_name?: string | null;
   /** Diagnostic / gifted class — attended and taught, but never charged a credit. */
   is_complimentary?: boolean | null;
+  /**
+   * The class recording, and the moment the teacher finished with the class.
+   *
+   * BOTH are required before a student sees a Watch button. The URL alone is
+   * not enough: a teacher can paste a link and still be mid-roster, and V2 §19
+   * is explicit that an unmarked lesson shows nothing. The timestamp is the
+   * signal; the URL is only what the button points at.
+   */
+  recording_url?: string | null;
+  attendance_finalized_at?: string | null;
 }
 
 interface Cohort {
@@ -758,6 +768,26 @@ function ClassNotesSection({
                   <p className="text-sm font-bold text-slate-900 truncate" style={{ fontFamily: 'var(--font-jakarta)' }}>
                     {booking.lesson_name ?? 'Review session'}
                   </p>
+                  {/* Only once the teacher has finished marking. An
+                      unfinalised class shows nothing at all — not a disabled
+                      button, not a "coming soon" — because there is nothing to
+                      promise yet. */}
+                  {booking.attendance_finalized_at && booking.recording_url && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        // The card itself is a Link to the submission page.
+                        e.preventDefault();
+                        e.stopPropagation();
+                        window.open(booking.recording_url!, '_blank', 'noopener,noreferrer');
+                      }}
+                      className="mt-1.5 inline-flex items-center gap-1.5 text-[11.5px] font-bold text-violet-700 hover:text-violet-800"
+                      style={{ fontFamily: 'var(--font-grotesk)' }}
+                    >
+                      <Video className="w-3.5 h-3.5" />
+                      Watch recording
+                    </button>
+                  )}
                   {cohort && (
                     <p className="text-xs text-slate-500 truncate">
                       {cohort.track} · {levelDisplay(cohort.level)}
