@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import ModuleOutline from '@/components/curriculum/module-outline';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, ArrowRight, ClipboardList } from 'lucide-react';
 import BrandLayout from '@/components/brand/brand-layout';
@@ -123,34 +124,28 @@ export default async function SpecialisationPage({ params }: Params) {
             whether it is working while there is still time to change something.
           </p>
 
-          <ol className="space-y-2.5">
-            {syllabus.modules.map((m) => {
+          {/* Openable, like the school subjects. This page listed eight module
+              titles a visitor could not expand, so somebody deciding whether to
+              spend on Organic Chemistry still could not read a single lesson
+              name. The markup lived here as its own copy, which is exactly why
+              it missed the fix — it is a shared component now. */}
+          <ModuleOutline
+            accent={accent}
+            modules={syllabus.modules.map((m) => {
               const tests = m.lessons.filter((l) => l.kind === 'test').length;
-              return (
-                <li key={m.num} className="card card--compact flex items-center gap-4">
-                  <span
-                    className="shrink-0 w-8 h-8 rounded-lg text-xs font-bold flex items-center justify-center tabular-nums"
-                    style={{ background: `${accent}12`, color: accent }}
-                  >
-                    {m.num}
-                  </span>
-                  <span className="flex-1 font-medium text-slate-800 text-[14.5px]">{m.title}</span>
-                  <span className="text-[12.5px] text-slate-500 tabular-nums shrink-0">
-                    {m.lessons.length - tests} lessons
-                    {tests > 0 && (
-                      <span
-                        className="inline-flex items-center gap-1 ml-2 font-semibold"
-                        style={{ color: accent }}
-                      >
-                        <ClipboardList className="w-3.5 h-3.5" />
-                        test
-                      </span>
-                    )}
-                  </span>
-                </li>
-              );
+              return {
+                num: m.num,
+                title: m.title,
+                lessons: m.lessons.length - tests,
+                tests,
+                items: m.lessons.map((l) => ({
+                  number: l.number,
+                  title: l.title,
+                  isTest: l.kind === 'test',
+                })),
+              };
             })}
-          </ol>
+          />
         </div>
       </section>
 

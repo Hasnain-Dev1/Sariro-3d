@@ -5,6 +5,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ClipboardList, ChevronDown } from 'lucide-react';
 import { REDUCED, SPRING_QUICK } from '@/lib/motion';
 import SubjectPicker, { type GradeChoice, type ScopePrice } from './subject-picker';
+import ModuleOutline from '@/components/curriculum/module-outline';
 
 /**
  * SARIRO — Grade picker + the year that grade actually contains
@@ -217,105 +218,7 @@ export default function SubjectPlan({
               })}
             </div>
           ) : (
-          <motion.ol
-            key={grade}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={spring}
-            className="space-y-2.5"
-          >
-            {plan.modules.map((m) => {
-              const open = openModule === m.num;
-              return (
-                <li key={m.num} className="card card--compact !p-0 overflow-hidden">
-                  {/* A real <button>, so the keyboard and screen readers get
-                      the disclosure for free. aria-expanded is what tells a
-                      screen-reader user this row has something behind it. */}
-                  <button
-                    type="button"
-                    onClick={() => setOpenModule(open ? null : m.num)}
-                    aria-expanded={open}
-                    aria-controls={`module-${m.num}-lessons`}
-                    className="flex w-full items-center gap-4 px-4 py-3 text-left transition-colors hover:bg-slate-50"
-                  >
-                    <span
-                      className="shrink-0 w-8 h-8 rounded-lg text-xs font-bold flex items-center justify-center tabular-nums"
-                      style={{ background: `${accent}12`, color: accent }}
-                    >
-                      {m.num}
-                    </span>
-                    <span className="flex-1 font-medium text-slate-800 text-[14.5px]">
-                      {m.title}
-                    </span>
-                    <span className="text-[12.5px] text-slate-500 tabular-nums shrink-0">
-                      {m.lessons} lessons
-                      {m.tests > 0 && (
-                        <span
-                          className="inline-flex items-center gap-1 ml-2 font-semibold"
-                          style={{ color: accent }}
-                        >
-                          <ClipboardList className="w-3.5 h-3.5" />
-                          test
-                        </span>
-                      )}
-                    </span>
-                    <ChevronDown
-                      className="w-4 h-4 shrink-0 text-slate-400 transition-transform duration-200"
-                      style={{ transform: open ? 'rotate(180deg)' : 'none' }}
-                      aria-hidden
-                    />
-                  </button>
-
-                  <AnimatePresence initial={false}>
-                    {open && (
-                      <motion.div
-                        id={`module-${m.num}-lessons`}
-                        key="lessons"
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                        className="overflow-hidden"
-                      >
-                        <ol className="border-t border-slate-100 px-4 py-2.5">
-                          {m.items.map((it) => (
-                            <li
-                              key={it.number}
-                              className="flex items-baseline gap-3 py-1.5 text-[13.5px]"
-                            >
-                              <span className="w-6 shrink-0 text-right text-[11.5px] font-semibold tabular-nums text-slate-400">
-                                {it.number}
-                              </span>
-                              <span
-                                className={
-                                  it.isTest
-                                    ? 'font-semibold'
-                                    : 'text-slate-700'
-                                }
-                                style={it.isTest ? { color: accent } : undefined}
-                              >
-                                {it.title}
-                              </span>
-                              {/* An assessment occupies a class slot like any
-                                  other, so it is listed - but a parent should
-                                  see at a glance which weeks are tests. */}
-                              {it.isTest && (
-                                <ClipboardList
-                                  className="w-3.5 h-3.5 shrink-0 self-center"
-                                  style={{ color: accent }}
-                                  aria-label="assessment"
-                                />
-                              )}
-                            </li>
-                          ))}
-                        </ol>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </li>
-              );
-            })}
-          </motion.ol>
+            <ModuleOutline key={grade} accent={accent} modules={plan.modules} />
           )}
 
           {/* Only promise a teacher will finalise the titles where they genuinely
