@@ -32,6 +32,8 @@ export interface LessonItem {
 export interface ModuleSummary {
   num: number;
   title: string;
+  /** What the learner can do afterwards. Undefined until authored. */
+  outcome?: string;
   /** Teachable lessons — excludes any assessment sitting in this module. */
   lessons: number;
   tests: number;

@@ -321,6 +321,8 @@ export interface SchoolLesson {
 export interface SchoolModule {
   num: number;
   title: string;
+  /** What a learner can do when this module is done. Undefined until written. */
+  outcome?: string;
   lessons: SchoolLesson[];
   authored: boolean;
 }
@@ -385,7 +387,26 @@ export function testPositions(totalSlots: number): number[] {
  *    name. Lesson titles stay concrete — a parent skims these to decide whether
  *    we actually know the subject.
  */
-export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons: string[] }[] }> = {
+/**
+ * `outcome` — what a learner can DO when the module is finished.
+ *
+ * The coding catalogue has carried this since the start: every module there has
+ * a `project`, rendered as "Build: a personal landing page". It is the line
+ * that turns a list of topics into a reason to enrol, because it answers the
+ * question a list of titles never does — what changes for me?
+ *
+ * School subjects had no equivalent, so a parent read eight module names and
+ * had to infer the value themselves.
+ *
+ * OPTIONAL, deliberately. There are 440 modules across the school subjects and
+ * focus courses, and writing 440 outcomes badly to fill the field would be
+ * worse than leaving it empty: the UI simply omits the line where it is not
+ * written, so partially-authored subjects look finished rather than broken.
+ */
+export const AUTHORED_TITLES: Record<
+  string,
+  { modules: { title: string; outcome?: string; lessons: string[] }[] }
+> = {
   /* ── Mathematics ──────────────────────────────────────────────────────────
    * Grades 6–10 authored first: the years where a child either keeps up or
    * quietly decides they are "not a maths person", and where parents are most
@@ -396,6 +417,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
     modules: [
       {
         title: 'Numbers and Place Value',
+        outcome: 'Read, write and compare numbers into the millions, and say what any digit is actually worth.',
         lessons: [
           'Reading and writing large numbers',
           'Place value, and what each digit is worth',
@@ -407,6 +429,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Whole Numbers, Factors and Multiples',
+        outcome: 'Find factors, multiples and common divisors without guessing at them.',
         lessons: [
           'The number line and how whole numbers behave',
           'Properties of addition and multiplication',
@@ -418,6 +441,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Integers — Numbers Below Zero',
+        outcome: 'Work confidently below zero — add and subtract integers and place them on a line.',
         lessons: [
           'Why negative numbers had to be invented',
           'Integers on the number line',
@@ -430,6 +454,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       {
         // Five lessons: slot 24 is the mid-year assessment.
         title: 'Fractions',
+        outcome: 'Compare, simplify and add fractions that do not share a denominator.',
         lessons: [
           'What a fraction actually means',
           'Equivalent fractions and simplest form',
@@ -440,6 +465,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Decimals',
+        outcome: 'Move between fractions and decimals, and order a mixed set correctly.',
         lessons: [
           'Decimals as another way of writing fractions',
           'Place value after the decimal point',
@@ -451,6 +477,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Geometry — Lines, Angles and Shapes',
+        outcome: 'Measure and draw angles accurately, and name the shapes and angle pairs you meet.',
         lessons: [
           'Points, lines, rays and segments',
           'Measuring and drawing angles',
@@ -462,6 +489,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Algebra, Ratio and Proportion',
+        outcome: 'Turn a sentence into an algebraic expression and solve a simple equation.',
         lessons: [
           'Using a letter to stand for a number',
           'Writing an expression from a sentence',
@@ -474,6 +502,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       {
         // Five lessons: slot 48 is the final assessment.
         title: 'Perimeter, Area and Data',
+        outcome: 'Find perimeter and area of straight-sided shapes, and organise a set of data.',
         lessons: [
           'Perimeter of rectangles and polygons',
           'Area of squares and rectangles',
@@ -489,6 +518,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
     modules: [
       {
         title: 'Integers and Their Operations',
+        outcome: 'Multiply and divide integers, including the sign rules that trip most learners up.',
         lessons: [
           'Integers on the number line, revisited',
           'Multiplying integers',
@@ -500,6 +530,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Fractions, Decimals and Rational Numbers',
+        outcome: 'Multiply and divide fractions and decimals without reaching for a calculator.',
         lessons: [
           'Multiplying fractions by fractions',
           'Dividing fractions, and the reciprocal',
@@ -511,6 +542,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Data and Statistics',
+        outcome: 'Calculate mean, median and mode — and say which one a question actually needs.',
         lessons: [
           'Collecting data and organising it',
           'The mean as a balancing point',
@@ -522,6 +554,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Simple Equations',
+        outcome: 'Build an equation from a word problem and solve it by keeping both sides balanced.',
         lessons: [
           'From arithmetic to algebra',
           'Building an equation from a story',
@@ -532,6 +565,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Lines and Angles',
+        outcome: 'Find a missing angle using angle pairs, and justify the step you took.',
         lessons: [
           'Complementary and supplementary angles',
           'Adjacent angles and linear pairs',
@@ -543,6 +577,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Triangles',
+        outcome: 'Apply the angle sum and exterior angle properties, and classify any triangle.',
         lessons: [
           'The angle sum of a triangle',
           'The exterior angle property',
@@ -554,6 +589,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Ratio, Percentage and Money',
+        outcome: 'Convert freely between fractions, decimals and percentages, and handle money problems.',
         lessons: [
           'Ratio and proportion, revisited',
           'Percentage — a ratio out of one hundred',
@@ -565,6 +601,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Perimeter, Area and Symmetry',
+        outcome: 'Find the area of triangles and parallelograms, and the circumference of a circle.',
         lessons: [
           'Area of a parallelogram',
           'Area of a triangle',
@@ -580,6 +617,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
     modules: [
       {
         title: 'Rational Numbers',
+        outcome: 'Work with rational numbers as a system, and find numbers lying between any two.',
         lessons: [
           'The rational number system',
           'Properties of rational numbers',
@@ -591,6 +629,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Exponents and Powers',
+        outcome: 'Apply the laws of exponents, including negative powers.',
         lessons: [
           'Why repeated multiplication gets its own notation',
           'The laws of exponents',
@@ -602,6 +641,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Squares, Cubes and Roots',
+        outcome: 'Find squares, cubes and roots, and use the patterns that make them quick.',
         lessons: [
           'Square numbers and the patterns inside them',
           'Finding square roots',
@@ -613,6 +653,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Algebraic Expressions and Identities',
+        outcome: 'Expand and factorise expressions using the standard algebraic identities.',
         lessons: [
           'Terms, coefficients and like terms',
           'Adding and subtracting expressions',
@@ -623,6 +664,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Linear Equations in One Variable',
+        outcome: 'Solve equations with brackets, fractions and the variable on both sides.',
         lessons: [
           'Variables on both sides',
           'Equations with brackets',
@@ -634,6 +676,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Quadrilaterals and Geometric Constructions',
+        outcome: 'Use parallelogram properties and construct quadrilaterals accurately.',
         lessons: [
           'The angle sum of a polygon',
           'Properties of a parallelogram',
@@ -645,6 +688,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Percentage, Profit and Interest',
+        outcome: 'Handle discount, profit, loss and interest as percentage problems.',
         lessons: [
           'Percentage increase and decrease, revisited',
           'Marked price, discount and selling price',
@@ -656,6 +700,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Area, Volume and Graphs',
+        outcome: 'Find surface area and volume of cubes, cuboids and cylinders.',
         lessons: [
           'Area of a trapezium and of a general quadrilateral',
           'Surface area of a cube and a cuboid',
@@ -671,6 +716,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
     modules: [
       {
         title: 'The Real Number System',
+        outcome: 'Tell rational from irrational numbers, and explain why irrationals had to exist.',
         lessons: [
           'Natural, whole, integer and rational numbers',
           'Decimal expansions: terminating and recurring',
@@ -682,6 +728,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Polynomials',
+        outcome: 'Add, multiply and factorise polynomials, and find their zeroes.',
         lessons: [
           'What a polynomial is, and what it is not',
           'Degree, terms and types of polynomial',
@@ -693,6 +740,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Linear Equations in Two Variables',
+        outcome: 'Graph a linear equation in two variables and read its solutions off the line.',
         lessons: [
           'Equations with two unknowns',
           'Solutions as ordered pairs',
@@ -704,6 +752,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Coordinate Geometry',
+        outcome: 'Plot points, name quadrants and find the distance between two of them.',
         lessons: [
           'The Cartesian plane',
           'Plotting points and naming quadrants',
@@ -714,6 +763,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Lines, Angles and Triangles',
+        outcome: 'Write a proof — the congruence criteria argued, not memorised.',
         lessons: [
           'Axioms, theorems, and what a proof actually is',
           'Angle relationships, proved',
@@ -725,6 +775,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Quadrilaterals and Circles',
+        outcome: 'Prove parallelogram properties and apply the midpoint and chord theorems.',
         lessons: [
           'The parallelogram and its proofs',
           'The midpoint theorem',
@@ -736,6 +787,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Area, Surface Area and Volume',
+        outcome: 'Find surface area and volume of cones, spheres and cylinders.',
         lessons: [
           'Area of a triangle from its three sides',
           'Surface area of cuboids and cylinders',
@@ -747,6 +799,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Statistics and Probability',
+        outcome: 'Build frequency tables and histograms, and find averages of grouped data.',
         lessons: [
           'Organising data into a frequency table',
           'Histograms and frequency polygons',
@@ -762,6 +815,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
     modules: [
       {
         title: 'Real Numbers',
+        outcome: 'Use prime factorisation for HCF and LCM, backed by the fundamental theorem of arithmetic.',
         lessons: [
           'Rational and irrational numbers, revisited',
           'The fundamental theorem of arithmetic',
@@ -773,6 +827,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Polynomials',
+        outcome: 'Relate the zeroes of a polynomial to its coefficients and to the shape of its graph.',
         lessons: [
           'Degree, zeroes and the shape of a graph',
           'The relationship between zeroes and coefficients',
@@ -784,6 +839,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Pairs of Linear Equations',
+        outcome: 'Solve simultaneous equations graphically, by substitution and by elimination.',
         lessons: [
           'Two equations, two unknowns',
           'Solving graphically',
@@ -795,6 +851,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Quadratic Equations',
+        outcome: 'Solve any quadratic — by factorisation, by completing the square, or by formula.',
         lessons: [
           'Recognising a quadratic equation',
           'Solving by factorisation',
@@ -805,6 +862,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Sequences and Arithmetic Progressions',
+        outcome: 'Find any term of an arithmetic progression, and the sum of the first n terms.',
         lessons: [
           'Patterns and sequences',
           'The nth term of an arithmetic progression',
@@ -816,6 +874,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Triangles and Similarity',
+        outcome: 'Use the similarity criteria and the basic proportionality theorem inside a proof.',
         lessons: [
           'Similar figures and similar triangles',
           'The basic proportionality theorem',
@@ -827,6 +886,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Circles and Trigonometry',
+        outcome: 'Apply tangent properties, and use trigonometric ratios in a right triangle.',
         lessons: [
           'The tangent to a circle and its properties',
           'How many tangents can be drawn from a point',
@@ -838,6 +898,7 @@ export const AUTHORED_TITLES: Record<string, { modules: { title: string; lessons
       },
       {
         title: 'Solids, Statistics and Probability',
+        outcome: 'Find surface area and volume of combined solids, and grouped means three ways.',
         lessons: [
           'Surface area of combined solids',
           'Volume of combined solids, and converting one shape into another',
@@ -5511,6 +5572,7 @@ export function buildGradeSyllabus(subjectSlug: string, grade: number): GradeSyl
     modules.push({
       num: m,
       title: authoredModule?.title ?? `Module ${m}`,
+      outcome: authoredModule?.outcome,
       lessons,
       authored: !!authoredModule,
     });

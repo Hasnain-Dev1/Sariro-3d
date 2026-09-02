@@ -105,6 +105,7 @@ export default async function SubjectPage({ params }: Params) {
         return {
           num: m.num,
           title: m.title,
+          outcome: m.outcome,
           lessons: m.lessons.length - tests,
           tests,
           // The lesson titles were built here and then thrown away — the card

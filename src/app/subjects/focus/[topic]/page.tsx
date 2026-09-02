@@ -136,6 +136,7 @@ export default async function SpecialisationPage({ params }: Params) {
               return {
                 num: m.num,
                 title: m.title,
+                outcome: m.outcome,
                 lessons: m.lessons.length - tests,
                 tests,
                 items: m.lessons.map((l) => ({

@@ -42,6 +42,8 @@ export interface OutlineLesson {
 export interface OutlineModule {
   num: number;
   title: string;
+  /** One line on what the learner can do afterwards. Omitted when unwritten. */
+  outcome?: string;
   /** Teachable lessons, excluding any assessment in this module. */
   lessons: number;
   tests: number;
@@ -107,7 +109,16 @@ export default function ModuleOutline({
                   transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
                   className="overflow-hidden"
                 >
-                  <ol className="border-t border-slate-100 px-4 py-2.5">
+                  <div className="border-t border-slate-100">
+                    {/* The school answer to the coding catalogue's "Build:"
+                        line. Shown only where it has been written — an empty
+                        promise reads worse than no promise. */}
+                    {m.outcome && (
+                      <p className="px-4 pt-3 text-[13px] leading-[1.55] text-slate-600">
+                        <strong style={{ color: accent }}>By the end:</strong> {m.outcome}
+                      </p>
+                    )}
+                  <ol className="px-4 py-2.5">
                     {m.items.map((it) => (
                       <li key={it.number} className="flex items-baseline gap-3 py-1.5 text-[13.5px]">
                         <span className="w-6 shrink-0 text-right text-[11.5px] font-semibold tabular-nums text-slate-400">
@@ -129,6 +140,7 @@ export default function ModuleOutline({
                       </li>
                     ))}
                   </ol>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
