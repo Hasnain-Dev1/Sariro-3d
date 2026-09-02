@@ -1252,6 +1252,26 @@ export function upcomingEvents(now: Date = new Date()) {
     .sort((a, b) => a.startsOn.localeCompare(b.startsOn));
 }
 
+/**
+ * NOT RENDERED. Nothing on the site reads this, and it must stay that way
+ * until the quotes are real.
+ *
+ * These six arrived with the site template — one name per continent, employers
+ * that are job categories rather than companies ("Senior PM · Fintech",
+ * "ML Engineer · Startup"), and a Principal of a school called Lakeside
+ * Academy. They are the same vintage as the $2,330 phantom price, the 555
+ * phone number, the July event advertised in September, and a "Builder tier"
+ * that never existed — all placeholder content that shipped looking like fact.
+ *
+ * A quote a named person did not say is a fabricated endorsement. That is
+ * prohibited under the FTC Endorsement Guides and ASCI, and it is the single
+ * easiest thing on a site for a competitor to screenshot.
+ *
+ * The homepage and /welcome show ProofPoints instead: claims a visitor can
+ * click and check. The shape below is kept only so that real testimonials have
+ * somewhere to go when families start sending them — replace the contents, do
+ * not re-point a component at what is here now.
+ */
 export const TESTIMONIALS = [
   {
     name: "Aarav Mehta",

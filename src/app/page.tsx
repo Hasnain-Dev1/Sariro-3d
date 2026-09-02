@@ -26,7 +26,7 @@ const Tracks3D = dynamic(() => import('@/components/sariro-3d/tracks-3d'));
 const Stats3D = dynamic(() => import('@/components/sariro-3d/stats-3d'));
 const Philosophy3D = dynamic(() => import('@/components/sariro-3d/philosophy-3d'));
 const FirstClassFree = dynamic(() => import('@/components/home/first-class-free'));
-const Testimonials3D = dynamic(() => import('@/components/sariro-3d/testimonials-3d'));
+const ProofPoints = dynamic(() => import('@/components/brand/proof-points'));
 const Pricing3D = dynamic(() => import('@/components/sariro-3d/pricing-3d'));
 const CTA3D = dynamic(() => import('@/components/sariro-3d/cta-3d'));
 
@@ -300,7 +300,9 @@ export default function Home() {
       */}
 
       {/* 6 — proof, price, and the ask. */}
-      <Testimonials3D />
+      {/* Was Testimonials3D — six quotes attributed to named people who
+          arrived with the site template. See proof-points.tsx. */}
+      <ProofPoints />
       {/* These two used to fade to and from #14100C, because the slot between
           them held the dark events carousel. It now holds FirstClassFree, which
           is cream (#FFFDF9), so the old dividers wedged a black band above and

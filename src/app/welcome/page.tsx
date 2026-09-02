@@ -11,7 +11,8 @@ import {
 import BrandLayout from '@/components/brand/brand-layout';
 import PageHero from '@/components/brand/page-hero';
 import { WaveDivider3D } from '@/components/sariro-3d/kit-3d';
-import { TESTIMONIALS, TRACKS } from '@/lib/sariro-data';
+import { TRACKS } from '@/lib/sariro-data';
+import ProofPoints from '@/components/brand/proof-points';
 import {
   subjectGroups,
   focusGroupsFor,
@@ -150,35 +151,12 @@ export default function WelcomePage() {
 
       <WaveDivider3D fromColor="#FFFBEB" toColor="#FFFFFF" />
 
-      {/* =================== TESTIMONIALS =================== */}
-      <section id="testimonials" className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-6xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-            className="text-center mb-12"
-          >
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-100 text-violet-700 text-xs font-bold mb-3" style={{ fontFamily: 'var(--font-grotesk)' }}>
-              <Star className="w-3 h-3 fill-current" />
-              STUDENT VOICES
-            </div>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-3" style={{ fontFamily: 'var(--font-jakarta)' }}>
-              Don&apos;t take our word for it
-            </h2>
-            <p className="text-base text-slate-600 max-w-2xl mx-auto">
-              Real students. Real outcomes. Real projects shipped.
-            </p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {TESTIMONIALS.map((t, i) => (
-              <TestimonialCard key={t.name} testimonial={t} index={i} />
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Was a grid of six testimonials attributed to named people who
+          arrived with the site template — "Dr. Lena Okafor, Principal,
+          Lakeside Academy" and the like. A quote a named person did not say is
+          a fabricated endorsement, and the page that asks somebody to book is
+          the worst possible place to put one. See proof-points.tsx. */}
+      <ProofPoints />
 
       <WaveDivider3D fromColor="#FFFFFF" toColor="#FFFFFF" />
 
@@ -244,65 +222,6 @@ function BenefitCard({
         {title}
       </h3>
       <p className="text-sm text-slate-600 leading-relaxed">{description}</p>
-    </motion.div>
-  );
-}
-
-/* ════════════════════════════════════════════════════════════════════════
-   Testimonial Card
-   ════════════════════════════════════════════════════════════════════════ */
-
-function TestimonialCard({
-  testimonial,
-  index,
-}: {
-  testimonial: (typeof TESTIMONIALS)[number];
-  index: number;
-}) {
-  const accentColors: Record<string, string> = {
-    blue: '#2563EB',
-    green: '#16A34A',
-    violet: '#7C3AED',
-    amber: '#F59E0B',
-    cyan: '#06B6D4',
-  };
-  const accent = accentColors[testimonial.accent] ?? '#2563EB';
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 30 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.5, delay: (index % 3) * 0.1 }}
-      className="card-3d p-6 h-full flex flex-col"
-    >
-      {/* Stars */}
-      <div className="flex items-center gap-0.5 mb-3">
-        {[1, 2, 3, 4, 5].map((n) => (
-          <Star key={n} className="w-4 h-4 text-amber-400 fill-amber-400" />
-        ))}
-      </div>
-
-      {/* Quote */}
-      <p className="text-sm text-slate-700 leading-relaxed mb-5 flex-1 italic">
-        &ldquo;{testimonial.quote}&rdquo;
-      </p>
-
-      {/* Author */}
-      <div className="flex items-center gap-3 pt-4 border-t border-slate-100">
-        <div
-          className="w-10 h-10 rounded-full flex items-center justify-center text-white font-extrabold text-sm shrink-0"
-          style={{ background: accent, fontFamily: 'var(--font-jakarta)' }}
-        >
-          {testimonial.avatar}
-        </div>
-        <div className="min-w-0">
-          <p className="text-sm font-bold text-slate-900 truncate" style={{ fontFamily: 'var(--font-jakarta)' }}>
-            {testimonial.name}
-          </p>
-          <p className="text-xs text-slate-500 truncate">{testimonial.role}</p>
-        </div>
-      </div>
     </motion.div>
   );
 }
