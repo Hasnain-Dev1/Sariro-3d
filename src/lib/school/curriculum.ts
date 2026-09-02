@@ -924,6 +924,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Describing Motion',
+        outcome: 'Distinguish distance from displacement and speed from velocity, and use motion graphs.',
         lessons: [
           'Distance and displacement, and why they differ',
           'Speed and velocity',
@@ -935,6 +936,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Forces and the Laws of Motion',
+        outcome: 'Apply Newton\'s laws to balanced and unbalanced forces.',
         lessons: [
           'What a force actually does',
           'Balanced and unbalanced forces',
@@ -946,6 +948,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Gravitation, Pressure and Floating',
+        outcome: 'Use the law of gravitation, and explain pressure, buoyancy and floating.',
         lessons: [
           'The universal law of gravitation',
           'Free fall and the acceleration due to gravity',
@@ -957,6 +960,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Work, Energy and Power',
+        outcome: 'Calculate work, kinetic and potential energy, and power.',
         lessons: [
           'When a force does work, and when it does not',
           'Kinetic energy',
@@ -967,6 +971,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Sound',
+        outcome: 'Describe a sound wave by wavelength, frequency and amplitude.',
         lessons: [
           'How a sound wave travels',
           'Wavelength, frequency and amplitude',
@@ -978,6 +983,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Matter and Its States',
+        outcome: 'Explain states of matter and changes of state using the particle model.',
         lessons: [
           'The particle model of matter',
           'States of matter, and how they change',
@@ -989,6 +995,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Measurement and Experiment',
+        outcome: 'Measure length, mass and time accurately, and state why units matter.',
         lessons: [
           'Units, standards, and why they matter',
           'Measuring length, mass and time accurately',
@@ -1000,6 +1007,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Physics at Work',
+        outcome: 'Explain mechanical advantage in levers, pulleys and inclined planes.',
         lessons: [
           'Simple machines and mechanical advantage',
           'Levers, pulleys and inclined planes',
@@ -1015,6 +1023,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Reflection and Mirrors',
+        outcome: 'Draw correct ray diagrams for plane and curved mirrors and find the image.',
         lessons: [
           'How light travels',
           'The laws of reflection',
@@ -1026,6 +1035,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Refraction and Lenses',
+        outcome: 'Apply the laws of refraction and the lens formula to solve numericals.',
         lessons: [
           'Why light bends',
           'Refractive index and the laws of refraction',
@@ -1037,6 +1047,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'The Human Eye and Light in Nature',
+        outcome: 'Explain how the eye focuses, and which lens corrects which defect of vision.',
         lessons: [
           'How the human eye focuses',
           'Defects of vision, and the lenses that correct them',
@@ -1048,6 +1059,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Electric Current',
+        outcome: 'Relate charge, current, potential difference and resistance through Ohm\'s law.',
         lessons: [
           'Charge and current — what is actually flowing',
           'Potential difference and the cell',
@@ -1058,6 +1070,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Effects of Electric Current',
+        outcome: 'Calculate electric power and energy, and explain the heating effect.',
         lessons: [
           'The heating effect of current',
           'Electric power and electrical energy',
@@ -1069,6 +1082,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Magnetism and Electromagnetism',
+        outcome: 'Sketch magnetic fields and explain electromagnetic induction.',
         lessons: [
           'Magnets and magnetic field lines',
           'The magnetic field around a current',
@@ -1080,6 +1094,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Energy and Its Sources',
+        outcome: 'Compare conventional and renewable energy sources on real criteria.',
         lessons: [
           'Conventional sources of energy',
           'Thermal and hydroelectric power',
@@ -1091,6 +1106,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Preparing for the Board',
+        outcome: 'Work board-style numericals and ray diagrams across every topic reliably.',
         lessons: [
           'Numerical problems across topics',
           'Ray diagrams: getting them right every time',
@@ -1106,6 +1122,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Units, Measurement and Vectors',
+        outcome: 'Use dimensional analysis to check an equation, and work with vectors.',
         lessons: [
           'Physical quantities, units and dimensions',
           'Dimensional analysis and what it can prove',
@@ -1117,6 +1134,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Motion in a Line and in a Plane',
+        outcome: 'Describe motion in a line and a plane using calculus, including projectiles.',
         lessons: [
           'Position, displacement and instantaneous velocity',
           'Acceleration, and the calculus behind it',
@@ -1128,6 +1146,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Laws of Motion',
+        outcome: 'Draw a free-body diagram and apply Newton\'s laws rigorously.',
         lessons: [
           'Newton’s laws, stated rigorously',
           'Drawing a free-body diagram',
@@ -1139,6 +1158,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Work, Energy and Power',
+        outcome: 'Apply the work–energy theorem, including for a variable force.',
         lessons: [
           'Work done by a variable force',
           'The work–energy theorem',
@@ -1149,6 +1169,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Rotational Motion',
+        outcome: 'Work with centre of mass, torque, angular momentum and moment of inertia.',
         lessons: [
           'Centre of mass',
           'Torque and angular momentum',
@@ -1160,6 +1181,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Gravitation and Properties of Matter',
+        outcome: 'Apply Kepler\'s laws and calculate escape velocity and gravitational potential.',
         lessons: [
           'Gravitation and Kepler’s laws',
           'Gravitational potential energy and escape velocity',
@@ -1171,6 +1193,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Thermal Physics',
+        outcome: 'Solve calorimetry and thermal expansion problems, and apply the gas laws.',
         lessons: [
           'Temperature, heat and thermal expansion',
           'Calorimetry and change of state',
@@ -1182,6 +1205,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Oscillations and Waves',
+        outcome: 'Analyse simple harmonic motion, pendulums, springs and travelling waves.',
         lessons: [
           'Simple harmonic motion',
           'The simple pendulum and spring systems',
@@ -1197,6 +1221,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Electrostatics',
+        outcome: 'Apply Coulomb\'s law and Gauss\'s law to find fields and potentials.',
         lessons: [
           'Electric charge and Coulomb’s law',
           'The electric field',
@@ -1208,6 +1233,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Capacitance and Current Electricity',
+        outcome: 'Solve capacitor networks, and analyse circuits with Kirchhoff\'s rules.',
         lessons: [
           'Capacitors and capacitance',
           'Combinations of capacitors',
@@ -1219,6 +1245,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Magnetic Effects of Current',
+        outcome: 'Use the Biot–Savart and Ampere laws to find the field around a current.',
         lessons: [
           'Magnetic force on a moving charge',
           'The Biot–Savart law',
@@ -1230,6 +1257,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Magnetism and Electromagnetic Induction',
+        outcome: 'Apply Faraday\'s and Lenz\'s laws to induction problems.',
         lessons: [
           'Magnetism and matter',
           'Faraday’s law of induction',
@@ -1240,6 +1268,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Alternating Current and Electromagnetic Waves',
+        outcome: 'Analyse AC circuits with resistance, inductance and capacitance, including resonance.',
         lessons: [
           'AC voltage and current, and RMS values',
           'AC through a resistor, inductor and capacitor',
@@ -1251,6 +1280,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Ray and Wave Optics',
+        outcome: 'Solve lens and mirror systems, and explain interference and diffraction.',
         lessons: [
           'Lens and mirror systems, revisited',
           'Optical instruments: microscope and telescope',
@@ -1262,6 +1292,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Modern Physics',
+        outcome: 'Explain the photoelectric effect, and the dual nature of radiation and matter.',
         lessons: [
           'The photoelectric effect',
           'Photons and the dual nature of radiation',
@@ -1273,6 +1304,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Semiconductors and Electronics',
+        outcome: 'Explain semiconductor behaviour, and analyse diode and transistor circuits.',
         lessons: [
           'Conductors, insulators and semiconductors',
           'The p–n junction and the diode',
@@ -1295,6 +1327,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Matter and Its Nature',
+        outcome: 'Describe matter by particle behaviour, and explain changes of state.',
         lessons: [
           'What matter is, and how we know',
           'States of matter and the particle model',
@@ -1306,6 +1339,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Pure Substances and Mixtures',
+        outcome: 'Separate mixtures by the right technique, and tell a mixture from a compound.',
         lessons: [
           'Pure substances and mixtures — why the difference matters',
           'Solutions, suspensions and colloids',
@@ -1317,6 +1351,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Atoms and Molecules',
+        outcome: 'Apply the laws of chemical combination and calculate molar mass.',
         lessons: [
           'The laws of chemical combination',
           'Dalton’s atomic theory',
@@ -1328,6 +1363,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Structure of the Atom',
+        outcome: 'Describe atomic structure, and place electrons in shells correctly.',
         lessons: [
           'Discovering the electron and the proton',
           'Rutherford’s experiment and the nucleus',
@@ -1338,6 +1374,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Isotopes and Classifying the Elements',
+        outcome: 'Explain isotopes, and how the elements are classified.',
         lessons: [
           'Isotopes and isobars',
           'What isotopes are used for',
@@ -1349,6 +1386,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Chemical Reactions',
+        outcome: 'Balance a chemical equation and classify the reaction type.',
         lessons: [
           'Types of chemical reaction',
           'Combination and decomposition',
@@ -1360,6 +1398,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Acids, Bases and Salts',
+        outcome: 'Explain acid–base behaviour, the pH scale, and how salts form.',
         lessons: [
           'What makes an acid an acid',
           'Bases and alkalis',
@@ -1371,6 +1410,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Chemistry in the World',
+        outcome: 'Connect chemistry to real materials, fuels and environmental questions.',
         lessons: [
           'Metals and non-metals',
           'The reactivity series',
@@ -1386,6 +1426,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Chemical Reactions and Equations',
+        outcome: 'Balance any equation and classify the reaction with confidence.',
         lessons: [
           'Recognising that a reaction has happened',
           'Writing and balancing equations',
@@ -1397,6 +1438,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Acids, Bases and Salts',
+        outcome: 'Use pH, neutralisation and salt preparation in board-style questions.',
         lessons: [
           'Properties of acids and bases',
           'How acids and bases react with metals',
@@ -1408,6 +1450,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Metals and Non-Metals',
+        outcome: 'Explain the reactivity series, corrosion, and metal extraction.',
         lessons: [
           'Physical properties of metals and non-metals',
           'Chemical properties of metals',
@@ -1419,6 +1462,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Carbon and Its Compounds',
+        outcome: 'Explain catenation, and name and draw carbon compounds.',
         lessons: [
           'Why carbon forms so many compounds',
           'Covalent bonding',
@@ -1429,6 +1473,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Reactions of Carbon Compounds',
+        outcome: 'Predict the reactions of alcohols, acids and hydrocarbons.',
         lessons: [
           'Combustion and oxidation',
           'Addition and substitution reactions',
@@ -1440,6 +1485,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Periodic Classification',
+        outcome: 'Use the periodic table to predict trends in properties.',
         lessons: [
           'Early classification: Dobereiner and Newlands',
           'Mendeleev’s table, and the gaps he left',
@@ -1451,6 +1497,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Chemistry in Everyday Life',
+        outcome: 'Explain the chemistry behind soaps, detergents and everyday materials.',
         lessons: [
           'Chemicals in food and medicine',
           'Cleaning agents and their chemistry',
@@ -1462,6 +1509,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Preparing for the Board',
+        outcome: 'Handle board-style numericals and equations across every topic.',
         lessons: [
           'Balancing equations reliably',
           'Naming organic compounds without slips',
@@ -1477,6 +1525,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Basic Concepts of Chemistry',
+        outcome: 'Work with the mole, stoichiometry and empirical formulae accurately.',
         lessons: [
           'Matter, measurement and significant figures',
           'The laws of chemical combination',
@@ -1488,6 +1537,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Structure of the Atom',
+        outcome: 'Describe atomic structure quantum-mechanically, and write configurations.',
         lessons: [
           'Subatomic particles and the early models',
           'Bohr’s model, and where it breaks down',
@@ -1499,6 +1549,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Periodicity and Chemical Bonding',
+        outcome: 'Predict bonding, shape and polarity, and explain periodic trends.',
         lessons: [
           'The logic of the modern periodic table',
           'Periodic trends in properties',
@@ -1510,6 +1561,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'States of Matter',
+        outcome: 'Apply the gas laws and the kinetic molecular theory.',
         lessons: [
           'Intermolecular forces',
           'The gas laws and the ideal gas equation',
@@ -1520,6 +1572,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Thermodynamics',
+        outcome: 'Apply the first law, enthalpy, entropy and Gibbs free energy.',
         lessons: [
           'System, surroundings and state functions',
           'The first law of thermodynamics',
@@ -1531,6 +1584,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Equilibrium',
+        outcome: 'Use equilibrium constants, Le Chatelier\'s principle, and ionic equilibria.',
         lessons: [
           'Reversible reactions and dynamic equilibrium',
           'The equilibrium constant',
@@ -1542,6 +1596,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Redox and the Foundations of Organic Chemistry',
+        outcome: 'Balance redox reactions, and apply IUPAC naming and isomerism.',
         lessons: [
           'Oxidation number and redox reactions',
           'Balancing redox equations',
@@ -1553,6 +1608,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Hydrocarbons',
+        outcome: 'Predict the reactions of alkanes, alkenes, alkynes and aromatics.',
         lessons: [
           'Alkanes: preparation and reactions',
           'Alkenes: preparation and reactions',
@@ -1568,6 +1624,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Solutions and Colligative Properties',
+        outcome: 'Calculate concentration and colligative properties, including molar mass.',
         lessons: [
           'Types of solution, and ways to state concentration',
           'Solubility and Henry’s law',
@@ -1579,6 +1636,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Electrochemistry',
+        outcome: 'Apply the Nernst equation, and analyse cells, EMF and electrolysis.',
         lessons: [
           'Redox reactions, revisited',
           'Galvanic cells and electrode potential',
@@ -1590,6 +1648,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Chemical Kinetics and Surface Chemistry',
+        outcome: 'Determine rate laws and order, and explain catalysis and adsorption.',
         lessons: [
           'Rate of reaction and the rate law',
           'Order and molecularity',
@@ -1601,6 +1660,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'The d- and f-Block Elements',
+        outcome: 'Explain the properties of transition elements and their compounds.',
         lessons: [
           'General properties of the transition elements',
           'Variable oxidation states, and where colour comes from',
@@ -1611,6 +1671,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Coordination Compounds',
+        outcome: 'Name coordination compounds and predict their structure and isomerism.',
         lessons: [
           'Ligands, coordination number and nomenclature',
           'Werner’s theory',
@@ -1622,6 +1683,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Haloalkanes, Alcohols and Ethers',
+        outcome: 'Predict the reactions and mechanisms of haloalkanes, alcohols and ethers.',
         lessons: [
           'Haloalkanes and haloarenes: preparation',
           'Substitution and elimination mechanisms',
@@ -1633,6 +1695,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Carbonyl Compounds and Amines',
+        outcome: 'Predict the reactions of aldehydes, ketones, acids and amines.',
         lessons: [
           'Aldehydes and ketones: preparation',
           'Nucleophilic addition reactions',
@@ -1644,6 +1707,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Biomolecules and Applied Chemistry',
+        outcome: 'Describe carbohydrates, proteins, nucleic acids, polymers and drug action.',
         lessons: [
           'Carbohydrates',
           'Proteins and enzymes',
@@ -1665,6 +1729,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'The Cell — The Unit of Life',
+        outcome: 'Identify organelles and explain what each one does.',
         lessons: [
           'Discovering the cell',
           'The cell membrane, and what crosses it',
@@ -1676,6 +1741,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Tissues',
+        outcome: 'Classify plant and animal tissues and relate structure to function.',
         lessons: [
           'Why a multicellular body needs tissues',
           'Plant tissues: meristematic and permanent',
@@ -1687,6 +1753,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Diversity of Living Organisms',
+        outcome: 'Use the hierarchy of classification to place any organism.',
         lessons: [
           'Why we classify living things',
           'The hierarchy of classification',
@@ -1698,6 +1765,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Health and Disease',
+        outcome: 'Distinguish infectious from non-infectious disease and explain immunity.',
         lessons: [
           'What health actually means',
           'Infectious and non-infectious disease',
@@ -1708,6 +1776,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Natural Resources',
+        outcome: 'Explain the nitrogen, carbon and water cycles.',
         lessons: [
           'Air, water and soil as resources',
           'What the atmosphere does',
@@ -1719,6 +1788,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Improving Food Resources',
+        outcome: 'Explain crop and livestock improvement methods.',
         lessons: [
           'Why food production has to improve',
           'Crop variety improvement',
@@ -1730,6 +1800,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Life Processes — An Introduction',
+        outcome: 'Give an overview of nutrition, respiration, transport and excretion.',
         lessons: [
           'What makes something alive',
           'Nutrition in plants and animals',
@@ -1741,6 +1812,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Working as a Biologist',
+        outcome: 'Design a biological investigation and record it properly.',
         lessons: [
           'Using a microscope properly',
           'Preparing and staining a slide',
@@ -1756,6 +1828,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Nutrition and Respiration',
+        outcome: 'Trace nutrition and respiration through the human body.',
         lessons: [
           'Autotrophic nutrition and photosynthesis',
           'Heterotrophic nutrition',
@@ -1767,6 +1840,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Transport and Excretion',
+        outcome: 'Explain circulation, transport in plants, and excretion.',
         lessons: [
           'Blood and its components',
           'The human heart and circulation',
@@ -1778,6 +1852,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Control and Coordination',
+        outcome: 'Compare nervous and hormonal control, and explain plant movements.',
         lessons: [
           'The nervous system and the neuron',
           'Reflex action and the reflex arc',
@@ -1789,6 +1864,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Reproduction',
+        outcome: 'Compare asexual and sexual reproduction, and explain human reproduction.',
         lessons: [
           'Why organisms reproduce',
           'Asexual reproduction',
@@ -1799,6 +1875,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Heredity',
+        outcome: 'Apply Mendel\'s laws and work a monohybrid and dihybrid cross.',
         lessons: [
           'Inherited traits and acquired traits',
           'Mendel’s experiments',
@@ -1810,6 +1887,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Evolution',
+        outcome: 'Explain evidence for evolution, and how speciation happens.',
         lessons: [
           'Variation, and why it matters',
           'Natural selection',
@@ -1821,6 +1899,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Our Environment',
+        outcome: 'Explain food chains, trophic levels and the effect of a pollutant.',
         lessons: [
           'Ecosystems and their components',
           'Food chains and food webs',
@@ -1832,6 +1911,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Managing Natural Resources',
+        outcome: 'Argue a case for managing forests, water and fossil fuels.',
         lessons: [
           'Why resources need managing at all',
           'Forests and wildlife',
@@ -1847,6 +1927,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'The Living World and Classification',
+        outcome: 'Apply the rules of classification and binomial nomenclature.',
         lessons: [
           'What is living, and how we define it',
           'Taxonomic categories and nomenclature',
@@ -1858,6 +1939,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Plant and Animal Diversity',
+        outcome: 'Describe the five kingdoms and the major plant and animal groups.',
         lessons: [
           'Algae, bryophytes and pteridophytes',
           'Gymnosperms and angiosperms',
@@ -1869,6 +1951,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Structural Organisation',
+        outcome: 'Describe the anatomy of flowering plants and of representative animals.',
         lessons: [
           'Morphology of a flowering plant',
           'Anatomy of root, stem and leaf',
@@ -1880,6 +1963,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Cell Structure and Function',
+        outcome: 'Explain cell structure, the cell cycle, and mitosis and meiosis.',
         lessons: [
           'The cell theory, and types of cell',
           'The cell membrane and the cell wall',
@@ -1890,6 +1974,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Biomolecules and Enzymes',
+        outcome: 'Describe biomolecules, and explain enzyme action and inhibition.',
         lessons: [
           'Carbohydrates and lipids',
           'Proteins and amino acids',
@@ -1901,6 +1986,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Plant Physiology',
+        outcome: 'Explain transport, photosynthesis, respiration and growth in plants.',
         lessons: [
           'Transport in plants',
           'Mineral nutrition',
@@ -1912,6 +1998,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Human Physiology I',
+        outcome: 'Explain human digestion, breathing and circulation.',
         lessons: [
           'Digestion and absorption',
           'Breathing and the exchange of gases',
@@ -1923,6 +2010,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Human Physiology II',
+        outcome: 'Explain excretion, locomotion, and neural and chemical coordination.',
         lessons: [
           'Locomotion and movement',
           'The skeletal and muscular systems',
@@ -1938,6 +2026,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Reproduction in Organisms and Plants',
+        outcome: 'Compare reproduction strategies, and explain sexual reproduction in plants.',
         lessons: [
           'Modes of reproduction',
           'Sexual reproduction in flowering plants',
@@ -1949,6 +2038,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Human Reproduction',
+        outcome: 'Describe the human reproductive systems and the events of pregnancy.',
         lessons: [
           'The male reproductive system',
           'The female reproductive system',
@@ -1960,6 +2050,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Reproductive Health',
+        outcome: 'Explain contraception, reproductive health and assisted reproduction.',
         lessons: [
           'Reproductive health, and what threatens it',
           'Population and birth control',
@@ -1971,6 +2062,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Principles of Inheritance',
+        outcome: 'Apply Mendelian inheritance, linkage, and sex determination.',
         lessons: [
           'Mendel’s laws, revisited',
           'Deviations from Mendelism',
@@ -1981,6 +2073,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Molecular Basis of Inheritance',
+        outcome: 'Explain DNA structure, replication, transcription and translation.',
         lessons: [
           'How we learned DNA is the genetic material',
           'The structure of DNA and RNA',
@@ -1992,6 +2085,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Evolution',
+        outcome: 'Explain the evidence and mechanisms of evolution.',
         lessons: [
           'The origin of life',
           'The evidence for evolution',
@@ -2003,6 +2097,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Human Welfare and Biotechnology',
+        outcome: 'Explain immunity, disease, and the tools of biotechnology.',
         lessons: [
           'Human health and disease',
           'Immunity and vaccines',
@@ -2014,6 +2109,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Ecology and Environment',
+        outcome: 'Explain ecosystems, biodiversity, and the major environmental issues.',
         lessons: [
           'Organisms and populations',
           'Ecosystem structure and function',
@@ -2036,6 +2132,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Motion and Time',
+        outcome: 'Describe motion in everyday terms, and compare fast and slow with real measurements.',
         lessons: [
           'What it means for something to move',
           'Fast and slow: comparing motion',
@@ -2047,6 +2144,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Forces and Their Effects',
+        outcome: 'Say what a force can do to an object, and identify contact and non-contact forces.',
         lessons: [
           'What a force can do',
           'Push, pull, and forces in contact',
@@ -2058,6 +2156,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Heat',
+        outcome: 'Read a thermometer correctly, and explain what temperature actually measures.',
         lessons: [
           'Hot, cold, and what temperature measures',
           'Thermometers and how to read them',
@@ -2069,6 +2168,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Light',
+        outcome: 'Explain how we see, and predict reflection from a plane mirror.',
         lessons: [
           'How light travels, and how we see',
           'Reflection from a plane mirror',
@@ -2079,6 +2179,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Electricity and Magnetism',
+        outcome: 'Build a simple circuit from symbols, and describe the heating effect of current.',
         lessons: [
           'Electric circuits and circuit symbols',
           'The heating effect of current',
@@ -2090,6 +2191,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Sound',
+        outcome: 'Explain how sound is produced and why it needs a medium.',
         lessons: [
           'How sound is produced',
           'How sound travels, and what it needs',
@@ -2101,6 +2203,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Weather, Air and Water',
+        outcome: 'Explain wind, air pressure and the water cycle in terms a child can use.',
         lessons: [
           'Air, wind, and why air moves',
           'Air pressure in everyday life',
@@ -2112,6 +2215,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Measuring and Investigating',
+        outcome: 'Choose the right instrument for a measurement and read a scale without error.',
         lessons: [
           'Choosing the right instrument',
           'Reading a scale without error',
@@ -2127,6 +2231,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Force and Pressure',
+        outcome: 'Distinguish contact from non-contact forces, and relate force to pressure.',
         lessons: [
           'Force as a push or a pull, revisited',
           'Contact and non-contact forces',
@@ -2138,6 +2243,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Friction',
+        outcome: 'Tell static, sliding and rolling friction apart, and say when each helps or hinders.',
         lessons: [
           'What causes friction',
           'Static, sliding and rolling friction',
@@ -2149,6 +2255,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Sound',
+        outcome: 'Explain how sound is produced, travels, and is heard.',
         lessons: [
           'Sound produced by vibration',
           'Sound needs a medium',
@@ -2160,6 +2267,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Electricity and Its Effects',
+        outcome: 'Classify conductors and insulators, and describe the chemical effects of current.',
         lessons: [
           'Conductors and insulators of electricity',
           'Chemical effects of electric current',
@@ -2170,6 +2278,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Light and Vision',
+        outcome: 'Apply the laws of reflection, and explain regular versus diffused reflection.',
         lessons: [
           'Laws of reflection',
           'Regular and diffused reflection',
@@ -2181,6 +2290,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Stars and the Solar System',
+        outcome: 'Explain the phases of the moon and locate the planets and constellations.',
         lessons: [
           'The moon and its phases',
           'Stars and constellations',
@@ -2192,6 +2302,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Chemical Effects and Materials',
+        outcome: 'Describe how synthetic materials are made, and why plastics are a problem.',
         lessons: [
           'Synthetic fibres and how they are made',
           'Plastics, and the problem with them',
@@ -2203,6 +2314,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Investigating Like a Physicist',
+        outcome: 'Turn an observation into a testable question, changing one variable at a time.',
         lessons: [
           'Turning an observation into a question',
           'Controlling one variable at a time',
@@ -2218,6 +2330,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Matter Around Us',
+        outcome: 'Describe the states of matter and how particles behave in each.',
         lessons: [
           'Everything is made of something',
           'Solids, liquids and gases',
@@ -2229,6 +2342,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Physical and Chemical Change',
+        outcome: 'Tell a physical change from a chemical one, and give the evidence for it.',
         lessons: [
           'Telling a physical change from a chemical one',
           'Signs that a chemical change has happened',
@@ -2240,6 +2354,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Acids, Bases and Salts',
+        outcome: 'Identify acids, bases and salts, and use an indicator to tell them apart.',
         lessons: [
           'What acids are, and where you meet them',
           'Bases and their properties',
@@ -2251,6 +2366,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Fibres and Materials',
+        outcome: 'Explain where natural and synthetic fibres come from and how they differ.',
         lessons: [
           'Natural fibres: cotton, wool and silk',
           'From fibre to fabric',
@@ -2261,6 +2377,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Heat, Fire and Fuels',
+        outcome: 'Explain combustion, what a fuel needs, and how to put a fire out.',
         lessons: [
           'What burning actually is',
           'Conditions needed for combustion',
@@ -2272,6 +2389,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Water and Air',
+        outcome: 'Describe the water cycle and what pollutes air and water.',
         lessons: [
           'Water as a chemical substance',
           'Hard and soft water',
@@ -2283,6 +2401,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Soil, Plants and Chemistry',
+        outcome: 'Explain what soil is made of and what plants take from it.',
         lessons: [
           'What soil is made of',
           'Soil profile and soil types',
@@ -2294,6 +2413,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Working Safely and Carefully',
+        outcome: 'Work safely with chemicals, and record an observation properly.',
         lessons: [
           'Lab rules, and the reasons behind them',
           'Handling chemicals and heat',
@@ -2309,6 +2429,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Synthetic Materials',
+        outcome: 'Explain how synthetic materials are made and why plastics persist.',
         lessons: [
           'Synthetic fibres and how they are made',
           'Types of synthetic fibre and their uses',
@@ -2320,6 +2441,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Metals and Non-Metals',
+        outcome: 'Compare metals and non-metals by their physical and chemical properties.',
         lessons: [
           'Physical properties of metals',
           'Physical properties of non-metals',
@@ -2331,6 +2453,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Coal, Petroleum and Combustion',
+        outcome: 'Describe how coal and petroleum formed, and the products refined from them.',
         lessons: [
           'How coal and petroleum formed',
           'Refining petroleum',
@@ -2342,6 +2465,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Air, Fire and Pollution',
+        outcome: 'Explain combustion, flame structure, and the causes of air pollution.',
         lessons: [
           'Types of flame and their structure',
           'Fire control, and the science of it',
@@ -2352,6 +2476,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Chemistry of the Cell and the Kitchen',
+        outcome: 'Explain everyday kitchen and cellular chemistry in terms of reactions.',
         lessons: [
           'Micro-organisms and what they do chemically',
           'Fermentation',
@@ -2363,6 +2488,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Crop Chemistry and Soil',
+        outcome: 'Describe soil nutrients, fertilisers, and their effect on crops.',
         lessons: [
           'Nutrients a crop needs',
           'Manure and fertiliser compared',
@@ -2374,6 +2500,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Chemical Reactions and Change',
+        outcome: 'Recognise the signs of a chemical reaction and write a word equation.',
         lessons: [
           'Recognising a chemical reaction',
           'Word equations',
@@ -2385,6 +2512,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Investigating Like a Chemist',
+        outcome: 'Plan a fair test, control a variable, and record results honestly.',
         lessons: [
           'Framing a testable question',
           'Setting up a controlled test',
@@ -2402,6 +2530,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Nutrition in Plants',
+        outcome: 'Explain photosynthesis and the other modes of nutrition in plants.',
         lessons: [
           'How plants make their own food',
           'Photosynthesis: what goes in',
@@ -2413,6 +2542,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Nutrition in Animals',
+        outcome: 'Trace food through the human digestive system and compare it with other animals.',
         lessons: [
           'The different ways animals feed',
           'The human digestive system',
@@ -2424,6 +2554,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Respiration in Organisms',
+        outcome: 'Compare aerobic and anaerobic respiration in plants and animals.',
         lessons: [
           'Why every living thing respires',
           'Aerobic and anaerobic respiration',
@@ -2435,6 +2566,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Transport in Plants and Animals',
+        outcome: 'Explain transport in plants and the human circulatory system.',
         lessons: [
           'Why a body needs a transport system',
           'Blood and the circulatory system',
@@ -2445,6 +2577,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Reproduction in Plants',
+        outcome: 'Describe pollination, fertilisation and seed dispersal.',
         lessons: [
           'Modes of reproduction in plants',
           'Vegetative propagation',
@@ -2456,6 +2589,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Weather, Climate and Adaptation',
+        outcome: 'Explain how climate shapes adaptation in different regions.',
         lessons: [
           'Weather, and how we measure it',
           'Climate, and how it differs from weather',
@@ -2467,6 +2601,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Forests, Soil and Water',
+        outcome: 'Explain why forests, soil and water matter and how they are lost.',
         lessons: [
           'Forests as ecosystems',
           'Why forests matter beyond timber',
@@ -2478,6 +2613,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Studying Living Things',
+        outcome: 'Observe, record and draw living things accurately.',
         lessons: [
           'Observing with a hand lens and a microscope',
           'Keeping a field notebook',
@@ -2493,6 +2629,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Crop Production and Management',
+        outcome: 'Describe the practices that take a crop from sowing to storage.',
         lessons: [
           'Agricultural practices, and why they matter',
           'Preparing the soil',
@@ -2504,6 +2641,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Microorganisms',
+        outcome: 'Explain the useful and harmful roles of microorganisms.',
         lessons: [
           'The world too small to see',
           'Bacteria, fungi, protozoa and algae',
@@ -2515,6 +2653,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'The Cell',
+        outcome: 'Identify cell parts and compare plant with animal cells.',
         lessons: [
           'Discovering the cell',
           'Cell shape, size and number',
@@ -2526,6 +2665,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Reproduction in Animals',
+        outcome: 'Compare sexual and asexual reproduction in animals.',
         lessons: [
           'Sexual and asexual reproduction',
           'Male and female reproductive organs',
@@ -2536,6 +2676,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Reaching Adolescence',
+        outcome: 'Explain the changes of adolescence in biological terms.',
         lessons: [
           'The changes of adolescence',
           'Secondary sexual characters',
@@ -2547,6 +2688,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Conservation of Plants and Animals',
+        outcome: 'Explain why species are lost and how conservation works.',
         lessons: [
           'Deforestation and its causes',
           'What deforestation leads to',
@@ -2558,6 +2700,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Pollution and the Environment',
+        outcome: 'Describe air and water pollution, their causes and their effects.',
         lessons: [
           'Air pollution and where it comes from',
           'The greenhouse effect and global warming',
@@ -2569,6 +2712,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Doing Biology Well',
+        outcome: 'Use a microscope, make a slide, and record what you actually see.',
         lessons: [
           'Preparing a slide and observing it',
           'Recording observations accurately',
@@ -2593,6 +2737,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Numbers to Twenty',
+        outcome: 'Count, read and write every number to twenty, and know what each one means.',
         lessons: [
           'Counting to ten',
           'Counting to twenty',
@@ -2604,6 +2749,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Adding',
+        outcome: 'Add small numbers using objects, fingers and a number line — and say what adding does.',
         lessons: [
           'Putting groups together',
           'Adding with things you can hold',
@@ -2615,6 +2761,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Taking Away',
+        outcome: 'Take away confidently, and see why it undoes adding.',
         lessons: [
           'What taking away means',
           'Taking away with things you can hold',
@@ -2626,6 +2773,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Shapes and Space',
+        outcome: 'Name flat and solid shapes, and sort them by how they look and behave.',
         lessons: [
           'Flat shapes around us',
           'Solid shapes around us',
@@ -2636,6 +2784,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Numbers to a Hundred',
+        outcome: 'Count to a hundred in tens and ones, and read any two-digit number.',
         lessons: [
           'Counting in tens',
           'Tens and ones',
@@ -2647,6 +2796,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Measuring',
+        outcome: 'Compare length, weight and capacity using everyday objects.',
         lessons: [
           'Longer, shorter and taller',
           'Measuring with everyday objects',
@@ -2658,6 +2808,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Time and Money',
+        outcome: 'Tell the time to the hour, name the days and months, and recognise coins.',
         lessons: [
           'Days of the week',
           'Months and seasons',
@@ -2669,6 +2820,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Sorting, Graphs and Games',
+        outcome: 'Sort things into groups and read a picture graph.',
         lessons: [
           'Sorting things into groups',
           'Making a picture graph',
@@ -2684,6 +2836,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Numbers to a Thousand',
+        outcome: 'Read, write and compare three-digit numbers, and say what each digit is worth.',
         lessons: [
           'Hundreds, tens and ones',
           'Reading and writing three-digit numbers',
@@ -2695,6 +2848,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Addition',
+        outcome: 'Add two- and three-digit numbers, carrying where needed.',
         lessons: [
           'Adding two-digit numbers',
           'Adding when you have to carry',
@@ -2706,6 +2860,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Subtraction',
+        outcome: 'Subtract with borrowing, and check the answer by adding back.',
         lessons: [
           'Subtracting two-digit numbers',
           'Subtracting when you have to borrow',
@@ -2717,6 +2872,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Multiplication Begins',
+        outcome: 'See multiplication as equal groups, and use arrays and the times sign.',
         lessons: [
           'Equal groups',
           'Repeated addition, and the times sign',
@@ -2727,6 +2883,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Division Begins',
+        outcome: 'Share and group equally, and recognise division as multiplication undone.',
         lessons: [
           'Sharing equally',
           'Grouping equally',
@@ -2738,6 +2895,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Shapes, Space and Patterns',
+        outcome: 'Describe shapes by sides and faces, and find lines of symmetry.',
         lessons: [
           'Flat shapes and their sides',
           'Solid shapes and their faces',
@@ -2749,6 +2907,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Measurement',
+        outcome: 'Measure length, mass and capacity in the standard metric units.',
         lessons: [
           'Length in centimetres and metres',
           'Mass in grams and kilograms',
@@ -2760,6 +2919,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Time, Money and Data',
+        outcome: 'Tell time to five minutes, use a calendar, and add and subtract money.',
         lessons: [
           'Telling the time to five minutes',
           'Calendars and how long things take',
@@ -2775,6 +2935,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Numbers to Ten Thousand',
+        outcome: 'Read, write and order four-digit numbers with confidence.',
         lessons: [
           'Thousands, hundreds, tens and ones',
           'Reading and writing four-digit numbers',
@@ -2786,6 +2947,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Addition and Subtraction',
+        outcome: 'Add and subtract four-digit numbers on paper and mentally.',
         lessons: [
           'Adding four-digit numbers',
           'Subtracting four-digit numbers',
@@ -2797,6 +2959,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Multiplication',
+        outcome: 'Know the times tables to ten and multiply two-digit numbers.',
         lessons: [
           'Times tables to ten',
           'Multiplying by ten and by a hundred',
@@ -2808,6 +2971,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Division',
+        outcome: 'Divide by a single digit using long division, and interpret the remainder.',
         lessons: [
           'Dividing by a single digit',
           'Long division, step by step',
@@ -2818,6 +2982,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Fractions',
+        outcome: 'Understand what a fraction is and place it on a number line.',
         lessons: [
           'What a fraction means',
           'Halves, thirds and quarters',
@@ -2829,6 +2994,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Geometry',
+        outcome: 'Identify angles as right, acute or obtuse, and classify triangles and quadrilaterals.',
         lessons: [
           'Points, lines and line segments',
           'Right, acute and obtuse angles',
@@ -2840,6 +3006,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Measurement',
+        outcome: 'Measure length, mass and capacity, and convert between units.',
         lessons: [
           'Length from millimetres to kilometres',
           'Mass and weight',
@@ -2851,6 +3018,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Time, Money and Data',
+        outcome: 'Tell time to the minute, read the 24-hour clock, and work out change.',
         lessons: [
           'Telling the time to the minute',
           'The 24-hour clock',
@@ -2866,6 +3034,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Large Numbers and Place Value',
+        outcome: 'Read and compare numbers to a million, and say what each place is worth.',
         lessons: [
           'Numbers beyond ten thousand',
           'Place value to a million',
@@ -2877,6 +3046,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'The Four Operations',
+        outcome: 'Apply all four operations to large numbers, including two-digit division.',
         lessons: [
           'Adding and subtracting large numbers',
           'Multiplying by a two-digit number',
@@ -2888,6 +3058,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Factors, Multiples and Patterns',
+        outcome: 'Find factors and multiples, and tell prime from composite.',
         lessons: [
           'Factors of a number',
           'Multiples and common multiples',
@@ -2899,6 +3070,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Fractions',
+        outcome: 'Convert between improper and mixed fractions, and compare unlike ones.',
         lessons: [
           'Proper, improper and mixed fractions',
           'Equivalent fractions and simplest form',
@@ -2909,6 +3081,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Decimals',
+        outcome: 'Read, compare and place decimals to hundredths on a number line.',
         lessons: [
           'Tenths and hundredths',
           'Decimals on a number line',
@@ -2920,6 +3093,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Geometry',
+        outcome: 'Measure angles, identify parallel and perpendicular lines, and classify triangles.',
         lessons: [
           'Types of angle, and measuring them',
           'Parallel and perpendicular lines',
@@ -2931,6 +3105,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Measurement',
+        outcome: 'Convert metric units and find the perimeter of a shape.',
         lessons: [
           'Converting units of length',
           'Converting units of mass and capacity',
@@ -2942,6 +3117,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Time, Data and Chance',
+        outcome: 'Read timetables, line graphs and bar charts, including the scale they use.',
         lessons: [
           'Time intervals and timetables',
           'Reading a line graph',
@@ -2957,6 +3133,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Numbers and Place Value',
+        outcome: 'Round to any place, and work with negative numbers on a number line.',
         lessons: [
           'Place value to millions and beyond',
           'Rounding to any place',
@@ -2968,6 +3145,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Multiplication and Division',
+        outcome: 'Multiply and divide multi-digit numbers, and say what a remainder means in context.',
         lessons: [
           'Multiplying multi-digit numbers',
           'Dividing by a two-digit divisor',
@@ -2979,6 +3157,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Fractions',
+        outcome: 'Add, subtract and multiply fractions, simplifying as you go.',
         lessons: [
           'Equivalent fractions and simplifying',
           'Adding and subtracting unlike fractions',
@@ -2990,6 +3169,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Decimals and Percentages',
+        outcome: 'Multiply and divide decimals, and convert between decimals and percentages.',
         lessons: [
           'Decimal place value to thousandths',
           'Multiplying decimals',
@@ -3000,6 +3180,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Ratio, Proportion and Early Algebra',
+        outcome: 'Simplify and use a ratio, and recognise direct proportion.',
         lessons: [
           'Comparing with a ratio',
           'Simplifying and using ratios',
@@ -3011,6 +3192,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Geometry',
+        outcome: 'Find missing angles on a line, around a point, and inside triangles and quadrilaterals.',
         lessons: [
           'Angles on a line and around a point',
           'Angles in triangles and quadrilaterals',
@@ -3022,6 +3204,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Measurement',
+        outcome: 'Find the area of triangles, parallelograms and compound shapes.',
         lessons: [
           'Converting metric units',
           'Perimeter and area of compound shapes',
@@ -3033,6 +3216,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Statistics and Chance',
+        outcome: 'Build charts from data, and calculate mean, median and mode.',
         lessons: [
           'Collecting and tabulating data',
           'Bar charts, line graphs and pie charts',
@@ -3048,6 +3232,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Sets, Relations and Functions',
+        outcome: 'Use set notation and Venn diagrams, and describe relations and functions precisely.',
         lessons: [
           'Sets and set notation',
           'Operations on sets, and Venn diagrams',
@@ -3059,6 +3244,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Trigonometric Functions',
+        outcome: 'Work in radians, evaluate trigonometric functions of any angle, and sketch their graphs.',
         lessons: [
           'Angles, degrees and radians',
           'Trigonometric functions of any angle',
@@ -3070,6 +3256,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Complex Numbers and Inequalities',
+        outcome: 'Do algebra with complex numbers, and find modulus and argument.',
         lessons: [
           'Why complex numbers had to be invented',
           'The algebra of complex numbers',
@@ -3081,6 +3268,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Permutations and Combinations',
+        outcome: 'Count arrangements and selections correctly, including with restrictions.',
         lessons: [
           'The fundamental principle of counting',
           'Permutations',
@@ -3091,6 +3279,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Binomial Theorem and Sequences',
+        outcome: 'Expand a binomial, find a general or middle term, and sum a series.',
         lessons: [
           'The binomial theorem for a positive index',
           'General and middle terms',
@@ -3102,6 +3291,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Straight Lines and Conic Sections',
+        outcome: 'Find the equation of a line or a circle, and the distance from a point to a line.',
         lessons: [
           'Slope, and the equations of a straight line',
           'Distance of a point from a line',
@@ -3113,6 +3303,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Three Dimensions, Limits and Derivatives',
+        outcome: 'Work with coordinates in three dimensions, and evaluate a limit and a derivative.',
         lessons: [
           'Coordinates in three dimensions',
           'Distance and section formulae in space',
@@ -3124,6 +3315,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Statistics and Probability',
+        outcome: 'Measure spread with variance and standard deviation, and compare two data sets.',
         lessons: [
           'Measures of dispersion: range and mean deviation',
           'Variance and standard deviation',
@@ -3139,6 +3331,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Relations, Functions and Inverse Trigonometry',
+        outcome: 'Classify relations and functions, and work with inverses and compositions.',
         lessons: [
           'Types of relation',
           'One-one and onto functions',
@@ -3150,6 +3343,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Matrices and Determinants',
+        outcome: 'Operate on matrices and determinants, and use them to solve systems.',
         lessons: [
           'Matrices and their types',
           'Operations on matrices',
@@ -3161,6 +3355,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Continuity and Differentiability',
+        outcome: 'Test continuity and differentiability, and differentiate composite and implicit functions.',
         lessons: [
           'Continuity of a function',
           'Differentiability, and how it relates to continuity',
@@ -3172,6 +3367,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Applications of Derivatives',
+        outcome: 'Apply derivatives to rates of change, tangents, and increasing or decreasing behaviour.',
         lessons: [
           'Rate of change',
           'Increasing and decreasing functions',
@@ -3182,6 +3378,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Integrals',
+        outcome: 'Integrate by substitution and by partial fractions.',
         lessons: [
           'Integration as the inverse of differentiation',
           'Integration by substitution',
@@ -3193,6 +3390,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Applications of Integrals, and Differential Equations',
+        outcome: 'Find areas under and between curves, and solve a differential equation.',
         lessons: [
           'Area under a curve',
           'Area between two curves',
@@ -3204,6 +3402,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Vectors and Three-Dimensional Geometry',
+        outcome: 'Use vectors and three-dimensional geometry, including scalar and vector products.',
         lessons: [
           'Vectors and their algebra',
           'Scalar and vector products',
@@ -3215,6 +3414,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Linear Programming and Probability',
+        outcome: 'Solve a linear programming problem graphically, and apply conditional probability.',
         lessons: [
           'Formulating a linear programming problem',
           'Graphical solution and the feasible region',
@@ -3238,6 +3438,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Looking Closely',
+        outcome: 'Use your senses to observe carefully and say what you noticed.',
         lessons: [
           'What scientists actually do',
           'Using your five senses',
@@ -3249,6 +3450,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Plants Around Us',
+        outcome: 'Name the parts of a plant and what each one does.',
         lessons: [
           'Parts of a plant',
           'What plants need to grow',
@@ -3260,6 +3462,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Animals Around Us',
+        outcome: 'Group animals by where they live and what they eat.',
         lessons: [
           'Animals we live with',
           'Wild animals and where they live',
@@ -3271,6 +3474,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'My Body',
+        outcome: 'Name the parts of your body and the sense each one gives you.',
         lessons: [
           'Parts of the body and what they do',
           'The five sense organs',
@@ -3281,6 +3485,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Food and Water',
+        outcome: 'Say which foods keep you healthy, and why water matters.',
         lessons: [
           'Where our food comes from',
           'Food from plants',
@@ -3292,6 +3497,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Air, Water and Weather',
+        outcome: 'Describe the weather, and say what air and water are for.',
         lessons: [
           'Air is all around us',
           'We can feel the wind',
@@ -3303,6 +3509,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Things Around Us',
+        outcome: 'Sort objects by what they are made of and how they feel.',
         lessons: [
           'Materials things are made from',
           'Hard and soft, rough and smooth',
@@ -3314,6 +3521,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Our Home and Neighbourhood',
+        outcome: 'Describe your home and neighbourhood, and who helps in it.',
         lessons: [
           'Homes and what they are made of',
           'Keeping our surroundings clean',
@@ -3329,6 +3537,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Living and Non-Living',
+        outcome: 'Tell living things from non-living things, and give your reasons.',
         lessons: [
           'What makes something living',
           'What living things need',
@@ -3340,6 +3549,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Plants',
+        outcome: 'Describe what a plant needs and how it grows.',
         lessons: [
           'Roots and what they do',
           'Stems and how water travels',
@@ -3351,6 +3561,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Animals',
+        outcome: 'Group animals by their bodies, homes and young.',
         lessons: [
           'Animal homes',
           'What animals eat',
@@ -3362,6 +3573,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'The Human Body',
+        outcome: 'Name the main body parts and simple ways to stay healthy.',
         lessons: [
           'Bones and muscles',
           'Teeth and how to look after them',
@@ -3372,6 +3584,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Food, Clothes and Shelter',
+        outcome: 'Explain why we need food, clothes and shelter.',
         lessons: [
           'Our basic needs',
           'Where our clothes come from',
@@ -3383,6 +3596,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Water, Air and Weather',
+        outcome: 'Describe the water cycle and the kinds of weather.',
         lessons: [
           'Uses of water',
           'Where water comes from',
@@ -3394,6 +3608,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'The World Around Us',
+        outcome: 'Describe land, water and the sky around you.',
         lessons: [
           'Day and night',
           'The sun, moon and stars',
@@ -3405,6 +3620,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Caring for Our World',
+        outcome: 'Say how to keep your surroundings clean and why it matters.',
         lessons: [
           'Keeping our surroundings clean',
           'Rubbish and what happens to it',
@@ -3420,6 +3636,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Plants and How They Live',
+        outcome: 'Explain how a plant makes food, drinks and reproduces.',
         lessons: [
           'Parts of a plant and their functions',
           'How plants make food',
@@ -3431,6 +3648,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Animals and How They Live',
+        outcome: 'Group animals by how they move, eat and breathe.',
         lessons: [
           'Classifying animals by what they eat',
           'Animal habitats',
@@ -3442,6 +3660,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'The Human Body',
+        outcome: 'Name the main organ systems and what each does.',
         lessons: [
           'The skeleton and joints',
           'Muscles and movement',
@@ -3453,6 +3672,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Food and Health',
+        outcome: 'Explain a balanced diet and how food keeps you well.',
         lessons: [
           'Components of food',
           'A balanced diet',
@@ -3463,6 +3683,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Matter and Materials',
+        outcome: 'Group materials by their properties, and describe solids, liquids and gases.',
         lessons: [
           'Solids, liquids and gases',
           'Properties of materials',
@@ -3474,6 +3695,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Force, Motion and Energy',
+        outcome: 'Describe pushes, pulls, motion and everyday forms of energy.',
         lessons: [
           'Push and pull',
           'Making things move faster and slower',
@@ -3485,6 +3707,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Earth and Sky',
+        outcome: 'Describe the sun, moon, stars, and day and night.',
         lessons: [
           'Air, water and soil',
           'The water cycle',
@@ -3496,6 +3719,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Working Like a Scientist',
+        outcome: 'Ask a question, test it fairly, and record what happened.',
         lessons: [
           'Asking a question you can test',
           'Making a careful observation',
@@ -3511,6 +3735,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Plants in Detail',
+        outcome: 'Explain photosynthesis, and how plants are adapted to where they live.',
         lessons: [
           'Photosynthesis, explained simply',
           'Transport in plants',
@@ -3522,6 +3747,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Animals in Detail',
+        outcome: 'Classify animals and explain their adaptations.',
         lessons: [
           'Vertebrates and invertebrates',
           'Animal nutrition',
@@ -3533,6 +3759,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'The Human Body Systems',
+        outcome: 'Describe the digestive, respiratory and circulatory systems.',
         lessons: [
           'The digestive system',
           'The respiratory system',
@@ -3544,6 +3771,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Food, Nutrition and Disease',
+        outcome: 'Explain nutrients, deficiency diseases and how illness spreads.',
         lessons: [
           'Nutrients and what each one does',
           'Balanced diets for different people',
@@ -3554,6 +3782,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Matter and Its Changes',
+        outcome: 'Describe states of matter and the changes between them.',
         lessons: [
           'States of matter and the particle idea',
           'Changes of state',
@@ -3565,6 +3794,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Force, Work and Energy',
+        outcome: 'Explain force, work, and the main forms of energy.',
         lessons: [
           'Types of force',
           'Friction and its effects',
@@ -3576,6 +3806,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Light, Sound and Electricity',
+        outcome: 'Explain how light and sound travel, and build a simple circuit.',
         lessons: [
           'How light travels, and shadows',
           'Reflection and mirrors',
@@ -3587,6 +3818,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Earth, Space and Environment',
+        outcome: 'Describe the solar system, natural resources, and pollution.',
         lessons: [
           'The solar system',
           'Rotation, revolution and the seasons',
@@ -3602,6 +3834,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Living Things and Their Environment',
+        outcome: 'Explain how living things depend on each other and their habitat.',
         lessons: [
           'Classifying living things',
           'Habitats and ecosystems',
@@ -3613,6 +3846,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Plant Life',
+        outcome: 'Explain the parts of a plant, photosynthesis, and reproduction.',
         lessons: [
           'Photosynthesis and respiration in plants',
           'Transport of water and food',
@@ -3624,6 +3858,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Animal Life and the Human Body',
+        outcome: 'Describe the main human body systems and how they work together.',
         lessons: [
           'Nutrition in animals',
           'The human digestive system in detail',
@@ -3635,6 +3870,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Health, Disease and Growing Up',
+        outcome: 'Explain disease, immunity and the changes of growing up.',
         lessons: [
           'Micro-organisms: helpful and harmful',
           'How infections spread',
@@ -3645,6 +3881,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Matter, Materials and Change',
+        outcome: 'Describe matter, mixtures and physical and chemical change.',
         lessons: [
           'The particle model of matter',
           'Change of state and heat',
@@ -3656,6 +3893,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Forces, Motion and Machines',
+        outcome: 'Explain forces, motion, and how simple machines help.',
         lessons: [
           'Measuring force and motion',
           'Balanced and unbalanced forces',
@@ -3667,6 +3905,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Light, Sound, Heat and Electricity',
+        outcome: 'Explain light, sound, heat and electricity in everyday terms.',
         lessons: [
           'Reflection and refraction',
           'The eye and how we see',
@@ -3678,6 +3917,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Earth, Space and Resources',
+        outcome: 'Describe the earth, space, and how resources are used and lost.',
         lessons: [
           'Structure of the Earth',
           'The solar system and beyond',
@@ -3693,6 +3933,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Food and Its Components',
+        outcome: 'Identify the components of food and the diseases caused by their lack.',
         lessons: [
           'Sources of food',
           'Components of food and their functions',
@@ -3704,6 +3945,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Materials and Their Properties',
+        outcome: 'Group materials by their properties and separate a mixture.',
         lessons: [
           'Sorting materials into groups',
           'Properties: appearance, hardness, solubility',
@@ -3715,6 +3957,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'The Living World: Plants',
+        outcome: 'Describe plant parts, their functions, and how plants are classified.',
         lessons: [
           'Getting to know plants: herbs, shrubs, trees',
           'Stem, root and their functions',
@@ -3726,6 +3969,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'The Living World: Animals and Habitats',
+        outcome: 'Explain animal habitats and the adaptations that suit them.',
         lessons: [
           'The body and its movements',
           'Joints and the skeleton',
@@ -3736,6 +3980,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Motion and Measurement',
+        outcome: 'Measure distance and describe the types of motion.',
         lessons: [
           'Measurement and standard units',
           'Measuring length correctly',
@@ -3747,6 +3992,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Light, Shadows and Electricity',
+        outcome: 'Explain shadows, reflection and simple electric circuits.',
         lessons: [
           'Light, shadows and reflection',
           'Transparent, translucent and opaque',
@@ -3758,6 +4004,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Water, Air and the Environment',
+        outcome: 'Explain the water cycle, the composition of air, and pollution.',
         lessons: [
           'Water and its importance',
           'The water cycle',
@@ -3769,6 +4016,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Getting Ready for Grade 7',
+        outcome: 'Bring it together, ready for the specialised sciences in Grade 7.',
         lessons: [
           'What physics will ask you to think about',
           'What chemistry will ask you to think about',
@@ -3796,6 +4044,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Sounds and Letters',
+        outcome: 'Recognise every letter and the sound it makes.',
         lessons: [
           'The alphabet and the sounds it makes',
           'Sounds at the beginning of words',
@@ -3807,6 +4056,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'First Words',
+        outcome: 'Read and write your first sight words with confidence.',
         lessons: [
           'Reading short words',
           'Words you see everywhere',
@@ -3818,6 +4068,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Listening and Speaking',
+        outcome: 'Listen to instructions and answer in a full sentence.',
         lessons: [
           'Listening to a story',
           'Answering questions about a story',
@@ -3829,6 +4080,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Writing Begins',
+        outcome: 'Form letters correctly and write a simple sentence.',
         lessons: [
           'Holding a pencil and forming letters',
           'Writing your own name',
@@ -3839,6 +4091,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Stories',
+        outcome: 'Follow a story, retell it, and say what happened first and next.',
         lessons: [
           'What happens first, next and last',
           'The people in a story',
@@ -3850,6 +4103,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'More Words',
+        outcome: 'Use new words for colours, numbers, family and everyday things.',
         lessons: [
           'Words that mean the same',
           'Words that mean the opposite',
@@ -3861,6 +4115,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Sentences',
+        outcome: 'Build a sentence with a capital letter and a full stop.',
         lessons: [
           'What makes a sentence',
           'Capital letters at the start',
@@ -3872,6 +4127,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Reading and Sharing',
+        outcome: 'Read a short passage aloud and talk about it.',
         lessons: [
           'Reading a short passage',
           'Reading a picture',
@@ -3887,6 +4143,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Reading Words and Sentences',
+        outcome: 'Read sentences fluently and understand what they say.',
         lessons: [
           'Blends and digraphs',
           'Long and short vowel sounds',
@@ -3898,6 +4155,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Nouns and Pronouns',
+        outcome: 'Use nouns and pronouns correctly, including plurals.',
         lessons: [
           'Common and proper nouns',
           'Singular and plural',
@@ -3909,6 +4167,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Verbs and Tenses',
+        outcome: 'Use verbs in the present, past and future.',
         lessons: [
           'Action words',
           'The present tense',
@@ -3920,6 +4179,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Sentences and Punctuation',
+        outcome: 'Punctuate a sentence correctly and vary its type.',
         lessons: [
           'Statements, questions and exclamations',
           'Capital letters and full stops',
@@ -3930,6 +4190,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Describing',
+        outcome: 'Use adjectives to describe people, places and things.',
         lessons: [
           'Adjectives',
           'Comparing with adjectives',
@@ -3941,6 +4202,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Reading Comprehension',
+        outcome: 'Answer comprehension questions about a passage you have read.',
         lessons: [
           'Finding the answer in the text',
           'The main idea',
@@ -3952,6 +4214,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Writing',
+        outcome: 'Write a short paragraph with a beginning, middle and end.',
         lessons: [
           'Writing a paragraph',
           'Writing about yourself',
@@ -3963,6 +4226,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Speaking, Listening and New Words',
+        outcome: 'Speak clearly, listen accurately, and use new words.',
         lessons: [
           'Telling a story out loud',
           'Listening and following instructions',
@@ -3978,6 +4242,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Reading with Understanding',
+        outcome: 'Read a passage and explain what it means, not just what it says.',
         lessons: [
           'Reading fluently and with expression',
           'Finding facts in a passage',
@@ -3989,6 +4254,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Parts of Speech I',
+        outcome: 'Use nouns, pronouns and verbs accurately.',
         lessons: [
           'Nouns: kinds and number',
           'Gender and possessive nouns',
@@ -4000,6 +4266,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Parts of Speech II',
+        outcome: 'Use adjectives, adverbs and prepositions correctly.',
         lessons: [
           'Adjectives and degrees of comparison',
           'Adverbs and their kinds',
@@ -4011,6 +4278,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Sentences',
+        outcome: 'Build and punctuate different sentence types.',
         lessons: [
           'Subject and predicate',
           'Kinds of sentence',
@@ -4021,6 +4289,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Vocabulary',
+        outcome: 'Grow vocabulary through synonyms, antonyms and word families.',
         lessons: [
           'Synonyms and antonyms',
           'Homophones',
@@ -4032,6 +4301,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Writing',
+        outcome: 'Write a paragraph, a letter and a short story.',
         lessons: [
           'Planning before you write',
           'Writing a descriptive paragraph',
@@ -4043,6 +4313,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Literature',
+        outcome: 'Discuss a poem or story and say what you think of it.',
         lessons: [
           'Reading a short story',
           'Reading a poem, and hearing its rhythm',
@@ -4054,6 +4325,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Speaking and Listening',
+        outcome: 'Present an idea aloud and listen well enough to reply.',
         lessons: [
           'Reading aloud with expression',
           'Giving a short talk',
@@ -4069,6 +4341,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Reading Comprehension',
+        outcome: 'Read for detail, inference and main idea.',
         lessons: [
           'Skimming and scanning',
           'Fact and opinion',
@@ -4080,6 +4353,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Grammar: Nouns, Pronouns and Verbs',
+        outcome: 'Use nouns, pronouns and verb tenses accurately in your own writing.',
         lessons: [
           'Abstract and collective nouns',
           'Pronoun kinds and agreement',
@@ -4091,6 +4365,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Grammar: Modifiers and Connectors',
+        outcome: 'Use modifiers and connectors to join ideas smoothly.',
         lessons: [
           'Adjectives, and the order they go in',
           'Adverbs of manner, place, time and degree',
@@ -4102,6 +4377,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Sentence Craft',
+        outcome: 'Vary sentence structure deliberately for effect.',
         lessons: [
           'Simple, compound and complex sentences',
           'Phrases and clauses',
@@ -4112,6 +4388,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Vocabulary and Word Study',
+        outcome: 'Work out an unfamiliar word from its parts and its context.',
         lessons: [
           'Root words, prefixes and suffixes',
           'Synonyms, antonyms and shades of meaning',
@@ -4123,6 +4400,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Writing',
+        outcome: 'Write narrative, descriptive and informal letters with structure.',
         lessons: [
           'How a paragraph is built',
           'Descriptive writing',
@@ -4134,6 +4412,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Literature',
+        outcome: 'Respond to a poem or story with evidence from the text.',
         lessons: [
           'Plot and setting',
           'Character, and how writers build one',
@@ -4145,6 +4424,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Speaking and Listening',
+        outcome: 'Speak to a group and listen with purpose.',
         lessons: [
           'Preparing and giving a talk',
           'Taking part in a group discussion',
@@ -4160,6 +4440,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Reading Skills',
+        outcome: 'Skim, scan and read closely, choosing the right one for the task.',
         lessons: [
           'Different texts need different strategies',
           'Main idea, theme and supporting evidence',
@@ -4171,6 +4452,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Grammar Foundations',
+        outcome: 'Use the parts of speech accurately and name them.',
         lessons: [
           'The parts of speech, reviewed',
           'Tense and aspect in real use',
@@ -4182,6 +4464,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Sentence and Punctuation',
+        outcome: 'Punctuate accurately, including direct speech.',
         lessons: [
           'Main and subordinate clauses',
           'Sentence types, and what each one does',
@@ -4193,6 +4476,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Vocabulary',
+        outcome: 'Use prefixes, suffixes and roots to build vocabulary.',
         lessons: [
           'How words are built',
           'Choosing the exact word',
@@ -4203,6 +4487,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Writing: Narrative and Descriptive',
+        outcome: 'Write a narrative and a description that hold a reader.',
         lessons: [
           'Planning a narrative',
           'Showing rather than telling',
@@ -4214,6 +4499,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Writing: Informative and Persuasive',
+        outcome: 'Write to inform and to persuade, with a clear structure.',
         lessons: [
           'Writing to inform',
           'Writing instructions someone can follow',
@@ -4225,6 +4511,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Literature',
+        outcome: 'Discuss character, setting and theme with evidence.',
         lessons: [
           'The craft of the short story',
           'Poetry: form, sound and meaning',
@@ -4236,6 +4523,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Speaking, Listening and Study Skills',
+        outcome: 'Take notes, present, and listen critically.',
         lessons: [
           'Presenting to an audience',
           'Debate: making a point and answering one',
@@ -4251,6 +4539,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Reading Comprehension',
+        outcome: 'Read for inference, tone and purpose.',
         lessons: [
           'Reading for gist and for detail',
           'Inference and deduction',
@@ -4262,6 +4551,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Grammar: The Verb System',
+        outcome: 'Use the full verb system accurately, including voice.',
         lessons: [
           'The tenses and what each is for',
           'Perfect and continuous aspects',
@@ -4273,6 +4563,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Grammar: Structure',
+        outcome: 'Build complex sentences with clauses and connectors.',
         lessons: [
           'Phrases and clauses',
           'Relative clauses',
@@ -4284,6 +4575,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Vocabulary and Word Power',
+        outcome: 'Use idiom, collocation and register appropriately.',
         lessons: [
           'Roots, prefixes and suffixes',
           'Synonyms, antonyms and nuance',
@@ -4294,6 +4586,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Writing: Craft',
+        outcome: 'Write with deliberate craft: openings, paragraphing and endings.',
         lessons: [
           'Paragraph unity and coherence',
           'Topic sentences and transitions',
@@ -4305,6 +4598,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Writing: Purpose',
+        outcome: 'Write for a stated purpose and audience.',
         lessons: [
           'Formal letters and applications',
           'Emails and messages',
@@ -4316,6 +4610,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Literature',
+        outcome: 'Analyse a text and support a reading with quotation.',
         lessons: [
           'The elements of fiction',
           'Analysing a character',
@@ -4327,6 +4622,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Speaking, Listening and Enquiry',
+        outcome: 'Question, research and present a small enquiry.',
         lessons: [
           'Structured speaking and presentations',
           'Group discussion and debate',
@@ -4342,6 +4638,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Reading and Interpretation',
+        outcome: 'Interpret a text and justify your interpretation from it.',
         lessons: [
           'Close reading of a prose passage',
           'Implicit meaning and inference',
@@ -4353,6 +4650,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'The Verb and the Sentence',
+        outcome: 'Use tense, aspect and voice accurately in extended writing.',
         lessons: [
           'The complete tense system',
           'Aspect, and how it changes time reference',
@@ -4364,6 +4662,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Advanced Sentence Structure',
+        outcome: 'Control complex and compound-complex sentences.',
         lessons: [
           'Coordination and subordination',
           'Relative and adverbial clauses',
@@ -4375,6 +4674,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Vocabulary in Depth',
+        outcome: 'Use vocabulary precisely, including connotation and nuance.',
         lessons: [
           'Morphology and word building',
           'Connotation and denotation',
@@ -4385,6 +4685,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Writing: Narrative and Reflective',
+        outcome: 'Write narrative and reflective pieces with a real voice.',
         lessons: [
           'Structuring a narrative',
           'Point of view and narrative voice',
@@ -4396,6 +4697,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Writing: Transactional',
+        outcome: 'Write letters, reports and notices to the expected form.',
         lessons: [
           'Formal letters for real purposes',
           'Reports and proposals',
@@ -4407,6 +4709,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Literature',
+        outcome: 'Analyse prose and poetry, and write about them with evidence.',
         lessons: [
           'Prose: theme and technique',
           'Poetry: metre, rhyme and imagery',
@@ -4418,6 +4721,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Speaking, Listening and Research',
+        outcome: 'Research a question and present the findings clearly.',
         lessons: [
           'Preparing and delivering a speech',
           'Formal debate',
@@ -4433,6 +4737,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Critical Reading',
+        outcome: 'Read critically — identify argument, bias and implication.',
         lessons: [
           'Analysing a non-fiction argument',
           'Rhetorical devices, and the effect they have',
@@ -4444,6 +4749,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Grammar in Use',
+        outcome: 'Apply grammar accurately in your own extended writing.',
         lessons: [
           'Tense and aspect for precise meaning',
           'Modality and hedging',
@@ -4455,6 +4761,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Style and Syntax',
+        outcome: 'Vary syntax and style deliberately for effect.',
         lessons: [
           'Sentence rhythm and length',
           'Parallel structure',
@@ -4466,6 +4773,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Vocabulary and Semantics',
+        outcome: 'Use vocabulary precisely, with attention to meaning and register.',
         lessons: [
           'Etymology and word history',
           'Nuance and near-synonyms',
@@ -4476,6 +4784,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Writing: Argument and Analysis',
+        outcome: 'Build an argument and analyse a text in writing.',
         lessons: [
           'Constructing a thesis',
           'Marshalling evidence',
@@ -4487,6 +4796,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Writing: Creative and Transactional',
+        outcome: 'Write creatively and transactionally to a brief.',
         lessons: [
           'The craft of the short story',
           'Descriptive and atmospheric writing',
@@ -4498,6 +4808,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Literature',
+        outcome: 'Analyse prose, poetry and drama with textual evidence.',
         lessons: [
           'The novel: structure and theme',
           'Poetry: voice, form and meaning',
@@ -4509,6 +4820,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Speaking, Listening and Enquiry',
+        outcome: 'Speak persuasively, listen critically, and pursue an enquiry.',
         lessons: [
           'Persuasive speaking',
           'Formal debate and cross-examination',
@@ -4524,6 +4836,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Reading: Fiction and Non-Fiction',
+        outcome: 'Read fiction and non-fiction closely, and compare how they work.',
         lessons: [
           'Analytical reading of prose fiction',
           'Reading literary non-fiction',
@@ -4535,6 +4848,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Grammar and Accuracy',
+        outcome: 'Write accurately — grammar, punctuation and agreement under exam conditions.',
         lessons: [
           'Advanced tense and aspect',
           'Modality and stance',
@@ -4546,6 +4860,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Language and Style',
+        outcome: 'Analyse and use literary and rhetorical devices.',
         lessons: [
           'Register and audience',
           'Rhetorical devices in persuasion',
@@ -4557,6 +4872,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Writing: Transactional',
+        outcome: 'Write letters, articles, reports and speeches to form.',
         lessons: [
           'Formal and semi-formal letters',
           'Articles and opinion pieces',
@@ -4567,6 +4883,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Writing: Narrative and Descriptive',
+        outcome: 'Write narrative and descriptive pieces that sustain a reader.',
         lessons: [
           'Narrative structure and pacing',
           'Characterisation through action and speech',
@@ -4578,6 +4895,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Literature: Prose',
+        outcome: 'Analyse prose with structured, evidenced responses.',
         lessons: [
           'Reading a novel closely',
           'Plot, structure and chronology',
@@ -4589,6 +4907,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Literature: Poetry and Drama',
+        outcome: 'Analyse poetry and drama, and write comparatively.',
         lessons: [
           'Poetic form and structure',
           'Imagery, sound and rhythm',
@@ -4600,6 +4919,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Speaking, Listening and Exam Craft',
+        outcome: 'Speak formally, and handle exam-style questions with method.',
         lessons: [
           'The individual presentation',
           'Discussion and response',
@@ -4615,6 +4935,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Reading and Comprehension',
+        outcome: 'Answer any comprehension question type with evidence.',
         lessons: [
           'Unseen prose: a method that works',
           'Unseen poetry: a method that works',
@@ -4626,6 +4947,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Grammar and Accuracy',
+        outcome: 'Write accurately under time pressure.',
         lessons: [
           'Tenses in extended writing',
           'Voice and reported speech',
@@ -4637,6 +4959,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Writing: Transactional',
+        outcome: 'Produce letters, articles, reports and speeches to the board format.',
         lessons: [
           'Letters of complaint, application and request',
           'Articles and reports',
@@ -4648,6 +4971,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Writing: Creative',
+        outcome: 'Write creatively with structure and control.',
         lessons: [
           'Narrative writing under exam conditions',
           'Descriptive writing under exam conditions',
@@ -4658,6 +4982,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Literature: Prose',
+        outcome: 'Write evidenced analytical answers on set prose.',
         lessons: [
           'Studying the set novel',
           'Character and relationships',
@@ -4669,6 +4994,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Literature: Poetry',
+        outcome: 'Analyse poetry — form, imagery and theme.',
         lessons: [
           'Studying the set poems',
           'Form, structure and meaning',
@@ -4680,6 +5006,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Literature: Drama',
+        outcome: 'Analyse drama — character, conflict and structure.',
         lessons: [
           'Studying the set play',
           'Dramatic structure and tension',
@@ -4691,6 +5018,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Preparing for the Board',
+        outcome: 'Handle every board question type with a method and a plan.',
         lessons: [
           'Understanding what the question actually asks',
           'Planning an essay in five minutes',
@@ -4706,6 +5034,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Advanced Reading',
+        outcome: 'Read complex texts critically and evaluate an argument.',
         lessons: [
           'Critical reading of complex prose',
           'Argument, evidence and logical structure',
@@ -4717,6 +5046,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Language and Linguistics',
+        outcome: 'Analyse language itself — register, semantics and change.',
         lessons: [
           'How English changed over time',
           'Varieties of English worldwide',
@@ -4728,6 +5058,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Writing: Academic',
+        outcome: 'Write an academic essay with thesis, evidence and citation.',
         lessons: [
           'The academic essay',
           'Thesis, argument and structure',
@@ -4739,6 +5070,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Writing: Professional and Creative',
+        outcome: 'Write professionally and creatively to a brief.',
         lessons: [
           'Reports, proposals and briefs',
           'Feature writing and journalism',
@@ -4749,6 +5081,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Literature: Prose Fiction',
+        outcome: 'Analyse prose fiction: narrative technique, character and theme.',
         lessons: [
           'The novel as a form',
           'Narrative theory and point of view',
@@ -4760,6 +5093,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Literature: Poetry',
+        outcome: 'Analyse poetry with attention to form and voice.',
         lessons: [
           'Poetic form across the periods',
           'Metre, rhythm and sound in depth',
@@ -4771,6 +5105,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Literature: Drama',
+        outcome: 'Analyse drama on the page and in performance.',
         lessons: [
           'Tragedy as a form',
           'Comedy and satire',
@@ -4782,6 +5117,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Research, Speaking and Independent Study',
+        outcome: 'Plan and carry out independent research, and present it.',
         lessons: [
           'Framing a research question',
           'Gathering and evaluating sources',
@@ -4797,6 +5133,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Reading and Interpretation',
+        outcome: 'Interpret unseen texts, and defend a reading against another.',
         lessons: [
           'Close reading at an advanced level',
           'Ambiguity, irony and the unreliable narrator',
@@ -4808,6 +5145,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Language in Use',
+        outcome: 'Use language precisely and describe how it is working.',
         lessons: [
           'Discourse analysis',
           'Language and power',
@@ -4819,6 +5157,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Writing: The Extended Essay',
+        outcome: 'Plan and write a sustained extended essay.',
         lessons: [
           'Choosing and narrowing a topic',
           'Constructing a sustained argument',
@@ -4830,6 +5169,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Writing: Transactional and Creative',
+        outcome: 'Write transactional and creative pieces to the required form.',
         lessons: [
           'Formal writing for work and study',
           'Persuasive and argumentative writing',
@@ -4840,6 +5180,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Literature: Set Prose',
+        outcome: 'Write examination answers on set prose with evidence.',
         lessons: [
           'Studying the set novel in depth',
           'Structure, chronology and pacing',
@@ -4851,6 +5192,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Literature: Set Poetry',
+        outcome: 'Write examination answers on set poetry with evidence.',
         lessons: [
           'Studying the set poems in depth',
           'Form and meaning in relation',
@@ -4862,6 +5204,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Literature: Set Drama',
+        outcome: 'Write examination answers on set drama with evidence.',
         lessons: [
           'Studying the set play in depth',
           'Dramatic structure and turning points',
@@ -4873,6 +5216,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Preparing for the Final Examination',
+        outcome: 'Enter the final examination with a method for every question type.',
         lessons: [
           'Reading the question precisely',
           'Planning a top-band answer',
@@ -4900,6 +5244,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'The Language of Organic Chemistry',
+        outcome: 'Draw any organic structure, name it by IUPAC rules, and recognise its functional groups.',
         lessons: [
           'Why carbon behaves unlike anything else',
           'Drawing organic structures',
@@ -4911,6 +5256,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'How Electrons Move',
+        outcome: 'Predict where a molecule is electron-rich or electron-poor, and why.',
         lessons: [
           'Bonding, hybridisation and shape',
           'Polarity and electronegativity',
@@ -4922,6 +5268,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Substitution and Elimination',
+        outcome: 'Tell SN1 from SN2 and elimination, and say which one a given case will follow.',
         lessons: [
           'Haloalkanes and their reactivity',
           'The SN2 mechanism',
@@ -4933,6 +5280,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Alcohols, Phenols and Ethers',
+        outcome: 'Predict the reactions of alcohols, phenols and ethers, and explain phenol acidity.',
         lessons: [
           'Preparing alcohols',
           'Reactions of alcohols',
@@ -4943,6 +5291,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Alkenes, Alkynes and Addition',
+        outcome: 'Apply electrophilic addition to alkenes and alkynes, including Markovnikov cases.',
         lessons: [
           'Preparing alkenes',
           'Electrophilic addition',
@@ -4954,6 +5303,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Aromatic Chemistry',
+        outcome: 'Explain aromaticity, and predict where a substituent directs the next one.',
         lessons: [
           'Benzene and aromaticity',
           'Electrophilic aromatic substitution',
@@ -4965,6 +5315,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Carbonyl Chemistry',
+        outcome: 'Handle nucleophilic addition to carbonyls, and rank carboxylic acid strength.',
         lessons: [
           'Aldehydes and ketones: preparation',
           'Nucleophilic addition to the carbonyl',
@@ -4976,6 +5327,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Putting It Together',
+        outcome: 'Plan a multi-step synthesis, and read a mechanism you have never seen before.',
         lessons: [
           'The named reactions worth memorising',
           'Working out a multi-step synthesis',
@@ -4991,6 +5343,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Describing Motion',
+        outcome: 'Read and draw motion graphs, and move between position, velocity and acceleration.',
         lessons: [
           'Position, displacement and distance',
           'Speed, velocity and acceleration',
@@ -5002,6 +5355,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Newton’s Laws',
+        outcome: 'Draw a correct free-body diagram and apply all three of Newton\'s laws.',
         lessons: [
           'Force, and what it really does',
           'The first law and inertia',
@@ -5013,6 +5367,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Friction and Circular Motion',
+        outcome: 'Solve friction and inclined-plane problems, and handle circular motion.',
         lessons: [
           'Static and kinetic friction',
           'The coefficient of friction',
@@ -5024,6 +5379,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Work, Energy and Power',
+        outcome: 'Apply the work–energy theorem, and calculate work, energy and power.',
         lessons: [
           'Work done by a constant force',
           'Work done by a variable force',
@@ -5034,6 +5390,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Momentum and Collisions',
+        outcome: 'Use conservation of momentum and impulse, in elastic and inelastic collisions.',
         lessons: [
           'Linear momentum',
           'Impulse',
@@ -5045,6 +5402,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Rotational Mechanics',
+        outcome: 'Work with torque, moment of inertia and angular momentum.',
         lessons: [
           'Centre of mass',
           'Torque',
@@ -5056,6 +5414,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Gravitation and Oscillation',
+        outcome: 'Apply the law of gravitation to orbits, escape velocity and simple harmonic motion.',
         lessons: [
           'The law of gravitation',
           'Gravitational field and potential',
@@ -5067,6 +5426,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Problem-Solving Craft',
+        outcome: 'Choose the right law for a problem — forces or energy — before starting on it.',
         lessons: [
           'Choosing the right conservation law',
           'When to use energy, and when to use forces',
@@ -5082,6 +5442,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Functions and Limits',
+        outcome: 'State what a limit is, and evaluate one — including where a function is undefined.',
         lessons: [
           'Functions, domain and range',
           'Graphs and transformations',
@@ -5093,6 +5454,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'The Derivative',
+        outcome: 'Differentiate from first principles, and know what the derivative measures.',
         lessons: [
           'Rate of change, and the tangent problem',
           'The derivative from first principles',
@@ -5104,6 +5466,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Differentiating Everything',
+        outcome: 'Differentiate trigonometric, exponential, logarithmic and inverse functions.',
         lessons: [
           'Trigonometric functions',
           'Exponential and logarithmic functions',
@@ -5115,6 +5478,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Applications of the Derivative',
+        outcome: 'Find tangents, stationary points, maxima and minima, and justify which is which.',
         lessons: [
           'Tangents and normals',
           'Increasing, decreasing and stationary points',
@@ -5125,6 +5489,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'The Integral',
+        outcome: 'Integrate by substitution and by parts, and recognise which to reach for.',
         lessons: [
           'Antiderivatives and the indefinite integral',
           'Integration by substitution',
@@ -5136,6 +5501,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'The Definite Integral',
+        outcome: 'Use the fundamental theorem of calculus to find an exact area under a curve.',
         lessons: [
           'Area under a curve, and the Riemann sum',
           'The fundamental theorem of calculus',
@@ -5147,6 +5513,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Differential Equations',
+        outcome: 'Classify and solve a separable differential equation.',
         lessons: [
           'What a differential equation is',
           'Order, degree and general solutions',
@@ -5158,6 +5525,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Calculus in Use',
+        outcome: 'Apply calculus to related rates, motion and linear approximation.',
         lessons: [
           'Related rates',
           'Motion problems with calculus',
@@ -5173,6 +5541,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'From Arithmetic to Algebra',
+        outcome: 'Write an expression from a sentence and substitute values into it confidently.',
         lessons: [
           'Why we use letters for numbers',
           'Writing an expression from words',
@@ -5184,6 +5553,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Linear Equations',
+        outcome: 'Solve linear equations, including with brackets and fractions.',
         lessons: [
           'What an equation actually says',
           'Solving by keeping the balance',
@@ -5195,6 +5565,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Inequalities and Formulae',
+        outcome: 'Solve and graph inequalities, and rearrange a formula for any variable.',
         lessons: [
           'Inequalities and their notation',
           'Solving linear inequalities',
@@ -5206,6 +5577,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Exponents and Polynomials',
+        outcome: 'Apply the exponent laws and add, subtract and multiply polynomials.',
         lessons: [
           'The laws of exponents',
           'Negative and zero exponents',
@@ -5216,6 +5588,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Factorising',
+        outcome: 'Factorise by common factors, by grouping, and by the difference of two squares.',
         lessons: [
           'Common factors',
           'Factorising by grouping',
@@ -5227,6 +5600,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Graphs and Linear Functions',
+        outcome: 'Plot a linear function, and read gradient and intercept off its graph.',
         lessons: [
           'The coordinate plane',
           'Plotting a linear equation',
@@ -5238,6 +5612,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Systems of Equations',
+        outcome: 'Solve simultaneous equations graphically, by substitution and by elimination.',
         lessons: [
           'What simultaneous equations mean',
           'Solving graphically',
@@ -5249,6 +5624,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Ratio, Proportion and Review',
+        outcome: 'Handle ratio, proportion and percentage problems algebraically.',
         lessons: [
           'Ratio and proportion, algebraically',
           'Direct and inverse variation',
@@ -5264,6 +5640,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Quadratic Expressions and Equations',
+        outcome: 'Solve any quadratic and sketch its graph from the roots and the vertex.',
         lessons: [
           'Quadratic expressions and their graphs',
           'Solving by factorisation',
@@ -5275,6 +5652,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Functions',
+        outcome: 'Work with functions, domain, range, composition and inverses.',
         lessons: [
           'What makes a relation a function',
           'Domain, range and notation',
@@ -5286,6 +5664,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Polynomials',
+        outcome: 'Divide polynomials, and use the remainder and factor theorems.',
         lessons: [
           'Degree, and how a polynomial behaves',
           'Division of polynomials',
@@ -5297,6 +5676,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Rational and Radical Expressions',
+        outcome: 'Simplify rational and radical expressions, and solve equations containing them.',
         lessons: [
           'Simplifying rational expressions',
           'Operations with rational expressions',
@@ -5307,6 +5687,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Exponentials and Logarithms',
+        outcome: 'Work with exponentials and logarithms, including growth and decay problems.',
         lessons: [
           'Exponential functions and growth',
           'The number e',
@@ -5318,6 +5699,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Sequences and Series',
+        outcome: 'Find terms and sums of arithmetic and geometric sequences and series.',
         lessons: [
           'Sequences and their notation',
           'Arithmetic sequences and series',
@@ -5329,6 +5711,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Matrices and Systems',
+        outcome: 'Use matrices, determinants and inverses to solve systems of equations.',
         lessons: [
           'Matrices and matrix operations',
           'Determinants',
@@ -5340,6 +5723,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Complex Numbers and Review',
+        outcome: 'Do arithmetic with complex numbers and represent them on the complex plane.',
         lessons: [
           'Why complex numbers had to exist',
           'Arithmetic with complex numbers',
@@ -5355,6 +5739,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Angles and Right Triangles',
+        outcome: 'Work in degrees and radians, and use sine, cosine and tangent in a right triangle.',
         lessons: [
           'Angles, degrees and radians',
           'The right triangle and its ratios',
@@ -5366,6 +5751,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Standard Angles and the Unit Circle',
+        outcome: 'Recall the exact values, and find ratios of any angle from the unit circle.',
         lessons: [
           'Exact values of the standard angles',
           'The unit circle',
@@ -5377,6 +5763,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Graphs of Trigonometric Functions',
+        outcome: 'Sketch and transform the sine, cosine and tangent graphs.',
         lessons: [
           'The sine graph',
           'The cosine graph',
@@ -5388,6 +5775,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Identities',
+        outcome: 'Prove a trigonometric identity rather than only recognising one.',
         lessons: [
           'The Pythagorean identities',
           'Reciprocal and quotient identities',
@@ -5398,6 +5786,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Compound and Multiple Angles',
+        outcome: 'Apply the compound, double and half angle formulae.',
         lessons: [
           'Sum and difference formulae',
           'Double angle formulae',
@@ -5409,6 +5798,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Trigonometric Equations',
+        outcome: 'Solve trigonometric equations, including those needing an identity first.',
         lessons: [
           'Solving a basic equation',
           'Equations with multiple angles',
@@ -5420,6 +5810,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Triangles and Applications',
+        outcome: 'Use the sine and cosine rules to solve any triangle, and find its area.',
         lessons: [
           'The sine rule',
           'The cosine rule',
@@ -5431,6 +5822,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Inverse Functions and Review',
+        outcome: 'Use the inverse trigonometric functions, with their domains and ranges.',
         lessons: [
           'The inverse trigonometric functions',
           'Their domains and ranges',
@@ -5446,6 +5838,7 @@ export const AUTHORED_TITLES: Record<
     modules: [
       {
         title: 'Finding Your Voice',
+        outcome: 'Speak in your own voice, and know what actually holds an audience.',
         lessons: [
           'Speaking well is learnable, not a gift',
           'What makes an audience actually listen',
@@ -5457,6 +5850,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Managing Nerves',
+        outcome: 'Handle nerves with preparation and with techniques that work in the moment.',
         lessons: [
           'What nervousness actually is',
           'Preparation as the cure for fear',
@@ -5468,6 +5862,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Structuring What You Say',
+        outcome: 'Structure a talk around one clear idea, with an opening that earns attention.',
         lessons: [
           'One idea, clearly stated',
           'Openings that earn attention',
@@ -5479,6 +5874,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Delivery',
+        outcome: 'Stand, gesture and make eye contact deliberately rather than by accident.',
         lessons: [
           'Posture, and learning to stand still',
           'Gesture that means something',
@@ -5489,6 +5885,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Persuasion',
+        outcome: 'Build a persuasive case, and present evidence so it lands.',
         lessons: [
           'Knowing what you want them to do',
           'Ethos, pathos and logos',
@@ -5500,6 +5897,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Storytelling',
+        outcome: 'Find the story inside your material and tell it with setup, turn and resolution.',
         lessons: [
           'Why stories are remembered and facts are not',
           'Finding the story inside your material',
@@ -5511,6 +5909,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Speaking in Real Situations',
+        outcome: 'Handle an interview, a viva, and a presentation to a class or a meeting.',
         lessons: [
           'The interview',
           'The viva and the oral exam',
@@ -5522,6 +5921,7 @@ export const AUTHORED_TITLES: Record<
       },
       {
         title: 'Performance and Beyond',
+        outcome: 'Read the room and adapt, use slides without hiding behind them, and hold a position in debate.',
         lessons: [
           'Adapting to the audience in front of you',
           'Using slides without hiding behind them',
