@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import {
-  Calendar, Clock, Users, Video, Loader2, AlertCircle,
+  Calendar, Clock, Users, Video, Loader2, AlertCircle, ClipboardCheck,
   CheckCircle2, XCircle, UserX, ChevronRight, GraduationCap, Sparkles,
   Plus, Edit3, Save, StickyNote, X, CalendarPlus,
   Star, ExternalLink, FolderOpen, MessageCircle, CalendarClock,
@@ -12,6 +12,7 @@ import {
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import { BatchRescheduleModal } from '@/components/dashboard/batch-reschedule-modal';
 import { DesktopClock } from '@/components/dashboard/desktop-clock';
+import MonitoringPanel from '@/components/dashboard/monitoring-panel';
 import { JOIN_OPENS_MINUTES_BEFORE, humanCountdown } from '@/lib/dashboard/join-window';
 import { useLiveJoinWindow } from '@/lib/dashboard/use-join-window';
 import NextClassCard from '@/components/dashboard/next-class-card';
@@ -1860,6 +1861,19 @@ function TeacherDashboardInner() {
 
         {/* Project Reviews — pending submissions across all classes */}
         <ProjectReviewsSection onToast={handleToast} />
+
+        {/* Monitoring — V2 §31-32. Placed above the student list because a
+            teacher checking their own dashboard wants to know how they are
+            doing before they want the roster. */}
+        {user?.id && (
+          <div className="mb-10" id="monitoring">
+            <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-jakarta)' }}>
+              <ClipboardCheck className="w-5 h-5 text-violet-600" />
+              Monitoring
+            </h2>
+            <MonitoringPanel teacherId={user.id} />
+          </div>
+        )}
 
         {/* Students */}
         <div className="mb-10" id="students">

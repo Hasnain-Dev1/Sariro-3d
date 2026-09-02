@@ -8,6 +8,7 @@ import {
   Lock, PlayCircle, Trophy, ArrowRight, X, FolderOpen,
   Search, Download, UserCheck, TrendingUp, Phone, LogIn,
   Calendar, CalendarClock, Rocket, Mail, ChevronRight,
+  ClipboardList,
 } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import { useAuth } from '@/components/auth/auth-provider';
@@ -28,6 +29,7 @@ import {
 import { getTrackName } from '@/lib/dashboard/upsell-engine';
 import StudentNameEditor from '@/components/dashboard/student-name-editor';
 import { TeacherManagementModal } from '@/components/dashboard/teacher-management';
+import MonitoringForm from '@/components/dashboard/monitoring-form';
 import { SellerLeads } from '@/app/dashboard/admin/seller-leads';
 import { TeacherCourseAssignmentModal } from '@/app/dashboard/admin/teacher-course-assignments';
 import { useRealtime } from '@/lib/dashboard/use-realtime';
@@ -1431,6 +1433,23 @@ function AdminDashboardInner() {
   const [rosterCohort, setRosterCohort] = useState<CohortRow | null>(null);
   const [revenue, setRevenue] = useState<RevenueStats | null>(null);
   const [revenueLoading, setRevenueLoading] = useState(true);
+  /** Teacher picker for monitoring (V2 §29). Loaded once; the list is small. */
+  const [teachers, setTeachers] = useState<{ id: string; full_name: string | null; email: string | null }[]>([]);
+  const [monitorTeacherId, setMonitorTeacherId] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .or('role.eq.teacher,is_teacher.eq.true')
+        .order('full_name', { ascending: true });
+      if (!cancelled) setTeachers((data ?? []) as { id: string; full_name: string | null; email: string | null }[]);
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const loadActionQueue = useCallback(async () => {
     setActionQueue(await fetchAdminActionQueue());
@@ -1848,6 +1867,52 @@ function AdminDashboardInner() {
                 <Download className="w-3.5 h-3.5" /> Revenue
               </button>
             </div>
+          </div>
+        </div>
+
+        {/* Monitoring — V2 §29-30.
+            A teacher is picked from the list the admin already loads, so this
+            needs no new query. The observation is written against that teacher;
+            attaching it to a specific class is the next step, once the class
+            picker here can pass a booking id. */}
+        <div className="mb-10" id="monitoring">
+          <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-jakarta)' }}>
+            <ClipboardList className="w-5 h-5 text-violet-600" /> Monitor a class
+          </h2>
+          <div className="card-3d p-5">
+            {teachers.length === 0 ? (
+              <p className="text-sm text-slate-500">No teachers to observe yet.</p>
+            ) : (
+              <>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+                  Teacher
+                </label>
+                <select
+                  value={monitorTeacherId}
+                  onChange={(e) => setMonitorTeacherId(e.target.value)}
+                  className="w-full sm:max-w-sm min-h-[42px] rounded-lg border border-slate-300 px-3 text-sm text-slate-900 bg-white mb-5"
+                  style={{ fontSize: '16px' }}
+                >
+                  <option value="">Choose a teacher…</option>
+                  {teachers.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.full_name || t.email}
+                    </option>
+                  ))}
+                </select>
+
+                {monitorTeacherId && (
+                  <MonitoringForm
+                    teacherId={monitorTeacherId}
+                    teacherName={
+                      teachers.find((t) => t.id === monitorTeacherId)?.full_name ?? undefined
+                    }
+                    onToast={(msg, kind) => handleToast(kind ?? 'success', msg)}
+                    onDone={() => setMonitorTeacherId('')}
+                  />
+                )}
+              </>
+            )}
           </div>
         </div>
 
