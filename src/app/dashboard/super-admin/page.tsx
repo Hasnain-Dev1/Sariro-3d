@@ -13,6 +13,11 @@ import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import SystemHealthPanel from '@/components/dashboard/system-health-panel';
 import AnalyticsPanel from '@/components/dashboard/analytics-panel';
 import DemandPanel from '@/components/dashboard/demand-panel';
+import ExpensesPanel from '@/components/dashboard/expenses-panel';
+import PolicyFlagsPanel from '@/components/dashboard/policy-flags-panel';
+import CreditRequestsPanel from '@/components/dashboard/credit-requests-panel';
+import LowCreditPanel from '@/components/dashboard/low-credit-panel';
+import { Receipt, ShieldAlert, Coins as CoinsIcon } from 'lucide-react';
 import { useAuth } from '@/components/auth/auth-provider';
 import { TRACKS, COURSES, RAZORPAY_LINKS, RAZORPAY_LINKS_PREMIUM } from '@/lib/sariro-data';
 import { createClient } from '@/lib/supabase/client';
@@ -834,6 +839,48 @@ function SuperAdminDashboardInner() {
         <AnalyticsPanel />
         {/* The funnel says how many got through; this says who they were. */}
         <DemandPanel />
+
+        {/* V2 §54 — every HR expense appears here, and this is where they are
+            signed off. canApprove is the only difference from the HR view. */}
+        <section className="mb-10">
+          <div className="flex items-center gap-2.5 mb-4">
+            <Receipt className="w-5 h-5 text-slate-400" />
+            <h2 className="text-lg font-bold text-slate-900">Expenses</h2>
+          </div>
+          <ExpensesPanel canApprove />
+        </section>
+
+        {/* §63 — the students closest to stopping. Credits are what they paid
+            for; running out is the churn event, and it is the only one the
+            system can see coming. */}
+        <section className="mb-10">
+          <div className="flex items-center gap-2.5 mb-4">
+            <CoinsIcon className="w-5 h-5 text-slate-400" />
+            <h2 className="text-lg font-bold text-slate-900">Credits running low</h2>
+          </div>
+          <LowCreditPanel />
+        </section>
+
+        {/* §52 — "Super Admin should see the complete history." Same queue HR
+            works, opened to every decided request rather than the pending few. */}
+        <section className="mb-10">
+          <div className="flex items-center gap-2.5 mb-4">
+            <CoinsIcon className="w-5 h-5 text-slate-400" />
+            <h2 className="text-lg font-bold text-slate-900">Credit requests</h2>
+          </div>
+          <CreditRequestsPanel />
+        </section>
+
+        {/* Attempts to move a learner's conversation off Sariro. This sits high
+            on the page on purpose: it is the thing that, left unseen, quietly
+            takes students out of the company with a departing teacher. */}
+        <section className="mb-10">
+          <div className="flex items-center gap-2.5 mb-4">
+            <ShieldAlert className="w-5 h-5 text-slate-400" />
+            <h2 className="text-lg font-bold text-slate-900">Chat policy</h2>
+          </div>
+          <PolicyFlagsPanel />
+        </section>
 
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-10">
           <StatCard icon={Users} color="bg-blue-100 text-blue-600" value={stats?.totalUsers ?? 0} label="Total users" loading={statsLoading} />

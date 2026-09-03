@@ -21,6 +21,16 @@ export type NotificationType =
   | 'session_cancelled'
   | 'material_posted'
   | 'certificate_ready'
+  /* V2 §75. These are written by database triggers rather than by app code —
+     see scripts/notification-events.sql — because each of their events already
+     happens from several places, and a settlement made by pg_cron on the 5th
+     must notify exactly as one made by a teacher pressing a button. */
+  | 'penalty_generated'
+  | 'settlement_created'
+  | 'monitoring_result'
+  | 'low_credits'
+  | 'credit_request'
+  | 'credit_update'
   | 'system'
   | 'general';
 

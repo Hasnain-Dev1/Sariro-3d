@@ -3,7 +3,7 @@
 -- ============================================================================
 -- Replaces the completion trigger function so that, when a class completes,
 -- a late join (recorded in bookings.teacher_started_at by "Start Class") is
--- penalised: 3–10 min late → −₹100. (>10 min never reaches 'completed' — it is
+-- penalised: 5–10 min late → −₹100. (>10 min never reaches 'completed' — it is
 -- finalised as a no-show with a −₹1000 penalty by the app.)
 --
 -- Idempotent + safe to run more than once. Run AFTER teacher-earnings-autocalc.sql
@@ -54,7 +54,8 @@ begin
   -- Late-join penalty from the recorded teacher start time.
   if new.teacher_started_at is not null and new.slot_start is not null then
     v_late_min := extract(epoch from (new.teacher_started_at - new.slot_start)) / 60.0;
-    if v_late_min > 3 and v_late_min <= 10 then
+    -- §22: five-minute grace (was 3). See scripts/late-join-grace-5min.sql.
+    if v_late_min > 5 and v_late_min <= 10 then
       v_penalty := 100;
       v_penalty_reason := 'Late join (' || round(v_late_min)::text || ' min)';
     end if;

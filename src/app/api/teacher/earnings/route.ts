@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClientHelper, createServiceClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
+import { describeSettlement, isAutoSettleDue } from '@/lib/dashboard/settlement-period';
+import { settleMonthForTeacher } from '@/lib/dashboard/settle-month';
 
 /**
  * SARIRO — /api/teacher/earnings
@@ -24,7 +26,8 @@ export const runtime = 'nodejs';
 
 // Settlement payment pipeline — must match the HR dashboard.
 // not_settled → teacher_settled → admin_settled → processing → paid
-const TEACHER_SETTLED = 'teacher_settled';
+// The stage a fresh settlement enters at lives in lib/dashboard/settle-month.ts,
+// which is the single writer of these rows.
 
 async function getAuthedUserId(): Promise<string | null> {
   try {
@@ -50,10 +53,24 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: 'supabase_not_configured' }, { status: 503 });
   }
 
-  const [earningsRes, settlementsRes, incentivesRes] = await Promise.all([
+  /* §42 — settle the closed month if the 5th has passed and the teacher never
+     did. Done on read as well as from the cron endpoint: a scheduler that is
+     mis-configured, paused or simply not wired yet must not turn into a teacher
+     who never gets paid. settleMonthForTeacher is idempotent, so the two paths
+     racing is harmless. */
+  const cycle = describeSettlement();
+  if (isAutoSettleDue(cycle.settling)) {
+    await settleMonthForTeacher(admin, userId, cycle.settling, { type: 'auto' });
+  }
+
+  const [earningsRes, settlementsRes, incentivesRes, ratesRes, profileRes] = await Promise.all([
     admin.from('teacher_earnings').select('*').eq('teacher_id', userId).order('class_date', { ascending: false }),
     admin.from('teacher_settlements').select('*').eq('teacher_id', userId).order('requested_at', { ascending: false }),
     admin.from('teacher_incentives').select('*').eq('teacher_id', userId).order('requested_at', { ascending: false }),
+    // §35 — the rates come from the same function the earnings trigger reads,
+    // so what a teacher is shown cannot drift from what they are paid.
+    admin.rpc('teacher_pay_rates'),
+    admin.from('profiles').select('teacher_tier').eq('id', userId).maybeSingle(),
   ]);
 
   if (earningsRes.error || settlementsRes.error || incentivesRes.error) {
@@ -66,6 +83,15 @@ export async function GET() {
     earnings: earningsRes.data ?? [],
     settlements: settlementsRes.data ?? [],
     incentives: incentivesRes.data ?? [],
+    // §40-42 — which month is being settled, when it opened, when it settles
+    // itself. Decided on the server so the countdown a teacher sees does not
+    // depend on the clock or timezone of the device they happen to be holding.
+    cycle,
+    // §34-35 — the tier ladder and what each rung actually pays. Null rates
+    // mean scripts/payout-transparency.sql has not been run; the screen then
+    // says so rather than inventing a number.
+    tier: Number(profileRes.data?.teacher_tier ?? 3),
+    rates: ratesRes.error ? null : (ratesRes.data ?? null),
   });
 }
 
@@ -111,61 +137,39 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'supabase_not_configured' }, { status: 503 });
   }
 
-  /* ── action: settle ── */
+  /* ── action: settle ──────────────────────────────────────────────────────
+     §41. Settles the closed month only — never "everything pending". Classes
+     taught this month belong to this month's settlement, which opens on the
+     1st. The old behaviour swept them into the previous month's payout. */
   if (body.action === 'settle') {
-    // Gather this teacher's PENDING, not-yet-settled earnings.
-    const { data: pending, error: pErr } = await admin
-      .from('teacher_earnings')
-      .select('id, net_amount, amount, class_date')
-      .eq('teacher_id', userId)
-      .eq('status', 'pending')
-      .is('settlement_id', null);
+    const { settling, state } = describeSettlement();
 
-    if (pErr) {
-      return NextResponse.json({ ok: false, error: 'fetch_failed', message: pErr.message }, { status: 500 });
-    }
-    if (!pending || pending.length === 0) {
-      return NextResponse.json({ ok: false, error: 'nothing_to_settle' }, { status: 400 });
+    if (state === 'waiting') {
+      return NextResponse.json(
+        { ok: false, error: 'not_open', month: settling.label, opensAt: settling.opensAt },
+        { status: 400 }
+      );
     }
 
-    const total = pending.reduce((sum, e) => sum + Number(e.net_amount ?? e.amount ?? 0), 0);
-    const dates = pending.map((e) => new Date(e.class_date).getTime()).filter((t) => !isNaN(t));
-    const periodStart = dates.length ? new Date(Math.min(...dates)).toISOString() : new Date().toISOString();
-    const periodEnd = dates.length ? new Date(Math.max(...dates)).toISOString() : new Date().toISOString();
+    const res = await settleMonthForTeacher(admin, userId, settling, { type: 'manual' });
 
-    // 1. Create the settlement request.
-    const { data: settlement, error: sErr } = await admin
-      .from('teacher_settlements')
-      .insert({
-        teacher_id: userId,
-        period_start: periodStart,
-        period_end: periodEnd,
-        total_classes: pending.length,
-        total_amount: total,
-        status: 'requested',
-        payment_status: TEACHER_SETTLED,
-        requested_at: new Date().toISOString(),
-      })
-      .select('id')
-      .single();
-
-    if (sErr || !settlement) {
-      return NextResponse.json({ ok: false, error: 'settle_failed', message: sErr?.message }, { status: 500 });
+    if (!res.ok) {
+      return NextResponse.json({ ok: false, error: 'settle_failed', message: res.message }, { status: 500 });
+    }
+    if (res.outcome === 'nothing_to_settle') {
+      return NextResponse.json({ ok: false, error: 'nothing_to_settle', month: settling.label }, { status: 400 });
+    }
+    if (res.outcome === 'already_settled') {
+      return NextResponse.json({ ok: false, error: 'already_settled', month: settling.label }, { status: 409 });
     }
 
-    // 2. Attach those earnings to the settlement + flip to 'settled'.
-    const { error: uErr } = await admin
-      .from('teacher_earnings')
-      .update({ status: 'settled', settlement_id: settlement.id, settled_at: new Date().toISOString() })
-      .in('id', pending.map((e) => e.id));
-
-    if (uErr) {
-      // Best-effort rollback of the settlement row so we don't strand it.
-      await admin.from('teacher_settlements').delete().eq('id', settlement.id);
-      return NextResponse.json({ ok: false, error: 'settle_link_failed', message: uErr.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ ok: true, settlement_id: settlement.id, total, classes: pending.length });
+    return NextResponse.json({
+      ok: true,
+      settlement_id: res.settlementId,
+      total: res.total,
+      classes: res.classes,
+      month: settling.label,
+    });
   }
 
   /* ── action: request_incentive ── */

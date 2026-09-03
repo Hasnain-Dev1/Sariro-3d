@@ -35,6 +35,8 @@ import { HoneypotField } from '@/components/security/honeypot';
 import { getTrackName } from '@/lib/dashboard/upsell-engine';
 import { useRealtime } from '@/lib/dashboard/use-realtime';
 import { TeacherCalendar } from '@/components/dashboard/teacher-calendar';
+import LowCreditPanel from '@/components/dashboard/low-credit-panel';
+import { Coins } from 'lucide-react';
 
 /* ───── Helpers ───── */
 function levelDisplay(level: string): string {
@@ -1874,6 +1876,17 @@ function TeacherDashboardInner() {
             <MonitoringPanel teacherId={user.id} />
           </div>
         )}
+
+        {/* §26 — a student who runs out of credits stops coming, and the
+            teacher is the person placed to notice first. Above the roster
+            because it is the part that needs acting on. */}
+        <div className="mb-10" id="low-credits">
+          <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-jakarta)' }}>
+            <Coins className="w-5 h-5 text-amber-600" />
+            Credits running low
+          </h2>
+          <LowCreditPanel />
+        </div>
 
         {/* Students */}
         <div className="mb-10" id="students">

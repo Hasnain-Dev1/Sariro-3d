@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/auth-provider';
 import { useRealtime } from '@/lib/dashboard/use-realtime';
+import TeacherPayout, { type PayRate } from '@/components/dashboard/teacher-payout';
 
 /* ════════════════════════════════════════════════════════════════════════
    TeacherEarnings — the teacher's work + finance portal.
@@ -29,6 +30,16 @@ interface Earning {
   amount: number | string;
   status: 'pending' | 'settled';
 }
+/** Mirrors describeSettlement() in lib/dashboard/settlement-period.ts. */
+interface CycleInfo {
+  settling: { month: string; label: string; periodStart: string; periodEnd: string; opensAt: string; autoSettlesAt: string };
+  accruing: { month: string; label: string; opensAt: string };
+  state: 'open' | 'auto_due' | 'waiting';
+  daysUntilNextOpens: number;
+  daysUntilAuto: number;
+  headline: string;
+}
+
 interface Settlement {
   id: string;
   total_classes: number;
@@ -58,7 +69,14 @@ export default function TeacherEarnings() {
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [incentives, setIncentives] = useState<Incentive[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'earnings' | 'settlements' | 'incentives'>('earnings');
+  /* §40-42 — the cycle comes from the server. The countdown a teacher reads
+     must not depend on the clock or timezone of the device in their hand. */
+  const [cycle, setCycle] = useState<CycleInfo | null>(null);
+  const [tier, setTier] = useState(3);
+  const [rates, setRates] = useState<PayRate[] | null>(null);
+  /* §33 — "Payout & Earnings" leads, because "what am I earning and why" is
+     the question a teacher opens this section to answer. */
+  const [tab, setTab] = useState<'payout' | 'earnings' | 'settlements' | 'incentives'>('payout');
   const [showSettle, setShowSettle] = useState(false);
   const [showIncentive, setShowIncentive] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -77,6 +95,9 @@ export default function TeacherEarnings() {
         setEarnings(json.earnings ?? []);
         setSettlements(json.settlements ?? []);
         setIncentives(json.incentives ?? []);
+        setCycle(json.cycle ?? null);
+        setTier(Number(json.tier ?? 3));
+        setRates(json.rates ?? null);
       }
     } catch {
       /* keep last state on transient error */
@@ -115,6 +136,44 @@ export default function TeacherEarnings() {
     return { pendingTotal, settledTotal, totalPenalties, totalBonuses, monthTotal, monthClasses, pendingCount };
   }, [earnings]);
 
+  /* ── §43 — what the closed month actually pays ──────────────────────────────
+     Only the classes inside the settling window, matching exactly what the
+     server will bundle. Anything wider would show a teacher one number and pay
+     them another, which §78 exists to prevent. */
+  const settlingTotal = useMemo(() => {
+    const empty = { classes: 0, base: 0, bonus: 0, penalties: 0, net: 0, incentives: 0, final: 0 };
+    if (!cycle) return empty;
+
+    const from = Date.parse(cycle.settling.periodStart);
+    const to = Date.parse(cycle.settling.periodEnd);
+    const totals = { ...empty };
+
+    for (const e of earnings) {
+      if (e.status !== 'pending') continue;
+      const t = Date.parse(e.class_date);
+      // Everything up to the end of the window — the same rule the server
+      // settles by, including stragglers from earlier months. If this filtered
+      // more tightly, the teacher would be shown one figure and paid another.
+      if (!Number.isFinite(t) || t >= to) continue;
+      totals.classes += 1;
+      totals.base += n(e.base_amount);
+      totals.bonus += n(e.bonus_amount);
+      totals.penalties += n(e.penalty_amount);
+      totals.net += n(e.net_amount ?? e.amount);
+    }
+
+    // §44 — only approved incentives move the final figure.
+    for (const i of incentives) {
+      if (i.status !== 'approved') continue;
+      const t = Date.parse(i.requested_at ?? '');
+      if (!Number.isFinite(t) || t < from || t >= to) continue;
+      totals.incentives += n(i.amount);
+    }
+
+    totals.final = totals.net + totals.incentives;
+    return totals;
+  }, [earnings, incentives, cycle]);
+
   /* ── Actions ── */
   const doSettle = async () => {
     setBusy(true);
@@ -125,8 +184,20 @@ export default function TeacherEarnings() {
         body: JSON.stringify({ action: 'settle' }),
       });
       const json = await res.json();
-      if (json.ok) { flash(`Settlement requested — ${inr(json.total)} across ${json.classes} classes.`); setShowSettle(false); loadAll(); }
-      else flash(json.error === 'nothing_to_settle' ? 'No pending earnings to settle.' : 'Could not create settlement.', 'error');
+      if (json.ok) {
+        flash(`${json.month} settled — ${inr(json.total)} across ${json.classes} classes.`);
+        setShowSettle(false);
+        loadAll();
+      } else if (json.error === 'nothing_to_settle') {
+        flash(`Nothing to settle for ${json.month ?? 'that month'}.`, 'error');
+      } else if (json.error === 'already_settled') {
+        flash(`${json.month} has already been settled.`, 'error');
+        loadAll();
+      } else if (json.error === 'not_open') {
+        flash(`${json.month} opens for settlement on the 1st.`, 'error');
+      } else {
+        flash('Could not create settlement.', 'error');
+      }
     } catch { flash('Network error. Try again.', 'error'); }
     finally { setBusy(false); }
   };
@@ -184,30 +255,100 @@ export default function TeacherEarnings() {
           >
             <Gift className="w-4 h-4" /> Request Incentive
           </button>
+          {/* §41 — a closed month opens on the 1st. Before that there is
+              nothing to press, and the button says which month and when
+              rather than simply refusing. */}
           <button
             onClick={() => {
-              // Settlement cycle closes on the 30th (teacher's local date).
-              if (new Date().getDate() < 30) {
-                flash("Settlement opens on the 30th — this cycle hasn't ended yet.", 'error');
+              if (cycle?.state === 'waiting') {
+                flash(`${cycle.settling.label} opens for settlement on the 1st.`, 'error');
                 return;
               }
               setShowSettle(true);
             }}
-            disabled={pendingCount === 0}
-            title={new Date().getDate() < 30 ? 'Available from the 30th' : undefined}
-            className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-colors min-h-[40px] disabled:cursor-not-allowed text-white ${
-              new Date().getDate() < 30 ? 'bg-slate-400 hover:bg-slate-400' : 'bg-green-600 hover:bg-green-700'
-            } disabled:bg-slate-300`}
+            disabled={settlingTotal.classes === 0 || cycle?.state === 'waiting'}
+            title={cycle ? cycle.headline : undefined}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-colors min-h-[40px] disabled:cursor-not-allowed text-white bg-green-600 hover:bg-green-700 disabled:bg-slate-300"
             style={{ fontFamily: 'var(--font-grotesk)' }}
           >
-            <Receipt className="w-4 h-4" /> Settle{pendingCount > 0 ? ` (${inr(pendingTotal)})` : ''}
+            <Receipt className="w-4 h-4" />
+            Settle {cycle ? cycle.settling.label.split(' ')[0] : ''}
+            {settlingTotal.classes > 0 ? ` (${inr(settlingTotal.net)})` : ''}
           </button>
         </div>
       </div>
 
+      {/* ── §40-43 — the settlement period, stated rather than implied ────────
+          A teacher should never have to work out which month they are being
+          paid for, or wonder why this month's classes are not in the total.
+          Both months are named; the closed one is broken down line by line. */}
+      {cycle && (
+        <div
+          className="rounded-xl border p-4 mb-5"
+          style={
+            cycle.state === 'auto_due'
+              ? { borderColor: '#FCD34D', background: '#FFFBEB' }
+              : { borderColor: '#E2E8F0', background: '#F8FAFC' }
+          }
+        >
+          <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                Settlement period
+              </p>
+              <p className="text-[15px] font-extrabold text-slate-900 mt-0.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                {cycle.settling.label}
+              </p>
+            </div>
+            <p className="text-[12.5px] text-slate-600 max-w-[40ch] text-right leading-[1.5]">
+              {cycle.headline}
+              {cycle.state !== 'auto_due' && (
+                <>
+                  <br />
+                  <span className="text-slate-400">
+                    Settles itself on the 5th at 10:00 IST if you don&rsquo;t.
+                  </span>
+                </>
+              )}
+            </p>
+          </div>
+
+          {/* §43 — every line that makes up the final figure. */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+            {([
+              ['Classes', String(settlingTotal.classes)],
+              ['Class earnings', inr(settlingTotal.base + settlingTotal.bonus)],
+              ['Penalties', settlingTotal.penalties > 0 ? `−${inr(settlingTotal.penalties)}` : '₹0'],
+              ['Incentives', settlingTotal.incentives > 0 ? `+${inr(settlingTotal.incentives)}` : '₹0'],
+            ] as const).map(([label, value]) => (
+              <div key={label}>
+                <p className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-400">{label}</p>
+                <p className="text-[15px] font-extrabold text-slate-900 tabular-nums mt-0.5">{value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex items-baseline justify-between gap-3 pt-3 border-t border-slate-200">
+            <p className="text-[12.5px] font-semibold uppercase tracking-wider text-slate-500">
+              Final payable
+            </p>
+            <p className="text-2xl font-extrabold text-slate-900 tabular-nums leading-none">
+              {inr(settlingTotal.final)}
+            </p>
+          </div>
+
+          {/* The month still running. Naming it is what stops "where did my
+              classes from this week go?". */}
+          <p className="text-[12px] text-slate-500 mt-3 pt-3 border-t border-slate-200">
+            {cycle.accruing.label} is still running — it opens for settlement in{' '}
+            {cycle.daysUntilNextOpens} {cycle.daysUntilNextOpens === 1 ? 'day' : 'days'}.
+          </p>
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="flex items-center gap-1 mb-4 border-b border-slate-200">
-        {([['earnings', 'Earnings History'], ['settlements', 'Settlements'], ['incentives', 'Incentives']] as const).map(([key, label]) => (
+        {([['payout', 'Payout & Earnings'], ['earnings', 'Earnings History'], ['settlements', 'Settlements'], ['incentives', 'Incentives']] as const).map(([key, label]) => (
           <button
             key={key}
             onClick={() => setTab(key)}
@@ -225,6 +366,19 @@ export default function TeacherEarnings() {
         <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-slate-300" /></div>
       ) : (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+          {/* §33-39. Given the same data the rest of this component uses, so
+              the payout screen and the settlement banner cannot disagree. */}
+          {tab === 'payout' && (
+            <TeacherPayout
+              earnings={earnings}
+              incentives={incentives}
+              tier={tier}
+              rates={rates}
+              periodLabel={cycle ? cycle.settling.label : 'This period'}
+              periodStart={cycle?.settling.periodStart ?? '1970-01-01T00:00:00.000Z'}
+              periodEnd={cycle?.settling.periodEnd ?? new Date().toISOString()}
+            />
+          )}
           {tab === 'earnings' && <EarningsTable earnings={earnings} />}
           {tab === 'settlements' && <SettlementsList settlements={settlements} />}
           {tab === 'incentives' && <IncentivesList incentives={incentives} />}

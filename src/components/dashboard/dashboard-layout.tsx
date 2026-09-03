@@ -8,7 +8,7 @@ import {
   Menu, X, LayoutDashboard, BookOpen, Calendar, Settings,
   LogOut, ChevronRight, Bell, Home as HomeIcon, GraduationCap,
   Users, ShieldCheck, DollarSign, ScrollText, ArrowLeft,
-  Loader2, AlertTriangle, Trophy, LifeBuoy, HelpCircle,
+  Loader2, AlertTriangle, Trophy, LifeBuoy, HelpCircle, MessageSquare,
 } from 'lucide-react';
 import { useAuth, getRole, type UserRole } from '@/components/auth/auth-provider';
 import { BRAND } from '@/lib/sariro-data';
@@ -18,6 +18,7 @@ import {
   fetchNotifications, fetchUnreadCount, markAsRead, markAllAsRead,
   formatRelativeTime, type NotificationRow,
 } from '@/lib/dashboard/notifications-data';
+import PriorityMessageAlert from '@/components/dashboard/priority-message-alert';
 
 /* ════════════════════════════════════════════════════════════════
    DashboardLayout
@@ -35,8 +36,13 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
 }
 
+/* One address for the in-house chat, in every role's sidebar. Declared once so
+   the six lists below cannot drift apart on where Messages lives. */
+const MESSAGES_NAV: NavItem = { href: '/dashboard/messages', label: 'Messages', icon: MessageSquare };
+
 const STUDENT_NAV: NavItem[] = [
   { href: '/dashboard/student', label: 'Home', icon: LayoutDashboard },
+  MESSAGES_NAV,
   { href: '/dashboard/student/lessons', label: 'My Lessons', icon: BookOpen },
   { href: '/dashboard/student/leaderboard', label: 'Leaderboard', icon: Trophy },
   { href: '/dashboard/student/support', label: 'Support', icon: LifeBuoy },
@@ -47,6 +53,7 @@ const STUDENT_NAV: NavItem[] = [
 
 const TEACHER_NAV: NavItem[] = [
   { href: '/dashboard/teacher', label: 'Home', icon: LayoutDashboard },
+  MESSAGES_NAV,
   { href: '/dashboard/teacher/lessons', label: 'Lessons', icon: BookOpen },
   { href: '/dashboard/teacher/doubt-sessions', label: 'Doubt Sessions', icon: HelpCircle },
   { href: '/dashboard/teacher/leaderboard', label: 'Leaderboard', icon: Trophy },
@@ -57,18 +64,21 @@ const TEACHER_NAV: NavItem[] = [
 
 const SELLER_NAV: NavItem[] = [
   { href: '/dashboard/seller', label: 'Home', icon: LayoutDashboard },
+  MESSAGES_NAV,
   { href: '/courses', label: 'Browse Courses', icon: BookOpen },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 const HR_NAV: NavItem[] = [
   { href: '/dashboard/hr', label: 'Home', icon: LayoutDashboard },
+  MESSAGES_NAV,
   { href: '/dashboard/hr/doubt-sessions', label: 'Doubt Sessions', icon: HelpCircle },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 const ADMIN_NAV: NavItem[] = [
   { href: '/dashboard/admin', label: 'Home', icon: LayoutDashboard },
+  MESSAGES_NAV,
   { href: '/dashboard/admin/lessons', label: 'Lesson Pages', icon: BookOpen },
   { href: '/dashboard/admin/support', label: 'Support Inbox', icon: LifeBuoy },
   { href: '/dashboard/admin#cohorts', label: 'Courses', icon: GraduationCap },
@@ -78,6 +88,7 @@ const ADMIN_NAV: NavItem[] = [
 
 const SUPER_ADMIN_NAV: NavItem[] = [
   { href: '/dashboard/super-admin', label: 'Home', icon: LayoutDashboard },
+  MESSAGES_NAV,
   { href: '/dashboard/super-admin/parents', label: 'Parent Access', icon: Users },
   { href: '/dashboard/super-admin/teacher-pay', label: 'Tiers & Pay', icon: DollarSign },
   { href: '/dashboard/super-admin#cohorts', label: 'Courses', icon: GraduationCap },
@@ -533,10 +544,14 @@ function DashboardSidebar({ role, pathname }: { role: UserRole; pathname: string
 
 /* ───── Mobile bottom nav ───── */
 function MobileBottomNav({ role, pathname }: { role: UserRole; pathname: string }) {
-  const items = getNavForRole(role).slice(0, 4); // max 4 items on mobile
+  /* Five, not four. There is no mobile drawer behind this bar — whatever is not
+     here is unreachable on a phone — so adding Messages at position two must not
+     be paid for by pushing Support or Leaderboard off the end. Five columns on a
+     360px screen is still a 72px target. */
+  const items = getNavForRole(role).slice(0, 5);
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 pb-[env(safe-area-inset-bottom)]">
-      <div className="grid grid-cols-4 h-16">
+      <div className={`grid h-16 ${items.length >= 5 ? 'grid-cols-5' : items.length === 4 ? 'grid-cols-4' : 'grid-cols-3'}`}>
         {items.map((item) => {
           const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href.split('#')[0]) && item.href.split('#')[0] !== '/dashboard');
           const Icon = item.icon;
@@ -636,6 +651,9 @@ function AuthGate({ children }: { children: ReactNode }) {
         </main>
       </div>
       <MobileBottomNav role={role} pathname={pathname} />
+      {/* A message from HR, an admin or the super-admin interrupts rather than
+          waiting to be noticed. Inside AuthGate, so it never runs signed out. */}
+      <PriorityMessageAlert />
     </div>
   );
 }

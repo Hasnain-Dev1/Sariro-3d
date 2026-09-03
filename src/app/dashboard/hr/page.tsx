@@ -14,6 +14,9 @@ import { TRACKS } from '@/lib/sariro-data';
 import SalesEarningsReport from '@/components/dashboard/sales-earnings-report';
 import MyTeachers from '@/components/dashboard/my-teachers';
 import PaymentRequestsPanel from '@/components/dashboard/payment-requests-panel';
+import ExpensesPanel from '@/components/dashboard/expenses-panel';
+import PolicyFlagsPanel from '@/components/dashboard/policy-flags-panel';
+import CreditRequestsPanel from '@/components/dashboard/credit-requests-panel';
 
 export default function HRDashboard() {
   const { user, loading } = useAuth();
@@ -24,7 +27,7 @@ export default function HRDashboard() {
   const [teachers, setTeachers] = useState<TeacherProfile[]>([]);
   const [students, setStudents] = useState<StudentProfile[]>([]);
   const [loadingData, setLoadingData] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'my_teachers' | 'incentives' | 'payments' | 'credits' | 'tiers' | 'enquiries'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'my_teachers' | 'incentives' | 'payments' | 'credits' | 'tiers' | 'enquiries' | 'expenses' | 'policy' | 'credit_requests'>('overview');
   const { toast, showToast } = useDashboardToast();
   const [showSales, setShowSales] = useState(false);
 
@@ -187,10 +190,13 @@ export default function HRDashboard() {
               { key: 'payments', label: 'Payments' },
               { key: 'credits', label: 'Credits & Tiers' },
               { key: 'enquiries', label: 'Enquiries' },
+              { key: 'credit_requests', label: 'Credit Requests' },
+              { key: 'expenses', label: 'Expenses' },
+              { key: 'policy', label: 'Chat Policy' },
             ].map((tab) => (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key as 'overview' | 'my_teachers' | 'incentives' | 'payments' | 'credits' | 'enquiries')}
+                onClick={() => setActiveTab(tab.key as 'overview' | 'my_teachers' | 'incentives' | 'payments' | 'credits' | 'enquiries' | 'expenses' | 'policy' | 'credit_requests')}
                 className={`min-h-[44px] px-4 text-xs font-bold transition-colors touch-manipulation whitespace-nowrap ${
                   activeTab === tab.key
                     ? 'text-violet-700 border-b-2 border-violet-600'
@@ -216,6 +222,18 @@ export default function HRDashboard() {
                   Contact messages and bank-transfer requests. Before this they
                   were discarded by the form that collected them. */}
               {activeTab === 'enquiries' && <PaymentRequestsPanel />}
+
+              {/* HR records what was spent; signing it off is super_admin's,
+                  so no approve buttons here. V2 §53. */}
+              {activeTab === 'expenses' && <ExpensesPanel />}
+
+              {/* §50-52. Credits do not move until a decision is made here,
+                  and the decision writes the transaction that moves them. */}
+              {activeTab === 'credit_requests' && <CreditRequestsPanel />}
+
+              {/* Attempts to move a learner's conversation off the platform.
+                  HR owns the conversation that follows a repeat. */}
+              {activeTab === 'policy' && <PolicyFlagsPanel />}
 
               {/* ─── OVERVIEW TAB ─── */}
               {activeTab === 'overview' && (

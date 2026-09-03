@@ -68,7 +68,9 @@ begin
   -- Late-join penalty (unchanged).
   if new.teacher_started_at is not null and new.slot_start is not null then
     v_late_min := extract(epoch from (new.teacher_started_at - new.slot_start)) / 60.0;
-    if v_late_min > 3 and v_late_min <= 10 then
+    -- §22: the grace is five minutes. Was 3, which fined teachers for something
+    -- the written policy allows — see scripts/late-join-grace-5min.sql.
+    if v_late_min > 5 and v_late_min <= 10 then
       v_penalty := 100;
       v_penalty_reason := 'Late join (' || round(v_late_min)::text || ' min)';
     end if;

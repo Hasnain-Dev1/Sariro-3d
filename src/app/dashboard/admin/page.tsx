@@ -38,6 +38,8 @@ import ManageBatchesModal from '@/components/dashboard/manage-batches';
 import { BatchRescheduleModal } from '@/components/dashboard/batch-reschedule-modal';
 import MyTeachers from '@/components/dashboard/my-teachers';
 import { describeChoice } from '@/lib/demo/learner-choice';
+import PolicyFlagsPanel from '@/components/dashboard/policy-flags-panel';
+import { ShieldAlert } from 'lucide-react';
 
 /* ───── Helpers ───── */
 function levelDisplay(level: string): string {
@@ -2007,6 +2009,16 @@ function AdminDashboardInner() {
 
       {/* Demo Class Requests — from the welcome popup + /welcome form */}
       <DemoRequestsSection onToast={(msg, kind) => handleToast(kind ?? 'success', msg)} />
+
+      {/* Attempts to move a learner's conversation off Sariro. Admins see the
+          same queue as HR — whoever gets there first should be able to act. */}
+      <div className="max-w-7xl mx-auto mb-10">
+        <div className="flex items-center gap-2.5 mb-4">
+          <ShieldAlert className="w-5 h-5 text-slate-400" />
+          <h2 className="text-lg font-bold text-slate-900">Chat policy</h2>
+        </div>
+        <PolicyFlagsPanel />
+      </div>
 
       {/* Toast */}
       <AnimatePresence>
