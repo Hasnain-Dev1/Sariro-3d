@@ -9,6 +9,8 @@ import {
   formatRupees,
   type ExpenseSummary,
 } from '@/lib/dashboard/expenses';
+import DateRangeFilter from '@/components/dashboard/date-range-filter';
+import { resolveRange, dateInRange, type RangePreset, type DateRange } from '@/lib/dashboard/date-ranges';
 
 /**
  * SARIRO — the expense book
@@ -46,6 +48,9 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: 'pe
 export default function ExpensesPanel({ canApprove = false }: { canApprove?: boolean }) {
   const [data, setData] = useState<ExpenseSummary | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
+  /* §73 — the same range definition every other dashboard uses, so two screens
+     cannot disagree about what "this month" means. */
+  const [range, setRange] = useState<DateRange>(() => resolveRange('all'));
   const [busyId, setBusyId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -122,8 +127,27 @@ export default function ExpensesPanel({ canApprove = false }: { canApprove?: boo
     );
   }
 
+  const visible = data.expenses.filter((e) => dateInRange(e.spent_on, range));
+  const rangeTotal = visible
+    .filter((e) => e.status === 'approved')
+    .reduce((t, e) => t + Number(e.amount), 0);
+
   return (
     <div className="space-y-5">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <DateRangeFilter
+          value={range}
+          onChange={(preset: RangePreset, custom) => setRange(resolveRange(preset, custom))}
+        />
+        {range.preset !== 'all' && (
+          <p className="text-[13px] text-slate-600">
+            <span className="font-bold">{formatRupees(rangeTotal)}</span> approved in{' '}
+            {range.label.toLowerCase()} · {visible.length}{' '}
+            {visible.length === 1 ? 'item' : 'items'}
+          </p>
+        )}
+      </div>
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Stat label="This month" value={formatRupees(data.thisMonthTotal)} />
         <Stat label="Approved, all time" value={formatRupees(data.approvedTotal)} />
@@ -211,14 +235,18 @@ export default function ExpensesPanel({ canApprove = false }: { canApprove?: boo
       )}
 
       {/* ── the book ───────────────────────────────────────────────────── */}
-      {data.expenses.length === 0 ? (
+      {visible.length === 0 ? (
         <div className="card card--feature text-center py-10">
           <Receipt className="w-8 h-8 mx-auto text-slate-300 mb-3" />
-          <p className="text-[14px] text-slate-600">Nothing recorded yet.</p>
+          <p className="text-[14px] text-slate-600">
+            {data.expenses.length === 0
+              ? 'Nothing recorded yet.'
+              : `Nothing in ${range.label.toLowerCase()}.`}
+          </p>
         </div>
       ) : (
         <div className="space-y-2">
-          {data.expenses.map((e) => {
+          {visible.map((e) => {
             const tone =
               e.status === 'approved'
                 ? { fg: '#15803D', bg: '#15803D14' }

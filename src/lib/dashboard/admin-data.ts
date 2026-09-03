@@ -248,6 +248,13 @@ export async function findGatheringCohort(
 ): Promise<string | null> {
   try {
     const supabase = createClient();
+    /* V2 §7 — a batch that is already full is not a candidate.
+       This used to select max_capacity and then ignore it, returning the oldest
+       gathering cohort however many students were already in it. A 1:4 batch
+       could take a fifth; a 1:1 cohort could take a second, so a parent paying
+       the one-to-one premium got a shared class and nothing said so.
+       The database refuses it too (scripts/cohort-capacity.sql); this is what
+       stops an admin meeting that refusal as an error. */
     const { data, error } = await supabase
       .from('cohorts')
       .select('id, max_capacity')
@@ -256,11 +263,32 @@ export async function findGatheringCohort(
       .eq('ratio', ratio)
       .eq('status', 'gathering')
       .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle();
+      .limit(20);
 
     if (error) throw error;
-    return data?.id ?? null;
+
+    const candidates = (data ?? []) as { id: string; max_capacity: number | null }[];
+    if (candidates.length === 0) return null;
+
+    const { data: taken } = await supabase
+      .from('enrollments')
+      .select('cohort_id')
+      .in('cohort_id', candidates.map((c) => c.id))
+      .neq('status', 'dropped');
+
+    const seatsUsed = new Map<string, number>();
+    for (const row of (taken ?? []) as { cohort_id: string }[]) {
+      seatsUsed.set(row.cohort_id, (seatsUsed.get(row.cohort_id) ?? 0) + 1);
+    }
+
+    const fallbackSeats = ratio === '1:1' ? 1 : 4;
+    // Oldest first, so a half-full batch fills before a new one opens.
+    const withRoom = candidates.find((c) => {
+      const seats = c.max_capacity && c.max_capacity > 0 ? c.max_capacity : fallbackSeats;
+      return (seatsUsed.get(c.id) ?? 0) < seats;
+    });
+
+    return withRoom?.id ?? null;
   } catch (err) {
     console.warn('[admin] findGatheringCohort error:', err);
     return null;

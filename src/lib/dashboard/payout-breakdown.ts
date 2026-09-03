@@ -27,6 +27,16 @@ export interface EarningRow {
   id: string;
   class_date: string;
   lesson_name: string | null;
+  /**
+   * §23, §82 — which class and which batch this rupee came from.
+   *
+   * Joined on by the earnings API. "Penalty ₹300" with no class attached is
+   * the thing §23 exists to forbid: a teacher who cannot see which class caused
+   * a deduction has no way to tell a mistake from a rule, and will assume the
+   * former.
+   */
+  batch_code?: string | null;
+  module_num?: string | null;
   ratio: string | null;
   base_amount: number | string;
   bonus_amount: number | string;

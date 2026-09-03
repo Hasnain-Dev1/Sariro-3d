@@ -70,15 +70,24 @@ function Drillable({
         </p>
       </button>
 
+      {/* §23, §82 — every rupee names its class and its batch. A deduction a
+          teacher cannot trace is one they will treat as an error. */}
       {open && (
-        <ul className="pb-2.5 pl-7 space-y-1">
+        <ul className="pb-2.5 pl-7 space-y-1.5">
           {rows.map((r) => (
-            <li key={r.id} className="flex items-baseline justify-between gap-3 text-[12.5px]">
-              <span className="text-slate-600 min-w-0 truncate">
-                {shortDate(r.class_date)} · {r.lesson_name || 'Class'}
-                {r.penalty_reason && negative ? ` · ${r.penalty_reason}` : ''}
-              </span>
-              <span className="text-slate-500 tabular-nums shrink-0">
+            <li key={r.id} className="flex items-start justify-between gap-3 text-[12.5px]">
+              <div className="min-w-0">
+                <p className="text-slate-700">
+                  {shortDate(r.class_date)}
+                  {r.batch_code ? ` · ${r.batch_code}` : ''}
+                  {r.module_num ? ` · Module ${r.module_num}` : ''}
+                </p>
+                <p className="text-slate-500 truncate">{r.lesson_name || 'Class'}</p>
+                {negative && r.penalty_reason && (
+                  <p style={{ color: '#B91C1C' }}>{r.penalty_reason}</p>
+                )}
+              </div>
+              <span className="text-slate-600 tabular-nums shrink-0 font-semibold">
                 {negative ? inr(n(r.penalty_amount)) : inr(n(r.base_amount) + n(r.bonus_amount))}
               </span>
             </li>

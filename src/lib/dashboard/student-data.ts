@@ -90,9 +90,18 @@ function normalizeLevel(level: string): CourseLevel {
   return 'beginner';
 }
 
-/** Builds the unique progress key used to dedupe lesson completion rows. */
-export function progressKey(moduleNum: string, lessonName: string): string {
-  return `${moduleNum}::${lessonName}`;
+/**
+ * Builds the unique progress key used to dedupe lesson completion rows.
+ *
+ * The module number is normalised before it goes in. The syllabus writes
+ * zero-padded strings ('01') and the database columns are not all text, so a
+ * row can come back as 1 and never match '01'. The symptom would be a student
+ * completing lessons and their progress bar never moving — silent, and
+ * indistinguishable from the automation not running at all.
+ */
+export function progressKey(moduleNum: string | number, lessonName: string): string {
+  const normalised = String(moduleNum ?? '').replace(/^0+/, '') || '0';
+  return `${normalised}::${lessonName}`;
 }
 
 /* ─────────────────────── fetchLessonProgress ───────────────────────
@@ -208,6 +217,45 @@ export function calculateProgress(
 /* ─────────────────────── getCourseSyllabus ───────────────────────
    Looks up the matching COURSE entry by trackId + level. Falls back to
    the first course in the same track if an exact match isn't found. */
+/**
+ * Where a lesson sits in the whole course — "Lesson 7 of 96".
+ *
+ * The syllabus is a list of modules each holding lessons, so "module 02" says
+ * nothing about how far through a learner is. This flattens it and finds the
+ * position, which is the number a student and their teacher actually use when
+ * talking to each other.
+ *
+ * Returns null when the pair is not in the syllabus, so callers can say
+ * "Review session" honestly rather than printing a made-up number.
+ */
+export function lessonNumberOf(
+  track: string,
+  level: CourseLevel | string,
+  moduleNum: string | number | null | undefined,
+  lessonName: string | null | undefined
+): { number: number; total: number } | null {
+  if (moduleNum === null || moduleNum === undefined || !lessonName) return null;
+  const syllabus = getCourseSyllabus(track, level);
+
+  /* The syllabus writes module numbers as zero-padded strings ('01') while
+     bookings.module_num comes back as a number. A direct comparison silently
+     never matches, and the symptom is every lesson quietly falling back to
+     "Review session" — which is exactly what was on screen. */
+  const sameModule = (a: string | number, b: string | number) =>
+    String(a).replace(/^0+/, '') === String(b).replace(/^0+/, '');
+
+  let position = 0;
+  let found = -1;
+  for (const mod of syllabus.modules) {
+    for (const lesson of mod.lessons) {
+      const name = typeof lesson === 'string' ? lesson : lesson.name;
+      position += 1;
+      if (found < 0 && sameModule(mod.num, moduleNum) && name === lessonName) found = position;
+    }
+  }
+  return found > 0 ? { number: found, total: position } : null;
+}
+
 export function getCourseSyllabus(track: string, level: CourseLevel | string): CourseSyllabus {
   const normalizedLevel = normalizeLevel(level);
   const trackName = TRACKS.find((t) => t.id === track)?.name ?? track;

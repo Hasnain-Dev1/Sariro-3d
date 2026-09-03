@@ -29,8 +29,10 @@ import {
 import {
   fetchLessonProgress, markLessonComplete, unmarkLesson,
   calculateProgress, getCourseSyllabus, dropCourse, fetchCohortMaterials,
+  lessonNumberOf,
   type LessonProgressRow,
 } from '@/lib/dashboard/student-data';
+import RewardsPanel from '@/components/dashboard/rewards-panel';
 import {
   fetchMyCredits, fetchMyCreditTransactions,
   formatCreditAmount, formatTransactionType, formatTransactionTime,
@@ -742,6 +744,9 @@ function ClassNotesSection({
         {pastBookings.map((booking) => {
           const cohort = cohorts[booking.cohort_id];
           const date = new Date(booking.slot_start);
+          const lessonPos = cohort
+            ? lessonNumberOf(cohort.track, cohort.level, booking.module_num, booking.lesson_name)
+            : null;
           return (
             <Link
               key={booking.id}
@@ -754,9 +759,20 @@ function ClassNotesSection({
                     <span className="text-xs font-bold text-slate-400" style={{ fontFamily: 'var(--font-grotesk)' }}>
                       {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     </span>
-                    {booking.module_num && (
+                    {/* The lesson's place in the course, then its module.
+                        This badge used to read "L{module_num}", which showed
+                        the MODULE number under a lesson label — so module 02
+                        appeared as "L02" whether it was the third lesson or the
+                        thirtieth. The number a student and teacher actually say
+                        to each other is the position across the whole course. */}
+                    {lessonPos && (
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                        L{booking.module_num}
+                        Lesson {lessonPos.number}
+                      </span>
+                    )}
+                    {booking.module_num && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                        Module {booking.module_num}
                       </span>
                     )}
                     {booking.status === 'completed' && (
@@ -1224,6 +1240,16 @@ function StudentDashboardInner() {
 
             {/* Class Notes & Projects (Capstone system — links to submission page) */}
             <ClassNotesSection pastBookings={pastBookings} cohorts={cohorts} timezone={userTimezone} />
+
+            {/* §56-57 — points earned by turning up, spent on cosmetics.
+                Below the work, above the browsing: it is a reason to come back,
+                not the reason they are here. */}
+            <div>
+              <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-jakarta)' }}>
+                <Sparkles className="w-5 h-5 text-violet-600" /> Points &amp; Rewards
+              </h2>
+              <RewardsPanel />
+            </div>
 
             {/* Classmates (v2 — only rendered when peers exist) */}
             <ClassmatesSection classmates={classmates} />

@@ -78,9 +78,45 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: 'fetch_failed', message: msg }, { status: 500 });
   }
 
+  /* §23, §82 — "Never show only 'Penalty ₹300'. Show the exact source."
+     An earning row knows its booking but not its batch, so a teacher looking at
+     a deduction could not tell which class it came from. Joined here rather
+     than in the client so every consumer of this endpoint gets the same. */
+  const earningRows = (earningsRes.data ?? []) as Record<string, unknown>[];
+  const bookingIds = [...new Set(earningRows.map((e) => e.booking_id).filter(Boolean) as string[])];
+
+  let enriched = earningRows;
+  if (bookingIds.length) {
+    const { data: bookings } = await admin
+      .from('bookings')
+      .select('id, cohort_id, slot_start, module_num, lesson_name')
+      .in('id', bookingIds);
+    const bookingById = new Map(((bookings ?? []) as Record<string, unknown>[]).map((b) => [b.id as string, b]));
+
+    const cohortIds = [...new Set(((bookings ?? []) as Record<string, unknown>[]).map((b) => b.cohort_id).filter(Boolean) as string[])];
+    const { data: cohorts } = cohortIds.length
+      ? await admin.from('cohorts').select('id, batch_code, track, level, ratio').in('id', cohortIds)
+      : { data: [] };
+    const cohortById = new Map(((cohorts ?? []) as Record<string, unknown>[]).map((c) => [c.id as string, c]));
+
+    enriched = earningRows.map((e) => {
+      const b = e.booking_id ? bookingById.get(e.booking_id as string) : null;
+      const c = b?.cohort_id ? cohortById.get(b.cohort_id as string) : null;
+      return {
+        ...e,
+        batch_code: (c?.batch_code as string) ?? null,
+        cohort_id: (b?.cohort_id as string) ?? null,
+        module_num: (b?.module_num as string) ?? null,
+        // The earning carries its own lesson_name; the booking's is fresher
+        // once lesson identity has been stamped, so it wins when present.
+        lesson_name: (b?.lesson_name as string) ?? (e.lesson_name as string) ?? null,
+      };
+    });
+  }
+
   return NextResponse.json({
     ok: true,
-    earnings: earningsRes.data ?? [],
+    earnings: enriched,
     settlements: settlementsRes.data ?? [],
     incentives: incentivesRes.data ?? [],
     // §40-42 — which month is being settled, when it opened, when it settles

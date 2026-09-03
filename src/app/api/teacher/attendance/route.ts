@@ -316,6 +316,8 @@ export async function POST(req: NextRequest) {
   }
 
   const { moduleNum, lessonName } = lessons[lessonIndex];
+  /** 1-based, and the number a teacher and a student both refer to. */
+  const lessonNumber = lessonIndex + 1;
 
   // ── Service-role insert into lesson_progress (bypasses RLS) ─────────
   // The teacher can't directly write to a student-owned lesson_progress
@@ -331,6 +333,18 @@ export async function POST(req: NextRequest) {
       reason: 'service_role_unavailable',
     });
   }
+
+  /* Stamp the lesson onto the booking itself.
+     Until now this identity was worked out here, used once and discarded, which
+     is why every booking in the database had module_num and lesson_name NULL —
+     the teacher could not see which lesson a class was, and the student's
+     Class Notes list had no name to show and said "Review Lesson" for all of
+     them. Best-effort: a failure here must not stop attendance being recorded. */
+  await admin
+    .from('bookings')
+    .update({ module_num: moduleNum, lesson_name: lessonName })
+    .eq('id', bookingId)
+    .is('module_num', null);
 
   const { error: lpErr } = await admin.from('lesson_progress').insert({
     enrollment_id: enrollmentRow.id,
@@ -348,6 +362,7 @@ export async function POST(req: NextRequest) {
         idempotent: true,
         moduleNum,
         lessonName,
+        lessonNumber,
         lessonIndex,
       });
     }
@@ -371,6 +386,7 @@ export async function POST(req: NextRequest) {
     lessonMarked: true,
     moduleNum,
     lessonName,
+    lessonNumber,
     lessonIndex,
     syllabusLength: lessons.length,
   });

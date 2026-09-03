@@ -334,16 +334,29 @@ function BookingCard({
           )
         )}
 
-        {/* Students + Reschedule buttons — available for all bookings */}
-        {onManage && (
-          <button
-            onClick={() => onManage(booking)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition-colors min-h-[40px]"
-            style={{ fontFamily: 'var(--font-grotesk)' }}
-          >
-            <Users className="w-3.5 h-3.5" /> Students
-          </button>
-        )}
+        {/* The way into the attendance panel.
+            It used to say "Students" with a roster icon, which is what the panel
+            contains rather than what a teacher came to do — so the dashboard
+            appeared to have no way to mark attendance at all. It is the same
+            panel; it now says what it is for, and turns amber once the class has
+            ended and attendance is still outstanding (V2 §15). */}
+        {onManage && (() => {
+          const needsAttendance = classEnded && !booking.attendance_finalized_at;
+          return (
+            <button
+              onClick={() => onManage(booking)}
+              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-colors min-h-[40px] ${
+                needsAttendance
+                  ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-sm'
+                  : 'bg-blue-50 hover:bg-blue-100 text-blue-700'
+              }`}
+              style={{ fontFamily: 'var(--font-grotesk)' }}
+            >
+              <ClipboardCheck className="w-3.5 h-3.5" />
+              {needsAttendance ? 'Mark Attendance' : 'Attendance & Students'}
+            </button>
+          );
+        })()}
         {onReschedule && booking.status === 'scheduled' && (
           <button
             onClick={() => onReschedule(booking)}
@@ -545,6 +558,9 @@ function SessionDetailsModal({
   const [recordingDraft, setRecordingDraft] = useState('');
   const [savingRecording, setSavingRecording] = useState(false);
   const [finalizedAt, setFinalizedAt] = useState<string | null>(null);
+  /* What happened to the lesson when attendance was marked. A toast vanishes;
+     this stays until the teacher closes the class. */
+  const [lessonNote, setLessonNote] = useState<{ text: string; kind: 'ok' | 'warn' } | null>(null);
 
   useEffect(() => {
     if (!booking) return;
@@ -556,6 +572,7 @@ function SessionDetailsModal({
       setActiveTab('roster');
       setRecordingDraft(booking.recording_url ?? '');
       setFinalizedAt(booking.attendance_finalized_at ?? null);
+      setLessonNote(null);
     });
     fetchSessionStudents(booking.id).then(rows => {
       if (cancelled) return;
@@ -577,7 +594,21 @@ function SessionDetailsModal({
     setAttBusy(prev => ({ ...prev, [studentId]: false }));
     if (res.success) {
       setRoster(prev => prev.map(r => r.user_id === studentId ? { ...r, attendance_status: status } : r));
-      onToast(`Marked ${status}`, 'success');
+      /* Say what actually happened. The lesson advancing is the part that moves
+         the student's progress bar, and it used to fail silently behind a
+         cheerful "Marked present" — so a teacher had no way to know the child's
+         progress had not moved. */
+      if (res.lessonWarning) {
+        setLessonNote({ text: res.lessonWarning, kind: 'warn' });
+        onToast('Attendance saved — but the lesson did not advance', 'error');
+      } else if (res.lessonMarked) {
+        const which = res.lessonNumber ? `Lesson ${res.lessonNumber}` : 'The lesson';
+        setLessonNote({ text: `${which} marked complete${res.lessonName ? ` — ${res.lessonName}` : ''}.`, kind: 'ok' });
+        onToast(`Marked ${status} · ${which} complete`, 'success');
+      } else {
+        setLessonNote(null);
+        onToast(`Marked ${status}`, 'success');
+      }
     } else {
       onToast(res.error || 'Failed to update attendance', 'error');
     }
@@ -799,6 +830,34 @@ function SessionDetailsModal({
             </div>
           ) : (
             <div className="space-y-4">
+              {/* Which lesson this class is. Previously nowhere on the screen,
+                  so a teacher had to count sessions to know where they were. */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                  This class
+                </p>
+                <p className="text-sm font-bold text-slate-900 mt-0.5" style={{ fontFamily: 'var(--font-jakarta)' }}>
+                  {booking.lesson_name
+                    ? `${booking.module_num ? `Module ${booking.module_num} · ` : ''}${booking.lesson_name}`
+                    : 'Lesson not set yet — it is assigned when you mark the first student.'}
+                </p>
+              </div>
+
+              {/* What happened to the lesson on the last mark. A toast is gone
+                  in three seconds; this is the part a teacher needs to act on. */}
+              {lessonNote && (
+                <div
+                  className="rounded-xl border px-4 py-3 text-[13px] leading-[1.55]"
+                  style={
+                    lessonNote.kind === 'warn'
+                      ? { borderColor: '#FCA5A5', background: '#FEF2F2', color: '#991B1B' }
+                      : { borderColor: '#A7F3D0', background: '#ECFDF5', color: '#065F46' }
+                  }
+                >
+                  {lessonNote.text}
+                </div>
+              )}
+
               {roster.map(student => {
                 const displayName = student.student_name || student.student_email || 'Unknown student';
                 const total = student.total_lessons || 0;

@@ -44,6 +44,16 @@ export interface TeacherBookingRow {
    */
   recording_url: string | null;
   attendance_finalized_at: string | null;
+  /**
+   * Which lesson this class is.
+   *
+   * Bookings created through createBooking() carry these already; those created
+   * by the batch scheduler did not, which is why every booking in production
+   * had them NULL and no screen could name the lesson. Marking attendance now
+   * stamps them, so they fill in as classes are taught.
+   */
+  module_num: string | null;
+  lesson_name: string | null;
 }
 
 export interface TeacherStudentRow {
@@ -221,6 +231,8 @@ export async function fetchTeacherBookings(filter: 'upcoming' | 'past' | 'all' =
         // select('*') already returns these; they just were not mapped through.
         recording_url: (b.recording_url as string) ?? null,
         attendance_finalized_at: (b.attendance_finalized_at as string) ?? null,
+        module_num: (b.module_num as string) ?? null,
+        lesson_name: (b.lesson_name as string) ?? null,
       };
     });
   } catch (err) {
@@ -442,11 +454,55 @@ export async function fetchSessionStudents(bookingId: string): Promise<SessionSt
    complete for the student. The automation runs server-side via
    /api/teacher/attendance so the service-role client can write to
    lesson_progress (RLS would block teacher → student writes). */
+export interface MarkAttendanceResult {
+  success: boolean;
+  error?: string;
+  /** Whether the student's lesson progress advanced. */
+  lessonMarked?: boolean;
+  /** 1-based lesson number across the course, for the teacher to refer to. */
+  lessonNumber?: number;
+  lessonName?: string;
+  /** Set when attendance saved but the lesson did NOT advance, and why. */
+  lessonWarning?: string;
+}
+
+/**
+ * Why the lesson did not advance, said to the person rather than to the log.
+ *
+ * Each of these was previously a silent `ok: true` — attendance saved, nothing
+ * else happened, nobody told. They are all things somebody can act on, which is
+ * exactly why they should be visible.
+ */
+function explainLessonSkip(reason?: string): string | undefined {
+  switch (reason) {
+    case 'status_not_progress_eligible':
+      return undefined; // Absent or excused: not advancing is correct.
+    case 'enrollment_not_found':
+      return 'Attendance saved, but this student has no active enrolment in this batch — their progress did not move. Ask an admin to check the enrolment.';
+    case 'no_syllabus':
+      return 'Attendance saved, but this course has no syllabus loaded, so there is no lesson to mark.';
+    case 'lesson_index_out_of_syllabus':
+    case 'beyond_syllabus':
+      return 'Attendance saved. This class is past the last lesson in the syllabus, so there was no lesson to mark complete.';
+    case 'booking_not_in_cohort':
+      return 'Attendance saved, but this class is not in its batch schedule, so the lesson could not be identified.';
+    case 'cohort_not_found':
+      return 'Attendance saved, but this class has no batch attached — progress did not move.';
+    case 'service_role_unavailable':
+    case 'lesson_progress_insert_failed':
+      return 'Attendance saved, but the lesson could not be marked complete. Please tell an admin.';
+    default:
+      return reason
+        ? 'Attendance saved, but the lesson did not advance. Please tell an admin.'
+        : undefined;
+  }
+}
+
 export async function markAttendance(
   bookingId: string,
   studentId: string,
   status: 'present' | 'absent' | 'late' | 'excused' | 'unknown'
-): Promise<{ success: boolean; error?: string; lessonMarked?: boolean; lessonName?: string }> {
+): Promise<MarkAttendanceResult> {
   if (!bookingId || !studentId) {
     return { success: false, error: 'Missing required fields' };
   }
@@ -463,6 +519,7 @@ export async function markAttendance(
       lessonMarked?: boolean;
       lessonName?: string;
       moduleNum?: string;
+      lessonNumber?: number;
       reason?: string;
     };
     if (!res.ok || !json.ok) {
@@ -471,7 +528,13 @@ export async function markAttendance(
     return {
       success: true,
       lessonMarked: json.lessonMarked,
+      lessonNumber: json.lessonNumber,
       lessonName: json.lessonName ? `${json.moduleNum ?? ''} · ${json.lessonName}`.trim() : undefined,
+      // The reason the lesson did not advance, in words. Previously the API
+      // returned this and nothing showed it — a teacher marked a student
+      // present, saw a success message, and the student's progress never
+      // moved. A silent automation failure is worse than a loud one.
+      lessonWarning: json.lessonMarked === false ? explainLessonSkip(json.reason) : undefined,
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
