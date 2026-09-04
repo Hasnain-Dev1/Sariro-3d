@@ -113,6 +113,38 @@ export default function ScheduleBatchModal({
     [teachers, trainedTeacherIds]
   );
 
+  /* §10 — how busy each teacher already is, shown BEFORE one is chosen.
+     Conflicts were already refused at submit, which is correct and far too
+     late: an admin picked a name with no idea whether that teacher had two
+     classes a week or eleven, built a whole schedule, and only then found out. */
+  const [workload, setWorkload] = useState<Map<string, { upcoming: number; batches: number; students: number; nextSevenDays: number }>>(new Map());
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/admin/teacher-workload', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
+        });
+        const json = await res.json();
+        if (cancelled || !json.ok) return;
+        setWorkload(new Map((json.workload as { teacher_id: string; upcoming: number; batches: number; students: number; nextSevenDays: number }[])
+          .map((w) => [w.teacher_id, w])));
+      } catch {
+        // Workload is guidance, not a gate. Its absence must not stop anyone
+        // scheduling a class.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open]);
+
+  /** "4 classes · 2 batches · 6 students · 3 this week" */
+  const workloadLabel = (id: string): string => {
+    const w = workload.get(id);
+    if (!w) return 'no classes scheduled';
+    return `${w.upcoming} ${w.upcoming === 1 ? 'class' : 'classes'} · ${w.batches} ${w.batches === 1 ? 'batch' : 'batches'} · ${w.students} ${w.students === 1 ? 'student' : 'students'}${w.nextSevenDays > 0 ? ` · ${w.nextSevenDays} this week` : ''}`;
+  };
+
   // Clear a chosen teacher if they're no longer eligible for the new batch.
   useEffect(() => {
     if (teacherId && trainedTeacherIds && !trainedTeacherIds.has(teacherId)) {
@@ -225,8 +257,22 @@ export default function ScheduleBatchModal({
           <Field label="Teacher">
             <select value={teacherId} onChange={(e) => setTeacherId(e.target.value)} className={selectCls}>
               <option value="">Select teacher…</option>
-              {teachers.map((t) => <option key={t.id} value={t.id}>{t.full_name || 'Unnamed'}{t.timezone ? ` · ${t.timezone}` : ''}</option>)}
+              {/* §10 — the workload sits in the option itself, so it is read at
+                  the moment of choosing rather than found out at submit. */}
+              {visibleTeachers.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.full_name || 'Unnamed'} — {workloadLabel(t.id)}
+                </option>
+              ))}
             </select>
+            {teacherId && (
+              <p className="text-[11.5px] text-slate-500 mt-1 leading-[1.5]">
+                {teachers.find((t) => t.id === teacherId)?.timezone
+                  ? `${teachers.find((t) => t.id === teacherId)!.timezone} · `
+                  : ''}
+                Currently {workloadLabel(teacherId)}.
+              </p>
+            )}
           </Field>
           <Field label="Batch (cohort)">
             <select value={cohortId} onChange={(e) => setCohortId(e.target.value)} className={selectCls}>

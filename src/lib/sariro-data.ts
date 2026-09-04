@@ -34,7 +34,20 @@ export const BRAND = {
    * and arriving with the question already typed is most of the value.
    */
   whatsapp: "916295461132",
-  location: "San Francisco · Remote-first · Worldwide",
+  /**
+   * Where the company actually is.
+   *
+   * This read "San Francisco · Remote-first · Worldwide" — a template default
+   * that survived into production. SARIRO PVT. LTD. is registered in Bankura,
+   * West Bengal (CIN U85499WR2026PTC296357), and the site shows a +91 number
+   * beside it. With a GSTIN now issued and payments being taken, a claimed US
+   * head office is a misrepresentation rather than a stale line of copy.
+   *
+   * Kept general rather than naming the registered office: the teaching is
+   * genuinely remote and worldwide, and the full address belongs on the invoice
+   * (lib/invoice/company.ts), which is where a customer needs it.
+   */
+  location: "India · Remote-first · Worldwide",
 };
 
 /* ---------- Razorpay payment links ----------

@@ -3,6 +3,7 @@ import { createServerClientHelper, createServiceClient } from '@/lib/supabase/se
 import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import { getCourseSyllabus } from '@/lib/dashboard/student-data';
+import { recordAdminAction } from '@/lib/audit/log';
 
 /**
  * Grant class credits for an enrollment (idempotent per enrollment). Credits are
@@ -100,6 +101,23 @@ export async function POST(req: NextRequest) {
     message: `An admin enrolled you in ${body.track} (${body.level}, ${body.ratio}). Check your dashboard for your cohort.`,
     link: '/dashboard/student',
   }).then(() => {}, () => {});
+
+  /* §9, §76. A manual enrolment bypasses payment, so of everything in the
+     product this is the action most in need of a name attached to it. */
+  await recordAdminAction(admin, {
+    adminId: userId,
+    action: 'student_enrolled',
+    targetType: 'user',
+    targetId: body.userId,
+    metadata: {
+      enrollment_id: enrollment?.id ?? null,
+      cohort_id: body.cohortId,
+      track: body.track,
+      level: body.level,
+      ratio: body.ratio,
+      manual: true,
+    },
+  });
 
   return NextResponse.json({ ok: true, enrollment_id: enrollment?.id });
 }

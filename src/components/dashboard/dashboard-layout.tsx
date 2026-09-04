@@ -19,6 +19,7 @@ import {
   formatRelativeTime, type NotificationRow,
 } from '@/lib/dashboard/notifications-data';
 import PriorityMessageAlert from '@/components/dashboard/priority-message-alert';
+import RewardTheme from '@/components/dashboard/reward-theme';
 
 /* ════════════════════════════════════════════════════════════════
    DashboardLayout
@@ -656,6 +657,10 @@ function AuthGate({ children }: { children: ReactNode }) {
       {/* A message from HR, an admin or the super-admin interrupts rather than
           waiting to be noticed. Inside AuthGate, so it never runs signed out. */}
       <PriorityMessageAlert />
+      {/* §57 — puts an equipped cosmetic on the screen. Without this, spending
+          points changed a balance and nothing else, which teaches a child the
+          points are pretend. */}
+      {role === 'student' && <RewardTheme />}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import { generateOccurrences } from '@/lib/dashboard/schedule-generation';
 import { getCourseSyllabus } from '@/lib/dashboard/student-data';
+import { recordAdminAction } from '@/lib/audit/log';
 
 /**
  * SARIRO — POST /api/admin/schedule/manage  (admin/super-admin only)
@@ -143,6 +144,8 @@ export async function POST(req: NextRequest) {
   const admin = createServiceClient();
   const userId = await requireAdmin(admin);
   if (!userId) return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
+  /** Who is doing this. §76 — every audit entry names a person. */
+  const adminId = userId;
 
   const rl = rateLimit({ key: `schedule-manage:${userId}`, limit: 40, windowMs: 60_000 });
   if (!rl.ok) return rateLimitedResponse(rl.retryAfterMs, 'Too many requests.');
@@ -174,6 +177,13 @@ export async function POST(req: NextRequest) {
       const { count } = await admin.from('bookings').select('id', { count: 'exact', head: true })
         .eq('schedule_id', body.scheduleId).eq('status', 'scheduled').gt('slot_start', nowIso);
       if ((count ?? 0) === 0) await appendMakeups(admin, body.scheduleId, 8);
+
+      await recordAdminAction(admin, {
+        adminId, action: 'batch_teacher_changed',
+        targetType: 'cohort_schedule', targetId: body.scheduleId,
+        metadata: { new_teacher_id: body.teacherId },
+      });
+
       return NextResponse.json({ ok: true });
     }
 
@@ -188,6 +198,12 @@ export async function POST(req: NextRequest) {
       if (toCancel?.length) {
         await admin.from('bookings').update({ status: 'cancelled', cancel_actor_role: 'admin', cancel_type: 'admin', pay_status: 'zero', cancelled_at: nowIso }).in('id', toCancel.map((b) => b.id));
       }
+      await recordAdminAction(admin, {
+        adminId, action: 'batch_teacher_changed',
+        targetType: 'cohort_schedule', targetId: body.scheduleId,
+        metadata: { new_teacher_id: null, cancelled_classes: toCancel?.length ?? 0, note: 'teacher removed, batch paused' },
+      });
+
       return NextResponse.json({ ok: true, cancelled: toCancel?.length ?? 0 });
     }
 
@@ -208,6 +224,12 @@ export async function POST(req: NextRequest) {
         await admin.from('bookings').update({ status: 'cancelled' }).in('id', toCancel!.map((b) => b.id));
         await appendMakeups(admin, body.scheduleId, n);  // preserve paid count
       }
+      await recordAdminAction(admin, {
+        adminId, action: 'batch_paused',
+        targetType: 'cohort_schedule', targetId: body.scheduleId,
+        metadata: { pause_start: body.pauseStart, pause_end: body.pauseEnd, reason: body.reason ?? null, cancelled_classes: n },
+      });
+
       return NextResponse.json({ ok: true, cancelled: n, appended: n });
     }
 
@@ -217,6 +239,13 @@ export async function POST(req: NextRequest) {
         schedule_id: body.scheduleId, scope: 'student', student_id: body.studentId,
         pause_start: body.pauseStart, pause_end: body.pauseEnd, reason: body.reason ?? null,
       });
+
+      await recordAdminAction(admin, {
+        adminId, action: 'student_paused',
+        targetType: 'user', targetId: body.studentId,
+        metadata: { schedule_id: body.scheduleId, pause_start: body.pauseStart, pause_end: body.pauseEnd, reason: body.reason ?? null },
+      });
+
       return NextResponse.json({ ok: true });
     }
 
@@ -230,6 +259,16 @@ export async function POST(req: NextRequest) {
         await grantEnrollmentCredits(admin, { userId: body.studentId, enrollmentId: existing.id, track: cohort?.track ?? null, level: cohort?.level ?? null, grantedBy: userId });
         // Catch the kid up to wherever the batch is (unlock prior lessons).
         await backfillLessonProgressToBatch(admin, { cohortId: body.cohortId, enrollmentId: existing.id, track: cohort?.track ?? null, level: cohort?.level ?? null });
+
+        await recordAdminAction(admin, {
+          adminId, action: 'student_added_to_batch',
+          targetType: 'user', targetId: body.studentId,
+          metadata: {
+            cohort_id: body.cohortId, enrollment_id: existing.id,
+            previous_status: existing.status, new_status: 'active', reactivated: true,
+          },
+        });
+
         return NextResponse.json({ ok: true, reactivated: true });
       }
       const { data: enrollment, error: e2 } = await admin.from('enrollments').insert({
@@ -244,6 +283,16 @@ export async function POST(req: NextRequest) {
         await grantEnrollmentCredits(admin, { userId: body.studentId, enrollmentId: enrollment.id, track: cohort?.track ?? null, level: cohort?.level ?? null, grantedBy: userId });
         await backfillLessonProgressToBatch(admin, { cohortId: body.cohortId, enrollmentId: enrollment.id, track: cohort?.track ?? null, level: cohort?.level ?? null });
       }
+
+      await recordAdminAction(admin, {
+        adminId, action: 'student_added_to_batch',
+        targetType: 'user', targetId: body.studentId,
+        metadata: {
+          cohort_id: body.cohortId, enrollment_id: enrollment?.id ?? null,
+          track: cohort?.track ?? null, level: cohort?.level ?? null,
+        },
+      });
+
       return NextResponse.json({ ok: true });
     }
 
@@ -251,6 +300,16 @@ export async function POST(req: NextRequest) {
       if (!body.cohortId || !body.studentId) return NextResponse.json({ ok: false, error: 'missing_params' }, { status: 400 });
       const { error: e3 } = await admin.from('enrollments').update({ status: 'dropped' }).eq('cohort_id', body.cohortId).eq('user_id', body.studentId);
       if (e3) return NextResponse.json({ ok: false, error: 'remove_failed', message: e3.message }, { status: 500 });
+
+      /* §9, §76. Taking a child out of a batch was previously silent. When a
+         parent asks why it happened, the answer should be a row rather than
+         somebody's recollection. */
+      await recordAdminAction(admin, {
+        adminId, action: 'student_removed_from_batch',
+        targetType: 'user', targetId: body.studentId,
+        metadata: { cohort_id: body.cohortId, previous_status: 'active', new_status: 'dropped' },
+      });
+
       return NextResponse.json({ ok: true });
     }
 

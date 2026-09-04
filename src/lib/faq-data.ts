@@ -167,7 +167,7 @@ export const FAQ_KNOWLEDGE_BASE: FaqEntry[] = [
     id: 'pricing-refund',
     question: 'What is your refund policy?',
     answer:
-      '14-day money-back guarantee on every enrollment — no questions, no friction. If you start a cohort and it\'s not the right fit within the first 14 days, email support@sariro.com for a full refund. After 14 days, refunds are pro-rated based on sessions attended. School Pro packages have a separate refund clause in the contract.',
+      '14-day money-back guarantee on every enrollment — no questions, no friction. If you start a cohort and it\'s not the right fit within the first 14 days, email support@sariro.com for a full refund. After 14 days, refunds are pro-rated based on sessions attended.',
     category: 'pricing',
     keywords: ['refund', 'money back', 'cancel', 'guarantee', 'return'],
     priority: 8,
@@ -182,34 +182,24 @@ export const FAQ_KNOWLEDGE_BASE: FaqEntry[] = [
     priority: 6,
   },
 
-  // ===== SCHOOLS =====
-  {
-    id: 'schools-visit',
-    question: 'Can Sariro come to my school?',
-    answer:
-      'Yes. We partner with schools and districts to deliver AI curriculum on campus. Options range from single workshops (1-2 days) to full-semester AI labs (12-16 weeks). We handle curriculum, teacher training, and ongoing mentor support. Email schools@sariro.com to start a conversation.',
-    category: 'schools',
-    keywords: ['school', 'campus', 'visit', 'partner', 'district', 'workshop', 'on site', 'class'],
-    priority: 9,
-  },
-  {
-    id: 'schools-teacher-training',
-    question: 'Do you train teachers?',
-    answer:
-      'Yes — teacher training is included in every School Pro package. We train up to 10 of your staff on the Sariro teaching method, our curriculum framework, and how to run live AI labs. Training is 2 full days (in-person or remote) plus ongoing monthly check-ins. Many schools say the teacher training alone was worth the entire package.',
-    category: 'schools',
-    keywords: ['teacher', 'training', 'staff', 'faculty', 'pd', 'professional development', 'train'],
-    priority: 8,
-  },
-  {
-    id: 'schools-standards',
-    question: 'Is the curriculum aligned to educational standards?',
-    answer:
-      "Yes. Sariro's school curriculum is aligned to CSTA (Computer Science Teachers Association) standards and IB (International Baccalaureate) framework. We provide full alignment documentation for your administration. We can also map to state-specific standards (e.g., California CS K-12) on request.",
-    category: 'schools',
-    keywords: ['csta', 'ib', 'standards', 'aligned', 'curriculum', 'accreditation', 'state standards'],
-    priority: 7,
-  },
+  /* ===== SCHOOLS =====
+     Removed 4 Sep 2026, with the Schools route itself.
+
+     These three answers described a product that is not in the catalogue and
+     made claims nobody could stand behind: a "School Pro package" that does
+     not exist, teacher training specifics (up to 10 staff, 2 full days),
+     alignment to CSTA and the IB framework with "full alignment
+     documentation", an offer to map to California CS K-12, and a contact
+     address at schools@sariro.com.
+
+     One of them also carried an invented testimonial — "Many schools say the
+     teacher training alone was worth the entire package".
+
+     A parent or a head teacher reading those would have been reading fiction,
+     and the FAQ is exactly where somebody goes to check whether a claim is
+     real. They are in git history and can come back the day the product does,
+     with numbers that are true.
+     ===== */
 
   // ===== AUTH =====
   {
