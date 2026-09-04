@@ -40,6 +40,9 @@ import MyTeachers from '@/components/dashboard/my-teachers';
 import { describeChoice } from '@/lib/demo/learner-choice';
 import PolicyFlagsPanel from '@/components/dashboard/policy-flags-panel';
 import CreateCourseModal from '@/components/dashboard/create-course-modal';
+import {
+  COURSE_FAMILIES, CODING_LEVELS, optionsFor, gradesFor, type CourseFamily,
+} from '@/lib/dashboard/course-options';
 import { ShieldAlert } from 'lucide-react';
 
 /* ───── Helpers ───── */
@@ -1001,8 +1004,9 @@ function ManualEnrollModal({
   const [students, setStudents] = useState<UserRow[]>([]);
   const [studentsLoading, setStudentsLoading] = useState(true);
   const [selectedUserId, setSelectedUserId] = useState('');
+  const [family, setFamily] = useState<CourseFamily>('coding');
   const [track, setTrack] = useState<string>(TRACKS[0]?.id ?? 'web');
-  const [level, setLevel] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
+  const [level, setLevel] = useState<string>('beginner');
   const [ratio, setRatio] = useState<'1:1' | '1:4'>('1:4');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1054,6 +1058,11 @@ function ManualEnrollModal({
   const handleSubmit = async () => {
     if (!selectedUserId) {
       setError('Please select a student.');
+      return;
+    }
+    if (!level) {
+      // A school subject with no grade chosen would enrol them into nothing.
+      setError('Pick a grade for this subject.');
       return;
     }
     setSubmitting(true);
@@ -1133,45 +1142,99 @@ function ManualEnrollModal({
                 </select>
               </div>
 
-              {/* Track selector (10 options) */}
+              {/* §8 — the same catalogue New Course creates from.
+                  This offered coding tracks and three levels while New Course
+                  could create school and focus courses, so a Mathematics Grade 7
+                  batch could exist with no way to put a student in it. Both now
+                  read lib/dashboard/course-options.ts. */}
               <div>
                 <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                  Track
-                </label>
-                <select
-                  value={track}
-                  onChange={(e) => setTrack(e.target.value)}
-                  disabled={submitting}
-                  className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                  style={{ fontFamily: 'var(--font-inter)' }}
-                >
-                  {TRACKS.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Level buttons */}
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                  Level
+                  Course type
                 </label>
                 <div className="grid grid-cols-3 gap-2">
-                  {(['beginner', 'intermediate', 'advanced'] as const).map((l) => (
+                  {COURSE_FAMILIES.map((f) => (
                     <button
-                      key={l}
-                      onClick={() => setLevel(l)}
+                      key={f.key}
+                      onClick={() => {
+                        setFamily(f.key);
+                        const first = optionsFor(f.key)[0]?.value ?? '';
+                        setTrack(first);
+                        setLevel(f.key === 'focus' ? 'focus' : f.key === 'coding' ? 'beginner' : '');
+                      }}
                       disabled={submitting}
-                      className={`h-11 rounded-xl text-sm font-bold border-2 transition-colors disabled:opacity-50 ${
-                        level === l ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                      className={`h-11 rounded-xl text-xs font-bold border-2 transition-colors disabled:opacity-50 ${
+                        family === f.key ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'
                       }`}
                       style={{ fontFamily: 'var(--font-grotesk)' }}
                     >
-                      {levelDisplay(l)}
+                      {f.label}
                     </button>
                   ))}
                 </div>
               </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                  {family === 'coding' ? 'Track' : family === 'school' ? 'Subject' : 'Focus course'}
+                </label>
+                <select
+                  value={track}
+                  onChange={(e) => { setTrack(e.target.value); if (family === 'school') setLevel(''); }}
+                  disabled={submitting}
+                  className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  style={{ fontFamily: 'var(--font-inter)' }}
+                >
+                  {optionsFor(family).map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {family === 'coding' && (
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                    Level
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {CODING_LEVELS.map((l) => (
+                      <button
+                        key={l}
+                        onClick={() => setLevel(l)}
+                        disabled={submitting}
+                        className={`h-11 rounded-xl text-sm font-bold border-2 capitalize transition-colors disabled:opacity-50 ${
+                          level === l ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                        }`}
+                        style={{ fontFamily: 'var(--font-grotesk)' }}
+                      >
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {family === 'school' && (
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                    Grade
+                  </label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {gradesFor(family, track).map((g) => (
+                      <button
+                        key={g}
+                        onClick={() => setLevel(`grade-${g}`)}
+                        disabled={submitting}
+                        className={`h-11 rounded-xl text-sm font-bold border-2 transition-colors disabled:opacity-50 ${
+                          level === `grade-${g}` ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                        }`}
+                        style={{ fontFamily: 'var(--font-grotesk)' }}
+                      >
+                        {g}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Ratio buttons */}
               <div>

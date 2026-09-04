@@ -3,9 +3,12 @@
 import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2, Check, ChevronLeft } from 'lucide-react';
-import { TRACKS } from '@/lib/sariro-data';
-import { SCHOOL_SUBJECTS, SPECIALISATIONS, GRADE_GROUPS } from '@/lib/school/curriculum';
 import { createCohort } from '@/lib/dashboard/admin-data';
+import {
+  COURSE_FAMILIES, CODING_LEVELS, ALL_GRADES,
+  optionsFor, gradesFor, suitsGrades, levelValue, describeCourse,
+  type CourseFamily,
+} from '@/lib/dashboard/course-options';
 
 /**
  * SARIRO — New Course
@@ -42,16 +45,7 @@ import { createCohort } from '@/lib/dashboard/admin-data';
  * would eventually produce a "1:1" cohort with three children in it.
  */
 
-type Family = 'coding' | 'school' | 'focus';
-
-const FAMILIES: { key: Family; label: string; blurb: string }[] = [
-  { key: 'coding', label: 'Coding', blurb: 'Web, apps, AI agents — levels, not grades' },
-  { key: 'school', label: 'School subject', blurb: 'Maths, Science, English — by grade' },
-  { key: 'focus', label: 'Focus course', blurb: 'One topic, 48 classes' },
-];
-
-const CODING_LEVELS = ['elementary', 'beginner', 'intermediate', 'advanced'] as const;
-const ALL_GRADES = GRADE_GROUPS.flatMap((g) => g.grades);
+type Family = CourseFamily;
 
 export default function CreateCourseModal({
   open, onClose, onCreated,
@@ -73,37 +67,20 @@ export default function CreateCourseModal({
 
   const close = () => { if (!submitting) { reset(); onClose(); } };
 
-  /** What the second step offers, given the family chosen in the first. */
-  const options = useMemo(() => {
-    if (family === 'coding') return TRACKS.map((t) => ({ value: t.id, label: t.name }));
-    if (family === 'school') return SCHOOL_SUBJECTS.map((s) => ({ value: s.slug, label: s.name }));
-    if (family === 'focus') return SPECIALISATIONS.map((s) => ({ value: s.slug, label: s.name }));
-    return [];
-  }, [family]);
-
-  /** Which grades this subject is actually taught for. */
-  const gradesForSubject = useMemo(() => {
-    if (family !== 'school' || !track) return ALL_GRADES;
-    const subject = SCHOOL_SUBJECTS.find((s) => s.slug === track);
-    if (!subject) return ALL_GRADES;
-    // The matrix is deliberately not full — Physics and Chemistry do not exist
-    // before grade 7, and offering "Chemistry for Grade 2" tells a parent we do
-    // not understand schools.
-    return GRADE_GROUPS.filter((g) => subject.groups.includes(g.slug)).flatMap((g) => g.grades);
-  }, [family, track]);
+  /* Both this and Manual Enrolment read the same catalogue — see
+     lib/dashboard/course-options.ts for why that matters. */
+  const options = useMemo(() => optionsFor(family), [family]);
+  const gradesForSubject = useMemo(() => gradesFor(family, track), [family, track]);
 
   const readyLabel = useMemo(() => {
     if (!family || !track) return null;
-    const name = options.find((o) => o.value === track)?.label ?? track;
-    if (family === 'focus') return `${name} · focus course · ${ratio}`;
-    if (!level) return null;
-    if (family === 'school') return `${name} · Grade ${level.replace('grade-', '')} · ${ratio}`;
-    return `${name} · ${level} · ${ratio}`;
-  }, [family, track, level, ratio, options]);
+    if (family !== 'focus' && !level) return null;
+    return `${describeCourse(track, levelValue(family, level))} · ${ratio}`;
+  }, [family, track, level, ratio]);
 
   const submit = async () => {
     if (!family || !track) return;
-    const finalLevel = family === 'focus' ? 'focus' : level;
+    const finalLevel = levelValue(family, level);
     if (!finalLevel) return;
 
     setSubmitting(true);
@@ -167,7 +144,7 @@ export default function CreateCourseModal({
                 <p className="text-[13px] text-slate-500 mb-3">
                   What are you scheduling? The levels differ by subject.
                 </p>
-                {FAMILIES.map((f) => (
+                {COURSE_FAMILIES.map((f) => (
                   <button
                     key={f.key}
                     onClick={() => setFamily(f.key)}
@@ -250,9 +227,7 @@ export default function CreateCourseModal({
                 {track && family === 'focus' && (
                   <p className="text-[12.5px] text-slate-500 leading-[1.55] bg-slate-50 rounded-lg px-3 py-2.5">
                     A focus course is 48 classes on one topic, not tied to a grade.
-                    {SPECIALISATIONS.find((s) => s.slug === track)?.suitsGrades
-                      ? ` Usually suits ${SPECIALISATIONS.find((s) => s.slug === track)!.suitsGrades}.`
-                      : ''}
+                    {suitsGrades(track) ? ` Usually suits ${suitsGrades(track)}.` : ''}
                   </p>
                 )}
 

@@ -88,11 +88,24 @@ export interface AdminStats {
   revenue: number;
 }
 
+/**
+ * A course level.
+ *
+ * Not the three coding levels any more. Since school subjects and focus courses
+ * shipped this is a coding level, `grade-N` for a school year, or `focus` — the
+ * database constraint is the authority (scripts/cohort-levels.sql).
+ *
+ * Typing it as a union of three here is what let Manual Enrolment fall behind
+ * New Course: an admin could create a Mathematics Grade 7 batch and then have
+ * no way to place a student into it.
+ */
+export type CourseLevelValue = string;
+
 export interface PurchaseIntentRow {
   id: string;
   user_id: string;
   track: string;
-  level: 'beginner' | 'intermediate' | 'advanced';
+  level: CourseLevelValue;
   ratio: '1:1' | '1:4';
   razorpay_link: string | null;
   status: 'pending' | 'confirmed' | 'expired';
@@ -105,7 +118,7 @@ export interface PurchaseIntentRow {
 export interface CohortRow {
   id: string;
   track: string;
-  level: 'beginner' | 'intermediate' | 'advanced';
+  level: CourseLevelValue;
   ratio: '1:1' | '1:4';
   status: 'gathering' | 'ready' | 'active' | 'completed';
   max_capacity: number;
@@ -298,7 +311,7 @@ export async function findGatheringCohort(
 /* ───── Create a new gathering cohort ───── */
 export async function createCohort(params: {
   track: string;
-  level: 'beginner' | 'intermediate' | 'advanced';
+  level: CourseLevelValue;
   ratio: '1:1' | '1:4';
   max_capacity: number;
 }): Promise<string | null> {
@@ -1081,7 +1094,7 @@ export async function addKidToBatch(
 export async function manualEnrollStudent(params: {
   userId: string;
   track: string;
-  level: 'beginner' | 'intermediate' | 'advanced';
+  level: CourseLevelValue;
   ratio: '1:1' | '1:4';
 }): Promise<{ success: boolean; error?: string; cohortId?: string }> {
   if (!params.userId || !params.track || !params.level || !params.ratio) {

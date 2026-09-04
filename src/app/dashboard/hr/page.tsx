@@ -17,6 +17,7 @@ import PaymentRequestsPanel from '@/components/dashboard/payment-requests-panel'
 import ExpensesPanel from '@/components/dashboard/expenses-panel';
 import PolicyFlagsPanel from '@/components/dashboard/policy-flags-panel';
 import CreditRequestsPanel from '@/components/dashboard/credit-requests-panel';
+import InvoiceGenerator from '@/components/dashboard/invoice-generator';
 
 export default function HRDashboard() {
   const { user, loading } = useAuth();
@@ -27,7 +28,7 @@ export default function HRDashboard() {
   const [teachers, setTeachers] = useState<TeacherProfile[]>([]);
   const [students, setStudents] = useState<StudentProfile[]>([]);
   const [loadingData, setLoadingData] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'my_teachers' | 'incentives' | 'payments' | 'credits' | 'tiers' | 'enquiries' | 'expenses' | 'policy' | 'credit_requests'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'my_teachers' | 'incentives' | 'payments' | 'credits' | 'tiers' | 'enquiries' | 'expenses' | 'policy' | 'credit_requests' | 'invoices'>('overview');
   const { toast, showToast } = useDashboardToast();
   const [showSales, setShowSales] = useState(false);
 
@@ -191,12 +192,13 @@ export default function HRDashboard() {
               { key: 'credits', label: 'Credits & Tiers' },
               { key: 'enquiries', label: 'Enquiries' },
               { key: 'credit_requests', label: 'Credit Requests' },
+              { key: 'invoices', label: 'Generate Invoice' },
               { key: 'expenses', label: 'Expenses' },
               { key: 'policy', label: 'Chat Policy' },
             ].map((tab) => (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key as 'overview' | 'my_teachers' | 'incentives' | 'payments' | 'credits' | 'enquiries' | 'expenses' | 'policy' | 'credit_requests')}
+                onClick={() => setActiveTab(tab.key as 'overview' | 'my_teachers' | 'incentives' | 'payments' | 'credits' | 'enquiries' | 'expenses' | 'policy' | 'credit_requests' | 'invoices')}
                 className={`min-h-[44px] px-4 text-xs font-bold transition-colors touch-manipulation whitespace-nowrap ${
                   activeTab === tab.key
                     ? 'text-violet-700 border-b-2 border-violet-600'
@@ -230,6 +232,11 @@ export default function HRDashboard() {
               {/* §50-52. Credits do not move until a decision is made here,
                   and the decision writes the transaction that moves them. */}
               {activeTab === 'credit_requests' && <CreditRequestsPanel />}
+
+              {/* A branded tax invoice, generated and printed. Nothing stored —
+                  see invoice-generator.tsx for what that costs and why the
+                  invoice number is unique rather than sequential. */}
+              {activeTab === 'invoices' && <InvoiceGenerator />}
 
               {/* Attempts to move a learner's conversation off the platform.
                   HR owns the conversation that follows a repeat. */}
