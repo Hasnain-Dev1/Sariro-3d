@@ -129,10 +129,14 @@ export async function POST(req: NextRequest) {
         let q = admin.from('profiles').select(PROFILE_COLS).neq('id', user.id).limit(300);
 
         if (!meIsStaff) {
-          // A student is offered staff only. Expressed as a filter on the query
-          // rather than a filter on the results, so a large student roster can
-          // never crowd the staff out of the 300.
-          q = q.or('role.in.(teacher,hr,admin,super_admin,seller),is_teacher.eq.true,is_admin.eq.true,is_super_admin.eq.true');
+          /* A learner is offered TEACHERS ONLY — not the wider staff list.
+             The first version offered every member of staff, which put HR, the
+             admins and the sales team in a child's contact picker. §28 gives a
+             student a "Message Teacher" button and nothing wider, and support
+             questions already have their own channel that routes and records
+             them. A directory is also a disclosure: there is no reason a child
+             should learn who the company's admins are. */
+          q = q.or('role.eq.teacher,is_teacher.eq.true');
         }
         const term = (body.q ?? '').trim().slice(0, 80);
         if (term) {
@@ -147,8 +151,8 @@ export async function POST(req: NextRequest) {
         if (error) throw error;
 
         let people = ((data ?? []) as ProfileRow[]).map((p) => shape(p, meIsStaff));
-        // Belt and braces: whatever the filter did, a student never sees a student.
-        if (!meIsStaff) people = people.filter((p) => isStaff(p.designation));
+        // Belt and braces, whatever the query did: a learner sees teachers only.
+        if (!meIsStaff) people = people.filter((p) => p.designation === 'teacher');
 
         return NextResponse.json({ ok: true, people });
       }
@@ -239,10 +243,14 @@ export async function POST(req: NextRequest) {
         const { data: themRow } = await admin.from('profiles').select(PROFILE_COLS).eq('id', body.personId).maybeSingle();
         if (!themRow) return NextResponse.json({ ok: false, error: 'no_such_person' }, { status: 404 });
 
-        // The rule, enforced where it cannot be skipped by a hand-written request.
-        if (!meIsStaff && !isStaff(designationOf(themRow as ProfileRow))) {
+        /* The rule, enforced where a hand-written request cannot skip it.
+           A learner may open a conversation with a teacher and with nobody
+           else — not another student, and not HR, admin or sales. Removing
+           them from the directory only hides them; this is what makes it
+           true. */
+        if (!meIsStaff && designationOf(themRow as ProfileRow) !== 'teacher') {
           return NextResponse.json(
-            { ok: false, error: 'forbidden', message: 'You can message your teachers and the school team.' },
+            { ok: false, error: 'forbidden', message: 'You can message your teachers here. For anything else, use Support.' },
             { status: 403 }
           );
         }
