@@ -43,26 +43,106 @@ interface HardwareHints {
   hardwareConcurrency?: number;
 }
 
-function hardwareLooksCapable(): boolean {
-  if (typeof navigator === 'undefined') return true;
-  const nav = navigator as Navigator & HardwareHints;
+/* ══════════════════════════════════════════════════════════════════════════
+   Three answers, not two
+   ══════════════════════════════════════════════════════════════════════════
+   The original gate was a boolean, and a boolean forced a choice nobody wants
+   to make: either a phone runs four WebGL canvases and the page stutters, or a
+   phone gets a flat page while the whole product is called sariro-3d.
+
+   So it is a tier.
+
+     full   desktop with a real pointer, a wide viewport and capable hardware.
+            Everything: cinematic intro, background particles, hero scene.
+
+     lite   phones and tablets that are not obviously slow. ONE canvas — the
+            hero, and only while it is on screen — at device pixel ratio 1 with
+            fewer sparkles. The two full-viewport ambient layers stay off,
+            because those run whether or not anything is visible and that is
+            what actually costs a phone its frame budget.
+
+     off    reduced motion, or hardware that says it cannot. Unchanged: a
+            person who asked for less motion gets less motion, and a 2GB phone
+            gets a page that scrolls.
+
+   The split is between "a canvas that is on screen" and "a canvas that is
+   always running". The first is a feature; the second is a background tax.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+export type VisualTier = 'full' | 'lite' | 'off';
+
+export interface DeviceSignals {
+  reducedMotion: boolean;
+  smallViewport: boolean;
+  touchPrimary: boolean;
+  /** RAM in GB. Undefined on Safari and Firefox, which do not expose it. */
+  deviceMemory?: number;
+  hardwareConcurrency?: number;
+}
+
+/**
+ * Pure, so the decision can be tested without a browser.
+ *
+ * Order matters: an explicit request to reduce motion outranks everything,
+ * including capable hardware, because it is a person's stated preference and
+ * not a guess about their machine.
+ */
+export function visualTier(d: DeviceSignals): VisualTier {
+  if (d.reducedMotion) return 'off';
 
   // Undefined means the browser does not expose it — not that it is low.
-  if (typeof nav.deviceMemory === 'number' && nav.deviceMemory < MIN_DEVICE_MEMORY_GB) return false;
-  if (typeof nav.hardwareConcurrency === 'number' && nav.hardwareConcurrency < MIN_CPU_CORES) return false;
+  if (typeof d.deviceMemory === 'number' && d.deviceMemory < MIN_DEVICE_MEMORY_GB) return 'off';
+  if (typeof d.hardwareConcurrency === 'number' && d.hardwareConcurrency < MIN_CPU_CORES) return 'off';
 
-  return true;
+  // A wide viewport with a fine pointer is a desktop. Either signal missing —
+  // a touchscreen laptop, a phone in landscape — drops to one canvas, which is
+  // the safe direction to be wrong in.
+  if (!d.smallViewport && !d.touchPrimary) return 'full';
+
+  return 'lite';
 }
-export function useHeavyVisuals(): boolean {
-  const [enabled, setEnabled] = useState(false);
+
+function readSignals(): DeviceSignals {
+  const nav = navigator as Navigator & HardwareHints;
+  return {
+    reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    smallViewport: window.matchMedia('(max-width: 1023px)').matches,
+    touchPrimary: window.matchMedia('(pointer: coarse)').matches,
+    deviceMemory: typeof nav.deviceMemory === 'number' ? nav.deviceMemory : undefined,
+    hardwareConcurrency:
+      typeof nav.hardwareConcurrency === 'number' ? nav.hardwareConcurrency : undefined,
+  };
+}
+
+/**
+ * The tier for this device. 'off' during SSR and first paint, then resolved on
+ * mount — every gated component is already client-only, so this cannot cause a
+ * hydration mismatch.
+ */
+export function useVisualTier(): VisualTier {
+  const [tier, setTier] = useState<VisualTier>('off');
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return;
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const smallViewport = window.matchMedia('(max-width: 1023px)').matches;
-    const touchPrimary = window.matchMedia('(pointer: coarse)').matches;
-    setEnabled(!reducedMotion && !smallViewport && !touchPrimary && hardwareLooksCapable());
+    setTier(visualTier(readSignals()));
   }, []);
 
-  return enabled;
+  return tier;
+}
+
+/**
+ * The always-running ambient layers: cinematic intro, background particles.
+ * Desktop only, exactly as before.
+ */
+export function useHeavyVisuals(): boolean {
+  return useVisualTier() === 'full';
+}
+
+/**
+ * The hero canvas, which only renders while it is on screen. True on phones
+ * too — that is the whole point of the lite tier.
+ */
+export function useHeroVisuals(): { show: boolean; lite: boolean } {
+  const tier = useVisualTier();
+  return { show: tier !== 'off', lite: tier === 'lite' };
 }

@@ -5,8 +5,17 @@ import { X, TrendingUp, Wallet, IndianRupee, AlertCircle, Loader2, RefreshCw, Sa
 
 /* ════════════════════════════════════════════════════════════════════════
    SalesEarningsReport — company finance snapshot (admin/super-admin/HR).
-   All teachers' earnings + total sale value/paid/due, with inline editing of
-   each enrolled lead's sale figures (HR/super-admin can fix miscalculations).
+   All teachers' earnings, and against each enrolled lead what was invoiced,
+   what has been collected, and what is still owed.
+
+   The sale value is NOT editable here, and that is deliberate. It comes from
+   the invoice the parent was sent, so a figure typed in this table could only
+   ever make the books disagree with the document. A wrong invoice is corrected
+   by HR with a credit note, not by retyping a number in a report.
+
+   Collection is a different thing and stays editable: an invoice says what is
+   owed, never what has arrived.
+
    Reads GET /api/admin/earnings-report; edits POST /api/leads/financials.
    ════════════════════════════════════════════════════════════════════════ */
 
@@ -24,7 +33,7 @@ export default function SalesEarningsReport({
 }: { open: boolean; onClose: () => void; onToast?: (msg: string, kind?: 'success' | 'error') => void }) {
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
-  const [edits, setEdits] = useState<Record<string, { sale: string; paid: string }>>({});
+  const [edits, setEdits] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -47,7 +56,7 @@ export default function SalesEarningsReport({
         body: JSON.stringify({ leadId, saleValue, amountPaid }),
       });
       const json = await res.json();
-      if (json.ok) { onToast?.('Sale figures updated'); setEdits((e) => { const n = { ...e }; delete n[leadId]; return n; }); await load(); }
+      if (json.ok) { onToast?.('Collection updated'); setEdits((e) => { const n = { ...e }; delete n[leadId]; return n; }); await load(); }
       else onToast?.(json.error || 'Update failed', 'error');
     } catch { onToast?.('Network error', 'error'); }
     finally { setSavingId(null); }
@@ -76,7 +85,7 @@ export default function SalesEarningsReport({
             {/* Summary */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
               <SummaryCard icon={<Wallet className="w-5 h-5" />} color="green" label="Teacher Earnings" value={inr(report.earnings_total)} />
-              <SummaryCard icon={<IndianRupee className="w-5 h-5" />} color="blue" label="Total Sales" value={inr(report.sales.total)} />
+              <SummaryCard icon={<IndianRupee className="w-5 h-5" />} color="blue" label="Invoiced" value={inr(report.sales.total)} />
               <SummaryCard icon={<TrendingUp className="w-5 h-5" />} color="violet" label="Collected" value={inr(report.sales.paid)} />
               <SummaryCard icon={<AlertCircle className="w-5 h-5" />} color="amber" label="Due" value={inr(report.sales.due)} />
             </div>
@@ -103,36 +112,34 @@ export default function SalesEarningsReport({
               </table>
             </div>
 
-            {/* Enrolled leads — editable sale figures */}
-            <h4 className="text-sm font-extrabold text-slate-700 mb-2" style={{ fontFamily: 'var(--font-jakarta)' }}>Enrolled sales (editable)</h4>
+            {/* Enrolled leads — invoiced amount fixed, collection editable */}
+            <h4 className="text-sm font-extrabold text-slate-700 mb-1" style={{ fontFamily: 'var(--font-jakarta)' }}>Enrolled sales</h4>
+            <p className="text-xs text-slate-500 mb-2">Invoiced comes from the invoice and cannot be edited. Record what has been collected.</p>
             <div className="overflow-x-auto rounded-xl border border-slate-200">
               <table className="w-full text-sm min-w-[640px]">
                 <thead><tr className="border-b border-slate-100 text-left text-[11px] uppercase tracking-wider text-slate-400">
                   <th className="py-2 px-3 font-bold">Student</th><th className="py-2 px-3 font-bold">Seller</th>
-                  <th className="py-2 px-3 font-bold text-right">Sale ₹</th><th className="py-2 px-3 font-bold text-right">Paid ₹</th>
+                  <th className="py-2 px-3 font-bold text-right">Invoiced ₹</th><th className="py-2 px-3 font-bold text-right">Collected ₹</th>
                   <th className="py-2 px-3 font-bold text-right">Due</th><th className="py-2 px-3 font-bold text-center">Save</th>
                 </tr></thead>
                 <tbody>
                   {report.sales.leads.length === 0 && <tr><td colSpan={6} className="py-4 px-3 text-center text-slate-400">No enrolled leads yet.</td></tr>}
                   {report.sales.leads.map((l) => {
-                    const ed = edits[l.id] ?? { sale: String(l.sale_value), paid: String(l.amount_paid) };
-                    const due = (Number(ed.sale) || 0) - (Number(ed.paid) || 0);
-                    const dirty = Number(ed.sale) !== l.sale_value || Number(ed.paid) !== l.amount_paid;
+                    const paid = edits[l.id] ?? String(l.amount_paid);
+                    const due = l.sale_value - (Number(paid) || 0);
+                    const dirty = Number(paid) !== l.amount_paid;
                     return (
                       <tr key={l.id} className="border-b border-slate-50 last:border-0">
                         <td className="py-2 px-3 font-semibold text-slate-800">{l.student_name}</td>
                         <td className="py-2 px-3 text-slate-500">{l.seller_name}</td>
+                        <td className="py-2 px-3 text-right font-semibold text-slate-800 tabular-nums">{inr(l.sale_value)}</td>
                         <td className="py-2 px-3 text-right">
-                          <input type="number" min={0} value={ed.sale} onChange={(e) => setEdits((s) => ({ ...s, [l.id]: { ...ed, sale: e.target.value } }))}
-                            className="w-24 text-right min-h-[34px] px-2 rounded-lg border border-slate-200 text-sm" />
-                        </td>
-                        <td className="py-2 px-3 text-right">
-                          <input type="number" min={0} value={ed.paid} onChange={(e) => setEdits((s) => ({ ...s, [l.id]: { ...ed, paid: e.target.value } }))}
+                          <input type="number" min={0} value={paid} onChange={(e) => setEdits((s) => ({ ...s, [l.id]: e.target.value }))}
                             className="w-24 text-right min-h-[34px] px-2 rounded-lg border border-slate-200 text-sm" />
                         </td>
                         <td className={`py-2 px-3 text-right font-bold ${due > 0 ? 'text-red-600' : 'text-green-700'}`}>{inr(due)}</td>
                         <td className="py-2 px-3 text-center">
-                          <button disabled={!dirty || savingId === l.id} onClick={() => saveRow(l.id, Number(ed.sale) || 0, Number(ed.paid) || 0)}
+                          <button disabled={!dirty || savingId === l.id} onClick={() => saveRow(l.id, l.sale_value, Number(paid) || 0)}
                             className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-green-600 hover:bg-green-700 text-white disabled:bg-slate-200 disabled:text-slate-400">
                             {savingId === l.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                           </button>

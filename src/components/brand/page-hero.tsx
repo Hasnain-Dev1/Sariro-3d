@@ -5,7 +5,7 @@ import { motion, useInView } from 'framer-motion';
 import { ReactNode, useRef } from 'react';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
-import { useHeavyVisuals } from '@/lib/use-heavy-visuals';
+import { useHeroVisuals } from '@/lib/use-heavy-visuals';
 
 const PageHero3D = dynamic(() => import('./page-hero-3d'), { ssr: false });
 
@@ -36,7 +36,9 @@ export default function PageHero({
 }: PageHeroProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const inView = useInView(sectionRef, { margin: '100px' });
-  const heavyVisuals = useHeavyVisuals();
+  /* One canvas, only while the hero is on screen — so it runs on phones at
+     the lite tier rather than being withheld entirely. */
+  const hero = useHeroVisuals();
 
   return (
     <section ref={sectionRef} className="relative pt-36 sm:pt-44 pb-16 sm:pb-20 overflow-hidden">
@@ -128,7 +130,7 @@ export default function PageHero({
             />
             {/* 3D Canvas */}
             <div className="relative w-full h-full">
-              {heavyVisuals && inView && <PageHero3D variant={variant} accentColor={accentColor} />}
+              {hero.show && inView && <PageHero3D variant={variant} accentColor={accentColor} lite={hero.lite} />}
             </div>
           </motion.div>
         </div>

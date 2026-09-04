@@ -26,6 +26,18 @@ export const COMPANY = {
 
   /** Already in the repo at public/logo.svg. */
   logoSrc: '/logo.svg',
+
+  /**
+   * The round company seal, above the authorised signatory line.
+   *
+   * Loaded the same way as the logo — a file in public/, referenced by path —
+   * so replacing the stamp is dropping in a new file, not editing a component.
+   *
+   * WebP with transparency, roughly 600x600, matching mimo-portrait.webp
+   * alongside it. It prints at about 88pt on the invoice; anything smaller goes
+   * soft on paper where the type beside it is sharp.
+   */
+  stampSrc: '/images/sariro-stamp.webp',
 } as const;
 
 /**
@@ -72,10 +84,37 @@ export const CURRENCIES: Currency[] = [
   { code: 'SGD', symbol: 'S$', label: 'Singapore Dollar' },
 ];
 
-/** Countries offered in the picker. India first; it decides the tax treatment. */
+/**
+ * Countries offered in the picker.
+ *
+ * India first — it is both the common case and the one that decides the tax
+ * treatment. After that, the places Indian families actually live, then the
+ * rest alphabetically.
+ *
+ * `Other` is last and is not a fallback for laziness: no list is complete, and
+ * the one place a missing country hurts most is the document a customer keeps.
+ * Choosing it reveals a text field, so a sale to somewhere unanticipated is a
+ * typed name rather than a wrong one.
+ */
 export const COUNTRIES = [
-  'India', 'United States', 'United Kingdom', 'Canada', 'Australia',
-  'United Arab Emirates', 'Singapore', 'Germany', 'France', 'Netherlands',
-  'Ireland', 'New Zealand', 'South Africa', 'Malaysia', 'Qatar', 'Saudi Arabia',
-  'Kuwait', 'Oman', 'Bahrain', 'Other',
+  'India',
+  // Where the diaspora is.
+  'United States', 'United Kingdom', 'Canada', 'Australia',
+  'United Arab Emirates', 'Singapore', 'Qatar', 'Saudi Arabia', 'Kuwait',
+  'Oman', 'Bahrain', 'New Zealand', 'Malaysia',
+  // The rest.
+  'Argentina', 'Austria', 'Bangladesh', 'Belgium', 'Brazil', 'Chile', 'China',
+  'Colombia', 'Czechia', 'Denmark', 'Egypt', 'Ethiopia', 'Finland', 'France',
+  'Germany', 'Ghana', 'Greece', 'Hong Kong', 'Hungary', 'Indonesia', 'Ireland',
+  'Israel', 'Italy', 'Japan', 'Jordan', 'Kenya', 'Lebanon', 'Luxembourg',
+  'Maldives', 'Mauritius', 'Mexico', 'Morocco', 'Myanmar', 'Nepal',
+  'Netherlands', 'Nigeria', 'Norway', 'Pakistan', 'Philippines', 'Poland',
+  'Portugal', 'Romania', 'Russia', 'Rwanda', 'Senegal', 'South Africa',
+  'South Korea', 'Spain', 'Sri Lanka', 'Sweden', 'Switzerland', 'Taiwan',
+  'Tanzania', 'Thailand', 'Türkiye', 'Uganda', 'Ukraine', 'Vietnam', 'Zambia',
+  'Zimbabwe',
+  'Other',
 ] as const;
+
+/** The sentinel that reveals the free-text field. */
+export const OTHER_COUNTRY = 'Other';

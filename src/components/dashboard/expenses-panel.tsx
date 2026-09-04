@@ -1,14 +1,16 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Receipt, Loader2, Check, X, Plus, ExternalLink } from 'lucide-react';
+import { Receipt, Loader2, Check, X, Plus, ExternalLink, Download } from 'lucide-react';
 import {
   fetchExpenses,
   createExpense,
   setExpenseStatus,
   formatRupees,
+  expensesToCsv,
   type ExpenseSummary,
 } from '@/lib/dashboard/expenses';
+import { downloadCsv as downloadExpensesCsv } from '@/lib/dashboard/sales-ledger';
 import DateRangeFilter from '@/components/dashboard/date-range-filter';
 import { resolveRange, dateInRange, type RangePreset, type DateRange } from '@/lib/dashboard/date-ranges';
 
@@ -139,13 +141,29 @@ export default function ExpensesPanel({ canApprove = false }: { canApprove?: boo
           value={range}
           onChange={(preset: RangePreset, custom) => setRange(resolveRange(preset, custom))}
         />
-        {range.preset !== 'all' && (
-          <p className="text-[13px] text-slate-600">
-            <span className="font-bold">{formatRupees(rangeTotal)}</span> approved in{' '}
-            {range.label.toLowerCase()} · {visible.length}{' '}
-            {visible.length === 1 ? 'item' : 'items'}
-          </p>
-        )}
+        <div className="flex items-center gap-3 flex-wrap">
+          {range.preset !== 'all' && (
+            <p className="text-[13px] text-slate-600">
+              <span className="font-bold">{formatRupees(rangeTotal)}</span> approved in{' '}
+              {range.label.toLowerCase()} · {visible.length}{' '}
+              {visible.length === 1 ? 'item' : 'items'}
+            </p>
+          )}
+          {/* Filing is one download, not an afternoon of hunting for receipts.
+              The bill link is a column, so the documents come down in the order
+              the rows are in. */}
+          <button
+            type="button"
+            onClick={() => downloadExpensesCsv(
+              `sariro-expenses-${range.preset === 'all' ? 'all' : range.label.toLowerCase().replace(/\s+/g, '-')}.csv`,
+              expensesToCsv(visible)
+            )}
+            disabled={visible.length === 0}
+            className="inline-flex items-center gap-1.5 min-h-[38px] px-3 rounded-lg border border-slate-300 bg-white text-[13px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+          >
+            <Download className="w-4 h-4 text-slate-400" /> Download for filing
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -172,7 +190,7 @@ export default function ExpensesPanel({ canApprove = false }: { canApprove?: boo
                 ['Category', category, setCategory, 'Software', 'text'],
                 ['Paid to', vendor, setVendor, 'Zoom', 'text'],
                 ['Date', spentOn, setSpentOn, '', 'date'],
-                ['Receipt link', documentUrl, setDocumentUrl, 'https://…', 'url'],
+                ['Bill / receipt link', documentUrl, setDocumentUrl, 'https://drive.google.com/…', 'url'],
               ] as const
             ).map(([label, val, set, ph, type]) => (
               <div key={label}>

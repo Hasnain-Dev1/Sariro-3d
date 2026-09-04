@@ -881,12 +881,15 @@ function FaqScene({ color }: { color: string }) {
 }
 
 /* ---------- Main component ---------- */
+/** `lite` is the phone tier — see neural-scene.tsx for why these three. */
 export default function PageHero3D({
   variant,
   accentColor = '#2563EB',
+  lite = false,
 }: {
   variant: Variant;
   accentColor?: string;
+  lite?: boolean;
 }) {
   const scene = (() => {
     switch (variant) {
@@ -905,9 +908,9 @@ export default function PageHero3D({
 
   return (
     <Canvas
-      dpr={[1, 1.5]}
+      dpr={lite ? 1 : [1, 1.5]}
       camera={{ position: [0, 0, 5], fov: 55 }}
-      gl={{ antialias: true, alpha: true, depth: false, powerPreference: 'high-performance' }}
+      gl={{ antialias: !lite, alpha: true, depth: false, powerPreference: 'high-performance' }}
       style={{ background: 'transparent' }}
       performance={{ min: 0.5 }}
     >
@@ -917,7 +920,7 @@ export default function PageHero3D({
       <pointLight position={[0, 0, 2]} color={accentColor} intensity={1.5} distance={4} />
       <Suspense fallback={null}>
         {scene}
-        <Sparkles count={25} scale={8} size={2} speed={0.3} opacity={0.4} color={accentColor} />
+        <Sparkles count={lite ? 10 : 25} scale={8} size={2} speed={0.3} opacity={0.4} color={accentColor} />
         <StudioEnvironment />
       </Suspense>
     </Canvas>

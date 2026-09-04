@@ -199,16 +199,31 @@ function NeuralNetwork({
   );
 }
 
+/**
+ * `lite` is the phone and tablet tier. Three changes, all about fill rate
+ * rather than geometry — a phone GPU is bound by pixels shaded, not by the
+ * handful of meshes in this scene:
+ *
+ *   dpr 1              a 3x screen would otherwise shade nine times the pixels
+ *   antialias off      MSAA on a 3x buffer is the most expensive setting here
+ *   fewer sparkles     each is a transparent quad, and overdraw is what turns
+ *                      a smooth scene into a warm phone
+ *
+ * The network itself is untouched — same nodes, same links, same motion. It is
+ * the same design drawn cheaper, not a cut-down version of it.
+ */
 export default function NeuralNetworkScene({
   scrollProgress,
+  lite = false,
 }: {
   scrollProgress: React.MutableRefObject<number>;
+  lite?: boolean;
 }) {
   return (
     <Canvas
-      dpr={[1, 1.5]}
+      dpr={lite ? 1 : [1, 1.5]}
       camera={{ position: [0, 0, 6], fov: 55 }}
-      gl={{ antialias: true, alpha: true, depth: false, powerPreference: 'high-performance' }}
+      gl={{ antialias: !lite, alpha: true, depth: false, powerPreference: 'high-performance' }}
       style={{ background: 'transparent' }}
       performance={{ min: 0.5 }}
     >
@@ -218,8 +233,8 @@ export default function NeuralNetworkScene({
 
       <NeuralNetwork scrollProgress={scrollProgress} />
 
-      <Sparkles count={40} scale={10} size={2} speed={0.3} opacity={0.5} color="#2563EB" />
-      <Sparkles count={20} scale={8} size={3} speed={0.2} opacity={0.3} color="#7C3AED" />
+      <Sparkles count={lite ? 16 : 40} scale={10} size={2} speed={0.3} opacity={0.5} color="#2563EB" />
+      <Sparkles count={lite ? 10 : 20} scale={8} size={3} speed={0.2} opacity={0.3} color="#7C3AED" />
       <Suspense fallback={null}>
         <StudioEnvironment />
       </Suspense>

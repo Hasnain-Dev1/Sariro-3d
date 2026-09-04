@@ -6,7 +6,7 @@ import { motion, useScroll, useTransform, useMotionValueEvent, useInView } from 
 import { useRef } from 'react';
 import { ArrowRight, Sparkles, Rocket } from 'lucide-react';
 import { BRAND, HERO_STATS, TRUSTED_BY } from '@/lib/sariro-data';
-import { useHeavyVisuals } from '@/lib/use-heavy-visuals';
+import { useHeavyVisuals, useHeroVisuals } from '@/lib/use-heavy-visuals';
 import BrandLayout from '@/components/brand/brand-layout';
 import MapTeaser from '@/components/brand/map-teaser';
 import { WaveDivider3D } from '@/components/sariro-3d/kit-3d';
@@ -56,6 +56,10 @@ export default function Home() {
   const scrollProgressRef = useRef(0);
   const inView = useInView(heroRef, { margin: '200px' });
   const heavyVisuals = useHeavyVisuals();
+  /* The hero canvas renders on phones as well, at the lite tier — it is one
+     canvas that only runs while it is on screen, unlike the ambient layers
+     above which run for the whole session. */
+  const hero = useHeroVisuals();
 
   const { scrollYProgress } = useScroll({
     target: heroRef,
@@ -203,7 +207,7 @@ export default function Home() {
             >
               <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-500/20 via-violet-500/20 to-green-500/20 blur-3xl" />
               <div className="relative w-full h-full">
-                {heavyVisuals && inView && <NeuralNetworkScene scrollProgress={scrollProgressRef} />}
+                {hero.show && inView && <NeuralNetworkScene scrollProgress={scrollProgressRef} lite={hero.lite} />}
               </div>
               <div className="absolute bottom-0 left-1/2 -translate-x-1/2 text-center">
                 {/* Was "Live AI Neural Network" — a label that told a parent

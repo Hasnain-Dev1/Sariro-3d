@@ -19,6 +19,7 @@ import CreditRequestsPanel from '@/components/dashboard/credit-requests-panel';
 import LowCreditPanel from '@/components/dashboard/low-credit-panel';
 import RiskPanel from '@/components/dashboard/risk-panel';
 import ForecastPanel from '@/components/dashboard/forecast-panel';
+import SalesLedgerPanel from '@/components/dashboard/sales-ledger-panel';
 import { Receipt, ShieldAlert, Coins as CoinsIcon } from 'lucide-react';
 import { useAuth } from '@/components/auth/auth-provider';
 import { TRACKS, COURSES, RAZORPAY_LINKS, RAZORPAY_LINKS_PREMIUM } from '@/lib/sariro-data';
@@ -770,6 +771,16 @@ function SuperAdminDashboardInner() {
             <h2 className="text-lg font-bold text-slate-900">Expenses</h2>
           </div>
           <ExpensesPanel canApprove />
+        </section>
+
+        {/* The books. A sale enters from its invoice number and nothing is
+            retyped, so what is counted here is what the customer was sent. */}
+        <section className="mb-10">
+          <div className="flex items-center gap-2.5 mb-4">
+            <ScrollText className="w-5 h-5 text-slate-400" />
+            <h2 className="text-lg font-bold text-slate-900">Sales &amp; refunds</h2>
+          </div>
+          <SalesLedgerPanel />
         </section>
 
         {/* §68-69 — next month's committed cost and what is merely expected,

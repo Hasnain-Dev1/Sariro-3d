@@ -178,17 +178,32 @@ function FloatingCube({
   );
 }
 
+/**
+ * `lite` is the phone and tablet tier. Three changes, all of them about fill
+ * rate rather than geometry, because a phone GPU is bound by pixels shaded and
+ * not by the handful of meshes in this scene:
+ *
+ *   dpr 1        a 3x screen would otherwise shade nine times the pixels
+ *   no antialias MSAA on a 3x buffer is the single most expensive setting here
+ *   half the sparkles  each one is a transparent quad, and overdraw is what
+ *                      turns a smooth scene into a warm phone
+ *
+ * The scene itself is identical — same knot, same orbs, same motion. It is the
+ * same design, drawn cheaper, not a cut-down version of it.
+ */
 export default function HeroScene3D({
   scrollProgress,
+  lite = false,
 }: {
   scrollProgress: React.MutableRefObject<number>;
+  lite?: boolean;
 }) {
   return (
     <Canvas
       shadows={false}
-      dpr={[1, 1.5]}
+      dpr={lite ? 1 : [1, 1.5]}
       camera={{ position: [0, 0, 7], fov: 50 }}
-      gl={{ antialias: true, alpha: true, powerPreference: 'high-performance', depth: false }}
+      gl={{ antialias: !lite, alpha: true, powerPreference: 'high-performance', depth: false }}
       style={{ background: 'transparent' }}
       performance={{ min: 0.5 }}
     >
@@ -202,8 +217,8 @@ export default function HeroScene3D({
 
       <ScrollReactiveScene scrollProgress={scrollProgress} />
 
-      <Sparkles count={30} scale={10} size={2} speed={0.4} opacity={0.6} color="#2563EB" />
-      <Sparkles count={20} scale={8} size={3} speed={0.3} opacity={0.4} color="#7C3AED" />
+      <Sparkles count={lite ? 14 : 30} scale={10} size={2} speed={0.4} opacity={0.6} color="#2563EB" />
+      <Sparkles count={lite ? 10 : 20} scale={8} size={3} speed={0.3} opacity={0.4} color="#7C3AED" />
       <Suspense fallback={null}>
         <StudioEnvironment />
       </Suspense>

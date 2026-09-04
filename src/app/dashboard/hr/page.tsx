@@ -18,6 +18,7 @@ import ExpensesPanel from '@/components/dashboard/expenses-panel';
 import PolicyFlagsPanel from '@/components/dashboard/policy-flags-panel';
 import CreditRequestsPanel from '@/components/dashboard/credit-requests-panel';
 import InvoiceWorkspace from '@/components/dashboard/invoice-workspace';
+import SalesLedgerPanel from '@/components/dashboard/sales-ledger-panel';
 
 export default function HRDashboard() {
   const { user, loading } = useAuth();
@@ -28,7 +29,7 @@ export default function HRDashboard() {
   const [teachers, setTeachers] = useState<TeacherProfile[]>([]);
   const [students, setStudents] = useState<StudentProfile[]>([]);
   const [loadingData, setLoadingData] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'my_teachers' | 'incentives' | 'payments' | 'credits' | 'tiers' | 'enquiries' | 'expenses' | 'policy' | 'credit_requests' | 'invoices'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'my_teachers' | 'incentives' | 'payments' | 'credits' | 'tiers' | 'enquiries' | 'expenses' | 'policy' | 'credit_requests' | 'invoices' | 'sales'>('overview');
   const { toast, showToast } = useDashboardToast();
   const [showSales, setShowSales] = useState(false);
 
@@ -193,12 +194,13 @@ export default function HRDashboard() {
               { key: 'enquiries', label: 'Enquiries' },
               { key: 'credit_requests', label: 'Credit Requests' },
               { key: 'invoices', label: 'Generate Invoice' },
+              { key: 'sales', label: 'Sales & Refunds' },
               { key: 'expenses', label: 'Expenses' },
               { key: 'policy', label: 'Chat Policy' },
             ].map((tab) => (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key as 'overview' | 'my_teachers' | 'incentives' | 'payments' | 'credits' | 'enquiries' | 'expenses' | 'policy' | 'credit_requests' | 'invoices')}
+                onClick={() => setActiveTab(tab.key as 'overview' | 'my_teachers' | 'incentives' | 'payments' | 'credits' | 'enquiries' | 'expenses' | 'policy' | 'credit_requests' | 'invoices' | 'sales')}
                 className={`min-h-[44px] px-4 text-xs font-bold transition-colors touch-manipulation whitespace-nowrap ${
                   activeTab === tab.key
                     ? 'text-violet-700 border-b-2 border-violet-600'
@@ -237,6 +239,11 @@ export default function HRDashboard() {
                   document is redrawn from the record, which is a hundred times
                   smaller and carries the same information. */}
               {activeTab === 'invoices' && <InvoiceWorkspace />}
+
+              {/* A sale is recorded from its invoice number, so nothing is
+                  retyped and the books cannot disagree with the document the
+                  customer holds. */}
+              {activeTab === 'sales' && <SalesLedgerPanel />}
 
               {/* Attempts to move a learner's conversation off the platform.
                   HR owns the conversation that follows a repeat. */}

@@ -1,11 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2, Search, Printer, X, FileText } from 'lucide-react';
+import {
+  Loader2, Search, Printer, X, FileText, Mail, ShieldCheck, ShieldAlert, CheckCircle2,
+} from 'lucide-react';
 import InvoiceDocument from '@/components/dashboard/invoice-document';
 import {
   fetchInvoices, setInvoicePaymentStatus, recordToInvoiceData, invoiceFileName,
-  type InvoiceRecord,
+  checkInvoiceNumber, netReceivedOf,
+  type InvoiceRecord, type NumberCheck,
 } from '@/lib/invoice/records';
 import { formatMoney } from '@/lib/invoice/calculate';
 
@@ -27,6 +30,15 @@ import { formatMoney } from '@/lib/invoice/calculate';
  * ── Only the payment status can change ──────────────────────────────────────
  * Everything else is frozen. A wrong invoice is corrected with a credit note,
  * not by editing the one the customer already has.
+ *
+ * ── "We paid you — you didn't receive it" ───────────────────────────────────
+ * The call that this screen exists for. Clicking a student's email pins the
+ * list to that address and totals it, so the answer is every invoice ever
+ * raised for that child and what they add up to — not a search that might have
+ * missed one because the parent spelled the name differently.
+ *
+ * Beside it, Check a number: paste what the parent sent and the database says
+ * whether it was minted by us. See scripts/invoice-v2.sql.
  */
 
 type StatusFilter = 'all' | 'Paid' | 'Pending';
@@ -37,8 +49,14 @@ export default function InvoiceHistory() {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<StatusFilter>('all');
   const [country, setCountry] = useState('all');
+  /* Pinned to one address — the parent-says-we-paid lookup. Separate from the
+     free-text box because it is an exact match on one child, not a search. */
+  const [email, setEmail] = useState<string | null>(null);
   const [open, setOpen] = useState<InvoiceRecord | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [checkText, setCheckText] = useState('');
+  const [checkResult, setCheckResult] = useState<NumberCheck | 'none' | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -56,18 +74,37 @@ export default function InvoiceHistory() {
     [rows]
   );
 
+  /* Totalled per currency rather than added together: a family who paid in
+     rupees and in dollars has two answers, and one number would be a lie. */
+  const emailTotals = useMemo(() => {
+    if (!email) return [];
+    const byCurrency = new Map<string, { code: string; symbol: string; paid: number; pending: number }>();
+    for (const r of rows ?? []) {
+      if ((r.customer_email ?? '').trim().toLowerCase() !== email) continue;
+      const entry = byCurrency.get(r.currency_code)
+        ?? { code: r.currency_code, symbol: r.currency_symbol, paid: 0, pending: 0 };
+      if (r.payment_status === 'Paid') entry.paid += Number(r.total);
+      else entry.pending += Number(r.total);
+      byCurrency.set(r.currency_code, entry);
+    }
+    return [...byCurrency.values()];
+  }, [rows, email]);
+
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
     return (rows ?? []).filter((r) => {
       if (status !== 'all' && r.payment_status !== status) return false;
       if (country !== 'all' && r.customer_country !== country) return false;
+      // Exact, lowercased. A substring match would fold two families whose
+      // addresses share a prefix into one answer.
+      if (email && (r.customer_email ?? '').trim().toLowerCase() !== email) return false;
       if (!q) return true;
       // One box across the fields somebody would actually search by, rather
       // than four boxes they have to choose between.
       return [r.invoice_number, r.customer_name, r.course_name, r.customer_email ?? '']
         .some((f) => f.toLowerCase().includes(q));
     });
-  }, [rows, query, status, country]);
+  }, [rows, query, status, country, email]);
 
   const togglePaid = async (r: InvoiceRecord) => {
     setBusyId(r.id);
@@ -133,7 +170,103 @@ export default function InvoiceHistory() {
           <option value="all">Any country</option>
           {countries.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
+        <button
+          type="button"
+          onClick={() => { setChecking((v) => !v); setCheckResult(null); }}
+          className="inline-flex items-center gap-1.5 min-h-[40px] px-3 rounded-lg border border-slate-300 bg-white text-[13px] font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          <ShieldCheck className="w-4 h-4 text-slate-400" /> Check a number
+        </button>
       </div>
+
+      {/* ── Is this invoice ours? ───────────────────────────────────────────
+          The last characters of a real number are an HMAC of the year and
+          serial under a key only the database holds, so a made-up number
+          fails without anybody having to search for it. */}
+      {checking && (
+        <div className="card card--compact space-y-2.5 invoice-history-controls">
+          <p className="text-[13px] text-slate-600 leading-[1.6]">
+            Paste the number a parent sent you. A number we did not issue cannot
+            carry the right check code.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <input
+              value={checkText}
+              onChange={(e) => setCheckText(e.target.value)}
+              placeholder="SR2627-0042-K7XQ"
+              aria-label="Invoice number to check"
+              className="flex-1 min-w-[200px] min-h-[40px] rounded-lg border border-slate-300 px-3 text-[13.5px] font-mono text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+              style={{ fontSize: '16px' }}
+            />
+            <button
+              type="button"
+              onClick={async () => setCheckResult((await checkInvoiceNumber(checkText)) ?? 'none')}
+              disabled={!checkText.trim()}
+              className="min-h-[40px] px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[13px] font-bold disabled:bg-slate-300"
+            >
+              Check
+            </button>
+          </div>
+          {checkResult === 'none' && (
+            <p className="text-[13px] text-slate-500">Could not check that right now.</p>
+          )}
+          {/* The table is the authority, not the check code. An invoice raised
+              before the numbering changed is genuine and carries no code —
+              calling that one suspicious would train HR to ignore the warning
+              that matters. The code only decides the case where no such
+              invoice exists. */}
+          {checkResult && checkResult !== 'none' && (
+            checkResult.issued ? (
+              <div className="flex items-start gap-2 rounded-lg border border-green-200 bg-green-50 px-3.5 py-2.5 text-[13px] text-green-800 leading-[1.55]">
+                <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>
+                  Ours. <strong>{checkResult.customerName}</strong> · {checkResult.courseName} ·{' '}
+                  {checkResult.currencySymbol}{Number(checkResult.total ?? 0).toFixed(2)} on {checkResult.invoiceDate}.
+                  {!checkResult.wellFormed && (
+                    <span className="block text-[11.5px] text-green-700/80 mt-0.5">
+                      Issued under the old numbering, before check codes.
+                    </span>
+                  )}
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-[13px] text-red-700 leading-[1.55]">
+                <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>
+                  {checkResult.wellFormed
+                    ? 'The number is one of ours, but no invoice with it exists. Worth looking into.'
+                    : 'Not an invoice we issued. The check code does not match.'}
+                </span>
+              </div>
+            )
+          )}
+        </div>
+      )}
+
+      {/* ── Everything for one child ────────────────────────────────────── */}
+      {email && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-3.5 py-2.5 invoice-history-controls">
+          <p className="text-[13px] text-blue-900 leading-[1.55]">
+            <Mail className="w-4 h-4 inline-block mr-1.5 -mt-0.5 text-blue-500" />
+            Every invoice for <strong className="font-mono">{email}</strong> —{' '}
+            {shown.length} {shown.length === 1 ? 'invoice' : 'invoices'}
+            {emailTotals.map((t) => (
+              <span key={t.code}>
+                , {t.symbol}{t.paid.toFixed(2)} received
+                {t.pending > 0 && ` and ${t.symbol}${t.pending.toFixed(2)} still pending`}
+              </span>
+            ))}
+            .
+          </p>
+          <button
+            type="button"
+            onClick={() => setEmail(null)}
+            className="text-[12.5px] font-bold text-blue-700 hover:text-blue-900"
+          >
+            Clear
+          </button>
+        </div>
+      )}
 
       {shown.length === 0 ? (
         <div className="card card--feature text-center py-10">
@@ -152,6 +285,7 @@ export default function InvoiceHistory() {
                 <th className="px-3.5 py-2.5">Course</th>
                 <th className="px-3.5 py-2.5">Country</th>
                 <th className="px-3.5 py-2.5 text-right">Amount</th>
+                <th className="px-3.5 py-2.5 text-right">Received</th>
                 <th className="px-3.5 py-2.5">Date</th>
                 <th className="px-3.5 py-2.5">Status</th>
                 <th className="px-3.5 py-2.5" />
@@ -163,11 +297,34 @@ export default function InvoiceHistory() {
                   <td className="px-3.5 py-2.5 font-mono text-[11.5px] text-slate-600 whitespace-nowrap">
                     {r.invoice_number}
                   </td>
-                  <td className="px-3.5 py-2.5 font-semibold text-slate-900">{r.customer_name}</td>
+                  <td className="px-3.5 py-2.5">
+                    <span className="font-semibold text-slate-900">{r.customer_name}</span>
+                    {/* One click pins every invoice ever raised for this child. */}
+                    {r.customer_email && (
+                      <button
+                        type="button"
+                        onClick={() => setEmail(r.customer_email!.trim().toLowerCase())}
+                        title="Show every invoice for this email"
+                        className="block text-[11.5px] text-slate-400 hover:text-blue-600 hover:underline max-w-[180px] truncate text-left"
+                      >
+                        {r.customer_email}
+                      </button>
+                    )}
+                  </td>
                   <td className="px-3.5 py-2.5 text-slate-600 max-w-[220px] truncate">{r.course_name}</td>
                   <td className="px-3.5 py-2.5 text-slate-600 whitespace-nowrap">{r.customer_country}</td>
                   <td className="px-3.5 py-2.5 text-right tabular-nums font-semibold text-slate-900 whitespace-nowrap">
                     {formatMoney(Number(r.total), r.currency_code, r.currency_symbol)}
+                  </td>
+                  {/* What landed after the gateway's cut. Never shown to the
+                      customer — they paid the amount beside it. */}
+                  <td className="px-3.5 py-2.5 text-right tabular-nums text-slate-600 whitespace-nowrap">
+                    {formatMoney(netReceivedOf(r), r.currency_code, r.currency_symbol)}
+                    {Number(r.gateway_fee ?? 0) > 0 && (
+                      <span className="block text-[10.5px] text-slate-400">
+                        less {Number(r.gateway_fee_percent ?? 0)}% fee
+                      </span>
+                    )}
                   </td>
                   <td className="px-3.5 py-2.5 text-slate-500 whitespace-nowrap">{r.invoice_date}</td>
                   <td className="px-3.5 py-2.5">

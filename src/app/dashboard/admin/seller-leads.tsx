@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Loader2, Search, X, History, TrendingUp, Award, UserCheck,
-  Phone, Mail, GraduationCap, Briefcase,
+  Phone, Mail, GraduationCap, Briefcase, FileText, CheckCircle2, AlertCircle,
 } from 'lucide-react';
 import {
   fetchLeads, fetchLeadHistory, updateLeadStage,
@@ -12,6 +12,7 @@ import {
   type StudentLead, type LeadStage, type StageSummary,
   type LeadHistoryRow,
 } from '@/lib/dashboard/leads-data';
+import { previewInvoice, recordSale, type InvoicePreview } from '@/lib/dashboard/sales-ledger';
 import { useRealtime } from '@/lib/dashboard/use-realtime';
 import { TRACKS } from '@/lib/sariro-data';
 
@@ -383,7 +384,17 @@ function SellerHistoryModal({ lead, onClose }: { lead: StudentLead; onClose: () 
 }
 
 /* ════════════════════════════════════════════════════════════════════════
-   Enroll → capture sale value + amount paid (seller)
+   Enroll → the invoice number, and what the invoice says (seller)
+   ════════════════════════════════════════════════════════════════════════
+   The sale value used to be typed here. It is not any more.
+
+   A typed figure is a figure that can be wrong: mistyped, rounded, entered
+   before a discount was agreed, or quietly different from the invoice the
+   parent is holding. So the seller gives the one thing only they know — the
+   invoice number HR issued — and the amount comes from the invoice itself.
+
+   That also makes the order of work explicit: no invoice, no sale. Which is
+   the point. An unbilled enrolment is a hole in the books.
    ════════════════════════════════════════════════════════════════════════ */
 
 function EnrollSaleModal({
@@ -394,26 +405,63 @@ function EnrollSaleModal({
   onClose: () => void;
   onDone: () => void;
 }) {
-  const [sale, setSale] = useState(lead.sale_value != null ? String(lead.sale_value) : '');
-  const [paid, setPaid] = useState(lead.amount_paid != null ? String(lead.amount_paid) : '');
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [preview, setPreview] = useState<InvoicePreview | null>(null);
+  const [looking, setLooking] = useState(false);
   const [busy, setBusy] = useState(false);
-  const due = (Number(sale) || 0) - (Number(paid) || 0);
-  const valid = sale !== '' && Number(sale) >= 0 && Number(paid) >= 0;
+
+  // Look the number up as it is typed, but only once typing pauses — otherwise
+  // every keystroke of a twenty-character invoice number is a round trip.
+  useEffect(() => {
+    const number = invoiceNumber.trim();
+    if (number.length < 6) { setPreview(null); setLooking(false); return; }
+    setLooking(true);
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      const found = await previewInvoice(number);
+      if (cancelled) return;
+      setPreview(found);
+      setLooking(false);
+    }, 400);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [invoiceNumber]);
+
+  /* Nothing here is typed. The invoice already knows what the deal is worth
+     and what has been collected against it — an installment for 12,000 of a
+     36,000 course carries all three numbers — so asking a seller to retype any
+     of them could only ever introduce a disagreement. */
+  const dealValue = preview ? Number(preview.course_total ?? preview.total) : 0;
+  const collected = preview ? Number(preview.previously_paid ?? 0) + Number(preview.total) : 0;
+  const due = Math.max(0, dealValue - collected);
+  const valid = !!preview;
 
   const confirm = async () => {
+    if (!preview) return;
     setBusy(true);
     try {
+      // The ledger first. If this fails the enrolment does not proceed — an
+      // enrolment without a recorded sale is exactly the hole we are closing.
+      // An invoice already in the books is not a failure: somebody logged it
+      // ahead of the enrolment, and the figure is the same either way.
+      if (!preview.already_recorded) {
+        const { error } = await recordSale(preview.invoice_number, lead.assigned_seller ?? null);
+        if (error) { onToast(error, 'error'); setBusy(false); return; }
+      }
+
       const fRes = await fetch('/api/leads/financials', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ leadId: lead.id, saleValue: Number(sale) || 0, amountPaid: Number(paid) || 0 }),
+        body: JSON.stringify({ leadId: lead.id, saleValue: dealValue, amountPaid: collected }),
       });
       const fJson = await fRes.json();
-      if (!fJson.ok) { onToast(fJson.error || 'Could not save sale value', 'error'); setBusy(false); return; }
+      if (!fJson.ok) { onToast(fJson.error || 'Sale recorded, but the lead could not be updated', 'error'); setBusy(false); return; }
+
       const result = await updateLeadStage(lead.id, 'enrolled');
-      if (result.success) { onToast('Enrolled — sale recorded', 'success'); onDone(); }
+      if (result.success) { onToast(`Enrolled — ${preview.invoice_number} recorded`, 'success'); onDone(); }
       else { onToast(result.error || 'Sale saved, but stage update failed', 'error'); setBusy(false); }
     } catch { onToast('Network error', 'error'); setBusy(false); }
   };
+
+  const money = (v: number) => `${preview?.currency_symbol ?? '₹'}${Number(v || 0).toFixed(0)}`;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50" role="dialog" aria-modal="true">
@@ -422,15 +470,76 @@ function EnrollSaleModal({
           <h3 className="text-lg font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>Record the sale</h3>
           <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400" aria-label="Close"><X className="w-4 h-4" /></button>
         </div>
-        <p className="text-sm text-slate-600 mb-4">Enrolling <strong>{lead.student_name}</strong>. Enter the agreed sale value and what the parent has paid so far.</p>
-        <label className="block text-xs font-bold text-slate-700 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>Total sale value (₹)</label>
-        <input type="number" min={0} value={sale} onChange={(e) => setSale(e.target.value)} disabled={busy} placeholder="0" className="w-full min-h-[44px] px-3 rounded-lg border border-slate-200 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-green-500/40" />
-        <label className="block text-xs font-bold text-slate-700 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>Amount paid by parent (₹)</label>
-        <input type="number" min={0} value={paid} onChange={(e) => setPaid(e.target.value)} disabled={busy} placeholder="0" className="w-full min-h-[44px] px-3 rounded-lg border border-slate-200 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-green-500/40" />
-        <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 mb-5 flex items-center justify-between">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider" style={{ fontFamily: 'var(--font-grotesk)' }}>Due</span>
-          <span className={`text-lg font-extrabold ${due > 0 ? 'text-red-600' : 'text-green-700'}`} style={{ fontFamily: 'var(--font-jakarta)' }}>₹{due.toFixed(0)}</span>
+        <p className="text-sm text-slate-600 mb-4">
+          Enrolling <strong>{lead.student_name}</strong>. Enter the invoice number HR issued — every figure below comes from the invoice.
+        </p>
+
+        <label className="block text-xs font-bold text-slate-700 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>Invoice number</label>
+        <div className="relative mb-3">
+          <FileText className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            value={invoiceNumber}
+            onChange={(e) => setInvoiceNumber(e.target.value)}
+            disabled={busy}
+            placeholder="SR2627-0042-K7XQ"
+            autoComplete="off"
+            className="w-full min-h-[44px] pl-9 pr-9 rounded-lg border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-500/40"
+          />
+          {looking && <Loader2 className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-300" />}
+          {!looking && preview && <CheckCircle2 className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-green-600" />}
         </div>
+
+        {/* What that number actually is. Confirming blind is how a transposed
+            digit becomes somebody else's sale. */}
+        {!looking && invoiceNumber.trim().length >= 6 && !preview && (
+          <div className="rounded-lg bg-red-50 border border-red-200 p-3 mb-3 flex gap-2">
+            <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-red-700">No invoice with that number. Ask HR to generate it first — a sale cannot be recorded without one.</p>
+          </div>
+        )}
+        {preview && (
+          <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 mb-3">
+            <p className="text-sm font-bold text-slate-900">{preview.customer_name}</p>
+            <p className="text-xs text-slate-500 mb-2">{preview.course_name} · {new Date(`${preview.invoice_date}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                {preview.payment_type === 'installment' ? 'Paid on this invoice' : 'Invoice total'}
+                {preview.include_gst ? ' · incl. GST' : ''}
+              </span>
+              <span className="text-lg font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>{money(Number(preview.total))}</span>
+            </div>
+            {/* An installment is a part of something. Without this the seller
+                sees a small number and wonders whether they typed the wrong
+                invoice. */}
+            {preview.payment_type === 'installment' && preview.course_total != null && (
+              <p className="text-[11px] text-slate-500 mt-1">
+                Part payment towards {money(Number(preview.course_total))}
+                {Number(preview.previously_paid ?? 0) > 0
+                  && ` · ${money(Number(preview.previously_paid))} paid earlier`}
+              </p>
+            )}
+            {preview.already_recorded && (
+              <p className="text-[11px] text-amber-700 mt-1.5">Already in the sales ledger — it will not be counted twice.</p>
+            )}
+          </div>
+        )}
+
+        {preview && (
+          <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 mb-5 space-y-1.5">
+            <div className="flex items-center justify-between text-xs text-slate-600">
+              <span>Deal value</span>
+              <span className="font-semibold text-slate-900">{money(dealValue)}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs text-slate-600">
+              <span>Collected</span>
+              <span className="font-semibold text-slate-900">{money(collected)}</span>
+            </div>
+            <div className="flex items-center justify-between pt-1.5 border-t border-slate-200">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider" style={{ fontFamily: 'var(--font-grotesk)' }}>Due</span>
+              <span className={`text-lg font-extrabold ${due > 0 ? 'text-red-600' : 'text-green-700'}`} style={{ fontFamily: 'var(--font-jakarta)' }}>{money(due)}</span>
+            </div>
+          </div>
+        )}
         <div className="flex gap-2">
           <button onClick={onClose} disabled={busy} className="flex-1 min-h-[44px] rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold disabled:opacity-50">Cancel</button>
           <button onClick={confirm} disabled={busy || !valid} className="flex-1 min-h-[44px] rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-bold flex items-center justify-center gap-2 disabled:bg-slate-300">

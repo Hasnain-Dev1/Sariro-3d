@@ -2,7 +2,8 @@
 
 import Image from 'next/image';
 import { COMPANY } from '@/lib/invoice/company';
-import { calculateInvoice, formatMoney } from '@/lib/invoice/calculate';
+import CompanySeal from '@/components/dashboard/company-seal';
+import { calculateInvoice, formatMoney, paymentSummary, type PaymentType } from '@/lib/invoice/calculate';
 
 /**
  * SARIRO — the invoice itself
@@ -25,6 +26,12 @@ import { calculateInvoice, formatMoney } from '@/lib/invoice/calculate';
  * ── The tax section is absent, not empty ────────────────────────────────────
  * For an international customer there is no subtotal row, no zero line, no
  * "not applicable". The section does not render. See lib/invoice/calculate.ts.
+ *
+ * ── An installment says so, on the paper ────────────────────────────────────
+ * A parent holding the second of three invoices should not have to work out
+ * whether it is a second course. So the document prints the course total, what
+ * had already been paid, what is being paid today, and what is left — and the
+ * tax lines below it are on today's amount alone, which is what GST asks for.
  */
 
 export interface InvoiceData {
@@ -33,11 +40,22 @@ export interface InvoiceData {
   customerName: string;
   customerAddress: string;
   customerCountry: string;
+  /** The place of supply in words. Printed; the code below drives the tax. */
+  customerState?: string;
   customerStateCode: string;
   customerEmail: string;
   customerPhone: string;
   courseName: string;
   courseDescription: string;
+  /** 'full' — one payment. 'installment' — one of several. */
+  paymentType: PaymentType;
+  /** What the whole course costs. Only printed for an installment. */
+  courseTotal: number;
+  /** Received before this invoice. */
+  previouslyPaid: number;
+  /** UTR / Razorpay id / cheque number. */
+  transactionId: string;
+  /** What is being paid on THIS invoice — always the taxable base. */
   price: number;
   currencyCode: string;
   currencySymbol: string;
@@ -52,6 +70,13 @@ export default function InvoiceDocument({ data }: { data: InvoiceData }) {
     country: data.customerCountry,
     includeGst: data.includeGst,
     customerStateCode: data.customerStateCode,
+  });
+
+  const schedule = paymentSummary({
+    paymentType: data.paymentType,
+    courseTotal: data.courseTotal,
+    previouslyPaid: data.previouslyPaid,
+    amountNow: data.price,
   });
 
   const money = (n: number) => formatMoney(n, data.currencyCode, data.currencySymbol);
@@ -110,6 +135,13 @@ export default function InvoiceDocument({ data }: { data: InvoiceData }) {
           <p className="text-[22px] font-extrabold tracking-[0.14em] leading-none">
             {totals.showsTax ? 'TAX INVOICE' : 'INVOICE'}
           </p>
+          {/* Which one of how many is a fact the parent needs at a glance,
+              above the number rather than buried in the totals. */}
+          {schedule.isInstallment && (
+            <p className="text-[9.5px] font-bold uppercase tracking-[0.14em] text-slate-500 mt-1.5">
+              Part payment
+            </p>
+          )}
           <p className="text-[11px] text-slate-600 mt-2.5 leading-[1.7]">
             <span className="text-slate-400">No.</span>{' '}
             <span className="font-bold text-slate-900">{data.invoiceNumber}</span><br />
@@ -145,8 +177,11 @@ export default function InvoiceDocument({ data }: { data: InvoiceData }) {
               {addressLines.map((line, i) => <span key={i}>{line}<br /></span>)}
             </p>
           )}
-          {data.customerCountry && (
-            <p className="text-[11px] text-slate-600 leading-[1.6]">{data.customerCountry}</p>
+          {/* A tax invoice names the place of supply in words, not as a code. */}
+          {(data.customerState || data.customerCountry) && (
+            <p className="text-[11px] text-slate-600 leading-[1.6]">
+              {[data.customerState, data.customerCountry].filter(Boolean).join(', ')}
+            </p>
           )}
           {(data.customerEmail || data.customerPhone) && (
             <p className="text-[11px] text-slate-600 mt-1.5 leading-[1.6]">
@@ -158,9 +193,19 @@ export default function InvoiceDocument({ data }: { data: InvoiceData }) {
         </div>
 
         <div className="text-right">
-          {data.paymentReference && (
+          {/* The transaction id is the thing a parent quotes back when they say
+              they paid, so it prints even when nothing else does. */}
+          {data.transactionId && (
             <>
               <p className="text-[9.5px] font-bold uppercase tracking-[0.14em] text-slate-400 mb-1.5">
+                Transaction ID
+              </p>
+              <p className="text-[11.5px] text-slate-700 font-mono break-all">{data.transactionId}</p>
+            </>
+          )}
+          {data.paymentReference && (
+            <>
+              <p className="text-[9.5px] font-bold uppercase tracking-[0.14em] text-slate-400 mb-1.5 mt-3">
                 Reference
               </p>
               <p className="text-[11.5px] text-slate-700">{data.paymentReference}</p>
@@ -186,6 +231,13 @@ export default function InvoiceDocument({ data }: { data: InvoiceData }) {
               {data.courseDescription && (
                 <p className="text-[11px] text-slate-500 mt-0.5 leading-[1.55] whitespace-pre-wrap">
                   {data.courseDescription}
+                </p>
+              )}
+              {/* Without this line the amount below looks like the price of the
+                  course, and the second invoice looks like a second course. */}
+              {schedule.isInstallment && (
+                <p className="text-[11px] text-slate-500 mt-1 leading-[1.55]">
+                  Part payment towards course fees of {money(schedule.courseTotal)}
                 </p>
               )}
             </td>
@@ -216,14 +268,59 @@ export default function InvoiceDocument({ data }: { data: InvoiceData }) {
             </>
           )}
           <div className="flex items-baseline justify-between gap-4 pt-2.5 mt-2 border-t-2 border-slate-900">
-            <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-700">Total</span>
+            <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-700">
+              {schedule.isInstallment ? 'Paid now' : 'Total'}
+            </span>
             <span className="text-[17px] font-extrabold tabular-nums">{money(totals.total)}</span>
           </div>
           {totals.showsTax && (
             <p className="text-[9.5px] text-slate-400 mt-1.5 text-right leading-[1.5]">
-              Amount is inclusive of GST.
+              Amount is inclusive of GST{schedule.isInstallment ? ', charged on this payment' : ''}.
             </p>
           )}
+
+          {/* ── The schedule ───────────────────────────────────────────────
+              Below the total, not above it, because the amount being charged
+              is what the document is for. This is the context that stops the
+              parent having to ask. */}
+          {schedule.isInstallment && (
+            <div className="mt-3.5 pt-3 border-t border-slate-200">
+              <Row label="Course fees" value={money(schedule.courseTotal)} />
+              <Row label="Paid earlier" value={money(schedule.previouslyPaid)} />
+              <Row label="Paid on this invoice" value={money(schedule.amountNow)} />
+              <div className="flex items-baseline justify-between gap-4 pt-2 mt-1.5 border-t border-slate-300">
+                <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-700">
+                  {schedule.overpaid > 0 ? 'Paid in excess' : 'Balance due'}
+                </span>
+                <span className="text-[13px] font-extrabold tabular-nums">
+                  {money(schedule.overpaid > 0 ? schedule.overpaid : schedule.balance)}
+                </span>
+              </div>
+              {schedule.settled && schedule.overpaid === 0 && (
+                <p className="text-[9.5px] text-slate-400 mt-1.5 text-right leading-[1.5]">
+                  Course fees paid in full.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Seal and signature ─────────────────────────────────────────
+          Right-aligned under the totals, where an Indian invoice puts it. The
+          block is kept together across a page break: a signature line that
+          lands alone on page two reads as an unsigned invoice. */}
+      <div className="invoice-totals flex justify-end mt-6">
+        <div className="text-center" style={{ width: '190px' }}>
+          <div className="flex justify-center">
+            <CompanySeal size={88} />
+          </div>
+          <div className="mt-1.5 pt-1.5 border-t border-slate-400">
+            <p className="text-[10px] font-semibold text-slate-700 leading-[1.4]">
+              For {COMPANY.legalName}
+            </p>
+            <p className="text-[9px] text-slate-500 mt-0.5">Authorised Signatory</p>
+          </div>
         </div>
       </div>
 

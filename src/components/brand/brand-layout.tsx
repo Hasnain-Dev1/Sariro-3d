@@ -562,22 +562,59 @@ function AuthNavButton({ mobile = false }: { mobile?: boolean }) {
         : profile?.is_admin ? 'admin'
         : profile?.is_teacher ? 'teacher'
         : 'student');
-  const roleLabel = role === 'super_admin' ? 'Super Admin'
-                  : role === 'admin' ? 'Admin'
-                  : role === 'teacher' ? 'Teacher'
-                  : 'Student';
 
-  // Role-specific quick links
-  const roleLinks: { href: string; label: string }[] = [];
-  if (role === 'student') {
-    roleLinks.push({ href: '/dashboard/student', label: 'My Courses' });
-    roleLinks.push({ href: '/dashboard/student#schedule', label: 'My Schedule' });
-  } else if (role === 'teacher') {
-    roleLinks.push({ href: '/dashboard/teacher', label: 'My Schedule' });
-    roleLinks.push({ href: '/dashboard/teacher#students', label: 'My Students' });
-  } else if (role === 'admin' || role === 'super_admin') {
-    roleLinks.push({ href: `/dashboard/${role === 'super_admin' ? 'super-admin' : 'admin'}`, label: 'Admin Panel' });
-  }
+  /*
+   * Label and links come from ONE table, keyed by the role the database
+   * actually stores.
+   *
+   * They used to be two chains of ternaries, and they had drifted: neither knew
+   * about `hr` or `seller`. An HR user fell off the end of both — labelled
+   * "Student" in the badge, and given no links at all, because the student
+   * branch was an equality test rather than the fallback the label used. The
+   * only way into their own dashboard was to type the URL.
+   *
+   * A table cannot drift like that: a role missing from it is missing from
+   * both halves at once, which is visible immediately rather than only to the
+   * one person who has that role.
+   */
+  const MENU: Record<string, { label: string; links: { href: string; label: string }[] }> = {
+    student: {
+      label: 'Student',
+      links: [
+        { href: '/dashboard/student', label: 'My Courses' },
+        { href: '/dashboard/student#schedule', label: 'My Schedule' },
+      ],
+    },
+    teacher: {
+      label: 'Teacher',
+      links: [
+        { href: '/dashboard/teacher', label: 'My Schedule' },
+        { href: '/dashboard/teacher#students', label: 'My Students' },
+      ],
+    },
+    hr: {
+      label: 'HR',
+      links: [{ href: '/dashboard/hr', label: 'HR Dashboard' }],
+    },
+    seller: {
+      label: 'Sales',
+      links: [{ href: '/dashboard/seller', label: 'My Leads' }],
+    },
+    admin: {
+      label: 'Admin',
+      links: [{ href: '/dashboard/admin', label: 'Admin Panel' }],
+    },
+    super_admin: {
+      label: 'Super Admin',
+      links: [{ href: '/dashboard/super-admin', label: 'Admin Panel' }],
+    },
+  };
+
+  // A role we have not met yet still reaches its own dashboard rather than
+  // being silently told it is a student.
+  const entry = MENU[role] ?? { label: 'Student', links: MENU.student.links };
+  const roleLabel = entry.label;
+  const roleLinks = entry.links;
 
   return (
     <details className={`${mobile ? 'w-full' : 'relative'} group`}>

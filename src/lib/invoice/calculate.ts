@@ -35,6 +35,20 @@ import { HOME_STATE_CODE } from './company';
  * invites a question that has no useful answer.
  */
 
+/**
+ * The one number to change if the rate ever changes.
+ *
+ * Everything derives from it: CGST and SGST are each half of it, IGST is all of
+ * it, and the labels on the invoice are printed from it. Setting it to 0.16
+ * would produce CGST 8% + SGST 8% within West Bengal and IGST 16% elsewhere,
+ * with no other edit anywhere.
+ *
+ * It is 0.18 because 18% is the rate for online educational and coaching
+ * services in India, and because India's GST slabs are 0, 5, 12, 18 and 28 —
+ * there is no 16% slab. Changing it is a decision for the company's accountant,
+ * not a preference, so it lives here alone rather than being spread across the
+ * document and the calculation.
+ */
 export const GST_RATE = 0.18;
 
 export interface InvoiceInput {
@@ -152,3 +166,146 @@ export function formatMoney(amount: number, currencyCode: string, symbol: string
  * so nobody has to remember the rule.
  */
 export const gstAvailable = (country: string) => isIndia(country);
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Paying in parts
+   ══════════════════════════════════════════════════════════════════════════
+   A parent pays half now and half in six weeks, and the second invoice must
+   not look like a second course. So the invoice carries three numbers beside
+   the one being charged: what the course costs, what had already been paid,
+   and what is being paid today.
+
+   The tax is on TODAY'S amount and nothing else. Under GST the time of supply
+   for a service includes receipt of payment, so each receipt carries its own
+   tax — charging the whole course's GST on the first installment would collect
+   tax on money nobody has received. Nothing below feeds calculateInvoice(),
+   which is exactly the point: `price` already means "received on this
+   invoice", so the tax base is right by construction rather than by a rule
+   somebody has to remember.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+export type PaymentType = 'full' | 'installment';
+
+export interface PaymentInput {
+  paymentType: PaymentType;
+  /** What the whole course costs. Ignored for a full payment. */
+  courseTotal: number;
+  /** What had already been received before this invoice. */
+  previouslyPaid: number;
+  /** What is being paid now — the taxable amount. */
+  amountNow: number;
+}
+
+export interface PaymentSummary {
+  isInstallment: boolean;
+  courseTotal: number;
+  previouslyPaid: number;
+  amountNow: number;
+  /** Everything received including this invoice. */
+  paidToDate: number;
+  /** What is still owed. Never negative — see `overpaid`. */
+  balance: number;
+  /** By how much the payments exceed the course total, if they do. */
+  overpaid: number;
+  /** This payment clears the course. */
+  settled: boolean;
+}
+
+export function paymentSummary(input: PaymentInput): PaymentSummary {
+  const amountNow = Number.isFinite(input.amountNow) && input.amountNow > 0 ? input.amountNow : 0;
+
+  // A full payment is the degenerate case of an installment: the course total
+  // is the amount, nothing came before, and nothing is left. Returning the same
+  // shape means the document has one code path, not two.
+  if (input.paymentType !== 'installment') {
+    return {
+      isInstallment: false,
+      courseTotal: round2(amountNow),
+      previouslyPaid: 0,
+      amountNow: round2(amountNow),
+      paidToDate: round2(amountNow),
+      balance: 0,
+      overpaid: 0,
+      settled: true,
+    };
+  }
+
+  const courseTotal = Number.isFinite(input.courseTotal) && input.courseTotal > 0 ? input.courseTotal : 0;
+  const previouslyPaid = Number.isFinite(input.previouslyPaid) && input.previouslyPaid > 0 ? input.previouslyPaid : 0;
+  const paidToDate = round2(previouslyPaid + amountNow);
+  const difference = round2(courseTotal - paidToDate);
+
+  return {
+    isInstallment: true,
+    courseTotal: round2(courseTotal),
+    previouslyPaid: round2(previouslyPaid),
+    amountNow: round2(amountNow),
+    paidToDate,
+    // Split rather than signed: a negative "balance due" on a customer-facing
+    // document reads as a discount. An overpayment is a different fact and
+    // gets said in different words.
+    balance: difference > 0 ? difference : 0,
+    overpaid: difference < 0 ? round2(-difference) : 0,
+    settled: difference <= 0,
+  };
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   What the gateway kept
+   ══════════════════════════════════════════════════════════════════════════
+   Razorpay takes its cut before the money reaches the bank, and the rate is
+   not one number — it moves with the instrument (UPI, card, netbanking, an
+   international card) and with whatever was negotiated that quarter. So it is
+   recorded per transaction rather than assumed.
+
+   Three facts that are easy to confuse and must not be:
+
+     total         what the customer paid, and what GST is charged on
+     fee           what the gateway kept — a cost Sariro bears
+     netReceived   what actually landed in the bank
+
+   The fee is NOT a charge to the customer. It changes nothing about the tax:
+   GST is on the consideration the customer paid, not on what survived the
+   deduction. Netting the fee off before computing tax would under-declare
+   output GST on every card payment the company ever takes.
+
+   Entered either way — a percentage, or the exact figure off the settlement
+   report — because both are things a person actually has in front of them, and
+   two inputs that must agree is a bug waiting to happen. One value, one mode,
+   and the other side is derived.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+export type FeeMode = 'percent' | 'amount';
+
+export interface GatewayFeeInput {
+  /** What the customer paid. The gross figure that reached the gateway. */
+  total: number;
+  mode: FeeMode;
+  /** A percentage when mode is 'percent', otherwise the money deducted. */
+  value: number;
+}
+
+export interface GatewayFeeResult {
+  /** The effective rate, whichever way it was entered. */
+  percent: number;
+  /** The money the gateway kept. */
+  fee: number;
+  /** total − fee. What reconciles against the bank. */
+  netReceived: number;
+}
+
+export function gatewayFee(input: GatewayFeeInput): GatewayFeeResult {
+  const total = Number.isFinite(input.total) && input.total > 0 ? round2(input.total) : 0;
+  const raw = Number.isFinite(input.value) && input.value > 0 ? input.value : 0;
+
+  // Capped at the payment itself. A fee larger than the amount is arithmetic
+  // nobody meant, and letting it through would put a negative figure into the
+  // one column the books are reconciled against.
+  const fee = round2(Math.min(input.mode === 'percent' ? (total * raw) / 100 : raw, total));
+
+  // Rounded to three places: 2.36% is Razorpay's card rate once GST on the fee
+  // is included, and rounding that to 2.4 would misstate every reconciliation.
+  const percent = total > 0 ? Math.round((fee / total) * 100000) / 1000 : 0;
+
+  return { percent, fee, netReceived: round2(total - fee) };
+}

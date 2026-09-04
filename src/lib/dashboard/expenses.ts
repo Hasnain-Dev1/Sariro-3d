@@ -117,6 +117,14 @@ export async function createExpense(
     return { success: false, error: 'Enter an amount' };
   }
 
+  const bill = draft.documentUrl?.trim() || '';
+  if (bill && !isSafeBillLink(bill)) {
+    return {
+      success: false,
+      error: 'The bill link must be a full https:// address — paste the Google Drive share link.',
+    };
+  }
+
   const { error } = await supabase.from('expenses').insert({
     title: draft.title.trim().slice(0, 200),
     amount: draft.amount,
@@ -126,7 +134,7 @@ export async function createExpense(
     reason: draft.reason?.trim() || null,
     vendor: draft.vendor?.trim() || null,
     payment_method: draft.paymentMethod?.trim() || null,
-    document_url: draft.documentUrl?.trim() || null,
+    document_url: bill || null,
     notes: draft.notes?.trim() || null,
     created_by: user.id,
   });
@@ -147,4 +155,57 @@ export async function setExpenseStatus(
   const { error } = await supabase.from('expenses').update({ status }).eq('id', id);
   if (error) return { success: false, error: error.message };
   return { success: true };
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   The bill itself
+   ══════════════════════════════════════════════════════════════════════════
+   Sariro does not host the scans — a Drive link costs nothing to store and the
+   accountant already has access to the folder. What matters is that the link
+   is a link: `document_url` is rendered as an anchor, so a javascript: or
+   data: value pasted into that box would be a click away from running in
+   somebody's session. Only http(s) is accepted, and it is checked here rather
+   than in the input so a value arriving from anywhere else is checked too.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+export function isSafeBillLink(url: string): boolean {
+  try {
+    const parsed = new URL(url.trim());
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    // Not a URL at all — a bare "drive.google.com/..." included, because an
+    // anchor without a scheme resolves against our own domain and 404s.
+    return false;
+  }
+}
+
+/**
+ * Everything the accountant needs, in one file.
+ *
+ * The bill link is a column rather than an attachment: at filing time the
+ * spreadsheet is opened, the links are clicked, and the documents come down in
+ * the order the rows are in. That is the whole reason the link is captured at
+ * the moment the expense is recorded rather than hunted for in March.
+ */
+export function expensesToCsv(rows: Expense[]): string {
+  const headers = [
+    'Date', 'Title', 'Category', 'Paid to', 'Amount (INR)', 'Status',
+    'Payment method', 'Why', 'Bill link', 'Notes',
+  ];
+
+  const cell = (v: unknown): string => {
+    const s = v === null || v === undefined ? '' : String(v);
+    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+
+  const lines = [headers.join(',')];
+  for (const r of rows) {
+    lines.push([
+      r.spent_on, r.title, r.category ?? '', r.vendor ?? '',
+      Number(r.amount).toFixed(2), r.status,
+      r.payment_method ?? '', r.reason ?? r.description ?? '',
+      r.document_url ?? '', r.notes ?? '',
+    ].map(cell).join(','));
+  }
+  return lines.join('\r\n');
 }
