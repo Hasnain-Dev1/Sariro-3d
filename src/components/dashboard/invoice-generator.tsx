@@ -1,10 +1,11 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Printer, AlertCircle, Info } from 'lucide-react';
+import { Printer, AlertCircle, Info, FileCheck, Loader2 } from 'lucide-react';
 import InvoiceDocument, { type InvoiceData } from '@/components/dashboard/invoice-document';
 import { CURRENCIES, COUNTRIES, INDIAN_STATES } from '@/lib/invoice/company';
 import { gstAvailable } from '@/lib/invoice/calculate';
+import { issueInvoice } from '@/lib/invoice/records';
 
 /**
  * SARIRO — Generate Invoice
@@ -12,20 +13,17 @@ import { gstAvailable } from '@/lib/invoice/calculate';
  * Details on the left, the finished document on the right, updating as it is
  * typed. What is previewed is what prints — one component renders both.
  *
- * ── Nothing is stored ───────────────────────────────────────────────────────
- * By decision: the invoice is generated, printed and gone. That keeps this
- * feature free of a table, a migration and a retention question.
+ * ── The number comes from the database, at the moment of issue ──────────────
+ * GST rules require a consecutive series, unique within a financial year. The
+ * preview shows a provisional number so the document does not have a hole in
+ * it; pressing Issue calls issue_invoice(), which takes the real serial and
+ * writes the row in one locked statement. Two people clicking at the same
+ * second get 0007 and 0008, never 0007 twice.
  *
- * It has one consequence worth stating plainly, because it is a legal one
- * rather than a technical one. GST rules require invoice numbers to be a
- * consecutive series, unique within a financial year, and require the issuer to
- * keep the records. With nothing stored, a number cannot be proven sequential —
- * two people generating at the same moment would otherwise produce the same
- * one. So the number here is unique by construction (date and time to the
- * second) rather than sequential.
- *
- * That is the honest trade and it is written on the screen, not buried. When
- * the accountant asks for a serial series, the fix is a one-row counter table.
+ * ── Text is stored, never the PDF ───────────────────────────────────────────
+ * The record is under a kilobyte; the PDF it produces is a hundred times that
+ * and carries nothing the record does not. History redraws each invoice from
+ * its fields using this same document component.
  *
  * ── Why the PDF comes from the browser ──────────────────────────────────────
  * See invoice-document.tsx. Print keeps text as text; a canvas library would
@@ -42,16 +40,20 @@ const formatDate = (iso: string) => {
 };
 
 /**
- * A number that cannot collide without a database behind it.
+ * A placeholder, shown until the invoice is actually issued.
  *
- * SARIRO-INV-2026-0904-1432 — year, then the date and time it was raised. Two
- * invoices in the same second are the only collision, and one person cannot
- * type two sets of details that fast.
+ * The real number is allocated by the database so the series stays consecutive.
+ * This exists so the preview does not have a blank where the number goes, and
+ * it is visibly provisional rather than looking like a number that has been
+ * assigned.
  */
-function generateInvoiceNumber(): string {
-  const now = new Date();
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `SARIRO-INV-${now.getFullYear()}-${p(now.getMonth() + 1)}${p(now.getDate())}-${p(now.getHours())}${p(now.getMinutes())}${p(now.getSeconds())}`;
+const PROVISIONAL_NUMBER = 'SARIRO-INV-…-####';
+
+/** India's financial year starts on 1 April — matches issue_invoice(). */
+function financialYearOf(iso: string): number {
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return new Date().getFullYear();
+  return d.getMonth() + 1 >= 4 ? d.getFullYear() : d.getFullYear() - 1;
 }
 
 /** customer_course_date — safe on every filesystem. */
@@ -61,8 +63,11 @@ function fileNameFor(data: InvoiceData): string {
   return `${clean(data.customerName)}_${clean(data.courseName)}_${data.invoiceDate}`;
 }
 
-export default function InvoiceGenerator() {
-  const [invoiceNumber, setInvoiceNumber] = useState(generateInvoiceNumber);
+export default function InvoiceGenerator({ onIssued }: { onIssued?: () => void }) {
+  /** Null until issued. The database decides the real one. */
+  const [issuedNumber, setIssuedNumber] = useState<string | null>(null);
+  const [issuing, setIssuing] = useState(false);
+  const [issueError, setIssueError] = useState<string | null>(null);
   const [invoiceDate, setInvoiceDate] = useState(todayISO);
   const [customerName, setCustomerName] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
@@ -82,7 +87,7 @@ export default function InvoiceGenerator() {
   const currency = CURRENCIES.find((c) => c.code === currencyCode) ?? CURRENCIES[0];
 
   const data: InvoiceData = useMemo(() => ({
-    invoiceNumber,
+    invoiceNumber: issuedNumber ?? PROVISIONAL_NUMBER,
     invoiceDate: formatDate(invoiceDate),
     customerName,
     customerAddress,
@@ -102,7 +107,7 @@ export default function InvoiceGenerator() {
     paymentStatus,
     paymentReference,
   }), [
-    invoiceNumber, invoiceDate, customerName, customerAddress, customerCountry,
+    issuedNumber, invoiceDate, customerName, customerAddress, customerCountry,
     customerStateCode, customerEmail, customerPhone, courseName, courseDescription,
     price, currency, includeGst, paymentStatus, paymentReference, isIndia,
   ]);
@@ -124,6 +129,36 @@ export default function InvoiceGenerator() {
     // Restored on the next tick: the dialog is modal, and some browsers read
     // the title after it opens.
     setTimeout(() => { document.title = previous; }, 1000);
+  };
+
+  /**
+   * Take a real invoice number and record the sale.
+   *
+   * Issuing is separate from printing on purpose: a number is consumed from the
+   * series here, so it should happen once deliberately rather than every time
+   * somebody reaches for the print dialog.
+   */
+  const issue = async () => {
+    if (problems.length > 0 || issuing) return;
+    setIssuing(true);
+    setIssueError(null);
+    const res = await issueInvoice({ ...data, invoiceDateISO: invoiceDate });
+    setIssuing(false);
+    if (res.error || !res.record) {
+      setIssueError(res.error ?? 'Could not issue the invoice.');
+      return;
+    }
+    setIssuedNumber(res.record.invoice_number);
+    onIssued?.();
+  };
+
+  /** Clear the form for the next one, keeping nothing from the last. */
+  const startAnother = () => {
+    setIssuedNumber(null);
+    setIssueError(null);
+    setCustomerName(''); setCustomerAddress(''); setCustomerEmail(''); setCustomerPhone('');
+    setCourseName(''); setCourseDescription(''); setPrice(''); setPaymentReference('');
+    setInvoiceDate(todayISO());
   };
 
   const onCountryChange = (country: string) => {
@@ -248,15 +283,18 @@ export default function InvoiceGenerator() {
               <input value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)}
                 className={inputCls} style={inputStyle} placeholder="pay_XXXXXXXX" />
             </Field>
-            <Field label="Invoice number" hint="Generated. Regenerate for a fresh one.">
-              <div className="flex gap-2">
-                <input value={invoiceNumber} readOnly
-                  className={`${inputCls} bg-slate-50 text-slate-600`} style={inputStyle} />
-                <button type="button" onClick={() => setInvoiceNumber(generateInvoiceNumber())}
-                  className="px-3 min-h-[42px] rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[12.5px] font-bold shrink-0">
-                  New
-                </button>
-              </div>
+            <Field
+              label="Invoice number"
+              hint={issuedNumber
+                ? `Financial year ${financialYearOf(invoiceDate)}–${String(financialYearOf(invoiceDate) + 1).slice(2)}.`
+                : 'Allocated when you issue it, so the series stays consecutive.'}
+            >
+              <input
+                value={issuedNumber ?? PROVISIONAL_NUMBER}
+                readOnly
+                className={`${inputCls} bg-slate-50 ${issuedNumber ? 'text-slate-900 font-semibold' : 'text-slate-400'}`}
+                style={inputStyle}
+              />
             </Field>
           </Section>
 
@@ -267,22 +305,54 @@ export default function InvoiceGenerator() {
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={print}
-            disabled={problems.length > 0}
-            className="w-full inline-flex items-center justify-center gap-2 min-h-[46px] rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold disabled:bg-slate-300"
-            style={{ fontFamily: 'var(--font-grotesk)' }}
-          >
-            <Printer className="w-4 h-4" />
-            Download PDF / Print
-          </button>
+          {issueError && (
+            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-[13px] text-red-700 leading-[1.55]">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{issueError}</span>
+            </div>
+          )}
 
-          <p className="text-[11.5px] text-slate-400 leading-[1.55]">
-            Choose <span className="font-semibold">Save as PDF</span> as the destination.
-            The file is named{' '}
-            <code className="text-[11px] bg-slate-100 px-1 rounded">{fileNameFor(data)}</code>.
-          </p>
+          {/* Issuing consumes a number from the series, so it is a deliberate
+              act rather than a side effect of opening the print dialog. */}
+          {!issuedNumber ? (
+            <button
+              type="button"
+              onClick={issue}
+              disabled={problems.length > 0 || issuing}
+              className="w-full inline-flex items-center justify-center gap-2 min-h-[46px] rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold disabled:bg-slate-300"
+              style={{ fontFamily: 'var(--font-grotesk)' }}
+            >
+              {issuing ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileCheck className="w-4 h-4" />}
+              Issue invoice
+            </button>
+          ) : (
+            <div className="space-y-2">
+              <div className="rounded-lg border border-green-200 bg-green-50 px-3.5 py-2.5 text-[13px] text-green-800 leading-[1.55]">
+                Issued as <span className="font-bold">{issuedNumber}</span> and saved to history.
+              </div>
+              <button
+                type="button"
+                onClick={print}
+                className="w-full inline-flex items-center justify-center gap-2 min-h-[46px] rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold"
+                style={{ fontFamily: 'var(--font-grotesk)' }}
+              >
+                <Printer className="w-4 h-4" />
+                Download PDF / Print
+              </button>
+              <button
+                type="button"
+                onClick={startAnother}
+                className="w-full min-h-[42px] rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-[13px] font-bold"
+              >
+                Start another invoice
+              </button>
+              <p className="text-[11.5px] text-slate-400 leading-[1.55]">
+                Choose <span className="font-semibold">Save as PDF</span> as the destination.
+                The file is named{' '}
+                <code className="text-[11px] bg-slate-100 px-1 rounded">{fileNameFor(data)}</code>.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* ── The document ─────────────────────────────────────────────── */}

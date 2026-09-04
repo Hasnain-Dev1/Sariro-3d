@@ -17,7 +17,7 @@ import PaymentRequestsPanel from '@/components/dashboard/payment-requests-panel'
 import ExpensesPanel from '@/components/dashboard/expenses-panel';
 import PolicyFlagsPanel from '@/components/dashboard/policy-flags-panel';
 import CreditRequestsPanel from '@/components/dashboard/credit-requests-panel';
-import InvoiceGenerator from '@/components/dashboard/invoice-generator';
+import InvoiceWorkspace from '@/components/dashboard/invoice-workspace';
 
 export default function HRDashboard() {
   const { user, loading } = useAuth();
@@ -233,10 +233,10 @@ export default function HRDashboard() {
                   and the decision writes the transaction that moves them. */}
               {activeTab === 'credit_requests' && <CreditRequestsPanel />}
 
-              {/* A branded tax invoice, generated and printed. Nothing stored —
-                  see invoice-generator.tsx for what that costs and why the
-                  invoice number is unique rather than sequential. */}
-              {activeTab === 'invoices' && <InvoiceGenerator />}
+              {/* A branded tax invoice. Stored as text, never as a PDF — the
+                  document is redrawn from the record, which is a hundred times
+                  smaller and carries the same information. */}
+              {activeTab === 'invoices' && <InvoiceWorkspace />}
 
               {/* Attempts to move a learner's conversation off the platform.
                   HR owns the conversation that follows a repeat. */}
