@@ -91,7 +91,9 @@ const SUPER_ADMIN_NAV: NavItem[] = [
   MESSAGES_NAV,
   { href: '/dashboard/super-admin/parents', label: 'Parent Access', icon: Users },
   { href: '/dashboard/super-admin/teacher-pay', label: 'Tiers & Pay', icon: DollarSign },
-  { href: '/dashboard/super-admin#cohorts', label: 'Courses', icon: GraduationCap },
+  /* No Courses entry. Creating and scheduling them is Admin's job (§11,
+     extended) — Super Admin watches the numbers they produce. The courses
+     section is still on the page, read-only, because it is analytics. */
   { href: '/dashboard/super-admin#pricing', label: 'Pricing', icon: DollarSign },
   { href: '/dashboard/super-admin#audit', label: 'Audit Logs', icon: ScrollText },
   { href: '/settings', label: 'Settings', icon: Settings },

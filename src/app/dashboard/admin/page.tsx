@@ -39,6 +39,7 @@ import { BatchRescheduleModal } from '@/components/dashboard/batch-reschedule-mo
 import MyTeachers from '@/components/dashboard/my-teachers';
 import { describeChoice } from '@/lib/demo/learner-choice';
 import PolicyFlagsPanel from '@/components/dashboard/policy-flags-panel';
+import CreateCourseModal from '@/components/dashboard/create-course-modal';
 import { ShieldAlert } from 'lucide-react';
 
 /* ───── Helpers ───── */
@@ -593,153 +594,6 @@ function CohortCard({
         )}
       </AnimatePresence>
     </>
-  );
-}
-
-/* ───── Create cohort modal ───── */
-function CreateCohortModal({
-  open, onClose, onCreated,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onCreated: () => void;
-}) {
-  const [track, setTrack] = useState<string>(TRACKS[0]?.id ?? 'web');
-  const [level, setLevel] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
-  const [ratio, setRatio] = useState<'1:1' | '1:4'>('1:4');
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSubmit = async () => {
-    setSubmitting(true);
-    setError(null);
-    const result = await createCohort({
-      track, level, ratio,
-      max_capacity: ratio === '1:1' ? 1 : 4,
-    });
-    setSubmitting(false);
-    if (!result) {
-      setError('Failed to create course. Check your permissions.');
-      return;
-    }
-    onCreated();
-    onClose();
-  };
-
-  return (
-    <AnimatePresence>
-      {open && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[80] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => !submitting && onClose()}
-        >
-          <motion.div
-            initial={{ scale: 0.95, y: 20 }}
-            animate={{ scale: 1, y: 0 }}
-            exit={{ scale: 0.95, y: 20 }}
-            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
-                Create New Course
-              </h3>
-              <button
-                onClick={() => !submitting && onClose()}
-                className="w-9 h-9 rounded-full hover:bg-slate-100 flex items-center justify-center"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                  Track
-                </label>
-                <select
-                  value={track}
-                  onChange={(e) => setTrack(e.target.value)}
-                  className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                  style={{ fontFamily: 'var(--font-inter)' }}
-                >
-                  {TRACKS.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                  Level
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(['beginner', 'intermediate', 'advanced'] as const).map(l => (
-                    <button
-                      key={l}
-                      onClick={() => setLevel(l)}
-                      className={`h-11 rounded-xl text-sm font-bold border-2 transition-colors ${
-                        level === l ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'
-                      }`}
-                      style={{ fontFamily: 'var(--font-grotesk)' }}
-                    >
-                      {levelDisplay(l)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                  Ratio (mentor : students)
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {(['1:1', '1:4'] as const).map(r => (
-                    <button
-                      key={r}
-                      onClick={() => setRatio(r)}
-                      className={`h-11 rounded-xl text-sm font-bold border-2 transition-colors ${
-                        ratio === r ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'
-                      }`}
-                      style={{ fontFamily: 'var(--font-grotesk)' }}
-                    >
-                      {r} {r === '1:1' ? '(Private)' : '(Group)'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {error && (
-                <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
-                  {error}
-                </div>
-              )}
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  onClick={handleSubmit}
-                  disabled={submitting}
-                  className="flex-1 min-h-[44px] px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
-                  style={{ fontFamily: 'var(--font-grotesk)' }}
-                >
-                  {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                  Create Course
-                </button>
-                <button
-                  onClick={() => !submitting && onClose()}
-                  className="min-h-[44px] px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold"
-                  style={{ fontFamily: 'var(--font-grotesk)' }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
   );
 }
 
@@ -1938,12 +1792,15 @@ function AdminDashboardInner() {
         </div>
       </div>
 
-      {/* Create course modal */}
-      <CreateCohortModal
+      {/* §4-6 — every kind of class we sell, created from one place: coding
+          tracks by level, school subjects by grade, focus courses. The previous
+          modal offered coding only, so Mathematics and Public Speaking classes
+          could not be scheduled from the dashboard at all. */}
+      <CreateCourseModal
         open={showCreateModal}
         onClose={() => setShowCreateModal(false)}
-        onCreated={() => {
-          setToast({ type: 'success', message: 'Course created' });
+        onCreated={(summary) => {
+          setToast({ type: 'success', message: `Course created — ${summary}` });
           loadAll();
         }}
       />

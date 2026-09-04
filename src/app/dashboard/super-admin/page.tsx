@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Crown, Users, BookOpen, Clock, GraduationCap, ScrollText,
-  DollarSign, Loader2, AlertCircle, CheckCircle2, XCircle, Plus,
+  DollarSign, Loader2, AlertCircle, CheckCircle2, XCircle,
   Lock, Trophy, ArrowRight, X, Video, Copy, ShieldCheck, Link as LinkIcon,
   FolderOpen, Rocket, Calendar, Mail, Phone, Coins, ChevronDown,
   UserCheck, Search, Download, LogIn,
@@ -25,7 +25,7 @@ import { TRACKS, COURSES, RAZORPAY_LINKS, RAZORPAY_LINKS_PREMIUM } from '@/lib/s
 import { createClient } from '@/lib/supabase/client';
 import {
   fetchAdminStats, fetchPendingPurchaseIntents, fetchCohorts,
-  confirmPurchaseIntent, rejectPurchaseIntent, transitionCohortStatus, createCohort,
+  confirmPurchaseIntent, rejectPurchaseIntent, transitionCohortStatus,
   updateCohortMeetUrl, updateCohortMaterialsUrl,
   type AdminStats, type PurchaseIntentRow, type CohortRow,
 } from '@/lib/dashboard/admin-data';
@@ -537,86 +537,6 @@ function RazorpayLinkCard({ tier, ratio, url }: { tier: string; ratio: string; u
   );
 }
 
-/* ───── Create cohort modal ───── */
-function CreateCohortModal({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: () => void }) {
-  const [track, setTrack] = useState<string>(TRACKS[0]?.id ?? 'web');
-  const [level, setLevel] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
-  const [ratio, setRatio] = useState<'1:1' | '1:4'>('1:4');
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSubmit = async () => {
-    setSubmitting(true);
-    setError(null);
-    const result = await createCohort({ track, level, ratio, max_capacity: ratio === '1:1' ? 1 : 4 });
-    setSubmitting(false);
-    if (!result) { setError('Failed to create course.'); return; }
-    onCreated();
-    onClose();
-  };
-
-  return (
-    <AnimatePresence>
-      {open && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[80] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => !submitting && onClose()}>
-          <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
-            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6"
-            onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>Create New Course</h3>
-              <button onClick={() => !submitting && onClose()} className="w-9 h-9 rounded-full hover:bg-slate-100 flex items-center justify-center">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>Track</label>
-                <select value={track} onChange={(e) => setTrack(e.target.value)}
-                  className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/50">
-                  {TRACKS.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>Level</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(['beginner', 'intermediate', 'advanced'] as const).map(l => (
-                    <button key={l} onClick={() => setLevel(l)}
-                      className={`h-11 rounded-xl text-sm font-bold border-2 transition-colors ${level === l ? 'border-violet-500 bg-violet-50 text-violet-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}
-                      style={{ fontFamily: 'var(--font-grotesk)' }}>{levelDisplay(l)}</button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>Ratio</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {(['1:1', '1:4'] as const).map(r => (
-                    <button key={r} onClick={() => setRatio(r)}
-                      className={`h-11 rounded-xl text-sm font-bold border-2 transition-colors ${ratio === r ? 'border-violet-500 bg-violet-50 text-violet-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}
-                      style={{ fontFamily: 'var(--font-grotesk)' }}>{r} {r === '1:1' ? '(Private)' : '(Group)'}</button>
-                  ))}
-                </div>
-              </div>
-              {error && <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">{error}</div>}
-              <div className="flex gap-2 pt-2">
-                <button onClick={handleSubmit} disabled={submitting}
-                  className="flex-1 min-h-[44px] px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
-                  style={{ fontFamily: 'var(--font-grotesk)' }}>
-                  {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Create
-                </button>
-                <button onClick={() => !submitting && onClose()}
-                  className="min-h-[44px] px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold"
-                  style={{ fontFamily: 'var(--font-grotesk)' }}>Cancel</button>
-              </div>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
-
 /* ───── "See all" preview helpers ───── */
 function SeeAllButton({ count, onClick }: { count: number; onClick: () => void }) {
   return (
@@ -668,7 +588,6 @@ function SuperAdminDashboardInner() {
   const [auditFilter, setAuditFilter] = useState<string>('all');
   const [auditActions, setAuditActions] = useState<string[]>([]);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [showTeacherModal, setShowTeacherModal] = useState(false);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
   const [showUserManagement, setShowUserManagement] = useState(false);
@@ -821,10 +740,11 @@ function SuperAdminDashboardInner() {
               >
                 <UserCheck className="w-4 h-4" /> Assign Teacher
               </button>
-              <button onClick={() => setShowCreateModal(true)}
-                className="btn-tactile btn-tactile-primary px-5 py-2.5 text-sm flex items-center gap-2">
-                <Plus className="w-4 h-4" /> New Course
-              </button>
+              {/* §11, extended. Creating and scheduling courses is Admin's job;
+                  Super Admin watches the resulting numbers. A super-admin who
+                  needs to act does it by entering an admin account, which is
+                  logged — rather than having a second, unlogged path to the same
+                  operation from a dashboard meant for analytics. */}
             </div>
           </div>
         </motion.div>
@@ -969,10 +889,9 @@ function SuperAdminDashboardInner() {
             <div className="card-3d p-8 text-center">
               <GraduationCap className="w-12 h-12 text-slate-300 mx-auto mb-3" />
               <h3 className="text-lg font-bold text-slate-900 mb-1" style={{ fontFamily: 'var(--font-jakarta)' }}>No courses yet</h3>
-              <p className="text-sm text-slate-500 mb-4">Create your first course to start gathering students.</p>
-              <button onClick={() => setShowCreateModal(true)} className="btn-tactile btn-tactile-primary px-5 py-2.5 text-sm inline-flex items-center gap-2">
-                <Plus className="w-4 h-4" /> Create Course
-              </button>
+              <p className="text-sm text-slate-500">
+                Courses are created and scheduled from the Admin dashboard.
+              </p>
             </div>
           ) : (
             <>
@@ -1086,8 +1005,6 @@ function SuperAdminDashboardInner() {
           </div>
         </div>
       </div>
-
-      <CreateCohortModal open={showCreateModal} onClose={() => setShowCreateModal(false)} onCreated={() => { setToast({ type: 'success', message: 'Course created' }); loadAll(); }} />
 
       <TeacherManagementModal
         open={showTeacherModal}
