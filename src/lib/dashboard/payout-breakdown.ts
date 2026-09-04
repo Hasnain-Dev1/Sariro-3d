@@ -49,11 +49,25 @@ export interface EarningRow {
 
 export type PenaltyKind = 'late_join' | 'no_show' | 'late_attendance' | 'student_no_show' | 'other';
 
-/** §38 — the rules, in the words the payout screen shows them in. */
+/** How long after a class ends attendance may still be marked without penalty. */
+export const ATTENDANCE_DEADLINE_HOURS = 24;
+
+/**
+ * §38 — the rules, in the words the payout screen shows them in.
+ *
+ * All three are now actually enforced. The late-attendance one was printed
+ * here for weeks while nothing applied it, which is worse than not showing it:
+ * a rule a teacher reads and then watches go unenforced teaches them which
+ * other rules to ignore.
+ */
 export const PENALTY_RULES: { kind: PenaltyKind; label: string; rule: string }[] = [
   { kind: 'late_join', label: 'Late join', rule: 'More than 5 minutes after the scheduled start — ₹100' },
   { kind: 'no_show', label: 'No show', rule: 'Class not attended — ₹1,000' },
-  { kind: 'late_attendance', label: 'Late attendance', rule: 'Attendance marked after the deadline — ₹100' },
+  {
+    kind: 'late_attendance',
+    label: 'Late attendance',
+    rule: `Attendance not marked within ${ATTENDANCE_DEADLINE_HOURS} hours of the class ending — ₹100`,
+  },
 ];
 
 export const PENALTY_LABEL: Record<PenaltyKind, string> = {

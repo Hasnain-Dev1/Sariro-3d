@@ -36,6 +36,7 @@ import { getTrackName } from '@/lib/dashboard/upsell-engine';
 import { useRealtime } from '@/lib/dashboard/use-realtime';
 import { TeacherCalendar } from '@/components/dashboard/teacher-calendar';
 import LowCreditPanel from '@/components/dashboard/low-credit-panel';
+import { attendanceDeadline, deadlineTone } from '@/lib/dashboard/attendance-deadline';
 import { Coins } from 'lucide-react';
 
 /* ───── Helpers ───── */
@@ -342,6 +343,12 @@ function BookingCard({
             ended and attendance is still outstanding (V2 §15). */}
         {onManage && (() => {
           const needsAttendance = classEnded && !booking.attendance_finalized_at;
+          /* §15 — how long is left before the late-attendance penalty. Shown on
+             the card, because a teacher who can see "6 hours left" marks it,
+             and one who finds out afterwards has only learned that the system
+             fines them. */
+          const deadline = attendanceDeadline(booking.slot_end, booking.attendance_finalized_at);
+          const tone = deadlineTone(deadline.state);
           return (
             <button
               onClick={() => onManage(booking)}
@@ -354,6 +361,14 @@ function BookingCard({
             >
               <ClipboardCheck className="w-3.5 h-3.5" />
               {needsAttendance ? 'Mark Attendance' : 'Attendance & Students'}
+              {needsAttendance && deadline.label && tone && (
+                <span
+                  className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-black tracking-wide"
+                  style={{ color: tone.fg, background: '#FFFFFF' }}
+                >
+                  {deadline.penalised ? 'OVERDUE' : `${Math.max(1, Math.round(deadline.hoursLeft))}h`}
+                </span>
+              )}
             </button>
           );
         })()}
@@ -842,6 +857,21 @@ function SessionDetailsModal({
                     : 'Lesson not set yet — it is assigned when you mark the first student.'}
                 </p>
               </div>
+
+              {/* §15 — the deadline, stated where the marking happens. */}
+              {(() => {
+                const d = attendanceDeadline(booking.slot_end, finalizedAt);
+                const tone = deadlineTone(d.state);
+                if (!d.label || !tone) return null;
+                return (
+                  <div
+                    className="rounded-xl px-4 py-2.5 text-[13px] font-semibold"
+                    style={{ color: tone.fg, background: tone.bg }}
+                  >
+                    {d.label}
+                  </div>
+                );
+              })()}
 
               {/* What happened to the lesson on the last mark. A toast is gone
                   in three seconds; this is the part a teacher needs to act on. */}

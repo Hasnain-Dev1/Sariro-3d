@@ -43,6 +43,7 @@ import CreateCourseModal from '@/components/dashboard/create-course-modal';
 import {
   COURSE_FAMILIES, CODING_LEVELS, optionsFor, gradesFor, type CourseFamily,
 } from '@/lib/dashboard/course-options';
+import { COUNTRIES } from '@/lib/invoice/company';
 import { ShieldAlert } from 'lucide-react';
 
 /* ───── Helpers ───── */
@@ -1008,6 +1009,10 @@ function ManualEnrollModal({
   const [track, setTrack] = useState<string>(TRACKS[0]?.id ?? 'web');
   const [level, setLevel] = useState<string>('beginner');
   const [ratio, setRatio] = useState<'1:1' | '1:4'>('1:4');
+  /* §8 step 4. A batch is a fixed weekly slot in one timezone, so an Indian
+     batch offered to a child in California is a class at 20:30 the day before.
+     Empty means show everything. */
+  const [country, setCountry] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Which OPEN batch to place the kid into. '' = create a fresh batch.
@@ -1015,15 +1020,15 @@ function ManualEnrollModal({
   const [selectedCohortId, setSelectedCohortId] = useState('');
   const [batchesLoading, setBatchesLoading] = useState(false);
 
-  // Refetch the matching open batches whenever track/level/ratio change, so the
-  // admin can choose exactly where the new kid goes instead of auto-filling the
-  // first open one.
+  // Refetch the matching open batches whenever track/level/ratio/country change,
+  // so the admin can choose exactly where the new kid goes instead of
+  // auto-filling the first open one.
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     setBatchesLoading(true);
     setSelectedCohortId('');
-    fetchOpenBatches(track, level, ratio).then((rows) => {
+    fetchOpenBatches(track, level, ratio, country || undefined).then((rows) => {
       if (cancelled) return;
       Promise.resolve().then(() => {
         setBatches(rows);
@@ -1031,7 +1036,7 @@ function ManualEnrollModal({
       });
     });
     return () => { cancelled = true; };
-  }, [open, track, level, ratio]);
+  }, [open, track, level, ratio, country]);
 
   useEffect(() => {
     if (!open) return;
@@ -1258,6 +1263,27 @@ function ManualEnrollModal({
                 </div>
               </div>
 
+              {/* §8 step 4 — country, before the batches are offered. */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                  Country
+                </label>
+                <select
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  disabled={submitting}
+                  className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  style={{ fontFamily: 'var(--font-inter)' }}
+                >
+                  <option value="">Any country</option>
+                  {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <p className="mt-1 text-[11px] text-slate-400 leading-[1.5]">
+                  A batch is a fixed weekly slot in one timezone. Batches with no
+                  country set are shown whatever you pick.
+                </p>
+              </div>
+
               {/* Batch selector — choose a specific open batch, or create a new
                   one. This is what stops two kids enrolled at once from being
                   force-paired into the same batch. */}
@@ -1281,6 +1307,7 @@ function ManualEnrollModal({
                     return (
                       <option key={b.id} value={b.id} disabled={full}>
                         {b.batch_code || 'Batch'} · {b.enrolled}/{cap}{full ? ' (full)' : ''} · {b.status}
+                        {b.country ? ` · ${b.country}` : ''}
                       </option>
                     );
                   })}

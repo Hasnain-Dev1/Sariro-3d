@@ -6,6 +6,8 @@ import {
   fetchCreditRequests, decideCreditRequest, formatCredits,
   type CreditRequest,
 } from '@/lib/dashboard/credit-requests';
+import DateRangeFilter from '@/components/dashboard/date-range-filter';
+import { resolveRange, inRange, type RangePreset, type DateRange } from '@/lib/dashboard/date-ranges';
 
 /**
  * SARIRO — credit requests awaiting a decision
@@ -47,6 +49,8 @@ export default function CreditRequestsPanel() {
   const [data, setData] = useState<{ requests: CreditRequest[]; canDecide: boolean } | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  /* §73 — one definition of "this month", shared with every other dashboard. */
+  const [range, setRange] = useState<DateRange>(() => resolveRange('all'));
   const [busyId, setBusyId] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [amount, setAmount] = useState<Record<string, string>>({});
@@ -75,9 +79,16 @@ export default function CreditRequestsPanel() {
     else setMsg(res.error ?? 'Could not save the decision.');
   };
 
+  /* Filtered by the shared range before anything is counted or drawn, so
+     the count above and the list below can never describe different sets. */
+  const visible = useMemo(
+    () => (data?.requests ?? []).filter((r) => inRange(r.created_at, range)),
+    [data, range]
+  );
+
   const pending = useMemo(
-    () => (data?.requests ?? []).filter((r) => r.status === 'requested'),
-    [data]
+    () => visible.filter((r) => r.status === 'requested'),
+    [visible]
   );
 
   if (failed) {
@@ -117,6 +128,11 @@ export default function CreditRequestsPanel() {
         </button>
       </div>
 
+      <DateRangeFilter
+        value={range}
+        onChange={(preset: RangePreset, custom) => setRange(resolveRange(preset, custom))}
+      />
+
       {msg && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-[13px] text-red-700">
           {msg}
@@ -132,7 +148,7 @@ export default function CreditRequestsPanel() {
         </div>
       )}
 
-      {data.requests.length === 0 ? (
+      {visible.length === 0 ? (
         <div className="card card--feature text-center py-10">
           <Coins className="w-8 h-8 mx-auto text-slate-300 mb-3" />
           <p className="text-[14px] text-slate-600">
@@ -141,7 +157,7 @@ export default function CreditRequestsPanel() {
         </div>
       ) : (
         <div className="space-y-2">
-          {data.requests.map((r) => {
+          {visible.map((r) => {
             const tone = TONE[r.status];
             const before = Number(r.balance_at_request ?? 0);
             const grant = r.status === 'approved' ? Number(r.approved_amount ?? 0) : Number(r.requested_amount);

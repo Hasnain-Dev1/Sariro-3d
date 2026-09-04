@@ -314,6 +314,13 @@ export async function createCohort(params: {
   level: CourseLevelValue;
   ratio: '1:1' | '1:4';
   max_capacity: number;
+  /**
+   * §8 — the region this batch's weekly slot suits. Omitted means the batch is
+   * offered to everybody, which is how every batch behaved before the column
+   * existed. Not a tax field; the invoice takes its own country from the
+   * customer at the point of sale.
+   */
+  country?: string;
 }): Promise<string | null> {
   try {
     const supabase = createClient();
@@ -324,6 +331,7 @@ export async function createCohort(params: {
         level: params.level,
         ratio: params.ratio,
         max_capacity: params.max_capacity,
+        country: params.country ?? null,
         status: 'gathering',
       })
       .select('id')
@@ -1033,18 +1041,35 @@ export interface OpenBatch {
   status: string;
   max_capacity: number | null;
   enrolled: number;
+  /** §8 — the region this batch is scheduled for. Null means unrestricted. */
+  country: string | null;
+  track: string;
+  level: string;
+  ratio: string;
 }
 
+/**
+ * Open batches for a course, optionally narrowed to a country.
+ *
+ * §8. A batch is a fixed weekly slot in one timezone, so offering an Indian
+ * batch to a child in California is offering them a class at 20:30 the previous
+ * day. They enrol, they stop coming, and nothing says why.
+ *
+ * Batches with no country set are shown to everybody — that is how the product
+ * behaved before the column existed, and inventing a country for old batches
+ * would be worse than leaving them open.
+ */
 export async function fetchOpenBatches(
   track: string,
   level: string,
-  ratio: string
+  ratio: string,
+  country?: string
 ): Promise<OpenBatch[]> {
   try {
     const supabase = createClient();
     const { data: cohorts } = await supabase
       .from('cohorts')
-      .select('id, batch_code, status, max_capacity')
+      .select('id, batch_code, status, max_capacity, country, track, level, ratio')
       .eq('track', track).eq('level', level).eq('ratio', ratio)
       .in('status', ['gathering', 'ready', 'active'])
       .order('created_at', { ascending: true });
@@ -1055,13 +1080,21 @@ export async function fetchOpenBatches(
     (enr ?? []).forEach((e: { cohort_id: string | null }) => {
       if (e.cohort_id) counts.set(e.cohort_id, (counts.get(e.cohort_id) ?? 0) + 1);
     });
-    return cohorts.map((c) => ({
-      id: c.id,
-      batch_code: c.batch_code ?? null,
-      status: c.status,
-      max_capacity: c.max_capacity ?? null,
-      enrolled: counts.get(c.id) ?? 0,
-    }));
+    return cohorts
+      .map((c) => ({
+        id: c.id,
+        batch_code: c.batch_code ?? null,
+        status: c.status,
+        max_capacity: c.max_capacity ?? null,
+        enrolled: counts.get(c.id) ?? 0,
+        country: c.country ?? null,
+        track: c.track,
+        level: c.level,
+        ratio: c.ratio,
+      }))
+      // Filtered here rather than in the query so an unrestricted batch (null
+      // country) stays visible whatever country was chosen.
+      .filter((c) => !country || !c.country || c.country === country);
   } catch (err) {
     console.warn('[admin] fetchOpenBatches error:', err);
     return [];

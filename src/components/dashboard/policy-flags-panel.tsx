@@ -7,6 +7,8 @@ import {
   type PolicyFlag,
 } from '@/lib/dashboard/messaging';
 import { REASON_LABEL, type PolicyReason } from '@/lib/messaging/contact-policy';
+import DateRangeFilter from '@/components/dashboard/date-range-filter';
+import { resolveRange, inRange, type RangePreset, type DateRange } from '@/lib/dashboard/date-ranges';
 
 /**
  * SARIRO — attempts to take a conversation off the platform
@@ -61,6 +63,10 @@ export default function PolicyFlagsPanel() {
   const [flags, setFlags] = useState<PolicyFlag[] | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [showReviewed, setShowReviewed] = useState(false);
+  /* §73 — the same range definition every other dashboard uses. "This month"
+     must mean one thing across the product, or two screens disagree about the
+     same words and nobody can tell which is right. */
+  const [range, setRange] = useState<DateRange>(() => resolveRange('all'));
   const [busyId, setBusyId] = useState<string | null>(null);
   const [note, setNote] = useState<Record<string, string>>({});
 
@@ -76,8 +82,10 @@ export default function PolicyFlagsPanel() {
   useEffect(() => { void load(); }, [load]);
 
   const shown = useMemo(
-    () => (flags ?? []).filter((f) => showReviewed || !f.reviewed_at),
-    [flags, showReviewed]
+    () => (flags ?? []).filter((f) =>
+      (showReviewed || !f.reviewed_at) && inRange(f.created_at, range)
+    ),
+    [flags, showReviewed, range]
   );
 
   /* Repeat offenders. One flag is noise; the same name four times is a
@@ -141,6 +149,11 @@ export default function PolicyFlagsPanel() {
           {showReviewed ? 'Show unreviewed only' : `Show all (${flags.length})`}
         </button>
       </div>
+
+      <DateRangeFilter
+        value={range}
+        onChange={(preset: RangePreset, custom) => setRange(resolveRange(preset, custom))}
+      />
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         <div className="card card--compact">

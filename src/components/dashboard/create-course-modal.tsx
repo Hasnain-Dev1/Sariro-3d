@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2, Check, ChevronLeft } from 'lucide-react';
 import { createCohort } from '@/lib/dashboard/admin-data';
+import { COUNTRIES } from '@/lib/invoice/company';
 import {
   COURSE_FAMILIES, CODING_LEVELS, ALL_GRADES,
   optionsFor, gradesFor, suitsGrades, levelValue, describeCourse,
@@ -58,11 +59,14 @@ export default function CreateCourseModal({
   const [track, setTrack] = useState('');
   const [level, setLevel] = useState('');
   const [ratio, setRatio] = useState<'1:1' | '1:4'>('1:4');
+  /** §8 — the region this batch's weekly slot suits. Blank = everybody. */
+  const [country, setCountry] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const reset = () => {
-    setFamily(null); setTrack(''); setLevel(''); setRatio('1:4'); setError(null);
+    setFamily(null); setTrack(''); setLevel(''); setRatio('1:4');
+    setCountry(''); setError(null);
   };
 
   const close = () => { if (!submitting) { reset(); onClose(); } };
@@ -87,6 +91,7 @@ export default function CreateCourseModal({
     setError(null);
     const result = await createCohort({
       track,
+      country: country || undefined,
       // createCohort's type still names the three coding levels; the column and
       // its constraint accept the wider set (grade-N, focus).
       level: finalLevel as 'beginner' | 'intermediate' | 'advanced',
@@ -230,6 +235,28 @@ export default function CreateCourseModal({
                     {suitsGrades(track) ? ` Usually suits ${suitsGrades(track)}.` : ''}
                   </p>
                 )}
+
+                {/* §8 — which region this batch's weekly slot suits. Optional:
+                    left blank the batch is offered to everybody, which is how
+                    every batch behaved before the field existed. */}
+                <div>
+                  <label htmlFor="course-country" className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                    Country <span className="text-slate-400 normal-case tracking-normal font-semibold">(optional)</span>
+                  </label>
+                  <select
+                    id="course-country"
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                    className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  >
+                    <option value="">Any — offer to everybody</option>
+                    {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <p className="text-[11.5px] text-slate-400 mt-1.5 leading-[1.5]">
+                    A batch meets at the same time every week. Setting a country
+                    stops it being offered to a child for whom that is 3am.
+                  </p>
+                </div>
 
                 {/* ── Ratio ──────────────────────────────────────────────── */}
                 <div>
