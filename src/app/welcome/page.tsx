@@ -22,6 +22,8 @@ import {
   type ChoiceGroup,
 } from '@/lib/demo/learner-choice';
 import { HoneypotField } from '@/components/security/honeypot';
+import PhoneVerify from '@/components/brand/phone-verify';
+import { normalizeIndianMobile } from '@/lib/phone/india';
 
 /* ════════════════════════════════════════════════════════════════════════
    Welcome Page — /welcome
@@ -88,7 +90,10 @@ export default function WelcomePage() {
                 '30 minutes',
                 'A real mentor, live',
                 'No credit card',
-                'No sales call',
+                /* "No sales call" was here and was not true — the line above
+                   says we call within 24 hours to confirm, and the booking
+                   route emails the team telling them to. A promise the next
+                   sentence breaks costs more than it wins. */
               ].map((item) => (
                 <li key={item} className="inline-flex items-center gap-1.5">
                   <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
@@ -337,6 +342,13 @@ function DemoClassForm() {
   const [studentName, setStudentName] = useState('');
   const [parentName, setParentName] = useState('');
   const [phone, setPhone] = useState('');
+  /* The E.164 number that has actually been verified, or null. Not a boolean:
+     a boolean would still say "verified" after the number was edited, and the
+     thing being verified is a specific number. */
+  const [verifiedPhone, setVerifiedPhone] = useState<string | null>(null);
+  /* Set when the SMS provider is unreachable. A check we cannot perform must
+     not become a wall in front of the whole funnel. */
+  const [verifyUnavailable, setVerifyUnavailable] = useState(false);
   const [email, setEmail] = useState('');
   /**
    * What they want to learn, and who is learning it.
@@ -391,8 +403,14 @@ function DemoClassForm() {
     if (!studentName.trim() || studentName.trim().length < 2) {
       fieldErrors.push('Please enter your name (at least 2 characters)');
     }
+    const phoneCheck = normalizeIndianMobile(phone);
     if (!phone.trim() || phone.replace(/\D/g, '').length < 7) {
       fieldErrors.push('Please enter a valid phone number (at least 7 digits)');
+    } else if (phoneCheck.ok && !verifiedPhone && !verifyUnavailable) {
+      // Indian numbers must be verified. A free class costs a mentor half an
+      // hour, and the class details are sent to this number — a wrong one
+      // loses the booking either way.
+      fieldErrors.push('Please verify your mobile number — tap "Send code".');
     }
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       fieldErrors.push('Please enter a valid email address');
@@ -413,7 +431,10 @@ function DemoClassForm() {
         body: JSON.stringify({
           student_name: studentName.trim(),
           parent_name: parentName.trim() || undefined,
-          phone: phone.trim(),
+          // The canonical number when it was verified, so the server can check
+          // the verification against the same string it was stored under.
+          phone: verifiedPhone ?? phone.trim(),
+          verified_phone: verifiedPhone ?? undefined,
           email: email.trim() || undefined,
           subject: subject || undefined,
           focus: focus || undefined,
@@ -466,8 +487,12 @@ function DemoClassForm() {
               <p className="font-bold">
                 We detected you&apos;re in {tzInfo.city} ({tzInfo.countryCode}, UTC{tzInfo.offsetMinutes >= 0 ? '+' : ''}{tzInfo.offsetMinutes / 60})
               </p>
+              {/* The country code used to be a field beside the number. It is
+                  not any more — the number is verified by SMS and normalised
+                  server-side — so naming it here would point at a box that no
+                  longer exists. */}
               <p className="text-xs text-blue-600 mt-0.5">
-                We&apos;ll call you during your daytime hours. Phone country code: {tzInfo.callingCode}
+                We&apos;ll call you during your daytime hours.
               </p>
             </div>
           </div>
@@ -515,27 +540,16 @@ function DemoClassForm() {
               Please disable any VPN/Proxy to ensure accurate country code detection for your booking.
             </p>
           </div>
-          <div className="flex">
-            {/* Country code (auto-detected, editable) */}
-            <input
-              type="text"
-              value={tzInfo?.callingCode ?? '+1'}
-              readOnly
-              className="min-h-[44px] w-20 rounded-l-xl border border-r-0 border-slate-300 px-3 py-2.5 text-base text-slate-500 bg-slate-50 font-bold"
-              style={{ fontFamily: 'var(--font-grotesk)', fontSize: '16px' }}
-              aria-label="Country code"
-            />
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              maxLength={20}
-              disabled={submitting}
-              placeholder="300 1234567"
-              className="flex-1 min-h-[44px] rounded-r-xl border border-slate-300 px-3.5 py-2.5 text-base text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500 disabled:opacity-50"
-              style={{ fontFamily: 'var(--font-inter)', fontSize: '16px' }}
-            />
-          </div>
+          {/* Verified, not just typed. The number carries the class details
+              and the certificate, so a wrong one loses the booking anyway —
+              and a free class costs a mentor half an hour. */}
+          <PhoneVerify
+            value={phone}
+            onChange={setPhone}
+            onVerified={setVerifiedPhone}
+            onUnavailable={() => setVerifyUnavailable(true)}
+            disabled={submitting}
+          />
         </Field>
 
         {/* Email (optional) */}

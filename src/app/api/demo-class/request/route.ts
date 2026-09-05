@@ -5,6 +5,8 @@ import { assertSameOrigin } from '@/lib/security/origin-check';
 import { sendEmail } from '@/lib/email/hostinger';
 import { notifyUsers } from '@/lib/notify';
 import { parseStage, describeChoice } from '@/lib/demo/learner-choice';
+import { normalizeIndianMobile } from '@/lib/phone/india';
+import { smsConfigured } from '@/lib/phone/otp';
 
 /**
  * SARIRO — POST /api/demo-class/request
@@ -22,6 +24,8 @@ import { parseStage, describeChoice } from '@/lib/demo/learner-choice';
  *   4. Honeypot check (silently succeed if filled)
  *   5. Validate payload (required fields, length limits, email format, phone digits)
  *   6. Insert into demo_class_requests table (RLS allows public INSERT)
+ *   6b. Indian mobile? Then it must be verified — asked of the database, not
+ *       taken from the request
  *   7. Email the team inbox and raise an in-app notification for admins/sellers
  *   8. Return { ok }
  *
@@ -53,6 +57,8 @@ interface DemoRequestBody {
   timezone?: string;
   timezone_offset?: number;
   phone_country_code?: string;
+  /** Sent by the form after verification. Never trusted — re-checked below. */
+  verified_phone?: string;
   website?: string; // honeypot
 }
 
@@ -198,6 +204,51 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // ── 6b. The number must be verified ───────────────────────────────────
+  //
+  // Asked of the database rather than read from the request. `verified_phone`
+  // arrives from a form, and a form is a thing anyone can post whatever they
+  // like to — a booking route that believes a flag in its own request body has
+  // not verified anything, it has asked politely.
+  //
+  // India only, for now: apitxt.com delivers to Indian numbers, so a foreign
+  // number cannot be verified and is not blocked for failing to be. That is a
+  // deliberate hole, and it is the honest shape of "we can text India today".
+  const parsedPhone = normalizeIndianMobile(body.phone ?? '');
+  let storedPhone = body.phone!.trim();
+
+  if (parsedPhone.ok && !smsConfigured()) {
+    // We cannot send a code, so we cannot require one. Requiring verification
+    // that is impossible to obtain would close the top of the funnel over a
+    // missing environment variable — a booking is worth more than the check.
+    storedPhone = parsedPhone.e164;
+    console.warn('[demo-class] APITXT_AUTHKEY is not set — phone verification skipped');
+  } else if (parsedPhone.ok) {
+    storedPhone = parsedPhone.e164;
+    let verified = false;
+    try {
+      const check = createServiceClient();
+      const { data, error } = await check.rpc('phone_is_verified', { p_phone: parsedPhone.e164 });
+      if (error) throw error;
+      verified = data === true;
+    } catch (err) {
+      // A verification system that is down must not silently start letting
+      // everything through — that is the failure nobody notices.
+      console.warn('[demo-class] phone_is_verified failed:', err instanceof Error ? err.message : err);
+      return NextResponse.json(
+        { ok: false, error: 'verification_unavailable', message: 'We could not check your number just now. Please try again in a moment.' },
+        { status: 503, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!verified) {
+      return NextResponse.json(
+        { ok: false, error: 'phone_not_verified', message: 'Please verify your mobile number before booking.' },
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  }
+
   // ── 7. Insert into demo_class_requests ────────────────────────────────
   // Use SERVICE ROLE client to bypass RLS — the trigger (auto_create_lead_from_demo)
   // tries to INSERT into student_leads which is RLS-protected. The service role
@@ -236,7 +287,9 @@ export async function POST(req: NextRequest) {
     .insert({
       student_name: body.student_name!.trim(),
       parent_name: body.parent_name?.trim() || null,
-      phone: body.phone!.trim(),
+      // Canonical, so "has this number verified?" and "is this the same
+      // parent?" both answer correctly however it was typed.
+      phone: storedPhone,
       phone_country_code: body.phone_country_code ?? null,
       email: body.email?.trim() || null,
       course_interest: body.course_interest || null,
