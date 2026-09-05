@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Phone, Loader2, CheckCircle2, AlertCircle, ShieldCheck } from 'lucide-react';
-import { normalizeIndianMobile } from '@/lib/phone/india';
+import { normalizeIndianMobile, shouldAutoSubmit } from '@/lib/phone/india';
 
 /**
  * SARIRO — verify the number before the class is booked
@@ -48,8 +48,17 @@ export default function PhoneVerify({ value, onChange, onVerified, onUnavailable
   const [error, setError] = useState<string | null>(null);
   const [wait, setWait] = useState(0);
   const codeRef = useRef<HTMLInputElement>(null);
+  /* The last code already sent for checking. A ref rather than state: changing
+     it must not cause a render, because it is read inside the effect that
+     decides whether to render-and-check again. */
+  const attempted = useRef('');
 
-  const parsed = normalizeIndianMobile(value);
+  /* Memoised. This is a fresh object on every render otherwise, and it sits in
+     the dependency list of `verify`, which sits in the dependency list of the
+     auto-submit effect — so an unmemoised parse made that effect run on every
+     single render. Together with the missing `attempted` guard below, that is
+     what made "Checking…" run forever. */
+  const parsed = useMemo(() => normalizeIndianMobile(value), [value]);
   const indian = parsed.ok;
 
   // Counts the resend down. One interval while this is mounted, mostly setting
@@ -59,6 +68,14 @@ export default function PhoneVerify({ value, onChange, onVerified, onUnavailable
     const id = setInterval(() => setWait((w) => (w <= 1 ? 0 : w - 1)), 1000);
     return () => clearInterval(id);
   }, [wait]);
+
+  /* A code that is no longer six digits has not been attempted. This is what
+     lets somebody delete a digit, retype the same one, and have it checked
+     again — without it, a corrected-then-restored code would sit there doing
+     nothing. */
+  useEffect(() => {
+    if (code.length < 6) attempted.current = '';
+  }, [code]);
 
   /* Any edit to the number invalidates whatever was verified. Reported to the
      parent immediately so the submit button cannot be live for a stale
@@ -70,6 +87,7 @@ export default function PhoneVerify({ value, onChange, onVerified, onUnavailable
       setCode('');
       setMessage(null);
       setError(null);
+      attempted.current = '';
     }
     onVerified(null);
   };
@@ -100,6 +118,9 @@ export default function PhoneVerify({ value, onChange, onVerified, onUnavailable
         return;
       }
       setStage('sent');
+      // A new code has never been attempted, whatever was typed before it.
+      attempted.current = '';
+      setCode('');
       setMessage(`Code sent to ${json.sentTo ?? 'your phone'}. It is valid for 10 minutes.`);
       setWait(30);
       // The keyboard should already be in the code box — the person is looking
@@ -137,9 +158,14 @@ export default function PhoneVerify({ value, onChange, onVerified, onUnavailable
     }
   }, [busy, code, value, parsed, onVerified]);
 
-  // Six digits is the whole code, so there is nothing to press afterwards.
+  /* Six digits is the whole code, so there is nothing to press afterwards.
+     The decision lives in lib/phone/india.ts and is tested there — a loop in
+     here spends the five-attempt cap in milliseconds and locks the person out
+     of a code they would have typed correctly on the second go. */
   useEffect(() => {
-    if (stage === 'sent' && code.length === 6 && !busy) void verify();
+    if (!shouldAutoSubmit({ stage, code, busy, lastAttempted: attempted.current })) return;
+    attempted.current = code;
+    void verify();
   }, [code, stage, busy, verify]);
 
   return (

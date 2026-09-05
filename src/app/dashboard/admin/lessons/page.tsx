@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { ArrowLeft, Loader2, Save, Wand2, Check } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { COURSES } from '@/lib/sariro-data';
+import { isEffectivelyEmpty } from '@/lib/lessons/content-state';
 import { flattenCourseLessons, type OrderedLesson } from '@/lib/dashboard/lessons-data';
 
 interface PageRow { module_num: number; lesson_index: number; html_content: string; title: string | null }
@@ -33,6 +34,15 @@ export default function AdminLessonsPage() {
   const [saving, setSaving] = useState(false);
 
   const ordered = useMemo<OrderedLesson[]>(() => flattenCourseLessons(courseId), [courseId]);
+
+  /* Written means readable, not merely present — see lib/lessons/content-state. */
+  const writtenCount = useMemo(
+    () => ordered.filter((l) => {
+      const row = pages.get(`${l.module_num}:${l.lesson_index}`);
+      return !!row && !isEffectivelyEmpty(row.html_content);
+    }).length,
+    [ordered, pages]
+  );
 
   const loadPages = useCallback(async () => {
     if (!courseId) return;
@@ -108,10 +118,21 @@ export default function AdminLessonsPage() {
           </select>
           <button onClick={seed} disabled={seeding}
             className="inline-flex items-center gap-1.5 min-h-[40px] px-3 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold disabled:opacity-50">
-            {seeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />} Generate empty pages
+            {seeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />} Create blank pages
           </button>
           {msg && <span className="text-xs font-semibold text-slate-600">{msg}</span>}
         </div>
+
+        {/* The number that matters, said plainly. Without it the list looks
+            finished as soon as pages exist, whether or not anyone wrote them. */}
+        {!loading && ordered.length > 0 && (
+          <p className="text-[13px] text-slate-600 mb-4">
+            <span className="font-bold text-slate-900">{writtenCount}</span> of {ordered.length} lessons written
+            {ordered.length - writtenCount > 0 && (
+              <span className="text-slate-400"> · {ordered.length - writtenCount} still show &ldquo;taught live with your mentor&rdquo;</span>
+            )}
+          </p>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,340px)_1fr] gap-4">
           <div className="card-3d p-4 max-h-[70vh] overflow-y-auto">
@@ -121,7 +142,12 @@ export default function AdminLessonsPage() {
               <div className="space-y-1">
                 {ordered.map((l) => {
                   const key = `${l.module_num}:${l.lesson_index}`;
-                  const has = pages.has(key);
+                  /* Three states, not two. A green tick used to mean "a row
+                     exists", which is how forty-seven unwritten Python lessons
+                     came to look finished on this screen. */
+                  const row = pages.get(key);
+                  const written = !!row && !isEffectivelyEmpty(row.html_content);
+                  const stub = !!row && !written;
                   return (
                     <button key={key} onClick={() => selectLesson(l)}
                       className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left min-h-[38px] transition-colors ${
@@ -129,7 +155,13 @@ export default function AdminLessonsPage() {
                       }`}>
                       <span className="text-[10px] font-bold text-slate-400 w-8 shrink-0">M{l.module_num}</span>
                       <span className="min-w-0 flex-1 text-xs font-semibold text-slate-700 truncate">{l.lesson_name}</span>
-                      {has ? <Check className="w-3.5 h-3.5 text-green-500 shrink-0" /> : <span className="text-[9px] font-bold text-slate-300 shrink-0">none</span>}
+                      {written ? (
+                        <Check className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                      ) : stub ? (
+                        <span className="text-[9px] font-bold text-amber-600 shrink-0">empty</span>
+                      ) : (
+                        <span className="text-[9px] font-bold text-slate-300 shrink-0">none</span>
+                      )}
                     </button>
                   );
                 })}

@@ -1,6 +1,8 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeIndianMobile, isIndianMobile, maskIndianMobile } from './india';
+import {
+  normalizeIndianMobile, isIndianMobile, maskIndianMobile, shouldAutoSubmit,
+} from './india';
 
 /**
  * SARIRO — the number a parent types
@@ -112,5 +114,76 @@ describe('what we show back to them', () => {
 
   test('an unusable number masks to nothing rather than leaking a fragment', () => {
     assert.equal(maskIndianMobile('+14155550132'), '');
+  });
+});
+
+/**
+ * SARIRO — the code box submits itself, exactly once
+ * =========================================================
+ * The box auto-submits on the sixth digit, and that convenience was one guard
+ * away from a loop: verifying flips `busy` true then false, which re-runs the
+ * effect, which sees six digits and a 'sent' stage and submits again. What a
+ * person saw was "Checking…" forever. What actually happened was the
+ * five-attempt cap being spent in a few hundred milliseconds, locking them out
+ * of a code they would have typed correctly on the second go.
+ */
+describe('when the code box should submit itself', () => {
+  const base = { stage: 'sent' as const, code: '042318', busy: false, lastAttempted: '' };
+
+  test('a complete code that has not been tried', () => {
+    assert.equal(shouldAutoSubmit(base), true);
+  });
+
+  test('THE LOOP: the same code is never submitted twice', () => {
+    assert.equal(shouldAutoSubmit({ ...base, lastAttempted: '042318' }), false);
+  });
+
+  test('a correction is submitted — it is a different code', () => {
+    assert.equal(shouldAutoSubmit({ ...base, code: '042319', lastAttempted: '042318' }), true);
+  });
+
+  test('never while a check is already in flight', () => {
+    assert.equal(shouldAutoSubmit({ ...base, busy: true }), false);
+  });
+
+  test('never before six digits', () => {
+    for (const partial of ['', '0', '04231']) {
+      assert.equal(shouldAutoSubmit({ ...base, code: partial }), false);
+    }
+  });
+
+  test('never once verified — that is what ends it', () => {
+    assert.equal(shouldAutoSubmit({ ...base, stage: 'verified' }), false);
+  });
+
+  test('never before a code has been sent', () => {
+    assert.equal(shouldAutoSubmit({ ...base, stage: 'idle' }), false);
+    assert.equal(shouldAutoSubmit({ ...base, stage: 'unavailable' }), false);
+  });
+
+  /**
+   * The whole failure, walked through. Before the guard this ran forever; five
+   * of those iterations would have burned the attempt cap.
+   */
+  test('a wrong code is checked once and then stops, however many times the effect re-runs', () => {
+    let lastAttempted = '';
+    let submissions = 0;
+    // Ten renders — busy toggling, a countdown ticking, the parent re-rendering.
+    for (let i = 0; i < 10; i++) {
+      if (shouldAutoSubmit({ stage: 'sent', code: '111111', busy: false, lastAttempted })) {
+        submissions++;
+        lastAttempted = '111111';
+      }
+    }
+    assert.equal(submissions, 1);
+  });
+
+  test('deleting a digit and retyping the same code checks it again', () => {
+    // What the component does: the guard is cleared as soon as the code is
+    // short, so a restored code is a new attempt rather than a dead box.
+    let lastAttempted = '111111';
+    const afterDeleting = '11111';
+    if (afterDeleting.length < 6) lastAttempted = '';
+    assert.equal(shouldAutoSubmit({ stage: 'sent', code: '111111', busy: false, lastAttempted }), true);
   });
 });

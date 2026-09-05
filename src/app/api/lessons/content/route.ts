@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { getClientIp, isIpBlocked } from '@/lib/rate-limit';
 import { findCourseById, flattenCourseLessons, resolveLessonAccess } from '@/lib/dashboard/lessons-data';
 import { resolveViewerProgress } from '@/lib/dashboard/lessons-server';
+import { isEffectivelyEmpty } from '@/lib/lessons/content-state';
 
 /**
  * SARIRO — GET /api/lessons/content?courseId=&module=&index=
@@ -14,6 +15,16 @@ import { resolveViewerProgress } from '@/lib/dashboard/lessons-server';
  *   • Student → completed or current lesson of one of their active enrollments.
  *   • Teacher → eligible course, up to current+next of a cohort they teach.
  *   • Admin   → anything.
+ *
+ * ── A page that was seeded but never written is not a page ──────────────────
+ * The seeder creates a row per lesson holding `<h1>Lesson name</h1>` so a course
+ * can be prepared in advance. Returned as-is, the viewer renders a heading on an
+ * empty page, which reads as broken.
+ *
+ * A lesson with no row at all gets a much better answer — "taught live with your
+ * mentor, there is no written page for it yet" — so a stub is reported as
+ * missing and reaches that same answer. Done here rather than in the viewer so
+ * every caller gets it, and so seeding a course stops making it worse.
  */
 
 export const runtime = 'nodejs';
@@ -53,7 +64,7 @@ export async function GET(req: NextRequest) {
     .maybeSingle();
 
   if (error) return NextResponse.json({ ok: false, error: 'read_failed' }, { status: 500 });
-  if (!page || page.published === false) {
+  if (!page || page.published === false || isEffectivelyEmpty(page.html_content)) {
     return NextResponse.json({ ok: false, error: 'not_found' }, { status: 404 });
   }
 

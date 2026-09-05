@@ -101,3 +101,42 @@ export function maskIndianMobile(e164: string): string {
   const n = parsed.national;
   return `+91 ${n.slice(0, 5)} ${n.slice(5, 6)}••••`;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Submitting the code exactly once
+   ══════════════════════════════════════════════════════════════════════════
+   The code box submits itself on the sixth digit — there is nothing to press,
+   because the person is looking at their phone rather than at the form.
+
+   That convenience is one guard away from a loop. The effect that watches the
+   box re-runs whenever anything it depends on changes, and verifying changes
+   two of them (`busy` goes true then false). So on a WRONG code the box is
+   still six digits, the stage is still 'sent', and the effect fires again —
+   and again, as fast as the network allows. The visible symptom is "Checking…"
+   forever; the real damage is that the five-attempt cap is spent in a few
+   hundred milliseconds and the person is locked out of a code they could have
+   typed correctly on the second go.
+
+   So the rule is written down here, as a pure function, rather than living as
+   a condition inside an effect where the next edit can quietly break it.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+export interface AutoSubmitState {
+  /** Only a code that has actually been sent can be checked. */
+  stage: 'idle' | 'sent' | 'verified' | 'unavailable';
+  code: string;
+  /** A check is already in flight. */
+  busy: boolean;
+  /** The last code this component has already submitted. */
+  lastAttempted: string;
+}
+
+export function shouldAutoSubmit(s: AutoSubmitState): boolean {
+  if (s.stage !== 'sent') return false;
+  if (s.busy) return false;
+  if (s.code.length !== 6) return false;
+  // The guard that stops the loop: a code is submitted once. Typing a
+  // different one clears it, so a correction is checked normally.
+  if (s.lastAttempted === s.code) return false;
+  return true;
+}
