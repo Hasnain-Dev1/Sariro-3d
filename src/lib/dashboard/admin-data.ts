@@ -322,6 +322,28 @@ export async function createCohort(params: {
    */
   country?: string;
 }): Promise<string | null> {
+  const { id } = await createCohortDetailed(params);
+  return id;
+}
+
+/**
+ * The same insert, but it hands back WHY it failed.
+ *
+ * createCohort() used to swallow the error into a console.warn and return null,
+ * and every caller then guessed at a reason for the user. The guess was wrong
+ * the first time it mattered: a missing `country` column produced "the cohorts
+ * table may still be limited to coding levels — run scripts/cohort-levels.sql",
+ * which sent somebody to the wrong migration for a problem in a different one.
+ *
+ * A screen can only explain a failure it was told about.
+ */
+export async function createCohortDetailed(params: {
+  track: string;
+  level: CourseLevelValue;
+  ratio: '1:1' | '1:4';
+  max_capacity: number;
+  country?: string;
+}): Promise<{ id: string | null; error?: string }> {
   try {
     const supabase = createClient();
     const { data, error } = await supabase
@@ -338,11 +360,39 @@ export async function createCohort(params: {
       .single();
 
     if (error) throw error;
-    return data?.id ?? null;
+    return { id: data?.id ?? null };
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
     console.warn('[admin] createCohort error:', err);
-    return null;
+    return { id: null, error: explainCohortFailure(message) };
   }
+}
+
+/**
+ * Turn Postgres's answer into the sentence that says what to do about it.
+ *
+ * Each branch names the migration that actually adds the thing Postgres says is
+ * missing, rather than one guess for every failure. Anything unrecognised is
+ * passed through as written: the raw message is more use than a wrong story
+ * about it.
+ */
+function explainCohortFailure(message: string): string {
+  if (/'?country'?\s+column|column .*country.* does not exist/i.test(message)) {
+    return 'Batches cannot record a country yet — run scripts/cohort-country.sql in Supabase.';
+  }
+  if (/cohorts_level_check|violates check constraint.*level/i.test(message)) {
+    return 'The cohorts table is still limited to the three coding levels — run scripts/cohort-levels.sql in Supabase.';
+  }
+  if (/batch_code/i.test(message)) {
+    return 'Batches have no batch code column yet — run scripts/cohort-batch-code.sql in Supabase.';
+  }
+  if (/max_capacity/i.test(message)) {
+    return 'Batches have no capacity limit yet — run scripts/cohort-capacity.sql in Supabase.';
+  }
+  if (/row-level security|permission denied/i.test(message)) {
+    return 'You do not have permission to create a batch. Sign in as an admin.';
+  }
+  return message;
 }
 
 /* ───── Confirm a purchase intent → create enrollment ───── */
@@ -352,15 +402,19 @@ export async function confirmPurchaseIntent(intent: PurchaseIntentRow): Promise<
     // 1. Find or create a gathering cohort
     let cohortId = await findGatheringCohort(intent.track, intent.level, intent.ratio);
     if (!cohortId) {
-      cohortId = await createCohort({
+      const made = await createCohortDetailed({
         track: intent.track,
         level: intent.level,
         ratio: intent.ratio,
         max_capacity: intent.ratio === '1:1' ? 1 : 4,
       });
+      cohortId = made.id;
+      if (!cohortId) {
+        return { success: false, error: made.error ?? 'Could not create a batch for this course.' };
+      }
     }
     if (!cohortId) {
-      return { success: false, error: 'Failed to find or create cohort' };
+      return { success: false, error: 'Could not find or create a batch for this course.' };
     }
 
     // 2. Create the enrollment
@@ -1137,15 +1191,22 @@ export async function manualEnrollStudent(params: {
     // Find or create a gathering cohort.
     let cohortId = await findGatheringCohort(params.track, params.level, params.ratio);
     if (!cohortId) {
-      cohortId = await createCohort({
+      const made = await createCohortDetailed({
         track: params.track,
         level: params.level,
         ratio: params.ratio,
         max_capacity: params.ratio === '1:1' ? 1 : 4,
       });
+      cohortId = made.id;
+      // The reason travels up. "Failed to find or create cohort" was true and
+      // useless — it named the step, never the cause, so the only way to learn
+      // what was wrong was to open the console.
+      if (!cohortId) {
+        return { success: false, error: made.error ?? 'Could not create a batch for this course.' };
+      }
     }
     if (!cohortId) {
-      return { success: false, error: 'Failed to find or create cohort' };
+      return { success: false, error: 'Could not find or create a batch for this course.' };
     }
 
     // The enrollment row is for ANOTHER user, which RLS blocks from the

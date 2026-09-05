@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2, Check, ChevronLeft } from 'lucide-react';
-import { createCohort } from '@/lib/dashboard/admin-data';
+import { createCohortDetailed } from '@/lib/dashboard/admin-data';
 import { COUNTRIES } from '@/lib/invoice/company';
 import {
   COURSE_FAMILIES, CODING_LEVELS, ALL_GRADES,
@@ -89,7 +89,7 @@ export default function CreateCourseModal({
 
     setSubmitting(true);
     setError(null);
-    const result = await createCohort({
+    const result = await createCohortDetailed({
       track,
       country: country || undefined,
       // createCohort's type still names the three coding levels; the column and
@@ -100,10 +100,12 @@ export default function CreateCourseModal({
     });
     setSubmitting(false);
 
-    if (!result) {
-      setError(
-        'Could not create the course. If this is a school or focus course, the cohorts table may still be limited to coding levels — run scripts/cohort-levels.sql.'
-      );
+    // The reason comes from the database, not from a guess made here. This
+    // message used to blame scripts/cohort-levels.sql for every failure, and
+    // the first real failure was a missing `country` column in a different
+    // migration entirely — so it sent somebody to check something that was fine.
+    if (!result.id) {
+      setError(result.error ?? 'Could not create the course.');
       return;
     }
     onCreated(readyLabel ?? 'Course created');

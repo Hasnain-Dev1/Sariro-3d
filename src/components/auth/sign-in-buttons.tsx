@@ -1,12 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { Mail, Loader2, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, ArrowRight } from 'lucide-react';
 import { GithubIcon } from '@/components/icons/brand-icons';
 import GoogleOneTap from './google-one-tap';
 import { HoneypotField } from '@/components/security/honeypot';
+import {
+  cooldownFor, recordSend, cooldownSeconds, SEND_COOLDOWN_MS,
+} from '@/lib/auth/send-cooldown';
 
 /* ===============================================================
    SignInButtons — three sign-in options:
@@ -34,6 +37,23 @@ export default function SignInButtons({
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  /* Signing up sends an email, and nothing used to stop the same address
+     asking for another immediately — a double-click sent two, and a script
+     pointed at this form could drain the day's mailbox quota, at which point
+     nobody's confirmation link arrives. See lib/auth/send-cooldown.ts for what
+     this does and does not protect. */
+  const [waitMs, setWaitMs] = useState(0);
+
+  // One interval while the sign-up form is on screen. It mostly sets 0 to 0,
+  // which React discards, so the countdown is live without any bookkeeping
+  // about whether a timer should currently be running.
+  useEffect(() => {
+    if (mode !== 'signup') return;
+    const tick = () => setWaitMs(cooldownFor(email));
+    tick();
+    const id = setInterval(tick, 500);
+    return () => clearInterval(id);
+  }, [email, mode]);
 
   const handleGitHub = async () => {
     setError(null);
@@ -80,6 +100,16 @@ export default function SignInButtons({
     setSubmitting(true);
     try {
       if (mode === 'signup') {
+        // Re-read rather than trusting the ticking state: the interval only
+        // runs while a wait is already known about.
+        const wait = cooldownFor(email);
+        if (wait > 0) {
+          setError(`We just sent a link to ${email.trim()}. Check your inbox and spam folder — you can ask for another in ${cooldownSeconds(wait)}s.`);
+          setSubmitting(false);
+          setWaitMs(wait);
+          return;
+        }
+
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -89,8 +119,12 @@ export default function SignInButtons({
           },
         });
         if (error) throw error;
+        // Stamped only once Supabase has accepted the request, so a rejected
+        // attempt does not lock the address out of a real one.
+        recordSend(email);
+        setWaitMs(SEND_COOLDOWN_MS);
         if (data.user && !data.session) {
-          setInfo('Check your email — we sent you a confirmation link. Click it to verify your account.');
+          setInfo('Check your email — we sent you a confirmation link. Click it to verify your account. It can take a minute, and it sometimes lands in spam.');
         } else if (data.session) {
           onSuccess?.();
         }
@@ -212,14 +246,20 @@ export default function SignInButtons({
           </div>
         )}
 
+        {/* Counting down on the button itself, rather than only refusing the
+            click. A disabled button with no explanation reads as broken, and
+            the person's next move is to reload and try again — which is the
+            behaviour the cooldown exists to stop. */}
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || waitMs > 0}
           className="group w-full h-12 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ fontFamily: 'var(--font-grotesk)' }}
         >
           {submitting ? (
             <Loader2 className="w-4 h-4 animate-spin" />
+          ) : waitMs > 0 ? (
+            `Send another link in ${cooldownSeconds(waitMs)}s`
           ) : (
             <>
               {mode === 'signup' ? 'Create account' : 'Sign in'}
