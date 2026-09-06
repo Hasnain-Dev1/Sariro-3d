@@ -19,6 +19,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { Lock, Check, PlayCircle, ChevronRight, Loader2, BookOpen } from 'lucide-react';
 import { getStructuredCourse, getStructuredLesson } from '@/lib/curriculum';
 import { StructuredLessonView } from '@/components/dashboard/structured-lesson-view';
+import SpeakingLessonView from '@/components/speaking/speaking-lesson-view';
+import { getSpeakingLesson } from '@/lib/speaking/modules';
+import type { SpeakingLesson } from '@/lib/speaking/lesson';
 import type { StructuredLesson } from '@/lib/curriculum/types';
 
 interface LessonRow {
@@ -50,6 +53,10 @@ export function LessonsViewer({ courseId }: { courseId: string }) {
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [content, setContent] = useState<{ html: string; name: string } | null>(null);
   const [structured, setStructured] = useState<StructuredLesson | null>(null);
+  /* Public Speaking has a shape of its own — see components/speaking. A
+     coding lesson ends in a quiz because coding has a right answer; a
+     speaking lesson ends in the student having spoken. */
+  const [speaking, setSpeaking] = useState<SpeakingLesson | null>(null);
   const [contentLoading, setContentLoading] = useState(false);
   const [contentError, setContentError] = useState<string | null>(null);
   /**
@@ -87,7 +94,16 @@ export function LessonsViewer({ courseId }: { courseId: string }) {
   const openLesson = useCallback(async (l: LessonRow) => {
     if (!l.viewable) return;
     const key = `${l.module_num}:${l.lesson_index}`;
-    setActiveKey(key); setContent(null); setStructured(null); setContentError(null); setMissingFor(null);
+    setActiveKey(key); setContent(null); setStructured(null); setSpeaking(null);
+    setContentError(null); setMissingFor(null);
+
+    // Public Speaking renders its own way, from the codebase, no fetch.
+    if (courseId === 'public-speaking-focus') {
+      const written = getSpeakingLesson(l.module_num, l.lesson_index);
+      if (written) { setSpeaking(written); return; }
+      setMissingFor(l);
+      return;
+    }
 
     // Structured curriculum: render straight from codebase data, no fetch.
     if (structuredCourse) {
@@ -205,6 +221,8 @@ export function LessonsViewer({ courseId }: { courseId: string }) {
               Module {missingFor.module_num} · {missingFor.module_name}
             </p>
           </div>
+        ) : speaking ? (
+          <SpeakingLessonView lesson={speaking} />
         ) : structured ? (
           <StructuredLessonView lesson={structured} />
         ) : content ? (

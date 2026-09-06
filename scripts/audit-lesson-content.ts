@@ -20,6 +20,7 @@ import { readFileSync } from 'node:fs';
 import { allLessonCourses, flattenCourseLessons } from '@/lib/dashboard/lessons-data';
 import { getAllStructuredCourses } from '@/lib/curriculum';
 import { hasWrittenContent } from '@/lib/lessons/content-state';
+import { speakingWrittenCount } from '@/lib/speaking/modules';
 
 const env: Record<string, string> = {};
 for (const line of readFileSync('.env', 'utf8').split(/\r?\n/)) {
@@ -64,11 +65,16 @@ for (const c of catalogue) {
   const page = byCourse.get(c.id);
   const struct = structuredCount.get(c.id);
 
+  // Public Speaking is authored in the codebase with its own lesson shape,
+  // the same way the structured coding courses are.
+  const speaking = c.id === 'public-speaking-focus' ? speakingWrittenCount() : undefined;
+
   syllabusLessons += syl;
-  writtenLessons += struct ?? page?.real ?? 0;
+  writtenLessons += speaking ?? struct ?? page?.real ?? 0;
 
   let source = 'NOTHING';
-  if (struct) { source = `structured (${struct})`; done++; }
+  if (speaking) { source = `speaking lab (${speaking})`; done++; }
+  else if (struct) { source = `structured (${struct})`; done++; }
   else if (page && page.real > 0) { source = 'db html'; done++; }
   else if (page) { source = 'db stubs only'; stubbed++; }
   else { missing++; }
@@ -76,7 +82,7 @@ for (const c of catalogue) {
   console.log(
     c.id.padEnd(24), c.family.padEnd(8),
     String(syl).padStart(8), String(page?.total ?? 0).padStart(6),
-    String(page?.real ?? 0).padStart(8), '  ' + source
+    String(speaking ?? page?.real ?? 0).padStart(8), '  ' + source
   );
 }
 

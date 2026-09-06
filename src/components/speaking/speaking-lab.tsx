@@ -1,0 +1,402 @@
+'use client';
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Mic, Square, RotateCcw, AlertCircle, Loader2, CheckCircle2, Info } from 'lucide-react';
+import { analyseSpeech, type SpeechReport, type SpeechSample } from '@/lib/speaking/analyse';
+
+/**
+ * SARIRO — the Speaking Lab
+ * =========================================================
+ * A student presses record, talks, and gets told what actually happened to
+ * their voice. Between classes, as many times as they like.
+ *
+ * ── Everything runs on their own device ─────────────────────────────────────
+ * The transcript comes from the browser's own speech recognition and the
+ * loudness from the Web Audio analyser. No audio is uploaded, no API is called,
+ * and no credit is spent — which is what makes "practise it again" a real
+ * instruction rather than a rationed one. It also means a child's voice never
+ * leaves their laptop, which is the answer to the question a parent will ask.
+ *
+ * ── Two independent streams, deliberately ───────────────────────────────────
+ * Speech recognition gives words and no reliable timing. The analyser gives
+ * timing and no words. Pace needs both; pauses need only the second. Reading
+ * pauses off the audio rather than off word timings is what makes the pause
+ * measurements trustworthy — see lib/speaking/analyse.ts.
+ *
+ * ── When the browser cannot do it ───────────────────────────────────────────
+ * Speech recognition is Chrome, Edge and Safari; Firefox has none. Rather than
+ * hide the lesson, the drill stays readable and the panel says plainly what is
+ * missing and where it does work. A student on the wrong browser can still read
+ * the passage aloud — they just do not get the report.
+ */
+
+/* The Web Speech API is not in TypeScript's DOM library. */
+interface SpeechRecognitionAlternativeLike { transcript: string }
+interface SpeechRecognitionResultLike {
+  isFinal: boolean;
+  0: SpeechRecognitionAlternativeLike;
+  length: number;
+}
+interface SpeechRecognitionEventLike {
+  resultIndex: number;
+  results: { length: number; [i: number]: SpeechRecognitionResultLike };
+}
+interface SpeechRecognitionLike {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  onresult: ((e: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((e: { error: string }) => void) | null;
+  onend: (() => void) | null;
+}
+type RecognitionCtor = new () => SpeechRecognitionLike;
+
+function recognitionCtor(): RecognitionCtor | null {
+  if (typeof window === 'undefined') return null;
+  const w = window as unknown as {
+    SpeechRecognition?: RecognitionCtor;
+    webkitSpeechRecognition?: RecognitionCtor;
+  };
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
+}
+
+/** Loudness is sampled this often. 50ms is finer than any pause worth naming. */
+const FRAME_MS = 50;
+
+export interface Drill {
+  id: string;
+  title: string;
+  /** What to do, in the mentor's words. */
+  brief: string;
+  /**
+   * A passage to read, when the drill sets one. Its punctuation becomes the
+   * places the student is expected to breathe.
+   */
+  passage?: string;
+  /** Roughly how long they should speak for. */
+  targetSeconds?: number;
+}
+
+export default function SpeakingLab({ drill }: { drill: Drill }) {
+  const [supported, setSupported] = useState<boolean | null>(null);
+  const [state, setState] = useState<'idle' | 'recording' | 'done'>('idle');
+  const [elapsed, setElapsed] = useState(0);
+  const [transcript, setTranscript] = useState('');
+  const [report, setReport] = useState<SpeechReport | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [level, setLevel] = useState(0);
+
+  const recognition = useRef<SpeechRecognitionLike | null>(null);
+  const stream = useRef<MediaStream | null>(null);
+  const audioCtx = useRef<AudioContext | null>(null);
+  const levels = useRef<number[]>([]);
+  const finalText = useRef('');
+  const startedAt = useRef(0);
+  const sampler = useRef<number | null>(null);
+  const ticker = useRef<number | null>(null);
+  /** Whether a recording is live, readable from inside long-lived callbacks. */
+  const recording = useRef(false);
+
+  useEffect(() => {
+    setSupported(!!recognitionCtor() && typeof navigator !== 'undefined' && !!navigator.mediaDevices);
+  }, []);
+
+  /** Everything the recording holds open, released in one place. */
+  const teardown = useCallback(() => {
+    recording.current = false;
+    if (sampler.current) { clearInterval(sampler.current); sampler.current = null; }
+    if (ticker.current) { clearInterval(ticker.current); ticker.current = null; }
+    try { recognition.current?.stop(); } catch { /* already stopped */ }
+    recognition.current = null;
+    stream.current?.getTracks().forEach((t) => t.stop());
+    stream.current = null;
+    void audioCtx.current?.close().catch(() => {});
+    audioCtx.current = null;
+  }, []);
+
+  // A recording left running because the student navigated away is a
+  // microphone light that stays on. That is the kind of thing a parent
+  // uninstalls over.
+  useEffect(() => teardown, [teardown]);
+
+  const stop = useCallback(() => {
+    const durationMs = Date.now() - startedAt.current;
+    teardown();
+    setState('done');
+
+    const sample: SpeechSample = {
+      transcript: finalText.current.trim(),
+      durationMs,
+      levels: levels.current,
+      frameMs: FRAME_MS,
+      reference: drill.passage,
+    };
+    setReport(analyseSpeech(sample));
+  }, [teardown, drill.passage]);
+
+  const start = useCallback(async () => {
+    const Ctor = recognitionCtor();
+    if (!Ctor) return;
+
+    setError(null);
+    setReport(null);
+    setTranscript('');
+    finalText.current = '';
+    levels.current = [];
+    setElapsed(0);
+
+    try {
+      stream.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      setError('We could not reach your microphone. Check the permission in your browser and try again.');
+      return;
+    }
+
+    // ── Loudness ──
+    const ctx = new AudioContext();
+    audioCtx.current = ctx;
+    const source = ctx.createMediaStreamSource(stream.current);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 1024;
+    source.connect(analyser);
+    const buf = new Float32Array(analyser.fftSize);
+
+    sampler.current = window.setInterval(() => {
+      analyser.getFloatTimeDomainData(buf);
+      // RMS, which tracks perceived loudness far better than a peak does.
+      let sum = 0;
+      for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+      const rms = Math.sqrt(sum / buf.length);
+      levels.current.push(rms);
+      setLevel(rms);
+    }, FRAME_MS);
+
+    // ── Words ──
+    const rec = new Ctor();
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = 'en-IN';
+    rec.onresult = (e) => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) finalText.current += `${r[0].transcript} `;
+        else interim += r[0].transcript;
+      }
+      setTranscript(`${finalText.current}${interim}`);
+    };
+    rec.onerror = (e) => {
+      // 'no-speech' fires on a quiet moment and is not worth alarming anybody
+      // about; the report will say the recording was too short.
+      if (e.error !== 'no-speech' && e.error !== 'aborted') {
+        setError('Speech recognition stopped unexpectedly. Your recording is still being measured.');
+      }
+    };
+    rec.onend = () => {
+      // Chrome ends the session on its own after a few seconds of silence.
+      // While the student is still recording, start it again rather than
+      // silently losing the rest of what they say.
+      //
+      // Read from a ref, not from `state`: this closure is created once when
+      // recording starts, so the state variable it captured is whatever it was
+      // THEN — 'idle' — and the session would never restart.
+      if (recording.current) { try { rec.start(); } catch { /* racing a stop */ } }
+    };
+    recognition.current = rec;
+    try { rec.start(); } catch { /* already started */ }
+
+    startedAt.current = Date.now();
+    ticker.current = window.setInterval(() => {
+      setElapsed(Math.round((Date.now() - startedAt.current) / 1000));
+    }, 250);
+    recording.current = true;
+    setState('recording');
+  }, []);
+
+  /* ── Unsupported browser ── */
+  if (supported === false) {
+    return (
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 flex gap-2.5">
+        <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+        <div className="text-[13px] text-amber-900 leading-[1.6]">
+          <p className="font-bold mb-1">This browser cannot listen yet.</p>
+          <p>
+            The Speaking Lab needs speech recognition, which works in Chrome, Edge
+            and Safari. Read the drill aloud anyway — the practice is the part that
+            matters, and you can come back here for the measurements.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* ── The drill ── */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400 mb-1.5">Practise</p>
+        <p className="text-[15px] font-bold text-slate-900 mb-1" style={{ fontFamily: 'var(--font-jakarta)' }}>
+          {drill.title}
+        </p>
+        <p className="text-[13.5px] text-slate-600 leading-[1.65]">{drill.brief}</p>
+        {drill.passage && (
+          <blockquote className="mt-3 rounded-lg bg-slate-50 border-l-2 border-slate-300 px-3.5 py-3 text-[14px] text-slate-800 leading-[1.8]">
+            {drill.passage}
+          </blockquote>
+        )}
+        {drill.targetSeconds && (
+          <p className="text-[12px] text-slate-400 mt-2">Aim for about {drill.targetSeconds} seconds.</p>
+        )}
+      </div>
+
+      {/* ── The control ── */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <div className="flex items-center gap-3">
+          {state === 'recording' ? (
+            <button
+              type="button"
+              onClick={stop}
+              className="inline-flex items-center gap-2 min-h-[46px] px-5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-bold"
+              style={{ fontFamily: 'var(--font-grotesk)' }}
+            >
+              <Square className="w-4 h-4 fill-current" /> Stop
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={start}
+              disabled={supported === null}
+              className="inline-flex items-center gap-2 min-h-[46px] px-5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold disabled:bg-slate-300"
+              style={{ fontFamily: 'var(--font-grotesk)' }}
+            >
+              {supported === null ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
+              {state === 'done' ? 'Record again' : 'Start recording'}
+            </button>
+          )}
+
+          {state === 'recording' && (
+            <>
+              <span className="tabular-nums text-[15px] font-bold text-slate-900">
+                {Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, '0')}
+              </span>
+              {/* A live meter, so a student who cannot be heard finds out now
+                  rather than from the report. */}
+              <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden" aria-hidden>
+                <div
+                  className="h-full rounded-full transition-[width] duration-75"
+                  style={{
+                    width: `${Math.min(100, level * 320)}%`,
+                    background: level * 320 < 8 ? '#F59E0B' : '#16A34A',
+                  }}
+                />
+              </div>
+            </>
+          )}
+
+          {state === 'done' && report && (
+            <button
+              type="button"
+              onClick={() => { setState('idle'); setReport(null); setTranscript(''); }}
+              className="inline-flex items-center gap-1.5 min-h-[46px] px-3 rounded-xl text-slate-500 hover:bg-slate-100 text-[13px] font-bold"
+            >
+              <RotateCcw className="w-4 h-4" /> Clear
+            </button>
+          )}
+        </div>
+
+        {state === 'recording' && level * 320 < 8 && (
+          <p className="text-[12.5px] text-amber-700 mt-2.5">
+            We can barely hear you. Move closer to the microphone.
+          </p>
+        )}
+
+        {error && (
+          <p className="flex items-start gap-1.5 text-[12.5px] text-red-600 mt-2.5 leading-[1.5]">
+            <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-px" /> {error}
+          </p>
+        )}
+
+        {transcript && (
+          <p className="mt-3 text-[13px] text-slate-500 leading-[1.7] max-h-32 overflow-y-auto">
+            {transcript}
+          </p>
+        )}
+      </div>
+
+      {report && <SpeechReportCard report={report} />}
+    </div>
+  );
+}
+
+/* ─────────────────────────── The report ─────────────────────────── */
+
+function SpeechReportCard({ report }: { report: SpeechReport }) {
+  const secs = (ms: number) => `${Math.round(ms / 100) / 10}s`;
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">How that went</p>
+        <p className="text-2xl font-extrabold text-slate-900 tabular-nums" style={{ fontFamily: 'var(--font-jakarta)' }}>
+          {report.score}<span className="text-sm text-slate-400 font-bold">/100</span>
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <Stat label="Pace" value={`${report.pace.wpm}`} unit="wpm" verdict={report.pace.verdict} />
+        <Stat label="Phrases" value={`${report.phrasing.averageWords}`} unit="words each" verdict={report.phrasing.verdict} />
+        <Stat label="Pauses" value={`${report.pauses.count}`} unit={report.pauses.count ? `avg ${secs(report.pauses.averageMs)}` : 'none'} verdict={report.pauses.count > 0 ? 'good' : 'low'} />
+        <Stat label="Fillers" value={`${report.fillers.certain}`} unit={report.fillers.hedged ? `+${report.fillers.hedged} maybe` : 'um, uh'} verdict={report.fillers.certain === 0 ? 'good' : report.fillers.perMinute > 4 ? 'high' : 'low'} />
+      </div>
+
+      {report.punctuation && (
+        <p className="text-[12.5px] text-slate-500">
+          You paused at <strong className="text-slate-800">{report.punctuation.honoured}</strong> of the{' '}
+          <strong className="text-slate-800">{report.punctuation.expected}</strong> marks in the passage.
+        </p>
+      )}
+
+      <div className="space-y-2">
+        {report.notes.map((n, i) => (
+          <div
+            key={i}
+            className={`flex gap-2 rounded-lg px-3 py-2.5 text-[13px] leading-[1.6] ${
+              n.kind === 'good'
+                ? 'bg-green-50 text-green-900'
+                : n.kind === 'fix'
+                  ? 'bg-red-50 text-red-900'
+                  : 'bg-amber-50 text-amber-900'
+            }`}
+          >
+            {n.kind === 'good'
+              ? <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+              : <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />}
+            <span>{n.text}</span>
+          </div>
+        ))}
+      </div>
+
+      <p className="text-[11.5px] text-slate-400 leading-[1.55]">
+        Measured on your own device. Nothing is uploaded and nobody hears the
+        recording — practise as many times as you like.
+      </p>
+    </div>
+  );
+}
+
+function Stat({
+  label, value, unit, verdict,
+}: { label: string; value: string; unit: string; verdict: 'good' | 'low' | 'high' }) {
+  const tone = verdict === 'good' ? '#15803D' : verdict === 'high' ? '#B91C1C' : '#B45309';
+  return (
+    <div className="rounded-lg border border-slate-200 px-3 py-2.5">
+      <p className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
+      <p className="text-lg font-extrabold tabular-nums" style={{ color: tone, fontFamily: 'var(--font-jakarta)' }}>
+        {value}
+      </p>
+      <p className="text-[11px] text-slate-400">{unit}</p>
+    </div>
+  );
+}
