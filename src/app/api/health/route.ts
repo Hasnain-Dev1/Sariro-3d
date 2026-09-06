@@ -25,6 +25,9 @@ export async function GET() {
   const razorpayKey = process.env.RAZORPAY_KEY_ID;
   const razorpaySecret = process.env.RAZORPAY_KEY_SECRET;
   const razorpayWebhook = process.env.RAZORPAY_WEBHOOK_SECRET;
+  const apitxt = process.env.APITXT_AUTHKEY;
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpPass = process.env.SMTP_PASS;
 
   // Which build is this? Stamped at build time, so if the deploy restarted the
   // process without running `next build`, these stay old and say so. See
@@ -40,6 +43,25 @@ export async function GET() {
       url: !!supabaseUrl && supabaseUrl.startsWith('http'),
       anonKey: !!supabaseAnon,
       serviceKey: !!supabaseService,
+    },
+    /*
+     * Whether a server-side key is present, without ever returning the key.
+     *
+     * These exist because the only other way to find out is to trigger the
+     * thing they power — and for SMS that means spending a message and texting
+     * a real phone to answer "is the environment variable set". APITXT_AUTHKEY
+     * was missing on Hostinger for a day and phone verification silently
+     * skipped for every parent, which is the failure mode this closes: a key
+     * that is absent now says so on a URL anybody can open.
+     */
+    sms: {
+      apitxtKey: !!apitxt,
+      /** Verification is required only when it can actually be offered. */
+      phoneVerificationActive: !!apitxt,
+    },
+    email: {
+      smtpHost: !!smtpHost,
+      smtpPassword: !!smtpPass,
     },
     razorpay: {
       keyId: !!razorpayKey,
