@@ -17,7 +17,7 @@
  * lib/lessons/content-state.ts.
  */
 import { readFileSync } from 'node:fs';
-import { COURSES } from '@/lib/sariro-data';
+import { allLessonCourses, flattenCourseLessons } from '@/lib/dashboard/lessons-data';
 import { getAllStructuredCourses } from '@/lib/curriculum';
 import { hasWrittenContent } from '@/lib/lessons/content-state';
 
@@ -49,16 +49,18 @@ for (const p of pages) {
 }
 
 console.log(
-  'course'.padEnd(20), 'track'.padEnd(11), 'level'.padEnd(13),
+  'course'.padEnd(24), 'kind'.padEnd(8),
   'syllabus'.padStart(8), 'pages'.padStart(6), 'written'.padStart(8), '  source'
 );
-console.log('-'.repeat(92));
+console.log('-'.repeat(80));
 
 let missing = 0, stubbed = 0, done = 0;
 let syllabusLessons = 0, writtenLessons = 0;
 
-for (const c of COURSES) {
-  const syl = (c.syllabus ?? []).reduce((n, m) => n + (m.lessons?.length ?? 0), 0);
+const catalogue = allLessonCourses();
+
+for (const c of catalogue) {
+  const syl = flattenCourseLessons(c.id).length;
   const page = byCourse.get(c.id);
   const struct = structuredCount.get(c.id);
 
@@ -72,14 +74,14 @@ for (const c of COURSES) {
   else { missing++; }
 
   console.log(
-    c.id.padEnd(20), String(c.trackId).padEnd(11), String(c.level).padEnd(13),
+    c.id.padEnd(24), c.family.padEnd(8),
     String(syl).padStart(8), String(page?.total ?? 0).padStart(6),
     String(page?.real ?? 0).padStart(8), '  ' + source
   );
 }
 
 console.log();
-console.log(`${COURSES.length} courses in the catalogue`);
+console.log(`${catalogue.length} courses in the catalogue`);
 console.log(`  ${done} have some written lessons`);
 console.log(`  ${stubbed} have pages but not one is written`);
 console.log(`  ${missing} have no lesson pages at all`);
@@ -89,7 +91,7 @@ console.log();
 console.log(`${writtenLessons} of ${syllabusLessons} lessons written across the whole catalogue`);
 console.log(`${syllabusLessons - writtenLessons} still show "taught live with your mentor"`);
 
-const known = new Set(COURSES.map((c) => c.id));
+const known = new Set(catalogue.map((c) => c.id));
 const orphans = [...byCourse.keys()].filter((id) => !known.has(id));
 if (orphans.length) console.log('\nlesson_pages rows for courses NOT in the catalogue:', orphans);
 }

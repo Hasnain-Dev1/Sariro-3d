@@ -15,15 +15,25 @@ import { ArrowLeft, Loader2, Save, Wand2, Check } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { COURSES } from '@/lib/sariro-data';
 import { isEffectivelyEmpty } from '@/lib/lessons/content-state';
-import { flattenCourseLessons, type OrderedLesson } from '@/lib/dashboard/lessons-data';
+import { allLessonCourses, flattenCourseLessons, type OrderedLesson } from '@/lib/dashboard/lessons-data';
 
 interface PageRow { module_num: number; lesson_index: number; html_content: string; title: string | null }
 
 export default function AdminLessonsPage() {
   const supabase = createClient();
-  const seedable = COURSES.filter((c) => Array.isArray(c.syllabus) && c.syllabus.length > 0);
+  /* Every course with a syllabus — coding tracks, school subjects by grade,
+     and focus courses like Public Speaking. The last two were missing entirely,
+     so forty-six authored Public Speaking lesson titles had no way to be
+     written against. See lib/dashboard/lessons-data.ts. */
+  const seedable = useMemo(() => allLessonCourses(), []);
+  const grouped = useMemo(() => ({
+    coding: seedable.filter((c) => c.family === 'coding'),
+    focus: seedable.filter((c) => c.family === 'focus'),
+    school: seedable.filter((c) => c.family === 'school'),
+  }), [seedable]);
 
   const [courseId, setCourseId] = useState(seedable.find((c) => c.id === 'python-elem')?.id ?? seedable[0]?.id ?? '');
+  const [seedingAll, setSeedingAll] = useState(false);
   const [pages, setPages] = useState<Map<string, PageRow>>(new Map());
   const [loading, setLoading] = useState(false);
   const [seeding, setSeeding] = useState(false);
@@ -80,6 +90,28 @@ export default function AdminLessonsPage() {
     }
   };
 
+  /* Every course at once. Safe because a blank page is reported as missing,
+     so a learner sees "taught live with your mentor" rather than an empty
+     screen — see lib/lessons/content-state.ts. */
+  const seedAll = async () => {
+    setSeedingAll(true); setMsg(null);
+    try {
+      const res = await fetch('/api/admin/lessons/seed', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ all: true }),
+      });
+      const j = await res.json();
+      setMsg(j.ok
+        ? `${j.lessons} lesson slots across ${j.courses} courses (existing pages kept).${j.failed ? ` Failed: ${j.failed.join(', ')}` : ''}`
+        : `Failed: ${j.error}`);
+      if (j.ok) await loadPages();
+    } catch {
+      setMsg('Network error.');
+    } finally {
+      setSeedingAll(false);
+    }
+  };
+
   const selectLesson = (l: OrderedLesson) => {
     const key = `${l.module_num}:${l.lesson_index}`;
     setActiveKey(key);
@@ -114,11 +146,23 @@ export default function AdminLessonsPage() {
         <div className="flex flex-wrap items-center gap-2 mb-4">
           <select value={courseId} onChange={(e) => setCourseId(e.target.value)}
             className="min-h-[40px] px-3 rounded-lg border border-slate-200 bg-white text-sm font-semibold">
-            {seedable.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+            <optgroup label="Coding">
+              {grouped.coding.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+            </optgroup>
+            <optgroup label="Focus courses">
+              {grouped.focus.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+            </optgroup>
+            <optgroup label="School subjects">
+              {grouped.school.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+            </optgroup>
           </select>
           <button onClick={seed} disabled={seeding}
             className="inline-flex items-center gap-1.5 min-h-[40px] px-3 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold disabled:opacity-50">
             {seeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />} Create blank pages
+          </button>
+          <button onClick={seedAll} disabled={seedingAll || seeding}
+            className="inline-flex items-center gap-1.5 min-h-[40px] px-3 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-sm font-bold disabled:opacity-50">
+            {seedingAll ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4 text-slate-400" />} Create blank pages for every course
           </button>
           {msg && <span className="text-xs font-semibold text-slate-600">{msg}</span>}
         </div>

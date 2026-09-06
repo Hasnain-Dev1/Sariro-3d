@@ -14,15 +14,16 @@ import Link from 'next/link';
 import { ArrowLeft, BookOpen, Loader2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/components/auth/auth-provider';
-import { COURSES, TRACKS } from '@/lib/sariro-data';
+import { TRACKS } from '@/lib/sariro-data';
+import { lessonCourseIdFor, allLessonCourses } from '@/lib/dashboard/lessons-data';
 import { LessonsViewer } from '@/components/dashboard/lessons-viewer';
 
 interface Enrollment { id: string; track: string; level: string; status: string }
 
-function courseIdFor(track: string, level: string): string | null {
-  const c = COURSES.find((x) => x.trackId === track && x.level.toLowerCase() === (level || '').toLowerCase());
-  return c?.id ?? null;
-}
+/* Was a COURSES lookup, which returned null for every school subject and every
+   focus course — so a child enrolled in Mathematics Grade 7 or Public Speaking
+   had no lessons page at all. lessonCourseIdFor understands all three. */
+const courseIdFor = lessonCourseIdFor;
 
 export default function StudentLessonsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -54,6 +55,15 @@ export default function StudentLessonsPage() {
     return () => { cancelled = true; };
   }, [user, authLoading, supabase]);
 
+  /* Titles come from the shared catalogue, which knows all three kinds. The
+     COURSES lookup here asserted non-null and would have been undefined for
+     every school subject and focus course, quietly falling back to a bare track
+     name — "public-speaking" instead of "Public Speaking · focus course". */
+  const courseTitles = useMemo(
+    () => new Map(allLessonCourses().map((c) => [c.id, c.title])),
+    []
+  );
+
   const courses = useMemo(() => {
     const seen = new Set<string>();
     const out: { id: string; label: string }[] = [];
@@ -61,12 +71,11 @@ export default function StudentLessonsPage() {
       const id = courseIdFor(e.track, e.level);
       if (!id || seen.has(id)) continue;
       seen.add(id);
-      const c = COURSES.find((x) => x.id === id)!;
       const trackName = TRACKS.find((t) => t.id === e.track)?.name ?? e.track;
-      out.push({ id, label: c?.title ?? trackName });
+      out.push({ id, label: courseTitles.get(id) ?? trackName });
     }
     return out;
-  }, [enrollments]);
+  }, [enrollments, courseTitles]);
 
   return (
     <div className="min-h-[100dvh] bg-slate-50 pb-20 lg:pb-8">

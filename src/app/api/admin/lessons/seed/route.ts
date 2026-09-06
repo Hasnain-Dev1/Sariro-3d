@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClientHelper, createServiceClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
-import { flattenCourseLessons, findCourseById } from '@/lib/dashboard/lessons-data';
+import {
+  flattenCourseLessons, lessonCourseExists, allLessonCourses,
+} from '@/lib/dashboard/lessons-data';
 
 /**
  * SARIRO — POST /api/admin/lessons/seed
@@ -12,7 +14,16 @@ import { flattenCourseLessons, findCourseById } from '@/lib/dashboard/lessons-da
  * existing pages are left untouched (ignoreDuplicates), so re-running only fills
  * gaps and never clobbers edited content.
  *
- * Body: { courseId }
+ * Body: { courseId }  — one course
+ *       { all: true } — every course that has a syllabus, coding, school and
+ *                       focus alike. Four and a half thousand slots, written a
+ *                       course at a time so one oversized statement cannot fail
+ *                       the whole run.
+ *
+ * A seeded page is a placeholder, not a lesson: the content route reports an
+ * unwritten page as missing so the learner gets "taught live with your mentor"
+ * rather than a heading on a blank screen. That is what makes seeding
+ * everything safe — see lib/lessons/content-state.ts.
  */
 
 export const runtime = 'nodejs';
@@ -49,38 +60,62 @@ export async function POST(req: NextRequest) {
   const rl = rateLimit({ key: `lessons-seed:${auth.userId}`, limit: 10, windowMs: 60_000 });
   if (!rl.ok) return NextResponse.json({ ok: false, error: 'rate_limited' }, { status: 429 });
 
-  let body: { courseId?: string };
+  let body: { courseId?: string; all?: boolean };
   try { body = await req.json(); } catch { return NextResponse.json({ ok: false, error: 'invalid_json' }, { status: 400 }); }
 
-  const courseId = String(body.courseId ?? '').trim();
-  if (!courseId || !findCourseById(courseId)) {
+  const targets: string[] = body.all
+    ? allLessonCourses().map((c) => c.id)
+    : [String(body.courseId ?? '').trim()];
+
+  if (targets.length === 0 || targets.some((id) => !id || !lessonCourseExists(id))) {
     return NextResponse.json({ ok: false, error: 'unknown_course' }, { status: 400 });
   }
 
-  const ordered = flattenCourseLessons(courseId);
-  if (ordered.length === 0) {
-    return NextResponse.json({ ok: false, error: 'no_lessons' }, { status: 400 });
-  }
-
-  const rows = ordered.map((l) => ({
-    course_id: courseId,
-    module_num: l.module_num,
-    lesson_index: l.lesson_index,
-    lesson_name: l.lesson_name,
-    title: l.lesson_name,
-    html_content: `<h1>${escapeHtml(l.lesson_name)}</h1>`,
-    published: true,
-  }));
-
   const admin = createServiceClient();
-  const { error } = await admin
-    .from('lesson_pages')
-    .upsert(rows, { onConflict: 'course_id,module_num,lesson_index', ignoreDuplicates: true });
+  let total = 0;
+  const failed: string[] = [];
 
-  if (error) {
-    console.warn('[lessons/seed] error:', error.message);
-    return NextResponse.json({ ok: false, error: 'seed_failed', message: error.message }, { status: 500 });
+  // One statement per course rather than one for everything: four and a half
+  // thousand rows in a single upsert is a request that either works or tells
+  // you nothing about which part of it did not.
+  for (const courseId of targets) {
+    const ordered = flattenCourseLessons(courseId);
+    if (ordered.length === 0) {
+      if (!body.all) return NextResponse.json({ ok: false, error: 'no_lessons' }, { status: 400 });
+      continue;
+    }
+
+    const rows = ordered.map((l) => ({
+      course_id: courseId,
+      module_num: l.module_num,
+      lesson_index: l.lesson_index,
+      lesson_name: l.lesson_name,
+      title: l.lesson_name,
+      html_content: `<h1>${escapeHtml(l.lesson_name)}</h1>`,
+      published: true,
+    }));
+
+    const { error } = await admin
+      .from('lesson_pages')
+      .upsert(rows, { onConflict: 'course_id,module_num,lesson_index', ignoreDuplicates: true });
+
+    if (error) {
+      console.warn(`[lessons/seed] ${courseId}:`, error.message);
+      if (!body.all) {
+        return NextResponse.json({ ok: false, error: 'seed_failed', message: error.message }, { status: 500 });
+      }
+      // A run over ninety courses reports what failed and keeps going, rather
+      // than stopping on the first one and leaving the rest untouched.
+      failed.push(courseId);
+      continue;
+    }
+    total += rows.length;
   }
 
-  return NextResponse.json({ ok: true, courseId, lessons: rows.length });
+  return NextResponse.json({
+    ok: true,
+    courses: targets.length - failed.length,
+    lessons: total,
+    ...(failed.length ? { failed } : {}),
+  });
 }
