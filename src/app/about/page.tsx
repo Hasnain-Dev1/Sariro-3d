@@ -84,7 +84,12 @@ export default function AboutPage() {
             About <span className="gradient-text">Sariro.</span>
           </>
         }
-        subtitle="A live, mentor-led school for grades 1 to 12 — maths, science, physics, chemistry, biology, English and coding. Never more than four learners to a class, anywhere in the world."
+        /* Was "grades 1 to 12 — maths, science, physics, chemistry, biology,
+           English and coding", which stopped being the whole company. The focus
+           courses and Public Speaking are sold on /pricing and were missing
+           here, and "grades 1 to 12" quietly excluded the adult taking Public
+           Speaking or Calculus. */
+        subtitle="A live, mentor-led school. Maths, science, physics, chemistry, biology and English across grades 1 to 12; coding and AI from first program to production; and focus courses — Organic Chemistry, Calculus, Algebra, Trigonometry, Mechanics, and Public Speaking at any age. Never more than four learners to a class, anywhere in the world."
       >
         <button
           onClick={scrollToPrinciples}

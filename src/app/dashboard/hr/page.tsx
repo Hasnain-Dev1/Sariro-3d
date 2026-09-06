@@ -19,6 +19,7 @@ import PolicyFlagsPanel from '@/components/dashboard/policy-flags-panel';
 import CreditRequestsPanel from '@/components/dashboard/credit-requests-panel';
 import InvoiceWorkspace from '@/components/dashboard/invoice-workspace';
 import SalesLedgerPanel from '@/components/dashboard/sales-ledger-panel';
+import UnrecordedInvoicesPanel from '@/components/dashboard/unrecorded-invoices-panel';
 
 export default function HRDashboard() {
   const { user, loading } = useAuth();
@@ -32,6 +33,10 @@ export default function HRDashboard() {
   const [activeTab, setActiveTab] = useState<'overview' | 'my_teachers' | 'incentives' | 'payments' | 'credits' | 'tiers' | 'enquiries' | 'expenses' | 'policy' | 'credit_requests' | 'invoices' | 'sales'>('overview');
   const { toast, showToast } = useDashboardToast();
   const [showSales, setShowSales] = useState(false);
+  /* Invoices issued more than a day ago with no sale against them. Carried on
+     the tab label because a reconciliation nobody opens is a reconciliation
+     nobody does. */
+  const [unrecorded, setUnrecorded] = useState(0);
 
   const loadAll = useCallback(async () => {
     try {
@@ -186,17 +191,17 @@ export default function HRDashboard() {
           {/* Tab bar */}
           <div className="flex border-b border-slate-200 mb-4 overflow-x-auto">
             {[
-              { key: 'overview', label: 'Overview' },
-              { key: 'my_teachers', label: 'My Teachers' },
-              { key: 'incentives', label: 'Incentives' },
-              { key: 'payments', label: 'Payments' },
-              { key: 'credits', label: 'Credits & Tiers' },
-              { key: 'enquiries', label: 'Enquiries' },
-              { key: 'credit_requests', label: 'Credit Requests' },
-              { key: 'invoices', label: 'Generate Invoice' },
-              { key: 'sales', label: 'Sales & Refunds' },
-              { key: 'expenses', label: 'Expenses' },
-              { key: 'policy', label: 'Chat Policy' },
+              { key: 'overview', label: 'Overview', badge: 0 },
+              { key: 'my_teachers', label: 'My Teachers', badge: 0 },
+              { key: 'incentives', label: 'Incentives', badge: 0 },
+              { key: 'payments', label: 'Payments', badge: 0 },
+              { key: 'credits', label: 'Credits & Tiers', badge: 0 },
+              { key: 'enquiries', label: 'Enquiries', badge: 0 },
+              { key: 'credit_requests', label: 'Credit Requests', badge: 0 },
+              { key: 'invoices', label: 'Generate Invoice', badge: 0 },
+              { key: 'sales', label: 'Sales & Refunds', badge: unrecorded },
+              { key: 'expenses', label: 'Expenses', badge: 0 },
+              { key: 'policy', label: 'Chat Policy', badge: 0 },
             ].map((tab) => (
               <button
                 key={tab.key}
@@ -209,6 +214,13 @@ export default function HRDashboard() {
                 style={{ fontFamily: 'var(--font-grotesk)' }}
               >
                 {tab.label}
+                {/* An unrecorded invoice is money billed and not booked. It has
+                    to be visible from a tab nobody has clicked yet. */}
+                {tab.badge > 0 && (
+                  <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-black align-middle">
+                    {tab.badge}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -243,7 +255,19 @@ export default function HRDashboard() {
               {/* A sale is recorded from its invoice number, so nothing is
                   retyped and the books cannot disagree with the document the
                   customer holds. */}
-              {activeTab === 'sales' && <SalesLedgerPanel />}
+              {activeTab === 'sales' && (
+                <div className="space-y-6">
+                  {/* The gap the ledger cannot close on its own: a sale needs
+                      an invoice, but an invoice does not need a sale. */}
+                  <section>
+                    <h3 className="text-[15px] font-extrabold text-slate-900 mb-3" style={{ fontFamily: 'var(--font-jakarta)' }}>
+                      Invoices not yet in the books
+                    </h3>
+                    <UnrecordedInvoicesPanel onCount={setUnrecorded} />
+                  </section>
+                  <SalesLedgerPanel />
+                </div>
+              )}
 
               {/* Attempts to move a learner's conversation off the platform.
                   HR owns the conversation that follows a repeat. */}

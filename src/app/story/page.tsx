@@ -8,21 +8,41 @@ import { WaveDivider3D } from '@/components/sariro-3d/kit-3d';
 import { Reveal, SplitText, TiltCard, MagneticButton, CountUp, ParallaxOrb } from '@/components/brand/effects-kit';
 import { BRAND, HERO_STATS } from '@/lib/sariro-data';
 
+/*
+ * The story used to be a coding story: students who could pass an exam and
+ * not ship an AI feature, tutorials that teach typing, a bet about building.
+ * That was true of the company that existed then.
+ *
+ * Sariro now teaches maths, science, physics, chemistry, biology and English
+ * across grades 1 to 12, focus courses like Organic Chemistry and Calculus, and
+ * Public Speaking at any age, alongside the coding and AI tracks. A story about
+ * shipping features describes a tenth of it, and a parent looking for help with
+ * Class 8 science reads it and leaves.
+ *
+ * The through-line survived the widening, because it was never really about
+ * code: a grade is a receipt for remembering, and remembering is not
+ * understanding. That is as true of quadratics and of standing up to speak as
+ * it ever was of a first program.
+ *
+ * Chapter 04 is unchanged. Those figures are Mimo's own career before Sariro,
+ * and they stay framed as what he brought TO the bet rather than as what the
+ * bet returned.
+ */
 const CHAPTERS = [
-  { num: '01', title: 'The Question', body: 'It started with a question that would not go away: why do smart students graduate unable to build anything real? They pass exams. They can recite definitions. But ship a working AI feature? Freeze. The question sat in the back of Mimo\'s mind for twelve years.', accent: '#7C3AED', icon: HelpCircle },
-  { num: '02', title: 'The Refusal', body: 'Mimo spent 12 years watching this — in classrooms, in bootcamps, in corporate training rooms. Watching smart people leave with certificates and zero confidence. The industry kept saying "more tutorials, more videos, more bootcamps." Mimo refused. Tutorials teach typing. They do not teach thinking.', accent: '#06B6D4', icon: Ban },
-  { num: '03', title: 'The Bet', body: 'So Mimo made a bet: teach thinking, not typing. Build a brand that respects curiosity over credentials, projects over playlists, questions over answers. Cohort-based. Mentor-led. Project-first. Plain language. No jargon. No gatekeeping. Sariro was the name. The bet was that students would actually learn.', accent: '#F59E0B', icon: Sparkles },
+  { num: '01', title: 'The Question', body: 'It started with a question that would not go away: why can a child score ninety-two per cent and still not be able to explain what they did? They pass. They can recite the definition. Ask them why the method works and the room goes quiet. The question sat in the back of Mimo’s mind for twelve years.', accent: '#7C3AED', icon: HelpCircle },
+  { num: '02', title: 'The Refusal', body: 'Mimo spent 12 years watching it — in classrooms, in coaching centres, in corporate training rooms. Watching capable people leave with certificates and no confidence. The industry’s answer was always more content: more videos, more worksheets, more revision. Mimo refused. Content was never the missing part. A person paying attention was.', accent: '#06B6D4', icon: Ban },
+  { num: '03', title: 'The Bet', body: 'So Mimo made a bet: teach until the reasoning holds, and keep the class small enough to tell when it does not. Never more than four learners. A mentor who can hear the pause before a wrong answer. It works the same way on quadratics, on organic chemistry, on a first program, and on a fourteen-year-old learning to stand up and be heard. Sariro was the name. The bet was that understanding would travel.', accent: '#F59E0B', icon: Sparkles },
   // The numbers here are Mimo's career before Sariro, not Sariro's results.
   // Framed as what he brought TO the bet rather than what the bet returned.
   { num: '04', title: 'The Record', body: 'He was not guessing. Across twelve years before Sariro, Mimo had taught 5,000+ students from 65 countries, published 36 research papers and filed 7 patents. A history teacher he taught became an engineer. A 16-year-old built her first working model. A principal started a club. The proof was never the numbers — it was the learners those numbers stood for.', accent: '#16A34A', icon: Hammer },
-  { num: '05', title: 'The Future', body: 'The next chapter is not ours to write. It is yours. If you are curious — really curious, the kind of curious that keeps you up at night — you belong here. Sariro is not a course. It is not a platform. It is a movement of people who refuse to watch the future happen to them.', accent: '#EC4899', icon: Globe },
+  { num: '05', title: 'The Future', body: 'The next chapter is not ours to write. It is yours — whether that is the subject you have quietly decided you are bad at, the exam standing between you and what you want, or the sentence you cannot yet say out loud in a room. Sariro is not a course. It is not a platform. It is a movement of people who refuse to watch the future happen to them.', accent: '#EC4899', icon: Globe },
 ];
 
 const VALUES = [
-  { title: 'Thinking over typing', body: 'Anyone can copy a tutorial. We teach you to think — to break problems apart, to ask the right questions, to reason about systems.', accent: '#7C3AED', icon: Sparkles },
-  { title: 'Understand, don’t memorise', body: 'A grade is a receipt for remembering. We teach until the reasoning holds on its own, so the next grade gets easier instead of harder.', accent: '#F59E0B', icon: Rocket },
+  { title: 'Understand, don’t memorise', body: 'A grade is a receipt for remembering. We teach until the reasoning holds on its own, so the next grade gets easier instead of harder — and so the subject is still there a year later.', accent: '#F59E0B', icon: Rocket },
+  { title: 'Small enough to notice', body: 'Never more than four learners in a class. Not a marketing number — it is the size at which a mentor can hear the pause before a wrong answer and stop right there.', accent: '#7C3AED', icon: Users },
   { title: 'Accessible by design', body: 'No subject should be gatekept by jargon. We teach in plain language. An 8-year-old and a grandpa should both be able to follow along.', accent: '#16A34A', icon: Heart },
-  { title: 'Community, not customers', body: 'Once you are in, you are in. Lifetime community access, mentorship opportunities, and a network that shows up when you ship — and when you stumble.', accent: '#06B6D4', icon: Users },
+  { title: 'One school, not a shelf of courses', body: 'Maths, science, English, coding and the confidence to speak about any of them — taught the same way, by the same standard, so what a learner builds in one subject holds in the next.', accent: '#06B6D4', icon: Sparkles },
 ];
 
 export default function StoryPage() {
@@ -34,7 +54,7 @@ export default function StoryPage() {
         breadcrumb="Story"
         variant="story"
         title={<>It started with a <span className="gradient-text">question</span> that would not go away.</>}
-        subtitle="Why do smart students graduate unable to build anything real? This is the story of how that question became Sariro — and how a refusal to teach the easy way became a movement."
+        subtitle="Why can a student score ninety-two per cent and still not understand the subject? This is the story of how that question became Sariro — and how a refusal to teach the easy way became a school."
       >
         <Link href="/about" className="btn-tactile btn-tactile-light px-5 py-3 text-sm">
           Meet the founder
