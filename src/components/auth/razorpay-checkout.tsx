@@ -112,6 +112,20 @@ export function RazorpayCheckoutButton({
   const fallbackToLegacyLink = useCallback(() => {
     // Legacy path — still create a purchase_intent, then redirect to the
     // Razorpay Payment Page. Used when Standard API isn't configured.
+    //
+    // /checkout passes paymentLink="" because it has no static page for the
+    // school and focus courses. Without this guard the line below navigated to
+    // `?return_url=…`, which is a RELATIVE url: it kept the current path,
+    // dropped the course parameters, and left the buyer on a checkout page that
+    // could no longer resolve what they were buying — "We couldn't find that
+    // course", which is indistinguishable from a 404 to the person reading it.
+    //
+    // There is nowhere to send them, so say so instead of sending them nowhere.
+    if (!paymentLink) {
+      setError('Card payment is unavailable right now. Please use bank transfer below, or write to support@sariro.com and we will take the payment over the phone.');
+      return;
+    }
+
     const successUrl = `${window.location.origin}/payment-success?track=${encodeURIComponent(
       track
     )}&level=${encodeURIComponent(level)}&ratio=${encodeURIComponent(ratio)}`;

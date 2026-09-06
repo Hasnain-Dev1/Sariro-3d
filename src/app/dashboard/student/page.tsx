@@ -115,23 +115,65 @@ function formatSessionTime(iso: string, timezone: string | null): string {
   }
 }
 
-/* ───── Empty state for new students ───── */
-function EmptyCoursesState() {
+/* ───── Not enrolled in anything yet ───── */
+/**
+ * A whole page rather than a card inside the dashboard.
+ *
+ * Two reasons. A student who has bought nothing has nothing on that dashboard
+ * — no classes, no credits, no progress, no classmates — so what they met was
+ * eight empty sections and one small "no courses yet" card buried among them.
+ * That reads as a broken product on somebody's first visit.
+ *
+ * And it means the working dashboard is never rendered to an account that has
+ * not bought anything, which is the other thing it was asked to do.
+ */
+function NotEnrolledYet({ firstName }: { firstName: string }) {
   return (
-    <div className="card-3d p-8 text-center">
-      <div className="w-16 h-16 rounded-2xl bg-blue-100 flex items-center justify-center mx-auto mb-4">
-        <BookOpen className="w-8 h-8 text-blue-600" />
+    <section className="relative min-h-[70vh] flex items-center px-4 sm:px-6 lg:px-10 py-16">
+      <div className="max-w-2xl mx-auto text-center">
+        <div className="w-16 h-16 rounded-2xl bg-blue-100 flex items-center justify-center mx-auto mb-6">
+          <Sparkles className="w-8 h-8 text-blue-600" />
+        </div>
+
+        <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-3" style={{ fontFamily: 'var(--font-jakarta)' }}>
+          We&apos;re still waiting for you, {firstName}.
+        </h1>
+
+        <p className="text-[15px] sm:text-base text-slate-600 leading-[1.75] mb-2">
+          Your account is ready. There is no class on it yet — so there is nothing
+          here to show you, and we would rather say that than fill the page with
+          empty boxes.
+        </p>
+        <p className="text-[15px] sm:text-base text-slate-600 leading-[1.75] mb-8">
+          Book a free class and meet a mentor first. Thirty minutes, a real lesson,
+          and nothing to pay.
+        </p>
+
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <Link
+            href="/welcome#book"
+            className="btn-tactile btn-tactile-primary px-6 py-3 text-sm inline-flex items-center justify-center gap-2"
+          >
+            <Sparkles className="w-4 h-4" /> Book a free class
+          </Link>
+          <Link
+            href="/courses"
+            className="btn-tactile btn-tactile-light px-6 py-3 text-sm inline-flex items-center justify-center gap-2"
+          >
+            <BookOpen className="w-4 h-4" /> See what we teach
+          </Link>
+        </div>
+
+        <p className="text-[13px] text-slate-400 mt-8 leading-[1.7]">
+          Already paid and nothing has appeared? It can take a little while for an
+          enrolment to be confirmed. Write to{' '}
+          <a href="mailto:support@sariro.com" className="font-semibold text-slate-600 hover:text-slate-900">
+            support@sariro.com
+          </a>{' '}
+          and we will sort it out.
+        </p>
       </div>
-      <h3 className="text-lg font-extrabold text-slate-900 mb-2" style={{ fontFamily: 'var(--font-jakarta)' }}>
-        No courses yet
-      </h3>
-      <p className="text-sm text-slate-500 mb-6 max-w-md mx-auto">
-        Buy your first course to start your journey. Browse the catalog and reserve your seat — cohorts form weekly.
-      </p>
-      <Link href="/courses" className="btn-tactile btn-tactile-primary px-6 py-3 text-sm inline-flex items-center gap-2">
-        <Sparkles className="w-4 h-4" /> Browse courses
-      </Link>
-    </div>
+    </section>
   );
 }
 
@@ -1118,6 +1160,13 @@ function StudentDashboardInner() {
     enabled: !!user,
   });
 
+  /* Below every hook, so the hook order never changes between renders. A
+     student with no enrolment gets their own page rather than the dashboard
+     with everything on it empty. */
+  if (!loading && !error && enrollments.length === 0) {
+    return <NotEnrolledYet firstName={firstName} />;
+  }
+
   return (
     <section className="relative pt-6 sm:pt-10 pb-16 px-4 sm:px-6 lg:px-10">
       <div className="max-w-6xl mx-auto">
@@ -1196,9 +1245,9 @@ function StudentDashboardInner() {
               <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-jakarta)' }}>
                 <BookOpen className="w-5 h-5 text-blue-600" /> My Courses
               </h2>
-              {enrollments.length === 0 ? (
-                <EmptyCoursesState />
-              ) : (
+              {/* enrollments is never empty here — a student with none is sent
+                  to NotEnrolledYet above, before any of this renders. */}
+              {(
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {enrollments.map((e) => (
                     <CourseCard

@@ -39,11 +39,13 @@ import { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, ChevronRight, Calendar as CalendarIcon,
-  Video, Clock, X, HelpCircle, ClipboardCheck,
+  Video, Clock, X, HelpCircle, ClipboardCheck, BookOpen,
 } from 'lucide-react';
 import type { TeacherBookingRow } from '@/lib/dashboard/teacher-data';
 import { getTrackName } from '@/lib/dashboard/upsell-engine';
 import { TzBadge } from '@/components/dashboard/tz-badge';
+import Link from 'next/link';
+import { lessonCourseIdFor } from '@/lib/dashboard/lessons-data';
 import { RescheduleModal } from '@/components/dashboard/reschedule-modal';
 import { CancelClassModal } from '@/components/dashboard/cancel-class-modal';
 
@@ -435,6 +437,12 @@ export function TeacherCalendar({ bookings, timezone, onSelectBooking, onChanged
                             {b.batch_code}
                           </span>
                         )}
+                        {/* Which lesson this class actually is, and a way to go
+                            and read it. A teacher looking at "Public Speaking,
+                            4pm" still has to work out which of forty-six
+                            lessons is due, and the answer was already on the
+                            booking — it just was not shown anywhere. */}
+                        <LessonPill booking={b} />
                       </div>
                       {b.student_names && b.student_names.length > 0 && (
                         <div className="text-[11px] font-bold text-slate-700 mb-0.5 truncate">
@@ -529,5 +537,44 @@ export function TeacherCalendar({ bookings, timezone, onSelectBooking, onChanged
         onDone={() => { setCancelTarget(null); onChanged?.(); }}
       />
     </div>
+  );
+}
+
+/**
+ * "Lesson 12 · Signposting and transitions" — a link to the lesson page.
+ *
+ * module_num and lesson_name are stamped onto every booking by
+ * assignLessonIdentity, so this is a read rather than a calculation. A class
+ * whose cohort has run past the end of its syllabus has no lesson, and shows
+ * nothing rather than a wrong number.
+ */
+function LessonPill({ booking }: { booking: TeacherBookingRow }) {
+  if (!booking.lesson_name) return null;
+
+  const courseId = lessonCourseIdFor(booking.cohort_track, booking.cohort_level);
+  const label = booking.module_num
+    ? `M${Number(booking.module_num)} · ${booking.lesson_name}`
+    : booking.lesson_name;
+
+  // Without a course id there is no page to open, so it stays a label. Better
+  // than a link that lands nowhere.
+  if (!courseId) {
+    return (
+      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-50 text-blue-700 border border-blue-200 max-w-[220px] truncate">
+        {label}
+      </span>
+    );
+  }
+
+  return (
+    <Link
+      href={`/dashboard/teacher/lessons?course=${encodeURIComponent(courseId)}`}
+      onClick={(e) => e.stopPropagation()}
+      title={`Open ${booking.lesson_name}`}
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-colors max-w-[240px]"
+    >
+      <BookOpen className="w-2.5 h-2.5 shrink-0" />
+      <span className="truncate">{label}</span>
+    </Link>
   );
 }

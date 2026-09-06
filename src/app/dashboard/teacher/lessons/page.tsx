@@ -17,15 +17,16 @@ import Link from 'next/link';
 import { ArrowLeft, GraduationCap, Loader2, CheckCircle2, Clock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/components/auth/auth-provider';
-import { COURSES, TRACKS } from '@/lib/sariro-data';
+import { TRACKS } from '@/lib/sariro-data';
 import { LessonsViewer } from '@/components/dashboard/lessons-viewer';
+import { lessonCourseIdFor, allLessonCourses } from '@/lib/dashboard/lessons-data';
 
 interface Assignment { track: string; level: string; training_completed_at: string | null }
 
-function courseIdFor(track: string, level: string): string | null {
-  const c = COURSES.find((x) => x.trackId === track && x.level.toLowerCase() === (level || '').toLowerCase());
-  return c?.id ?? null;
-}
+/* Was a COURSES lookup, which returned null for every school subject and focus
+   course — so a teacher assigned to Public Speaking saw "no course assignments
+   yet". lessonCourseIdFor understands all three kinds. */
+const courseIdFor = lessonCourseIdFor;
 
 export default function TeacherLessonsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -55,6 +56,11 @@ export default function TeacherLessonsPage() {
     return () => { cancelled = true; };
   }, [user, authLoading, supabase]);
 
+  const courseTitles = useMemo(
+    () => new Map(allLessonCourses().map((c) => [c.id, c.title])),
+    []
+  );
+
   const courses = useMemo(() => {
     const seen = new Set<string>();
     const out: { id: string; label: string; trained: boolean }[] = [];
@@ -62,12 +68,15 @@ export default function TeacherLessonsPage() {
       const id = courseIdFor(a.track, a.level);
       if (!id || seen.has(id)) continue;
       seen.add(id);
-      const c = COURSES.find((x) => x.id === id)!;
       const trackName = TRACKS.find((t) => t.id === a.track)?.name ?? a.track;
-      out.push({ id, label: c?.title ?? `${trackName} · ${a.level}`, trained: !!a.training_completed_at });
+      out.push({
+        id,
+        label: courseTitles.get(id) ?? `${trackName} · ${a.level}`,
+        trained: !!a.training_completed_at,
+      });
     }
     return out;
-  }, [assignments]);
+  }, [assignments, courseTitles]);
 
   const trainedCount = useMemo(() => courses.filter((c) => c.trained).length, [courses]);
 
@@ -108,16 +117,12 @@ export default function TeacherLessonsPage() {
                     activeCourse === c.id ? 'border-green-500 bg-green-50 text-green-700' : 'border-slate-200 text-slate-600 hover:border-green-300'
                   }`}
                 >
+                  {/* The Trained / Assigned badge used to sit here. It labelled
+                       a teacher's own training state on every chip, every time
+                       they came to read a lesson — which is not what this screen
+                       is for. Training progress belongs where training is
+                       managed, not beside the course they are about to teach. */}
                   {c.label}
-                  {c.trained ? (
-                    <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">
-                      <CheckCircle2 className="w-2.5 h-2.5" /> Trained
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                      <Clock className="w-2.5 h-2.5" /> Assigned
-                    </span>
-                  )}
                 </button>
               ))}
             </div>
