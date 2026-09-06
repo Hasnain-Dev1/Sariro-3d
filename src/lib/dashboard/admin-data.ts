@@ -9,6 +9,7 @@
  */
 
 import { createClient } from '@/lib/supabase/client';
+import { errorMessage } from '@/lib/dashboard/error-message';
 
 /**
  * What is actually waiting on an admin right now.
@@ -479,7 +480,7 @@ export async function confirmPurchaseIntent(intent: PurchaseIntentRow): Promise<
 
     return { success: true };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
+    const msg = errorMessage(err);
     console.warn('[admin] confirmPurchaseIntent error:', err);
     return { success: false, error: msg };
   }
@@ -496,7 +497,7 @@ export async function rejectPurchaseIntent(intentId: string): Promise<{ success:
     if (error) throw error;
     return { success: true };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
+    const msg = errorMessage(err);
     return { success: false, error: msg };
   }
 }
@@ -577,7 +578,7 @@ export async function transitionCohortStatus(
 
     return { success: true };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
+    const msg = errorMessage(err);
     return { success: false, error: msg };
   }
 }
@@ -611,7 +612,7 @@ export async function updateCohortMeetUrl(
     if (error) throw error;
     return { success: true };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
+    const msg = errorMessage(err);
     console.warn('[admin] updateCohortMeetUrl error:', err);
     return { success: false, error: msg };
   }
@@ -642,7 +643,7 @@ export async function updateCohortMaterialsUrl(
     if (error) throw error;
     return { success: true };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
+    const msg = errorMessage(err);
     console.warn('[admin] updateCohortMaterialsUrl error:', err);
     return { success: false, error: msg };
   }
@@ -887,7 +888,7 @@ export async function assignTeacherToCohort(params: {
     if (error) throw error;
     return { success: true };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
+    const msg = errorMessage(err);
     console.warn('[admin] assignTeacherToCohort error:', err);
     return { success: false, error: msg };
   }
@@ -911,7 +912,7 @@ export async function updateBookingTeacher(
     if (error) throw error;
     return { success: true };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
+    const msg = errorMessage(err);
     console.warn('[admin] updateBookingTeacher error:', err);
     return { success: false, error: msg };
   }
@@ -928,7 +929,7 @@ export async function deleteBooking(
     if (error) throw error;
     return { success: true };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
+    const msg = errorMessage(err);
     console.warn('[admin] deleteBooking error:', err);
     return { success: false, error: msg };
   }
@@ -1030,7 +1031,7 @@ export async function updateUserRole(
     }
     return { success: true };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
+    const msg = errorMessage(err);
     console.warn('[admin] updateUserRole error:', err);
     return { success: false, error: msg };
   }
@@ -1229,7 +1230,7 @@ export async function manualEnrollStudent(params: {
 
     return { success: true, cohortId };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
+    const msg = errorMessage(err);
     console.warn('[admin] manualEnrollStudent error:', err);
     return { success: false, error: msg };
   }
@@ -1363,7 +1364,7 @@ export async function exportUsersCSV(): Promise<{ success: boolean; error?: stri
     triggerCSVDownload(`sariro-users-${stamp}.csv`, csv);
     return { success: true };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
+    const msg = errorMessage(err);
     console.warn('[admin] exportUsersCSV error:', err);
     return { success: false, error: msg };
   }
@@ -1424,7 +1425,7 @@ export async function exportEnrollmentsCSV(): Promise<{ success: boolean; error?
     triggerCSVDownload(`sariro-enrollments-${stamp}.csv`, csv);
     return { success: true };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
+    const msg = errorMessage(err);
     console.warn('[admin] exportEnrollmentsCSV error:', err);
     return { success: false, error: msg };
   }
@@ -1494,7 +1495,7 @@ export async function exportRevenueCSV(): Promise<{ success: boolean; error?: st
     triggerCSVDownload(`sariro-revenue-${stamp}.csv`, csv);
     return { success: true };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
+    const msg = errorMessage(err);
     console.warn('[admin] exportRevenueCSV error:', err);
     return { success: false, error: msg };
   }

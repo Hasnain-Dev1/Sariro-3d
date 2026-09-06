@@ -15,6 +15,8 @@ import { ArrowLeft, Loader2, Save, Wand2, Check } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { COURSES } from '@/lib/sariro-data';
 import { isEffectivelyEmpty } from '@/lib/lessons/content-state';
+import SpeakingLessonView from '@/components/speaking/speaking-lesson-view';
+import { getSpeakingLesson } from '@/lib/speaking/modules';
 import { allLessonCourses, flattenCourseLessons, type OrderedLesson } from '@/lib/dashboard/lessons-data';
 
 interface PageRow { module_num: number; lesson_index: number; html_content: string; title: string | null }
@@ -34,6 +36,12 @@ export default function AdminLessonsPage() {
 
   const [courseId, setCourseId] = useState(seedable.find((c) => c.id === 'python-elem')?.id ?? seedable[0]?.id ?? '');
   const [seedingAll, setSeedingAll] = useState(false);
+
+  /* Public Speaking is authored in the codebase, not in lesson_pages, so there
+     is no HTML to edit — and until now no way for anyone but an enrolled
+     student to look at it. Nobody is enrolled in it yet, which meant the whole
+     course was written and unreachable. */
+  const codeAuthored = courseId === 'public-speaking-focus';
   const [pages, setPages] = useState<Map<string, PageRow>>(new Map());
   const [loading, setLoading] = useState(false);
   const [seeding, setSeeding] = useState(false);
@@ -48,10 +56,13 @@ export default function AdminLessonsPage() {
   /* Written means readable, not merely present — see lib/lessons/content-state. */
   const writtenCount = useMemo(
     () => ordered.filter((l) => {
+      // A code-authored lesson is written whether or not lesson_pages has ever
+      // heard of it. Counting rows would report Public Speaking as 0 of 48.
+      if (codeAuthored) return !!getSpeakingLesson(l.module_num, l.lesson_index);
       const row = pages.get(`${l.module_num}:${l.lesson_index}`);
       return !!row && !isEffectivelyEmpty(row.html_content);
     }).length,
-    [ordered, pages]
+    [ordered, pages, codeAuthored]
   );
 
   const loadPages = useCallback(async () => {
@@ -115,6 +126,9 @@ export default function AdminLessonsPage() {
   const selectLesson = (l: OrderedLesson) => {
     const key = `${l.module_num}:${l.lesson_index}`;
     setActiveKey(key);
+    // A code-authored course has nothing to draft. Offering a textarea would
+    // invite somebody to write into a row the viewer never reads.
+    if (codeAuthored) { setDraft(''); return; }
     setDraft(pages.get(key)?.html_content ?? `<h1>${l.lesson_name}</h1>`);
   };
 
@@ -156,7 +170,8 @@ export default function AdminLessonsPage() {
               {grouped.school.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
             </optgroup>
           </select>
-          <button onClick={seed} disabled={seeding}
+          <button onClick={seed} disabled={seeding || codeAuthored}
+            title={codeAuthored ? 'This course is authored in code — blank pages would never be read' : undefined}
             className="inline-flex items-center gap-1.5 min-h-[40px] px-3 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold disabled:opacity-50">
             {seeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />} Create blank pages
           </button>
@@ -190,8 +205,10 @@ export default function AdminLessonsPage() {
                      exists", which is how forty-seven unwritten Python lessons
                      came to look finished on this screen. */
                   const row = pages.get(key);
-                  const written = !!row && !isEffectivelyEmpty(row.html_content);
-                  const stub = !!row && !written;
+                  const written = codeAuthored
+                    ? !!getSpeakingLesson(l.module_num, l.lesson_index)
+                    : !!row && !isEffectivelyEmpty(row.html_content);
+                  const stub = !codeAuthored && !!row && !written;
                   return (
                     <button key={key} onClick={() => selectLesson(l)}
                       className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left min-h-[38px] transition-colors ${
@@ -214,7 +231,29 @@ export default function AdminLessonsPage() {
           </div>
 
           <div className="card-3d p-4">
-            {activeKey ? (
+            {activeKey && codeAuthored ? (
+              /* The lesson as a student sees it, Speaking Lab and all. Read
+                 only: it lives in lib/speaking/modules, and an editor here
+                 would be a second source of truth for the same lesson. */
+              (() => {
+                const [m, i] = activeKey.split(':').map(Number);
+                const written = getSpeakingLesson(m, i);
+                return written ? (
+                  <>
+                    <p className="text-[12px] font-bold text-slate-500 mb-3">
+                      Preview — authored in <code className="bg-slate-100 px-1 rounded">lib/speaking/modules</code>, not editable here
+                    </p>
+                    <div className="max-h-[70vh] overflow-y-auto pr-1">
+                      <SpeakingLessonView lesson={written} />
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-center py-16 text-sm text-slate-400">
+                    That slot is an assessment, not a lesson.
+                  </p>
+                );
+              })()
+            ) : activeKey ? (
               <>
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-bold text-slate-500">Editing HTML — raw content</span>
