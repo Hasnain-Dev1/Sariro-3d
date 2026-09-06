@@ -45,6 +45,8 @@ import {
   COURSE_FAMILIES, CODING_LEVELS, optionsFor, gradesFor, type CourseFamily,
 } from '@/lib/dashboard/course-options';
 import { COUNTRIES } from '@/lib/invoice/company';
+import { contactIdentity, canAssignCourse } from '@/lib/contact/reachability';
+import { UnknownBadge } from '@/components/dashboard/unknown-contact';
 import { ShieldAlert } from 'lucide-react';
 
 /* ───── Helpers ───── */
@@ -808,6 +810,7 @@ function UserManagementModal({
                             <div className="text-sm font-bold text-slate-900 truncate" style={{ fontFamily: 'var(--font-jakarta)' }}>
                               {displayName}
                             </div>
+                            <UnknownBadge contact={u} />
                             {/* Rename + name-lock — students only */}
                             {(u.is_student || u.role === 'student' || (!u.role && !u.is_teacher && !u.is_admin && !u.is_super_admin)) && (
                               <StudentNameEditor
@@ -824,9 +827,12 @@ function UserManagementModal({
                           <div className="text-xs text-slate-500 truncate">{u.email || '—'}</div>
                         </div>
                         <div className="flex items-center gap-3 text-xs text-slate-500 sm:justify-end flex-wrap">
-                          <span className="flex items-center gap-1" title="Phone">
+                          <span
+                            className={`flex items-center gap-1 ${u.phone ? '' : 'text-amber-700 font-bold'}`}
+                            title={u.phone ? 'Phone' : 'No phone number — this account cannot be given a course'}
+                          >
                             <Phone className="w-3 h-3" />
-                            {u.phone || '—'}
+                            {u.phone || 'no phone'}
                           </span>
                           <span title="Enrollments">{u.enrollment_count} enr.</span>
                           <span title="Joined">{formatDate(u.created_at)}</span>
@@ -1021,6 +1027,13 @@ function ManualEnrollModal({
   const [selectedCohortId, setSelectedCohortId] = useState('');
   const [batchesLoading, setBatchesLoading] = useState(false);
 
+  /* §-contact. An account with no usable phone is Unknown and cannot be given
+     a course — see lib/contact/reachability.ts. The API enforces it; this is
+     so the button explains itself instead of failing after the click. */
+  const unknownCount = students.filter((s) => contactIdentity(s).unknown).length;
+  const selectedStudent = students.find((s) => s.id === selectedUserId) ?? null;
+  const assignVerdict = selectedStudent ? canAssignCourse(selectedStudent) : null;
+
   // Refetch the matching open batches whenever track/level/ratio/country change,
   // so the admin can choose exactly where the new kid goes instead of
   // auto-filling the first open one.
@@ -1140,12 +1153,28 @@ function ManualEnrollModal({
                   style={{ fontFamily: 'var(--font-inter)' }}
                 >
                   <option value="">{studentsLoading ? 'Loading students...' : 'Select a student...'}</option>
-                  {students.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.full_name || s.email || 'Unknown'}{s.email ? ` (${s.email})` : ''}
-                    </option>
-                  ))}
+                  {students.map((s) => {
+                    /* No usable phone → Unknown, and not selectable. The name
+                       it gave us stays on the line so HR can still find the
+                       row and ring round for a number; it just stops standing
+                       in for a person we have confirmed exists. */
+                    const id = contactIdentity(s);
+                    return (
+                      <option key={s.id} value={s.id} disabled={id.unknown}>
+                        {id.unknown
+                          ? `Unknown — no phone${id.detail ? ` · ${id.detail}` : ''}`
+                          : `${id.label}${s.email && id.label !== s.email ? ` (${s.email})` : ''}`}
+                      </option>
+                    );
+                  })}
                 </select>
+                {unknownCount > 0 && (
+                  <p className="mt-1 text-[11px] text-amber-700">
+                    {unknownCount} {unknownCount === 1 ? 'account is' : 'accounts are'} greyed out because there is no
+                    phone number on file. We cannot contact them, so they cannot be given a course — add a number in
+                    Users first.
+                  </p>
+                )}
               </div>
 
               {/* §8 — the same catalogue New Course creates from.
@@ -1322,6 +1351,12 @@ function ManualEnrollModal({
                 </p>
               </div>
 
+              {assignVerdict && !assignVerdict.ok && (
+                <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800">
+                  {assignVerdict.message}
+                </div>
+              )}
+
               {error && (
                 <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
                   {error}
@@ -1331,7 +1366,7 @@ function ManualEnrollModal({
               <div className="flex gap-2 pt-2">
                 <button
                   onClick={handleSubmit}
-                  disabled={submitting || studentsLoading || !selectedUserId}
+                  disabled={submitting || studentsLoading || !selectedUserId || !!(assignVerdict && !assignVerdict.ok)}
                   className="flex-1 min-h-[44px] px-4 py-2 rounded-xl bg-green-600 hover:bg-green-700 text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
                   style={{ fontFamily: 'var(--font-grotesk)' }}
                 >

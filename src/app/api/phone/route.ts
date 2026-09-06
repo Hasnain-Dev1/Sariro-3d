@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServiceClient } from '@/lib/supabase/server';
+import { createServerClientHelper, createServiceClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import { normalizeIndianMobile, maskIndianMobile } from '@/lib/phone/india';
@@ -31,6 +31,34 @@ import { generateOtp, isOtpShaped, sendOtpSms } from '@/lib/phone/otp';
  * them without having to remember them.
  */
 export const runtime = 'nodejs';
+
+/**
+ * Mark the signed-in account's phone as verified, canonically.
+ *
+ * Only ever touches the caller's OWN profile. Matching by number instead would
+ * mean an unauthenticated request could stamp a stranger's account simply by
+ * verifying a number it had already verified — and the booking form is public.
+ * So an anonymous verification still counts for the booking (the demo-class
+ * route asks the database directly) and just does not write to anybody.
+ */
+async function stampVerifiedProfile(
+  admin: ReturnType<typeof createServiceClient>,
+  e164: string
+): Promise<void> {
+  try {
+    const supa = await createServerClientHelper();
+    const { data: { user } } = await supa.auth.getUser();
+    if (!user) return;
+    await admin
+      .from('profiles')
+      .update({ phone: e164, phone_verified: true })
+      .eq('id', user.id);
+  } catch (err) {
+    /* Never fails the verification. The person typed the right code; whether
+       we managed to write a flag afterwards is our problem, not theirs. */
+    console.warn('[phone] could not stamp profile:', err instanceof Error ? err.message : err);
+  }
+}
 
 interface Body {
   action?: 'send' | 'verify';
@@ -186,6 +214,18 @@ export async function POST(req: NextRequest) {
       | undefined;
 
     if (result?.verified) {
+      /* The profile learns about it. `phone_verified` had been declared on the
+         Profile type since the column was added and written by precisely
+         nothing — every one of the twenty-two accounts said false, including
+         the two numbers that had genuinely been through this route. A column
+         that always answers the same thing is worse than an absent one,
+         because code gets written against it.
+
+         The number is stored canonically at the same time. The live table has
+         one human's number under `9709123454`, `+91 6296914378` and
+         `+916296914378`; three spellings of one phone is three people as far
+         as any lookup is concerned. */
+      await stampVerifiedProfile(admin, parsed.e164);
       return NextResponse.json({ ok: true, verified: true });
     }
 

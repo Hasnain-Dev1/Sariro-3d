@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { X, Users, UserPlus, UserMinus, PauseCircle, Loader2, RefreshCw, CalendarClock } from 'lucide-react';
+import { contactIdentity } from '@/lib/contact/reachability';
 import { createClient } from '@/lib/supabase/client';
 import { BatchRescheduleModal } from '@/components/dashboard/batch-reschedule-modal';
 
@@ -18,7 +19,7 @@ interface Sched {
   cohorts: { track: string; level: string; ratio: string; batch_code: string | null } | null;
   teacher: { full_name: string | null } | null;
 }
-interface Person { id: string; full_name: string | null; email?: string | null }
+interface Person { id: string; full_name: string | null; email?: string | null; phone?: string | null }
 
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -51,7 +52,7 @@ export default function ManageBatchesModal({
 
     const [sRes, stRes] = await Promise.all([
       sq.order('created_at', { ascending: false }),
-      sb.from('profiles').select('id, full_name, email').or('role.eq.student,is_student.eq.true').order('full_name').limit(500),
+      sb.from('profiles').select('id, full_name, email, phone').or('role.eq.student,is_student.eq.true').order('full_name').limit(500),
     ]);
     const scheds = (sRes.data ?? []) as unknown as Sched[];
     setSchedules(scheds);
@@ -209,7 +210,17 @@ export default function ManageBatchesModal({
                         onChange={(e) => { const id = e.target.value; if (id) { call({ action: 'add_kid', cohortId: s.cohort_id, studentId: id }, 'Kid added').then(() => loadKids(s.cohort_id)); e.target.value = ''; } }}
                         className="flex-1 min-h-[36px] px-2 rounded-lg border border-slate-200 text-sm bg-white">
                         <option value="">Add a kid…</option>
-                        {students.map((st) => <option key={st.id} value={st.id}>{st.full_name || 'Unnamed'}</option>)}
+                        {/* An account with no usable phone is Unknown and cannot be
+                            given a batch seat — the API refuses it too, this only
+                            saves the click. See lib/contact/reachability.ts. */}
+                        {students.map((st) => {
+                          const id = contactIdentity(st);
+                          return (
+                            <option key={st.id} value={st.id} disabled={id.unknown}>
+                              {id.unknown ? `Unknown — no phone${id.detail ? ` · ${id.detail}` : ''}` : (st.full_name || st.email || 'Unnamed')}
+                            </option>
+                          );
+                        })}
                       </select>
                     </div>
                   </div>

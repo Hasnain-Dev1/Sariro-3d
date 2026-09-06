@@ -10,6 +10,7 @@ import {
   type UserRow,
 } from '@/lib/dashboard/admin-data';
 import StudentNameEditor from '@/components/dashboard/student-name-editor';
+import { UnknownBadge } from '@/components/dashboard/unknown-contact';
 
 /* ════════════════════════════════════════════════════════════════════════
    UserManagementModal — shared between admin + super-admin dashboards
@@ -237,6 +238,7 @@ export function UserManagementModal({
                             <div className="text-sm font-bold text-slate-900 truncate" style={{ fontFamily: 'var(--font-jakarta)' }}>
                               {displayName}
                             </div>
+                            <UnknownBadge contact={u} />
                             {/* Rename + name-lock — students only */}
                             {(u.is_student || u.role === 'student' || (!u.role && !u.is_teacher && !u.is_admin && !u.is_super_admin)) && (
                               <StudentNameEditor
@@ -253,9 +255,12 @@ export function UserManagementModal({
                           <div className="text-xs text-slate-500 truncate">{u.email || '—'}</div>
                         </div>
                         <div className="flex items-center gap-3 text-xs text-slate-500 sm:justify-end flex-wrap">
-                          <span className="flex items-center gap-1" title="Phone">
+                          <span
+                            className={`flex items-center gap-1 ${u.phone ? '' : 'text-amber-700 font-bold'}`}
+                            title={u.phone ? 'Phone' : 'No phone number — this account cannot be given a course'}
+                          >
                             <Phone className="w-3 h-3" />
-                            {u.phone || '—'}
+                            {u.phone || 'no phone'}
                           </span>
                           <span title="Enrollments">{u.enrollment_count} enr.</span>
                           <span title="Joined">{formatDate(u.created_at)}</span>

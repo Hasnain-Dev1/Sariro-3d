@@ -5,6 +5,7 @@ import { assertSameOrigin } from '@/lib/security/origin-check';
 import { generateOccurrences } from '@/lib/dashboard/schedule-generation';
 import { getCourseSyllabus } from '@/lib/dashboard/student-data';
 import { recordAdminAction } from '@/lib/audit/log';
+import { canAssignCourse } from '@/lib/contact/reachability';
 
 /**
  * SARIRO — POST /api/admin/schedule/manage  (admin/super-admin only)
@@ -251,6 +252,18 @@ export async function POST(req: NextRequest) {
 
     case 'add_kid': {
       if (!body.cohortId || !body.studentId) return NextResponse.json({ ok: false, error: 'missing_params' }, { status: 400 });
+
+      /* The same gate as /api/admin/enroll, because this is the same act by a
+         different door: a seat in a batch, credits granted, a teacher's hour
+         committed. An account with no usable phone is Unknown and gets none of
+         it. See lib/contact/reachability.ts. */
+      const { data: kid } = await admin.from('profiles').select('full_name, email, phone').eq('id', body.studentId).maybeSingle();
+      if (!kid) return NextResponse.json({ ok: false, error: 'no_such_user' }, { status: 404 });
+      const verdict = canAssignCourse(kid);
+      if (!verdict.ok) {
+        return NextResponse.json({ ok: false, error: verdict.code, message: verdict.message }, { status: 409 });
+      }
+
       const { data: cohort } = await admin.from('cohorts').select('track, level, ratio').eq('id', body.cohortId).maybeSingle();
       const { data: existing } = await admin.from('enrollments').select('id, status').eq('cohort_id', body.cohortId).eq('user_id', body.studentId).maybeSingle();
       if (existing) {

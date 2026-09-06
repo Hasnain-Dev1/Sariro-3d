@@ -4,6 +4,7 @@ import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import { getCourseSyllabus } from '@/lib/dashboard/student-data';
 import { recordAdminAction } from '@/lib/audit/log';
+import { canAssignCourse } from '@/lib/contact/reachability';
 
 /**
  * Grant class credits for an enrollment (idempotent per enrollment). Credits are
@@ -73,6 +74,28 @@ export async function POST(req: NextRequest) {
   try { body = await req.json(); } catch { return NextResponse.json({ ok: false, error: 'invalid_json' }, { status: 400 }); }
   if (!body.userId || !body.track || !body.level || !body.ratio || !body.cohortId) {
     return NextResponse.json({ ok: false, error: 'missing_params' }, { status: 400 });
+  }
+
+  /* ── An account we cannot phone gets no course ────────────────────────────
+     A disabled dropdown option is a courtesy. This is the boundary: the route
+     runs as the service role and will happily enrol anybody it is told to, so
+     the rule has to be asked here, of the database, rather than trusted from
+     a client that could simply not have sent the request through the UI.
+     See lib/contact/reachability.ts for why the phone and not the email. */
+  const { data: target } = await admin
+    .from('profiles')
+    .select('full_name, email, phone')
+    .eq('id', body.userId)
+    .maybeSingle();
+  if (!target) {
+    return NextResponse.json({ ok: false, error: 'no_such_user' }, { status: 404 });
+  }
+  const verdict = canAssignCourse(target);
+  if (!verdict.ok) {
+    return NextResponse.json(
+      { ok: false, error: verdict.code, message: verdict.message },
+      { status: 409 }
+    );
   }
 
   // Idempotent: reactivate or skip if already enrolled in this cohort.
