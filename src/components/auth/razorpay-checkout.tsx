@@ -145,13 +145,33 @@ export function RazorpayCheckoutButton({
 
     // ── 1. Create the order server-side ──────────────────────────────
     let orderRes: CreateOrderResponse;
+    /* Kept so the message below can name it. There are no server logs on
+       Hostinger, so an error a buyer cannot read is an error nobody can
+       diagnose — the create-order route already returns Postgres codes for
+       exactly this reason. */
+    let status = 0;
     try {
       const r = await fetch('/api/razorpay/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderBody ?? { track, level, ratio }),
       });
-      orderRes = (await r.json()) as CreateOrderResponse;
+      // The status matters as much as the body. A 406 or a 502 from something
+       // in front of the route returns no JSON at all, and `await r.json()`
+       // then throws — which used to be reported as "Network error", the least
+       // useful sentence available about a request that plainly reached a
+       // server and came back.
+      status = r.status;
+      const raw = await r.text();
+      try {
+        orderRes = JSON.parse(raw) as CreateOrderResponse;
+      } catch {
+        orderRes = {
+          ok: false,
+          error: 'bad_response',
+          message: raw.slice(0, 200) || 'The server returned no readable answer.',
+        };
+      }
     } catch (err) {
       console.warn('[razorpay] create-order network error:', err);
       setProcessing(false);
@@ -181,9 +201,14 @@ export function RazorpayCheckoutButton({
     }
 
     if (!orderRes.ok || !orderRes.orderId || !orderRes.keyId) {
-      console.warn('[razorpay] create-order failed:', orderRes);
+      console.warn('[razorpay] create-order failed:', status, orderRes);
       setProcessing(false);
-      setError(orderRes.message || 'Could not start checkout. Please try again.');
+      // The code in brackets is the difference between a screenshot somebody
+      // can act on and "it did not work".
+      const detail = [status || null, orderRes.error].filter(Boolean).join(' · ');
+      setError(
+        `${orderRes.message || 'Could not start checkout. Please try again.'}${detail ? ` [${detail}]` : ''}`
+      );
       return;
     }
 
