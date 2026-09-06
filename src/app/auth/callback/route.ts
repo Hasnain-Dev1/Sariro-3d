@@ -10,7 +10,9 @@ import { isSupabaseConfigured, createServerClientHelper } from '@/lib/supabase/s
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
-  const next = requestUrl.searchParams.get('next') || '/';
+  // Same default as the sign-in pages: a person who has just authenticated is
+  // going to their dashboard unless they were sent here from somewhere else.
+  const next = requestUrl.searchParams.get('next') || '/dashboard';
   const errorParam = requestUrl.searchParams.get('error');
 
   // If there's an error in the query string, redirect to sign-in with the error

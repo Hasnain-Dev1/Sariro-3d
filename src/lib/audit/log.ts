@@ -39,6 +39,10 @@ export type AuditAction =
   | 'batch_paused'
   | 'credit_adjusted'
   | 'invoice_issued'
+  /* A trial booking typed in by staff — a referral, or somebody who rang the
+     office. Worth an entry because it is the one booking path that skips the
+     phone verification the public form requires. */
+  | 'demo_request_created'
   | 'impersonate_user';
 
 export interface AuditEntry {

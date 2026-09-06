@@ -8,11 +8,23 @@ import SignInButtons from '@/components/auth/sign-in-buttons';
 import AuthShell from '@/components/auth/auth-shell';
 import { useAuth } from '@/components/auth/auth-provider';
 
+/**
+ * Where a person lands after signing in.
+ *
+ * This was '/' — the marketing homepage — so signing in returned you to the
+ * page you had just signed in FROM, with nothing to show it had worked. The
+ * dashboard was then reachable only through an avatar menu behind a hamburger.
+ *
+ * An explicit ?next= still wins: somebody sent here from a checkout or from a
+ * gated page is returned to what they were doing. Only the default changes.
+ */
+const AFTER_SIGN_IN = '/dashboard';
+
 function SignUpPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading } = useAuth();
-  const next = searchParams.get('next') || '/';
+  const next = searchParams.get('next') || AFTER_SIGN_IN;
 
   useEffect(() => {
     if (!loading && user) {

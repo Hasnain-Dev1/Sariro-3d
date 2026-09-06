@@ -11,7 +11,7 @@ import {
 import BrandLayout from '@/components/brand/brand-layout';
 import PageHero from '@/components/brand/page-hero';
 import { WaveDivider3D } from '@/components/sariro-3d/kit-3d';
-import { TRACKS } from '@/lib/sariro-data';
+import { TRACKS, BRAND } from '@/lib/sariro-data';
 import ProofPoints from '@/components/brand/proof-points';
 import {
   subjectGroups,
@@ -23,6 +23,8 @@ import {
 } from '@/lib/demo/learner-choice';
 import { HoneypotField } from '@/components/security/honeypot';
 import PhoneVerify from '@/components/brand/phone-verify';
+import { WhatsAppGlyph } from '@/components/brand/whatsapp-button';
+import { useAuth } from '@/components/auth/auth-provider';
 import { normalizeIndianMobile } from '@/lib/phone/india';
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -349,6 +351,19 @@ function DemoClassForm() {
   /* Set when the SMS provider is unreachable. A check we cannot perform must
      not become a wall in front of the whole funnel. */
   const [verifyUnavailable, setVerifyUnavailable] = useState(false);
+
+  /* A student booking a second trial has already told us all of this once.
+     Asking again is how a signed-in person concludes the site does not know
+     them. Prefilled, not locked — they may be booking for a sibling. */
+  const { user, profile } = useAuth();
+  const prefilled = useRef(false);
+  useEffect(() => {
+    if (prefilled.current || !user) return;
+    prefilled.current = true;
+    if (profile?.full_name) setStudentName((v) => v || profile.full_name!);
+    if (profile?.phone) setPhone((v) => v || profile.phone!);
+    if (user.email) setEmail((v) => v || user.email!);
+  }, [user, profile]);
   const [email, setEmail] = useState('');
   /**
    * What they want to learn, and who is learning it.
@@ -478,6 +493,30 @@ function DemoClassForm() {
     <div className="card-3d p-6 sm:p-8">
       <form onSubmit={handleSubmit} className="space-y-4">
         <HoneypotField name="website" />
+
+        {/* The impatient path. A parent who wants an answer now should not have
+            to fill in nine fields to get one — and a WhatsApp message reaches a
+            seller faster than this form reaches anybody. */}
+        <a
+          href={`https://wa.me/${BRAND.whatsapp}?text=${encodeURIComponent(
+            'Hi Sariro — I would like to book a free class. Can you help me pick a time?'
+          )}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-3.5 py-3 hover:bg-green-100 transition-colors"
+        >
+          <span className="w-9 h-9 rounded-full bg-[#25D366] flex items-center justify-center shrink-0">
+            <WhatsAppGlyph className="w-5 h-5 text-white" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-[13.5px] font-bold text-green-900" style={{ fontFamily: 'var(--font-grotesk)' }}>
+              In a hurry? Message us on WhatsApp
+            </span>
+            <span className="block text-[12px] text-green-700 leading-snug">
+              Tell us when suits you and we will set the class up for you.
+            </span>
+          </span>
+        </a>
 
         {/* Timezone detection banner */}
         {tzInfo && (

@@ -11,6 +11,7 @@ import {
   ClipboardList,
 } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
+import ManualTrialBooking from '@/components/dashboard/manual-trial-booking';
 import { useAuth } from '@/components/auth/auth-provider';
 import { TRACKS, COURSES } from '@/lib/sariro-data';
 import { createClient } from '@/lib/supabase/client';
@@ -2068,14 +2069,20 @@ function DemoRequestsSection({ onToast }: { onToast: (msg: string, kind?: 'succe
 
   return (
     <div>
-      <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-jakarta)' }}>
-        <Rocket className="w-5 h-5 text-amber-600" /> Demo Class Requests
-        {newCount > 0 && (
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700" style={{ fontFamily: 'var(--font-grotesk)' }}>
-            {newCount} NEW
-          </span>
-        )}
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2" style={{ fontFamily: 'var(--font-jakarta)' }}>
+          <Rocket className="w-5 h-5 text-amber-600" /> Demo Class Requests
+          {newCount > 0 && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700" style={{ fontFamily: 'var(--font-grotesk)' }}>
+              {newCount} NEW
+            </span>
+          )}
+        </h2>
+        {/* A referral does not arrive through the public form — somebody rings
+            the office, and the number belongs to a person who is not expecting
+            an SMS code. See /api/admin/demo-class. */}
+        <ManualTrialBooking onCreated={loadRequests} onToast={onToast} />
+      </div>
 
       {loading ? (
         <div className="card-3d p-6 flex items-center justify-center">

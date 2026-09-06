@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   Menu, X, LayoutDashboard, BookOpen, Calendar, Settings,
   LogOut, ChevronRight, Bell, Home as HomeIcon, GraduationCap,
-  Users, ShieldCheck, DollarSign, ScrollText, ArrowLeft,
+  Users, ShieldCheck, DollarSign, ScrollText, ArrowLeft, Sparkles,
   Loader2, AlertTriangle, Trophy, LifeBuoy, HelpCircle, MessageSquare,
 } from 'lucide-react';
 import { useAuth, getRole, type UserRole } from '@/components/auth/auth-provider';
@@ -48,6 +48,9 @@ const STUDENT_NAV: NavItem[] = [
   { href: '/dashboard/student/leaderboard', label: 'Leaderboard', icon: Trophy },
   { href: '/dashboard/student/support', label: 'Support', icon: LifeBuoy },
   { href: '/courses', label: 'Browse Courses', icon: BookOpen },
+  /* A student who liked one course wants to try another, and the booking form
+     lived only on the public site behind a sign-in they had already done. */
+  { href: '/welcome?from=dashboard#book', label: 'Try Another Course', icon: Sparkles },
   { href: '/dashboard/student#schedule', label: 'My Schedule', icon: Calendar },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
@@ -494,8 +497,20 @@ function DashboardTopbar({ onMenuClick }: { onMenuClick?: () => void }) {
           </Link>
         </div>
 
-        {/* Right: bell + avatar */}
+        {/* Right: back to the site, bell, avatar */}
         <div className="flex items-center gap-1 sm:gap-2">
+          {/* "Back to website" lived only in the desktop sidebar. On a phone the
+              sidebar does not exist, so the only way out of the dashboard was
+              the unlabelled logo — which nobody reads as "leave". Labelled, and
+              on every viewport. */}
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 min-h-[38px] rounded-lg text-[13px] font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+            style={{ fontFamily: 'var(--font-grotesk)' }}
+          >
+            <ArrowLeft className="w-4 h-4 shrink-0" />
+            <span className="hidden xs:inline sm:inline">Website</span>
+          </Link>
           <NotificationBell />
           <AvatarMenu />
         </div>

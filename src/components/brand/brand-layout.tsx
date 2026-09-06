@@ -223,14 +223,21 @@ function BrandNavbar() {
               )}
             </div>
 
-            {/* Mobile toggle */}
-            <button
-              onClick={() => setMobileOpen((v) => !v)}
-              className="lg:hidden p-2 rounded-lg hover:bg-blue-50 transition-colors cursor-pointer"
-              aria-label="Toggle menu"
-            >
-              {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
+            {/* ── The way in, on the header bar itself ──────────────────
+                Signing in and reaching your own dashboard were both behind the
+                hamburger on every phone, which is where most of this audience
+                is. One tap, visible without opening anything. The drawer keeps
+                its copy for people who open it. */}
+            <div className="lg:hidden flex items-center gap-1.5">
+              <MobileAuthShortcut />
+              <button
+                onClick={() => setMobileOpen((v) => !v)}
+                className="p-2 rounded-lg hover:bg-blue-50 transition-colors cursor-pointer"
+                aria-label="Toggle menu"
+              >
+                {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              </button>
+            </div>
           </div>
         </div>
       </motion.header>
@@ -529,6 +536,41 @@ export default function BrandLayout({ children }: { children: ReactNode }) {
 }
 
 /* --------------------------------------------------------------- */
+/**
+ * The header-bar shortcut on phones: "Sign in" when signed out, "Dashboard"
+ * when signed in.
+ *
+ * Deliberately a plain link rather than the avatar menu. On a phone the menu
+ * needs a tap to open and a second to choose, and the thing people want from it
+ * is almost always the dashboard — so that is what the tap does. The full menu
+ * is still in the drawer for signing out and account settings.
+ */
+function MobileAuthShortcut() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return <div className="h-9 w-20 rounded-lg bg-slate-100 animate-pulse" />;
+  }
+
+  return user ? (
+    <Link
+      href="/dashboard"
+      className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold whitespace-nowrap"
+      style={{ fontFamily: 'var(--font-grotesk)' }}
+    >
+      Dashboard
+    </Link>
+  ) : (
+    <Link
+      href="/auth/sign-in"
+      className="px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold whitespace-nowrap"
+      style={{ fontFamily: 'var(--font-grotesk)' }}
+    >
+      Sign in
+    </Link>
+  );
+}
+
 /* AuthNavButton — shows Sign in OR user avatar menu based on auth state */
 /* --------------------------------------------------------------- */
 function AuthNavButton({ mobile = false }: { mobile?: boolean }) {
