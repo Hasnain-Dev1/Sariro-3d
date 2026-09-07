@@ -16,9 +16,13 @@
  * not configured on the server (so the site keeps working in dev).
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { ShieldCheck, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/components/auth/auth-provider';
+import {
+  recordAttempt, readAttempt, clearAttempt, recoveryMessage,
+  watchdogShouldFire, WATCHDOG_MS,
+} from '@/lib/checkout/card-attempt';
 import { createClient } from '@/lib/supabase/client';
 import { LoginGateModal } from '@/components/auth/login-gate-modal';
 
@@ -108,6 +112,32 @@ export function RazorpayCheckoutButton({
   const [showLoginGate, setShowLoginGate] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /* Not an error — a note about the LAST attempt, read on mount. See
+     lib/checkout/card-attempt.ts for why memory rather than detection. */
+  const [recovery, setRecovery] = useState<string | null>(null);
+
+  const store = typeof window !== 'undefined' ? window.sessionStorage : null;
+  const watchdogRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const stopWatchdog = useCallback(() => {
+    if (watchdogRef.current) clearInterval(watchdogRef.current);
+    watchdogRef.current = null;
+  }, []);
+  useEffect(() => stopWatchdog, [stopWatchdog]);
+
+  /* A card attempt that started and never reported an ending. The usual cause
+     is the one we saw live: Razorpay's window could not open, checkout.js
+     navigated the whole tab to api.razorpay.com, and the network refused it.
+     Our JavaScript was gone by then — but Back brings them here, and the note
+     is still in sessionStorage. */
+  useEffect(() => {
+    const previous = readAttempt(store);
+    if (previous) {
+      setRecovery(recoveryMessage(previous.courseName || courseName));
+      clearAttempt(store);
+    }
+    // Once, on mount. A later render must not resurrect a cleared note, and
+    // both values it reads are stable for the life of the component.
+  }, []);
 
   const fallbackToLegacyLink = useCallback(() => {
     // Legacy path — still create a purchase_intent, then redirect to the
@@ -260,6 +290,9 @@ export function RazorpayCheckoutButton({
         razorpay_order_id: string;
         razorpay_signature: string;
       }) => {
+        // Razorpay answered, so the attempt has an ending either way.
+        stopWatchdog();
+        clearAttempt(store);
         // ── 4. Verify signature server-side ─────────────────────────
         try {
           const vRes = await fetch('/api/razorpay/verify', {
@@ -308,16 +341,46 @@ export function RazorpayCheckoutButton({
       },
       modal: {
         ondismiss: () => {
-          // User closed the modal without paying.
+          // User closed the modal without paying. A deliberate cancellation is
+          // an ending, so the note comes off — coming back must not accuse
+          // them of a failure they chose.
+          stopWatchdog();
+          clearAttempt(store);
           setProcessing(false);
           setError('Payment cancelled. You can try again anytime.');
         },
       },
     };
 
+    /* Written BEFORE open(), because after it there may be no more turns of
+       the event loop on this page — checkout.js can navigate the whole tab. */
+    recordAttempt(store, { track, level, ratio, courseName });
+
     const rzp = new RazorpayCtor(options);
     rzp.open();
-  }, [user, track, level, ratio, courseName, accentColor, paymentLink, fallbackToLegacyLink]);
+
+    /* The second, smaller net: the modal that neither opens nor navigates,
+       and simply hangs. Nothing fires — no handler, no dismiss, no error — and
+       the button spins until the buyer gives up. The rule lives in
+       lib/checkout/card-attempt.ts so it can be tested; this only supplies it
+       with what the DOM currently says. */
+    const startedAt = Date.now();
+    if (watchdogRef.current) clearInterval(watchdogRef.current);
+    watchdogRef.current = setInterval(() => {
+      const fire = watchdogShouldFire({
+        awaitingModal: true,
+        containerPresent: !!document.querySelector('.razorpay-container'),
+        elapsedMs: Date.now() - startedAt,
+        pageVisible: document.visibilityState === 'visible',
+      });
+      if (!fire) return;
+      if (watchdogRef.current) clearInterval(watchdogRef.current);
+      watchdogRef.current = null;
+      clearAttempt(store);
+      setProcessing(false);
+      setRecovery(recoveryMessage(courseName));
+    }, 1_000);
+  }, [user, track, level, ratio, courseName, accentColor, paymentLink, fallbackToLegacyLink, store, stopWatchdog]);
 
   return (
     <>
@@ -338,6 +401,24 @@ export function RazorpayCheckoutButton({
         Reserve your seat
         <ArrowRight className="w-5 h-5" />
       </button>
+
+      {/* Amber, not red, and above the error: nothing has gone wrong with the
+          card or the account, and the two things that fix it are both easy.
+          Red here would read as "your payment was declined", which is a
+          different and much worse sentence than the true one. */}
+      {recovery && (
+        <div className="mt-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start gap-2.5">
+          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
+          <div className="min-w-0">
+            <p className="text-xs leading-relaxed">{recovery}</p>
+            <p className="text-[11px] mt-2 text-amber-800">
+              Still stuck? Write to{' '}
+              <a href="mailto:support@sariro.com" className="font-bold underline">support@sariro.com</a>
+              {' '}and we will take the payment over the phone.
+            </p>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="mt-3 px-4 py-2 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-2">
