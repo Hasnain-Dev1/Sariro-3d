@@ -39,6 +39,8 @@ import LowCreditPanel from '@/components/dashboard/low-credit-panel';
 import { attendanceDeadline, deadlineTone } from '@/lib/dashboard/attendance-deadline';
 import { Coins } from 'lucide-react';
 import CapabilityChips from '@/components/dashboard/capability-chips';
+import { teacherRating, recentRating, type ClassFeedback } from '@/lib/dashboard/class-feedback';
+import { createClient } from '@/lib/supabase/client';
 import { fetchMyAssignments } from '@/lib/dashboard/teacher-assignments-data';
 
 /* ───── Helpers ───── */
@@ -1762,6 +1764,10 @@ function TeacherDashboardInner() {
      been cleared to teach — the question they ask most often after "what is
      next". */
   const [myCourses, setMyCourses] = useState<Array<{ track: string; level: string; training_completed_at: string | null }>>([]);
+  /* §2. What students said about this teacher's classes. Their own ratings of
+     children are deliberately not in here — see lib/dashboard/class-feedback.ts
+     on why the two directions never mix. */
+  const [myFeedback, setMyFeedback] = useState<ClassFeedback[]>([]);
   // All bookings (unfiltered) — the calendar is now the single source for the
   // schedule; the separate upcoming/past/all list was removed, and with it a
   // duplicate fetchTeacherBookings call every load.
@@ -1805,8 +1811,30 @@ function TeacherDashboardInner() {
     if (!user) return;
     let cancelled = false;
     fetchMyAssignments().then((rows) => { if (!cancelled) setMyCourses(rows); });
+
+    void (async () => {
+      try {
+        const sb = createClient();
+        // Every class of mine, then what was written about them.
+        const { data: mine } = await sb.from('bookings').select('id').eq('teacher_id', user.id);
+        const ids = (mine ?? []).map((b) => b.id as string);
+        if (ids.length === 0 || cancelled) return;
+        const { data } = await sb
+          .from('class_feedback')
+          .select('booking_id, author_id, author_role, subject_student_id, rating, remarks, created_at')
+          .in('booking_id', ids);
+        if (!cancelled) setMyFeedback((data ?? []) as ClassFeedback[]);
+      } catch {
+        // scripts/class-feedback.sql has not been run yet. No ratings is the
+        // honest reading, and it renders as "no ratings yet".
+      }
+    })();
+
     return () => { cancelled = true; };
   }, [user]);
+
+  const rating = teacherRating(myFeedback);
+  const rating90 = recentRating(myFeedback, 90);
 
   // Realtime sync — auto-refresh when bookings / cohorts / session_attendance /
   // session_notes / enrollments / notifications change.
@@ -1881,8 +1909,25 @@ function TeacherDashboardInner() {
                 Amber means the course is yours but the training is not signed
                 off yet — which is why it is worth showing rather than
                 flattening to a list of names. */}
-            <div className="mt-3">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               <CapabilityChips assignments={myCourses} emptyText="No courses assigned to you yet — ask an admin." />
+              {/* §2. Null, not zero, when nobody has rated — a brand new
+                  teacher is not a one-star teacher. */}
+              {rating.average !== null && (
+                <span
+                  title={
+                    rating90.average !== null && rating90.count >= 3
+                      ? `${rating90.average}/5 across the last 90 days (${rating90.count} ratings)`
+                      : `${rating.count} rating${rating.count === 1 ? '' : 's'} from students`
+                  }
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-bold"
+                  style={{ fontFamily: 'var(--font-grotesk)' }}
+                >
+                  <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                  {rating.average}/5
+                  <span className="font-medium opacity-70">· {rating.count}</span>
+                </span>
+              )}
             </div>
           </div>
           <DesktopClock />

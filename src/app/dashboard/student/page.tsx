@@ -39,6 +39,7 @@ import {
   type CreditRow, type CreditTransactionRow,
 } from '@/lib/dashboard/credits-data';
 import { useRealtime } from '@/lib/dashboard/use-realtime';
+import TrialJourney, { type TrialClass } from '@/components/dashboard/trial-journey';
 
 /* ───── Types ───── */
 interface Enrollment {
@@ -986,6 +987,10 @@ function StudentDashboardInner() {
   const { user, profile } = useAuth();
   const supabase = createClient();
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  /* §8. The trial that stands in for a dashboard until there is one worth
+     showing. Loaded separately because it is not an enrolment and must not be
+     mistaken for one. */
+  const [trial, setTrial] = useState<TrialClass | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   // Capstone system: past bookings for "Class Notes & Projects" section
   const [pastBookings, setPastBookings] = useState<Booking[]>([]);
@@ -1023,6 +1028,42 @@ function StudentDashboardInner() {
       //    enrollments, so there's no reason to make them wait on each other.
       //    (Previously these were 2+ sequential round trips before anything
       //    else could even start.)
+      /* The most recent trial either coming up or just finished. Only one is
+         ever shown: a person with two trials still only has one next question. */
+      void (async () => {
+        try {
+          const sb = createClient();
+          const { data } = await sb
+            .from('bookings')
+            .select('id, slot_start, slot_end, status, google_meet_url, teacher:profiles!teacher_id(full_name)')
+            .eq('trial_student_id', user!.id)
+            .eq('is_trial', true)
+            .not('status', 'in', '("cancelled")')
+            .order('slot_start', { ascending: false })
+            .limit(1);
+          const row = (data ?? [])[0] as unknown as {
+            id: string; slot_start: string; slot_end: string; status: string;
+            google_meet_url: string | null; teacher: { full_name: string | null } | null;
+          } | undefined;
+          setTrial(
+            row
+              ? {
+                  id: row.id,
+                  slot_start: row.slot_start,
+                  slot_end: row.slot_end,
+                  status: row.status,
+                  google_meet_url: row.google_meet_url,
+                  teacher_name: row.teacher?.full_name ?? null,
+                }
+              : null
+          );
+        } catch {
+          // The trial columns arrive with scripts/trial-booking.sql. Until then
+          // this is simply a student with no trial, which is the safe reading.
+          setTrial(null);
+        }
+      })();
+
       const [enrollmentsResult, myCredits, myTx] = await Promise.all([
         supabase.from('enrollments').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
         fetchMyCredits(),
@@ -1164,6 +1205,18 @@ function StudentDashboardInner() {
      student with no enrolment gets their own page rather than the dashboard
      with everything on it empty. */
   if (!loading && !error && enrollments.length === 0) {
+    /* §8. Somebody with a trial booked has something to say — when it starts,
+       how to join, and afterwards how it went. "We're still waiting for you"
+       is for the person who has neither an enrolment nor a class. */
+    if (trial) {
+      return (
+        <TrialJourney
+          trial={trial}
+          firstName={firstName}
+          timezone={profile?.timezone ?? null}
+        />
+      );
+    }
     return <NotEnrolledYet firstName={firstName} />;
   }
 
