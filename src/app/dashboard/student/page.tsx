@@ -1033,14 +1033,29 @@ function StudentDashboardInner() {
       void (async () => {
         try {
           const sb = createClient();
-          const { data } = await sb
+
+          /* A trial can hold four children and only the FIRST is on
+             bookings.trial_student_id. Matching on that column alone left the
+             second and third child looking at "We're still waiting for you"
+             while their class sat in the diary. */
+          let alsoIn: string[] = [];
+          try {
+            const { data: mine } = await sb
+              .from('trial_participants')
+              .select('booking_id')
+              .eq('student_id', user!.id);
+            alsoIn = (mine ?? []).map((r) => r.booking_id as string);
+          } catch { /* table not created yet — the column below still works */ }
+
+          let q = sb
             .from('bookings')
             .select('id, slot_start, slot_end, status, google_meet_url, teacher:profiles!teacher_id(full_name)')
-            .eq('trial_student_id', user!.id)
             .eq('is_trial', true)
-            .not('status', 'in', '("cancelled")')
-            .order('slot_start', { ascending: false })
-            .limit(1);
+            .not('status', 'in', '("cancelled")');
+          q = alsoIn.length
+            ? q.or(`trial_student_id.eq.${user!.id},id.in.(${alsoIn.join(',')})`)
+            : q.eq('trial_student_id', user!.id);
+          const { data } = await q.order('slot_start', { ascending: false }).limit(1);
           const row = (data ?? [])[0] as unknown as {
             id: string; slot_start: string; slot_end: string; status: string;
             google_meet_url: string | null; teacher: { full_name: string | null } | null;

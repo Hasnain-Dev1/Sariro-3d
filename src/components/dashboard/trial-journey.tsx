@@ -32,18 +32,30 @@ export interface TrialClass {
   teacher_name: string | null;
 }
 
-/** Live because the whole point is the number going down. */
-function useCountdown(iso: string) {
-  const [ms, setMs] = useState(() => Date.parse(iso) - Date.now());
+/**
+ * The current time, but only once the browser has it.
+ *
+ * Date.now() during render is a hydration bug waiting to happen, and this page
+ * had it: the server rendered "3 hours" and the browser hydrated "2 hours 59",
+ * React threw a hydration mismatch, and the whole subtree was re-rendered on
+ * the client. On the one page a parent sees before their first class.
+ *
+ * So the server renders with `null` — the booked state, minus the ticking
+ * number — and the client fills it in on mount. Nothing moves, nothing
+ * mismatches, and the countdown appears a frame later.
+ */
+function useNow(): number | null {
+  const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
-    const id = setInterval(() => setMs(Date.parse(iso) - Date.now()), 1000);
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
-  }, [iso]);
-  return ms;
+  }, []);
+  return now;
 }
 
-function Countdown({ iso }: { iso: string }) {
-  const ms = useCountdown(iso);
+function Countdown({ iso, now }: { iso: string; now: number }) {
+  const ms = Date.parse(iso) - now;
   if (ms <= 0) return null;
 
   const total = Math.floor(ms / 1000);
@@ -87,12 +99,14 @@ export default function TrialJourney({
 }) {
   const start = Date.parse(trial.slot_start);
   const end = Date.parse(trial.slot_end);
-  const now = Date.now();
+  const now = useNow();
 
-  const finished = trial.status === 'completed' || now > end;
+  /* status is server-known and safe to render from; anything comparing against
+     the clock waits for the browser. */
+  const finished = trial.status === 'completed' || (now !== null && now > end);
   // The join button appears ten minutes before, not on the hour — nobody wants
   // to be told "not yet" while they are already sitting there waiting.
-  const joinable = !finished && now >= start - 10 * 60_000;
+  const joinable = !finished && now !== null && now >= start - 10 * 60_000;
 
   const when = new Date(start).toLocaleString('en-GB', {
     weekday: 'long', day: 'numeric', month: 'long',
@@ -146,7 +160,9 @@ export default function TrialJourney({
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2" style={{ fontFamily: 'var(--font-grotesk)' }}>
               Starts in
             </p>
-            <Countdown iso={trial.slot_start} />
+            {now === null
+              ? <div className="h-14" aria-hidden="true" />
+              : <Countdown iso={trial.slot_start} now={now} />}
           </div>
         )}
 

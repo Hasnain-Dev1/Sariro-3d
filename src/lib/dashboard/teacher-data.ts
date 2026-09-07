@@ -215,10 +215,31 @@ export async function fetchTeacherBookings(filter: 'upcoming' | 'past' | 'all' =
 
     /* A trial has no cohort, so the roster lookup above finds nobody for it —
        the teacher would see "Trial class" with no idea which child is coming.
-       Its student hangs off the booking directly instead. */
-    const trialStudentIds = [...new Set(
-      data.map(b => b.trial_student_id as string | null).filter((id): id is string => !!id)
-    )];
+       And a trial can hold four children, of whom only the first is on
+       bookings.trial_student_id, so the participants table is the roster and
+       the column is the fallback for anything booked before it existed. */
+    const trialBookingIds = data.filter(b => b.is_trial).map(b => b.id as string);
+    const trialRoster = new Map<string, string[]>();   // booking id -> student ids
+    if (trialBookingIds.length > 0) {
+      try {
+        const { data: parts } = await supabase
+          .from('trial_participants').select('booking_id, student_id').in('booking_id', trialBookingIds);
+        for (const row of parts ?? []) {
+          const list = trialRoster.get(row.booking_id as string) ?? [];
+          list.push(row.student_id as string);
+          trialRoster.set(row.booking_id as string, list);
+        }
+      } catch { /* table not created yet */ }
+    }
+    for (const b of data) {
+      if (!b.is_trial) continue;
+      const sid = b.trial_student_id as string | null;
+      if (sid && !(trialRoster.get(b.id as string) ?? []).includes(sid)) {
+        trialRoster.set(b.id as string, [...(trialRoster.get(b.id as string) ?? []), sid]);
+      }
+    }
+
+    const trialStudentIds = [...new Set([...trialRoster.values()].flat())];
     const trialNames = new Map<string, string>();
     if (trialStudentIds.length > 0) {
       const { data: tp } = await supabase
@@ -230,7 +251,9 @@ export async function fetchTeacherBookings(filter: 'upcoming' | 'past' | 'all' =
 
     return data.map(b => {
       const cohort = b.cohort as Record<string, unknown> | null;
-      const trialName = trialNames.get((b.trial_student_id as string) ?? '');
+      const trialKids = (trialRoster.get(b.id as string) ?? [])
+        .map((id) => trialNames.get(id))
+        .filter((n): n is string => !!n);
       return {
         id: b.id,
         cohort_id: b.cohort_id,
@@ -246,7 +269,7 @@ export async function fetchTeacherBookings(filter: 'upcoming' | 'past' | 'all' =
         cohort_meet_url: (cohort?.google_meet_url as string) ?? null,
         batch_code: (cohort?.batch_code as string) ?? null,
         student_names: b.is_trial
-          ? (trialName ? [trialName] : [])
+          ? trialKids
           : (rosterMap.get(b.cohort_id) ?? []),
         is_trial: !!b.is_trial,
         // select('*') already returns these; they just were not mapped through.
