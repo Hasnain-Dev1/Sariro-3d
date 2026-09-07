@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, User, Phone, Mail, Loader2, Sparkles, CheckCircle2 } from 'lucide-react';
+import { X, User, Mail, Loader2, Sparkles, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/components/auth/auth-provider';
 import { createClient } from '@/lib/supabase/client';
+import PhoneField, { phoneFieldE164, phoneFieldProblem } from '@/components/forms/phone-field';
+import { splitE164, guessCountry, DEFAULT_COUNTRY } from '@/lib/phone/countries';
 
 /* ===============================================================
    ProfileCompletionModal
@@ -25,7 +27,11 @@ export default function ProfileCompletionModal() {
 
   const [open, setOpen] = useState(false);
   const [fullName, setFullName] = useState('');
-  const [phone, setPhone] = useState('');
+  /* Country and number are separate state, because they are separate facts —
+     the dialling code says which network to ring and nothing about where the
+     person lives. See lib/phone/countries.ts for the bug that taught us. */
+  const [phone, setPhone] = useState({ country: DEFAULT_COUNTRY, national: '' });
+  const [phoneTouched, setPhoneTouched] = useState(false);
   const [emailOverride, setEmailOverride] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +68,17 @@ export default function ProfileCompletionModal() {
     if (missingName || missingPhone || missingEmail) {
       // Pre-fill from profile / user metadata
       setFullName(profile.full_name || user.user_metadata?.full_name || user.user_metadata?.name || '');
-      setPhone(profile.phone || user.user_metadata?.phone || '');
+      /* Seed from whatever is already stored, split back into its two parts so
+         the picker opens on the right country. Falls back to a guess from the
+         browser's timezone — which seeds the control and is never itself
+         stored. */
+      const existing = profile.phone || user.user_metadata?.phone || '';
+      const split = splitE164(existing);
+      setPhone({
+        country: split.country?.code
+          ?? guessCountry(Intl.DateTimeFormat().resolvedOptions().timeZone),
+        national: split.national || '',
+      });
       setEmailOverride(profile.email || user.email || '');
       setOpen(true);
     }
@@ -111,9 +127,13 @@ export default function ProfileCompletionModal() {
       setError('Please enter your full name.');
       return;
     }
-    if (missingPhone && !phone.trim()) {
-      setError('Please enter your phone number.');
-      return;
+    if (missingPhone) {
+      setPhoneTouched(true);
+      const problem = phoneFieldProblem(phone);
+      if (problem) {
+        setError(problem);
+        return;
+      }
     }
     if (needsEmailOverride && !emailOverride.trim()) {
       setError('Please enter your email address.');
@@ -130,7 +150,12 @@ export default function ProfileCompletionModal() {
         profile_completed: true,
       };
       if (missingName) updates.full_name = fullName.trim();
-      if (missingPhone) updates.phone = phone.trim();
+      if (missingPhone) {
+        // Canonical E.164, with the trunk prefix stripped — `+91 09876543210`
+        // is a number that rings nothing.
+        updates.phone = phoneFieldE164(phone);
+        updates.phone_country_code = phone.country;
+      }
       if (needsEmailOverride) updates.email = emailOverride.trim();
 
       const { error: updateError } = await supabase
@@ -288,23 +313,14 @@ export default function ProfileCompletionModal() {
 
                     {/* Phone — shown only if missing */}
                     {missingPhone && (
-                      <div>
-                        <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                          Phone number <span className="text-red-500">*</span>
-                        </label>
-                        <div className="relative">
-                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                          <input
-                            type="tel"
-                            value={phone}
-                            onChange={(e) => setPhone(e.target.value)}
-                            placeholder="+1 (415) 555-0142"
-                            required
-                            className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                            style={{ fontFamily: 'var(--font-inter)' }}
-                          />
-                        </div>
-                      </div>
+                      <PhoneField
+                        id="profile-phone"
+                        value={phone}
+                        onChange={(v) => { setPhone(v); setPhoneTouched(true); }}
+                        showProblem={phoneTouched}
+                        required
+                        noteSmsReach
+                      />
                     )}
 
                     {error && (

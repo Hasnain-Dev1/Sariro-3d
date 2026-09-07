@@ -11,6 +11,11 @@ import {
   type TeacherWithAssignments,
 } from '@/lib/dashboard/teacher-assignments-data';
 import { TRACKS } from '@/lib/sariro-data';
+import {
+  COURSE_FAMILIES, CODING_LEVELS, optionsFor, gradesFor, levelValue,
+  describeCourse, type CourseFamily,
+} from '@/lib/dashboard/course-options';
+import CapabilityChips from '@/components/dashboard/capability-chips';
 
 export function TeacherCourseAssignmentModal({
   open,
@@ -109,17 +114,45 @@ function TeacherAssignmentRow({
   canManageTraining: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
+  /* §1. This offered TRACKS — the coding catalogue and nothing else — so a
+     super-admin could not make anybody eligible for Mathematics, Science,
+     Physics or Public Speaking. Every eligibility row on the live database is
+     a coding track for exactly that reason, while the courses actually being
+     sold are school subjects and focus courses.
+
+     Same three-step catalogue the enrolment modal uses, from
+     lib/dashboard/course-options.ts, so the two cannot drift again. */
+  const [family, setFamily] = useState<CourseFamily>('coding');
   const [newTrack, setNewTrack] = useState<string>(TRACKS[0]?.id ?? '');
-  const [newLevel, setNewLevel] = useState<string>('Beginner');
+  const [newLevel, setNewLevel] = useState<string>('beginner');
   const [busy, setBusy] = useState(false);
+
+  const levelChoices =
+    family === 'coding' ? [...CODING_LEVELS]
+    : family === 'focus' ? ['focus']
+    : gradesFor(family, newTrack).map((g) => `grade-${g}`);
+
+  const pickFamily = (f: CourseFamily) => {
+    setFamily(f);
+    const firstTrack = optionsFor(f)[0]?.value ?? '';
+    setNewTrack(firstTrack);
+    setNewLevel(
+      f === 'coding' ? 'beginner'
+      : f === 'focus' ? 'focus'
+      : `grade-${gradesFor(f, firstTrack)[0] ?? 1}`
+    );
+  };
 
   const handleAssign = async () => {
     if (!newTrack || !newLevel) return;
     setBusy(true);
-    const result = await assignTeacherCourse(teacher.id, newTrack, newLevel);
+    /* Stored lowercase, matching how cohorts store theirs. The training gates
+       compare with ilike so both cases already work, but two spellings of one
+       level in one column is a trap for the next person who reaches for eq. */
+    const result = await assignTeacherCourse(teacher.id, newTrack, levelValue(family, newLevel).toLowerCase());
     setBusy(false);
     if (result.success) {
-      onToast(`Assigned ${getTrackName(newTrack)} ${newLevel} to ${teacher.full_name ?? 'teacher'}`, 'success');
+      onToast(`Assigned ${describeCourse(newTrack, newLevel)} to ${teacher.full_name ?? 'teacher'}`, 'success');
       onChanged();
     } else {
       onToast(result.error || 'Failed to assign', 'error');
@@ -161,6 +194,11 @@ function TeacherAssignmentRow({
             {teacher.full_name ?? 'Unknown'}
           </p>
           <p className="text-xs text-slate-500 truncate">{teacher.email}</p>
+          {/* §4. What this teacher is trained for, collapsed to subjects —
+              three grades of maths is one chip that says Mathematics. */}
+          <div className="mt-1.5">
+            <CapabilityChips assignments={teacher.assignments} size="sm" max={4} emptyText="Not eligible for anything yet" />
+          </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700" style={{ fontFamily: 'var(--font-grotesk)' }}>
@@ -217,27 +255,56 @@ function TeacherAssignmentRow({
             <p className="text-xs text-slate-400 italic">Not eligible for any courses yet. Add one below.</p>
           )}
 
-          <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+          <div className="pt-2 border-t border-slate-100 space-y-2">
+            {/* Step 1 — which catalogue. Without this the other two cannot
+                offer anything but coding. */}
+            <div className="grid grid-cols-3 gap-1.5">
+              {COURSE_FAMILIES.map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => pickFamily(f.key)}
+                  disabled={busy}
+                  className={`min-h-[34px] rounded-lg text-[11px] font-bold border-2 transition-colors disabled:opacity-50 ${
+                    family === f.key
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                  }`}
+                  style={{ fontFamily: 'var(--font-grotesk)' }}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+          <div className="flex items-center gap-2">
             <select
               value={newTrack}
-              onChange={(e) => setNewTrack(e.target.value)}
+              onChange={(e) => {
+                const t = e.target.value;
+                setNewTrack(t);
+                // A school subject is not taught for every grade — Chemistry
+                // starts at 7 — so the grade has to follow the subject.
+                if (family === 'school') setNewLevel(`grade-${gradesFor(family, t)[0] ?? 1}`);
+              }}
               disabled={busy}
-              className="flex-1 min-h-[40px] rounded-lg border border-slate-300 px-2 py-1 text-xs text-slate-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+              className="flex-1 min-w-0 min-h-[40px] rounded-lg border border-slate-300 px-2 py-1 text-xs text-slate-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
               style={{ fontFamily: 'var(--font-inter)' }}
             >
-              {TRACKS.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
+              {optionsFor(family).map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
             <select
               value={newLevel}
               onChange={(e) => setNewLevel(e.target.value)}
-              disabled={busy}
-              className="min-h-[40px] rounded-lg border border-slate-300 px-2 py-1 text-xs text-slate-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+              disabled={busy || family === 'focus'}
+              className="min-h-[40px] rounded-lg border border-slate-300 px-2 py-1 text-xs text-slate-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-60"
               style={{ fontFamily: 'var(--font-inter)' }}
             >
-              {ALL_LEVELS.map((l) => (
-                <option key={l} value={l}>{l}</option>
+              {levelChoices.map((l) => (
+                <option key={l} value={l}>
+                  {l.startsWith('grade-') ? `Grade ${l.slice(6)}` : l}
+                </option>
               ))}
             </select>
             <button
@@ -249,6 +316,7 @@ function TeacherAssignmentRow({
               {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
               Add
             </button>
+          </div>
           </div>
         </div>
       )}

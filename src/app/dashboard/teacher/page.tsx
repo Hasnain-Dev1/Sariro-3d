@@ -38,6 +38,8 @@ import { TeacherCalendar } from '@/components/dashboard/teacher-calendar';
 import LowCreditPanel from '@/components/dashboard/low-credit-panel';
 import { attendanceDeadline, deadlineTone } from '@/lib/dashboard/attendance-deadline';
 import { Coins } from 'lucide-react';
+import CapabilityChips from '@/components/dashboard/capability-chips';
+import { fetchMyAssignments } from '@/lib/dashboard/teacher-assignments-data';
 
 /* ───── Helpers ───── */
 function levelDisplay(level: string): string {
@@ -1755,6 +1757,11 @@ function TeacherDashboardInner() {
 
   const [stats, setStats] = useState<TeacherStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
+  /* §4. What this teacher is enabled for. fetchMyAssignments existed and was
+     called by nothing, so a teacher had no way to see which subjects they had
+     been cleared to teach — the question they ask most often after "what is
+     next". */
+  const [myCourses, setMyCourses] = useState<Array<{ track: string; level: string; training_completed_at: string | null }>>([]);
   // All bookings (unfiltered) — the calendar is now the single source for the
   // schedule; the separate upcoming/past/all list was removed, and with it a
   // duplicate fetchTeacherBookings call every load.
@@ -1791,6 +1798,15 @@ function TeacherDashboardInner() {
   useEffect(() => {
     Promise.resolve().then(() => loadAll());
   }, [loadAll]);
+
+  /* Eligibility changes when an admin edits it, not when a class happens, so
+     it loads once rather than joining the realtime refresh loop. */
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    fetchMyAssignments().then((rows) => { if (!cancelled) setMyCourses(rows); });
+    return () => { cancelled = true; };
+  }, [user]);
 
   // Realtime sync — auto-refresh when bookings / cohorts / session_attendance /
   // session_notes / enrollments / notifications change.
@@ -1861,6 +1877,13 @@ function TeacherDashboardInner() {
             <p className="text-slate-600 mt-1.5 text-sm">
               Your schedule, students, and session history at a glance.
             </p>
+            {/* Subjects, not rows: three grades of maths reads as one chip.
+                Amber means the course is yours but the training is not signed
+                off yet — which is why it is worth showing rather than
+                flattening to a list of names. */}
+            <div className="mt-3">
+              <CapabilityChips assignments={myCourses} emptyText="No courses assigned to you yet — ask an admin." />
+            </div>
           </div>
           <DesktopClock />
         </motion.div>

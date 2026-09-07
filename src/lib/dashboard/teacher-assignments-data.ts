@@ -60,14 +60,24 @@ export async function fetchTeachersWithAssignments(): Promise<TeacherWithAssignm
   }
 }
 
-export async function fetchMyAssignments(): Promise<Array<{ track: string; level: string }>> {
+export async function fetchMyAssignments(): Promise<
+  Array<{ track: string; level: string; training_completed_at: string | null }>
+> {
   try {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];
-    const { data, error } = await supabase.from('teacher_course_assignments').select('track, level').eq('teacher_id', user.id);
+    /* training_completed_at comes back too: without it a teacher's own chips
+       cannot tell "you may teach this" from "you are down to teach this and
+       the training has not happened", and those are different sentences. */
+    const { data, error } = await supabase.from('teacher_course_assignments')
+      .select('track, level, training_completed_at').eq('teacher_id', user.id);
     if (error) throw error;
-    return (data ?? []).map((a) => ({ track: a.track as string, level: a.level as string }));
+    return (data ?? []).map((a) => ({
+      track: a.track as string,
+      level: a.level as string,
+      training_completed_at: (a.training_completed_at as string | null) ?? null,
+    }));
   } catch (err) {
     console.warn('[teacher-assignments] fetchMyAssignments error:', err);
     return [];
