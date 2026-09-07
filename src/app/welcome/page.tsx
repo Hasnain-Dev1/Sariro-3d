@@ -340,7 +340,10 @@ function detectTimezone(): TimezoneInfo {
   }
 }
 
-function DemoClassForm() {
+/* Exported so the ad landing page at /free-class can reuse it rather than
+   keeping a second copy of a form that handles OTP, timezone detection and
+   slot windows. Two booking forms is two places for the phone gate to drift. */
+export function DemoClassForm() {
   const [studentName, setStudentName] = useState('');
   const [parentName, setParentName] = useState('');
   const [phone, setPhone] = useState('');
