@@ -96,3 +96,79 @@ export function describeCourse(track: string, level: string): string {
   }
   return `${name} · ${level.charAt(0).toUpperCase()}${level.slice(1)}`;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Is this a real course?
+   ══════════════════════════════════════════════════════════════════════════
+   The question a server route has to ask before it writes a (track, level)
+   pair to the database, and the reason it lives HERE rather than in the route:
+   there were two hand-maintained copies of the catalogue, and both were wrong.
+
+   /api/admin/teacher-assignments validated against TRACKS — coding only — so a
+   super-admin could not make anybody eligible for Mathematics, Science or
+   Public Speaking, which is every course the company actually sells. Its level
+   list was capitalised (`Beginner`) while cohorts store lowercase, so the two
+   halves of one product disagreed about what a level looks like.
+
+   One function, derived from the same catalogue the pickers render, so a course
+   that can be chosen is a course that can be saved.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+export interface CourseCheck {
+  ok: boolean;
+  /** Machine code for the API. */
+  code: 'ok' | 'invalid_track' | 'invalid_level';
+  /** What a person reads. */
+  message: string;
+}
+
+/**
+ * Compared case-insensitively on purpose. Rows written before the levels were
+ * lowercased still say `Beginner`, the training gates already match them with
+ * ilike, and refusing them here would break editing an assignment that the
+ * product itself created.
+ */
+export function checkCourse(track: string, level: string): CourseCheck {
+  const t = (track ?? '').trim();
+  const l = (level ?? '').trim().toLowerCase();
+
+  if (!t || !l) {
+    return { ok: false, code: 'invalid_track', message: 'Choose a course and a level.' };
+  }
+
+  const family = familyOf(t, l);
+  const known = optionsFor(family).some((o) => o.value === t);
+  if (!known) {
+    return {
+      ok: false,
+      code: 'invalid_track',
+      message: `"${t}" is not a course we run.`,
+    };
+  }
+
+  if (family === 'focus') {
+    return l === 'focus'
+      ? { ok: true, code: 'ok', message: '' }
+      : { ok: false, code: 'invalid_level', message: 'A focus course has one level.' };
+  }
+
+  if (family === 'school') {
+    const n = Number(l.replace(/^(grade|group)-/, ''));
+    const allowed = gradesFor('school', t);
+    if (!Number.isFinite(n) || !allowed.includes(n)) {
+      /* The matrix is deliberately not full — Physics and Chemistry do not
+         exist before grade 7, because primary school teaches combined
+         Science. */
+      return {
+        ok: false,
+        code: 'invalid_level',
+        message: `We do not teach that subject at ${l.replace('-', ' ')}.`,
+      };
+    }
+    return { ok: true, code: 'ok', message: '' };
+  }
+
+  return (CODING_LEVELS as readonly string[]).includes(l)
+    ? { ok: true, code: 'ok', message: '' }
+    : { ok: false, code: 'invalid_level', message: `"${level}" is not a level for that track.` };
+}

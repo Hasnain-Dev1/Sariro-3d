@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClientHelper, createServiceClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
-import { TRACKS } from '@/lib/sariro-data';
+import { checkCourse } from '@/lib/dashboard/course-options';
 
 /**
  * SARIRO — POST /api/admin/parent-assignments  (SUPER-ADMIN only)
@@ -14,8 +14,9 @@ import { TRACKS } from '@/lib/sariro-data';
  */
 export const runtime = 'nodejs';
 
-const VALID_LEVELS = ['Elementary', 'Beginner', 'Intermediate', 'Advanced'];
-const VALID_TRACKS: string[] = TRACKS.map((t) => t.id);
+/* The third copy of the same two wrong lists — coding-only tracks and
+   capitalised levels. Same fix: one validator, derived from the catalogue the
+   pickers render. See lib/dashboard/course-options.ts. */
 
 interface Body {
   action?: 'assign' | 'remove';
@@ -37,8 +38,10 @@ export async function POST(req: NextRequest) {
   try { body = await req.json(); } catch { return NextResponse.json({ ok: false, error: 'invalid_json' }, { status: 400 }); }
   if (body.website) return NextResponse.json({ ok: true });
   if (!body.action || !body.parent_id || !body.track || !body.level) return NextResponse.json({ ok: false, error: 'missing_fields' }, { status: 400 });
-  if (!VALID_TRACKS.includes(body.track)) return NextResponse.json({ ok: false, error: 'invalid_track' }, { status: 400 });
-  if (!VALID_LEVELS.includes(body.level)) return NextResponse.json({ ok: false, error: 'invalid_level' }, { status: 400 });
+  const course = checkCourse(body.track, body.level);
+  if (!course.ok) {
+    return NextResponse.json({ ok: false, error: course.code, message: course.message }, { status: 400 });
+  }
 
   let supabase;
   try { supabase = await createServerClientHelper(); } catch { return NextResponse.json({ ok: false, error: 'supabase_not_configured' }, { status: 503 }); }

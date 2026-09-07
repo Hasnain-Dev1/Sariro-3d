@@ -101,7 +101,7 @@ export async function assignTeacherCourse(teacherId: string, track: string, leve
   try {
     const res = await fetch('/api/admin/teacher-assignments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'assign', teacher_id: teacherId, track, level }) });
     const json = await res.json();
-    if (!res.ok || !json.ok) return { success: false, error: json.error || 'Assignment failed' };
+    if (!res.ok || !json.ok) return { success: false, error: json.message || json.error || 'Assignment failed' };
     return { success: true };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Network error' };
@@ -112,7 +112,7 @@ export async function removeTeacherCourse(teacherId: string, track: string, leve
   try {
     const res = await fetch('/api/admin/teacher-assignments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'remove', teacher_id: teacherId, track, level }) });
     const json = await res.json();
-    if (!res.ok || !json.ok) return { success: false, error: json.error || 'Removal failed' };
+    if (!res.ok || !json.ok) return { success: false, error: json.message || json.error || 'Removal failed' };
     return { success: true };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Network error' };
