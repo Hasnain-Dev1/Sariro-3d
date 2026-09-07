@@ -13,6 +13,8 @@ import {
 import { TRACKS } from '@/lib/sariro-data';
 import SalesEarningsReport from '@/components/dashboard/sales-earnings-report';
 import MyTeachers from '@/components/dashboard/my-teachers';
+import CapabilityChips from '@/components/dashboard/capability-chips';
+import type { TeacherAssignmentRow } from '@/lib/dashboard/teacher-capability';
 import PaymentRequestsPanel from '@/components/dashboard/payment-requests-panel';
 import ExpensesPanel from '@/components/dashboard/expenses-panel';
 import PolicyFlagsPanel from '@/components/dashboard/policy-flags-panel';
@@ -28,6 +30,11 @@ export default function HRDashboard() {
   const [incentives, setIncentives] = useState<TeacherIncentive[]>([]);
   const [leaves, setLeaves] = useState<TeacherLeave[]>([]);
   const [teachers, setTeachers] = useState<TeacherProfile[]>([]);
+  /* §4. HR's table listed a tier and nothing about what the teacher can
+     actually teach — the one thing you need when deciding who covers a class.
+     Fetched separately rather than joined, so a missing table cannot take the
+     whole HR dashboard down with it. */
+  const [assignments, setAssignments] = useState<Map<string, TeacherAssignmentRow[]>>(new Map());
   const [students, setStudents] = useState<StudentProfile[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'my_teachers' | 'incentives' | 'payments' | 'credits' | 'tiers' | 'enquiries' | 'expenses' | 'policy' | 'credit_requests' | 'invoices' | 'sales'>('overview');
@@ -55,6 +62,23 @@ export default function HRDashboard() {
       setIncentives((incentivesRes.data ?? []) as unknown as TeacherIncentive[]);
       setLeaves((leavesRes.data ?? []) as unknown as TeacherLeave[]);
       setTeachers((teachersRes.data ?? []) as unknown as TeacherProfile[]);
+
+      try {
+        const { data: rows } = await supabase
+          .from('teacher_course_assignments')
+          .select('teacher_id, track, level, training_completed_at');
+        const map = new Map<string, TeacherAssignmentRow[]>();
+        for (const r of rows ?? []) {
+          const list = map.get(r.teacher_id as string) ?? [];
+          list.push({
+            track: r.track as string,
+            level: r.level as string,
+            training_completed_at: (r.training_completed_at as string | null) ?? null,
+          });
+          map.set(r.teacher_id as string, list);
+        }
+        setAssignments(map);
+      } catch { /* chips simply do not render */ }
       setStudents((studentsRes.data ?? []) as unknown as StudentProfile[]);
     } catch (err) {
       console.warn('[hr] load error:', err);
@@ -517,7 +541,12 @@ export default function HRDashboard() {
                         <tbody>
                           {teachers.map((t) => (
                             <tr key={t.id} className="border-b border-slate-100 hover:bg-slate-50">
-                              <td className="py-2 px-2 font-bold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>{t.full_name ?? 'Unknown'}</td>
+                              <td className="py-2 px-2 font-bold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
+                                {t.full_name ?? 'Unknown'}
+                                <div className="mt-1 font-normal">
+                                  <CapabilityChips assignments={assignments.get(t.id)} size="sm" max={3} emptyText="no courses" />
+                                </div>
+                              </td>
                               <td className="text-center py-2 px-2">
                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${t.teacher_tier === 1 ? 'bg-amber-100 text-amber-700' : t.teacher_tier === 2 ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`} style={{ fontFamily: 'var(--font-grotesk)' }}>
                                   Tier {t.teacher_tier ?? 3}

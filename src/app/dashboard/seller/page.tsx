@@ -6,6 +6,7 @@ import { SellerLeads } from '@/app/dashboard/admin/seller-leads';
 import { Loader2, CalendarPlus } from 'lucide-react';
 import { useState } from 'react';
 import BookTrialModal from '@/components/dashboard/book-trial-modal';
+import LeadSignalsPanel from '@/components/dashboard/lead-signals-panel';
 import DashboardToast, { useDashboardToast } from '@/components/dashboard/dashboard-toast';
 
 export default function SellerDashboard() {
@@ -56,6 +57,14 @@ export default function SellerDashboard() {
               <CalendarPlus className="w-4 h-4" />
               Book a trial class
             </button>
+          </div>
+
+          {/* §9. What the two write-ups say, turned into an order to ring in.
+              Above the raw lead list on purpose: the list is ordered by when a
+              lead arrived, and this is ordered by how likely they are to say
+              yes. */}
+          <div className="mb-6">
+            <LeadSignalsPanel />
           </div>
 
           {/* Seller Leads — same component as admin dashboard */}

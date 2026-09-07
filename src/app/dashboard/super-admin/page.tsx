@@ -47,6 +47,8 @@ import { TeacherManagementModal } from '@/components/dashboard/teacher-managemen
 import SalesEarningsReport from '@/components/dashboard/sales-earnings-report';
 import AssignTeacherModal from '@/components/dashboard/assign-teacher';
 import { TeacherCourseAssignmentModal } from '@/app/dashboard/admin/teacher-course-assignments';
+import BookTrialModal from '@/components/dashboard/book-trial-modal';
+import LeadSignalsPanel from '@/components/dashboard/lead-signals-panel';
 import { UserManagementModal } from '@/components/dashboard/user-management-modal';
 import { BatchRescheduleModal } from '@/components/dashboard/batch-reschedule-modal';
 import { LeadPipeline } from '@/app/dashboard/super-admin/lead-pipeline';
@@ -591,6 +593,7 @@ function SuperAdminDashboardInner() {
   const [auditFilter, setAuditFilter] = useState<string>('all');
   const [auditActions, setAuditActions] = useState<string[]>([]);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [showBookTrial, setShowBookTrial] = useState(false);
   const [showTeacherModal, setShowTeacherModal] = useState(false);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
   const [showUserManagement, setShowUserManagement] = useState(false);
@@ -720,6 +723,12 @@ function SuperAdminDashboardInner() {
                 <UserCheck className="w-4 h-4" /> Users
               </button>
               <button
+                onClick={() => setShowBookTrial(true)}
+                className="btn-tactile btn-tactile-light px-4 py-2.5 text-sm flex items-center gap-2"
+              >
+                <UserCheck className="w-4 h-4" /> Book a Trial
+              </button>
+              <button
                 onClick={() => setShowTeacherModal(true)}
                 className="btn-tactile btn-tactile-light px-4 py-2.5 text-sm flex items-center gap-2"
               >
@@ -847,6 +856,13 @@ function SuperAdminDashboardInner() {
             <h2 className="text-lg font-bold text-slate-900">Chat policy</h2>
           </div>
           <PolicyFlagsPanel />
+        </section>
+
+        {/* §9. The same trial write-ups the seller works from. Here because a
+            super-admin asking "is the trial funnel working" is asking about
+            exactly these two opinions. */}
+        <section className="mb-10">
+          <LeadSignalsPanel />
         </section>
 
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-10">
@@ -1037,6 +1053,12 @@ function SuperAdminDashboardInner() {
       />
 
       {/* Teacher course eligibility modal (assign tracks+levels to teachers) */}
+      <BookTrialModal
+        open={showBookTrial}
+        onClose={() => setShowBookTrial(false)}
+        onBooked={(msg) => setToast({ type: 'success', message: msg })}
+      />
+
       <TeacherCourseAssignmentModal
         open={showAssignmentModal}
         onClose={() => setShowAssignmentModal(false)}

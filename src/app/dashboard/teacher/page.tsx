@@ -41,6 +41,7 @@ import { Coins } from 'lucide-react';
 import CapabilityChips from '@/components/dashboard/capability-chips';
 import { teacherRating, recentRating, type ClassFeedback } from '@/lib/dashboard/class-feedback';
 import { createClient } from '@/lib/supabase/client';
+import PayHeldPanel from '@/components/dashboard/pay-held-panel';
 import { fetchMyAssignments } from '@/lib/dashboard/teacher-assignments-data';
 
 /* ───── Helpers ───── */
@@ -1932,6 +1933,11 @@ function TeacherDashboardInner() {
           </div>
           <DesktopClock />
         </motion.div>
+
+        {/* §10. Above everything, including the next class — because a rule
+            that holds somebody's money and does not tell them is not a rule,
+            it is a silent penalty. Renders nothing when nothing is held. */}
+        <PayHeldPanel onPaid={() => loadAll()} />
 
         {/* What am I teaching next, with whom, and which batch? The teacher's
             actual question, answered above everything else. */}
