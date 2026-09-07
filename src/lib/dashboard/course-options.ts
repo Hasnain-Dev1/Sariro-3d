@@ -1,4 +1,11 @@
-'use client';
+/* Deliberately NOT 'use client'.
+   This is data and pure functions — no hooks, no components, no browser APIs —
+   and both sides need it. A server route importing a 'use client' module gets
+   client REFERENCES rather than the functions: calling checkCourse() then
+   throws, the route dies before it can return anything, and the browser sees
+   "Unexpected end of JSON input" from res.json() on an empty body. That is
+   exactly what adding an eligibility did after this module became the shared
+   validator. Adding the directive back breaks both admin routes again. */
 
 import { TRACKS } from '@/lib/sariro-data';
 import { SCHOOL_SUBJECTS, SPECIALISATIONS, GRADE_GROUPS } from '@/lib/school/curriculum';
