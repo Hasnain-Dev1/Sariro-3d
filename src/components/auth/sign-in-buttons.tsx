@@ -10,6 +10,8 @@ import { HoneypotField } from '@/components/security/honeypot';
 import {
   cooldownFor, recordSend, cooldownSeconds, SEND_COOLDOWN_MS,
 } from '@/lib/auth/send-cooldown';
+import { MIN_LENGTH, checkPassword } from '@/lib/auth/password';
+import EmailCodeSignIn from './email-code-sign-in';
 
 /* ===============================================================
    SignInButtons — three sign-in options:
@@ -110,6 +112,16 @@ export default function SignInButtons({
           return;
         }
 
+        /* The same rules the reset screen applies. Without this, sign-up
+           accepted `password` and the reset screen refused it — two screens
+           in one product disagreeing about what a password is. */
+        const pwCheck = checkPassword(password, email);
+        if (!pwCheck.ok) {
+          setError(pwCheck.problem);
+          setSubmitting(false);
+          return;
+        }
+
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -202,8 +214,17 @@ export default function SignInButtons({
             <label htmlFor="auth-password" className="block text-[11px] font-bold uppercase tracking-wider text-slate-600" style={{ fontFamily: 'var(--font-grotesk)' }}>
               Password
             </label>
+            {/* This pointed at /contact — so the FAQ promised "click Forgot
+                password? and we'll email you a reset link", and the button
+                opened a contact form instead. Looking like it works is worse
+                than being absent. The address is carried across so nobody
+                types it twice. */}
             {mode === 'signin' && (
-              <Link href="/contact" className="text-[11px] font-bold text-slate-400 hover:text-slate-700 transition-colors" style={{ fontFamily: 'var(--font-grotesk)' }}>
+              <Link
+                href={`/auth/forgot-password${email.trim() ? `?email=${encodeURIComponent(email.trim())}` : ''}`}
+                className="text-[11px] font-bold text-slate-400 hover:text-slate-700 transition-colors"
+                style={{ fontFamily: 'var(--font-grotesk)' }}
+              >
                 Forgot?
               </Link>
             )}
@@ -215,9 +236,9 @@ export default function SignInButtons({
               type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder={mode === 'signup' ? 'At least 6 characters' : '••••••••'}
+              placeholder={mode === 'signup' ? `At least ${MIN_LENGTH} characters` : '••••••••'}
               required
-              minLength={6}
+              minLength={mode === 'signup' ? MIN_LENGTH : undefined}
               autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
               className="w-full h-12 pl-10 pr-11 rounded-xl border border-slate-200 bg-slate-50/60 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:outline-none focus:bg-white focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5"
               style={{ fontFamily: 'var(--font-inter)' }}
@@ -268,6 +289,14 @@ export default function SignInButtons({
           )}
         </button>
       </form>
+
+      {/* A code to the inbox, for the parent who created the account months ago
+          on a phone and has never typed the password since. Sign-in only — on
+          the sign-up screen it would offer a way in to an account that does
+          not exist yet. */}
+      {mode === 'signin' && (
+        <EmailCodeSignIn redirectTo={redirectTo} onSuccess={onSuccess} />
+      )}
     </div>
   );
 }

@@ -185,7 +185,7 @@ export async function sendBookingConfirmationEmail(params: {
         </div>
 
         <p style="font-size: 13px; color: #94a3b8; margin-top: 30px; text-align: center;">
-          Questions? Email us at <a href="mailto:support@sariro.in" style="color: #2563EB;">support@sariro.in</a>
+          Questions? Email us at <a href="mailto:support@sariro.com" style="color: #2563EB;">support@sariro.com</a>
         </p>
       </div>
       <p style="text-align: center; font-size: 12px; color: #94a3b8; margin-top: 20px;">
