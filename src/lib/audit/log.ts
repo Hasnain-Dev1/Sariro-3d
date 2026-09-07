@@ -43,6 +43,10 @@ export type AuditAction =
      office. Worth an entry because it is the one booking path that skips the
      phone verification the public form requires. */
   | 'demo_request_created'
+  /* A trial class put in the diary against a named teacher and a named child.
+     It commits somebody's half hour and it is the moment a lead becomes an
+     obligation, so it wants a name attached to it. */
+  | 'trial_booked'
   | 'impersonate_user';
 
 export interface AuditEntry {

@@ -35,6 +35,8 @@ export interface TeacherBookingRow {
   // Names of the (active) students enrolled in this booking's cohort — the
   // roster, so a teacher can tell whose class this is at a glance.
   student_names: string[];
+  /** A free trial: no cohort, one student, flat pay. */
+  is_trial?: boolean;
   /**
    * The class recording, and the moment the teacher closed the class.
    *
@@ -211,8 +213,24 @@ export async function fetchTeacherBookings(filter: 'upcoming' | 'past' | 'all' =
       }
     }
 
+    /* A trial has no cohort, so the roster lookup above finds nobody for it —
+       the teacher would see "Trial class" with no idea which child is coming.
+       Its student hangs off the booking directly instead. */
+    const trialStudentIds = [...new Set(
+      data.map(b => b.trial_student_id as string | null).filter((id): id is string => !!id)
+    )];
+    const trialNames = new Map<string, string>();
+    if (trialStudentIds.length > 0) {
+      const { data: tp } = await supabase
+        .from('profiles').select('id, full_name, email').in('id', trialStudentIds);
+      for (const p of tp ?? []) {
+        trialNames.set(p.id as string, (p.full_name as string) || (p.email as string) || 'Trial student');
+      }
+    }
+
     return data.map(b => {
       const cohort = b.cohort as Record<string, unknown> | null;
+      const trialName = trialNames.get((b.trial_student_id as string) ?? '');
       return {
         id: b.id,
         cohort_id: b.cohort_id,
@@ -227,7 +245,10 @@ export async function fetchTeacherBookings(filter: 'upcoming' | 'past' | 'all' =
         cohort_status: (cohort?.status as string) ?? '',
         cohort_meet_url: (cohort?.google_meet_url as string) ?? null,
         batch_code: (cohort?.batch_code as string) ?? null,
-        student_names: rosterMap.get(b.cohort_id) ?? [],
+        student_names: b.is_trial
+          ? (trialName ? [trialName] : [])
+          : (rosterMap.get(b.cohort_id) ?? []),
+        is_trial: !!b.is_trial,
         // select('*') already returns these; they just were not mapped through.
         recording_url: (b.recording_url as string) ?? null,
         attendance_finalized_at: (b.attendance_finalized_at as string) ?? null,

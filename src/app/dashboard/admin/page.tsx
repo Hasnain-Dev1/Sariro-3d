@@ -47,6 +47,7 @@ import {
 import { COUNTRIES } from '@/lib/invoice/company';
 import { contactIdentity, canAssignCourse } from '@/lib/contact/reachability';
 import { UnknownBadge } from '@/components/dashboard/unknown-contact';
+import BookTrialModal from '@/components/dashboard/book-trial-modal';
 import { ShieldAlert } from 'lucide-react';
 
 /* ───── Helpers ───── */
@@ -1412,6 +1413,7 @@ function AdminDashboardInner() {
   const [showScheduleBatch, setShowScheduleBatch] = useState(false);
   const [showBatchReschedule, setShowBatchReschedule] = useState(false);
   const [showManageBatches, setShowManageBatches] = useState(false);
+  const [showBookTrial, setShowBookTrial] = useState(false);
   const [rosterCohort, setRosterCohort] = useState<CohortRow | null>(null);
   const [revenue, setRevenue] = useState<RevenueStats | null>(null);
   const [revenueLoading, setRevenueLoading] = useState(true);
@@ -1621,6 +1623,12 @@ function AdminDashboardInner() {
                 className="btn-tactile btn-tactile-light px-4 py-2.5 text-sm flex items-center gap-2"
               >
                 <Users className="w-4 h-4" /> Manage Batches
+              </button>
+              <button
+                onClick={() => setShowBookTrial(true)}
+                className="btn-tactile btn-tactile-light px-4 py-2.5 text-sm flex items-center gap-2"
+              >
+                <CalendarClock className="w-4 h-4" /> Book a Trial
               </button>
               <button
                 onClick={() => setShowCreateModal(true)}
@@ -1971,6 +1979,15 @@ function AdminDashboardInner() {
         onClose={() => setShowScheduleBatch(false)}
         adminId={user?.id}
         onCreated={() => { handleToast('success', 'Batch scheduled — classes generated.'); loadAll(); }}
+      />
+
+      {/* §3/§5. Book a trial straight into a teacher's declared hours. The
+          slots come from teacher_availability minus what is already in their
+          diary, so a slot offered here is a slot that exists. */}
+      <BookTrialModal
+        open={showBookTrial}
+        onClose={() => setShowBookTrial(false)}
+        onBooked={(msg) => { handleToast('success', msg); loadAll(); }}
       />
 
       <ManageBatchesModal

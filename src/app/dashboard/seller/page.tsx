@@ -3,7 +3,9 @@
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import { useAuth } from '@/components/auth/auth-provider';
 import { SellerLeads } from '@/app/dashboard/admin/seller-leads';
-import { Loader2 } from 'lucide-react';
+import { Loader2, CalendarPlus } from 'lucide-react';
+import { useState } from 'react';
+import BookTrialModal from '@/components/dashboard/book-trial-modal';
 import DashboardToast, { useDashboardToast } from '@/components/dashboard/dashboard-toast';
 
 export default function SellerDashboard() {
@@ -15,6 +17,7 @@ export default function SellerDashboard() {
   // Was `console.log`. A seller updating a lead saw nothing at all happen —
   // every action looked like it might have failed.
   const { toast, showToast } = useDashboardToast();
+  const [bookOpen, setBookOpen] = useState(false);
 
   if (loading) {
     return (
@@ -38,8 +41,31 @@ export default function SellerDashboard() {
             </p>
           </div>
 
+          {/* §7. A seller books a trial from here, with no verification code.
+              The public form makes a parent verify their mobile because it is
+              open to the internet; this is staff booking for somebody they
+              have usually just spoken to, and a code read down the phone buys
+              nothing. The student's phone number is still required — an
+              account nobody can ring is an account nobody can chase when the
+              child does not appear. */}
+          <div className="mb-6">
+            <button
+              onClick={() => setBookOpen(true)}
+              className="btn-tactile btn-tactile-primary px-5 py-3 text-sm flex items-center gap-2"
+            >
+              <CalendarPlus className="w-4 h-4" />
+              Book a trial class
+            </button>
+          </div>
+
           {/* Seller Leads — same component as admin dashboard */}
           <SellerLeads onToast={showToast} />
+
+          <BookTrialModal
+            open={bookOpen}
+            onClose={() => setBookOpen(false)}
+            onBooked={(msg) => showToast(msg, 'success')}
+          />
         </div>
       </section>
 
