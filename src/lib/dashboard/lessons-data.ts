@@ -280,6 +280,21 @@ export function allLessonCourses(): { id: string; title: string; family: 'coding
   return out;
 }
 
+/**
+ * What a course is called, whichever family it belongs to.
+ *
+ * findCourseById only searches COURSES — the coding array — so it answers null
+ * for every school subject and focus course. Two API routes used it as their
+ * "does this exist" guard and so refused Public Speaking outright, while
+ * flattenCourseLessons underneath them handled it perfectly well. This is the
+ * question those routes actually meant to ask.
+ */
+export function lessonCourseTitle(courseId: string): string | null {
+  const coding = findCourseById(courseId);
+  if (coding) return coding.title;
+  return allLessonCourses().find((c) => c.id === courseId)?.title ?? null;
+}
+
 /** The grades a subject is actually offered for, from its grade groups. */
 function gradesForSubject(subject: { groups: string[] }): number[] {
   return GRADE_GROUPS.filter((g) => subject.groups.includes(g.slug)).flatMap((g) => g.grades);

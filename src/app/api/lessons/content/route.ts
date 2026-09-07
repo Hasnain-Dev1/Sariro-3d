@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { getClientIp, isIpBlocked } from '@/lib/rate-limit';
-import { findCourseById, flattenCourseLessons, resolveLessonAccess } from '@/lib/dashboard/lessons-data';
+import { lessonCourseExists, flattenCourseLessons, resolveLessonAccess } from '@/lib/dashboard/lessons-data';
 import { resolveViewerProgress } from '@/lib/dashboard/lessons-server';
 import { isEffectivelyEmpty } from '@/lib/lessons/content-state';
 
@@ -38,8 +38,8 @@ export async function GET(req: NextRequest) {
   const moduleNum = parseInt(url.searchParams.get('module') ?? '', 10);
   const lessonIndex = parseInt(url.searchParams.get('index') ?? '', 10);
 
-  const course = findCourseById(courseId);
-  if (!course || !Number.isInteger(moduleNum) || !Number.isInteger(lessonIndex)) {
+  // Same coding-only guard as the list route had. See lessonCourseExists.
+  if (!lessonCourseExists(courseId) || !Number.isInteger(moduleNum) || !Number.isInteger(lessonIndex)) {
     return NextResponse.json({ ok: false, error: 'bad_request' }, { status: 400 });
   }
 
