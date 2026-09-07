@@ -226,7 +226,16 @@ async function logoPng() {
     `</svg>`
   );
 
-  return sharp({ create: { width: W_, height: H_, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+  /* The ground is baked in rather than left transparent.
+     The wordmark is #1A1611 — warm near-black — so on a transparent PNG it is
+     invisible the moment anything renders the image on a dark background. The
+     tile half survives (it is black anyway) and the name half disappears, which
+     is a worse failure than no logo: half a logo looks like a rendering fault.
+     Apple Mail and Outlook dark modes both invert grounds aggressively enough
+     to do this. Painting the paper colour into the file means the lockup
+     carries its own ground and always reads, at the cost of a warm rectangle
+     if a client darkens the page around it — visible, but not broken. */
+  return sharp({ create: { width: W_, height: H_, channels: 4, background: { r: 244, g: 239, b: 231, alpha: 1 } } })
     .composite([
       { input: tile, top: 0, left: 0 },
       { input: word, top: 0, left: 0 },

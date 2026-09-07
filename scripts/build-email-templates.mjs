@@ -477,12 +477,47 @@ const templates = {
   }),
 };
 
+/**
+ * Refuse to write a template that points anywhere but the live site.
+ *
+ * This is not hypothetical. confirm-signup.html once shipped with
+ * src="sariro-3d\public\images\email\logo.png" — a Windows filesystem path —
+ * and was committed and pushed that way. It is the file the local preview loop
+ * reads, and something in that loop rewrote it. The failure is silent and
+ * total: the file still opens, still looks like HTML, still pastes into
+ * Supabase, and the image simply never loads for anybody.
+ *
+ * An email cannot fall back to a relative path, because it has no origin to be
+ * relative to. So every asset reference must be an absolute https URL on our
+ * own domain, and anything else stops the build rather than being noticed by a
+ * parent.
+ */
+function assertAbsoluteAssets(name, html) {
+  const refs = [
+    ...html.matchAll(/(?:src|background)="([^"]*)"/g),
+    ...html.matchAll(/url\('([^']*)'\)/g),
+  ].map((m) => m[1]);
+
+  const bad = refs.filter((u) => !u.startsWith(`${SITE}/`));
+  if (bad.length) {
+    throw new Error(
+      [
+        `${name}.html references ${bad.length} asset(s) that are not absolute ${SITE} URLs:`,
+        ...bad.map((u) => `    ${u}`),
+        '  An email has no origin, so a relative or local path never loads for anybody.',
+      ].join('\n')
+    );
+  }
+  return refs.length;
+}
+
 mkdirSync(OUT, { recursive: true });
 let total = 0;
 for (const [name, html] of Object.entries(templates)) {
+  const refs = assertAbsoluteAssets(name, html);
   writeFileSync(join(OUT, `${name}.html`), html, 'utf-8');
   total += html.length;
-  console.log(`  ${String(Math.round(html.length / 1024)).padStart(3)} KB  supabase/email-templates/${name}.html`);
+  console.log(`  ${String(Math.round(html.length / 1024)).padStart(3)} KB  ${String(refs).padStart(2)} assets  supabase/email-templates/${name}.html`);
 }
 console.log(`\n${Object.keys(templates).length} templates, ${(total / 1024).toFixed(0)} KB total.`);
 console.log('Paste each into Supabase → Authentication → Emails.');
