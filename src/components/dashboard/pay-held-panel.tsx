@@ -35,8 +35,10 @@ import { payGate, type ClassFeedback } from '@/lib/dashboard/class-feedback';
 interface HeldClass {
   bookingId: string;
   slotStart: string;
-  studentId: string | null;
-  studentName: string;
+  /** Only the children still waiting on a write-up. */
+  outstanding: { id: string; name: string }[];
+  /** Everybody who was in the class, for the heading. */
+  total: number;
   amount: number;
   message: string;
 }
@@ -69,12 +71,30 @@ export default function PayHeldPanel({ onPaid }: { onPaid?: () => void }) {
       const ids = trials.map((t) => t.id as string);
       const studentIds = [...new Set(trials.map((t) => t.trial_student_id as string | null).filter((v): v is string => !!v))];
 
+      /* The full roster comes from trial_participants — a trial can hold four
+         children, and building it from trial_student_id alone would release
+         the pay after the FIRST write-up on a class of three. */
+      let participants: { booking_id: string; student_id: string }[] = [];
+      try {
+        const { data } = await sb.from('trial_participants').select('booking_id, student_id').in('booking_id', ids);
+        participants = (data ?? []) as { booking_id: string; student_id: string }[];
+      } catch { /* table not created yet — the single column is the fallback */ }
+
+      const allStudentIds = [...new Set([...studentIds, ...participants.map((x) => x.student_id)])];
+
       const [fbRes, profRes, payRes, rateRes] = await Promise.all([
         sb.from('class_feedback').select('booking_id, author_role, subject_student_id, rating, remarks').in('booking_id', ids),
-        studentIds.length ? sb.from('profiles').select('id, full_name, email').in('id', studentIds) : Promise.resolve({ data: [] }),
+        allStudentIds.length ? sb.from('profiles').select('id, full_name, email').in('id', allStudentIds) : Promise.resolve({ data: [] }),
         sb.from('teacher_earnings').select('booking_id').in('booking_id', ids),
         sb.from('trial_pay_settings').select('amount').eq('id', true).maybeSingle(),
       ]);
+
+      const rosterBy = new Map<string, string[]>();
+      for (const x of participants) {
+        const list = rosterBy.get(x.booking_id) ?? [];
+        list.push(x.student_id);
+        rosterBy.set(x.booking_id, list);
+      }
 
       const amount = Number(rateRes.data?.amount ?? 100);
       const paid = new Set((payRes.data ?? []).map((e) => e.booking_id as string));
@@ -94,14 +114,16 @@ export default function PayHeldPanel({ onPaid }: { onPaid?: () => void }) {
         const id = t.id as string;
         if (paid.has(id)) continue; // already released
         const sid = (t.trial_student_id as string) ?? null;
-        const roster = sid ? [{ id: sid, name: names.get(sid) ?? 'the student' }] : [];
+        const rosterIds = rosterBy.get(id) ?? (sid ? [sid] : []);
+        const roster = rosterIds.map((rid) => ({ id: rid, name: names.get(rid) ?? 'the student' }));
         const gate = payGate(roster, fbBy.get(id) ?? []);
         if (gate.unlocked) continue; // nothing owed from the teacher
+        const outstanding = roster.filter((r) => gate.missing.includes(r.name));
         held.push({
           bookingId: id,
           slotStart: t.slot_start as string,
-          studentId: sid,
-          studentName: sid ? (names.get(sid) ?? 'the student') : 'the student',
+          outstanding: outstanding.length ? outstanding : roster,
+          total: roster.length,
           amount,
           message: gate.message,
         });
@@ -151,11 +173,12 @@ export default function PayHeldPanel({ onPaid }: { onPaid?: () => void }) {
               >
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-slate-900 truncate" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                    {r.studentName}
+                    {r.outstanding.map((o) => o.name).join(', ')}
                   </p>
                   <p className="text-[11px] text-slate-500">
                     {new Date(r.slotStart).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
                     {' · '}trial class
+                    {r.total > 1 ? ` · ${r.outstanding.length} of ${r.total} still to write up` : ''}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -167,23 +190,29 @@ export default function PayHeldPanel({ onPaid }: { onPaid?: () => void }) {
               </button>
 
               {open && (
-                <div className="px-3.5 pb-3.5 pt-1 border-t border-amber-100">
-                  <ClassFeedbackForm
-                    bookingId={r.bookingId}
-                    role="teacher"
-                    subjectStudentId={r.studentId ?? undefined}
-                    subjectName={r.studentName}
-                    compact
-                    onSaved={(res) => {
-                      if (res.payReleased) {
-                        // Straight off the list — the money is no longer held.
-                        setRows((prev) => prev.filter((x) => x.bookingId !== r.bookingId));
-                        onPaid?.();
-                      } else {
-                        void load();
-                      }
-                    }}
-                  />
+                <div className="px-3.5 pb-3.5 pt-1 border-t border-amber-100 space-y-4">
+                  {/* One form per child. "The class went well" is worthless to
+                      a seller with three families to ring. */}
+                  {r.outstanding.map((child, i) => (
+                    <div key={child.id} className={i > 0 ? 'pt-4 border-t border-slate-100' : ''}>
+                      <ClassFeedbackForm
+                        bookingId={r.bookingId}
+                        role="teacher"
+                        subjectStudentId={child.id}
+                        subjectName={child.name}
+                        compact
+                        onSaved={(res) => {
+                          if (res.payReleased) {
+                            // Straight off the list — the money is no longer held.
+                            setRows((prev) => prev.filter((x) => x.bookingId !== r.bookingId));
+                            onPaid?.();
+                          } else {
+                            void load();
+                          }
+                        }}
+                      />
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

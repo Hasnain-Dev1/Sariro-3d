@@ -50,7 +50,9 @@ export default function BookTrialModal({
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState('');
-  const [studentId, setStudentId] = useState(presetStudentId ?? '');
+  /* A trial can hold up to four children — it is a sample of a class capped
+     at four, and one child is just the common case. */
+  const [studentIds, setStudentIds] = useState<string[]>(presetStudentId ? [presetStudentId] : []);
   const [teacherId, setTeacherId] = useState('');
   const [slots, setSlots] = useState<DaySlots[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
@@ -74,7 +76,16 @@ export default function BookTrialModal({
   }, [open]);
 
   const teacher = useMemo(() => teachers.find((t) => t.id === teacherId) ?? null, [teachers, teacherId]);
-  const student = useMemo(() => students.find((s) => s.id === studentId) ?? null, [students, studentId]);
+  const chosenStudents = useMemo(
+    () => studentIds.map((id) => students.find((s) => s.id === id)).filter((s): s is TrialStudent => !!s),
+    [students, studentIds]
+  );
+  const unreachable = chosenStudents.find((s) => !!s.blocker) ?? null;
+
+  const toggleStudent = (id: string) =>
+    setStudentIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : prev.length >= 4 ? prev : [...prev, id]
+    );
 
   const loadSlots = useCallback(async (t: BookableTeacher) => {
     setSlotsLoading(true);
@@ -97,14 +108,14 @@ export default function BookTrialModal({
       .slice(0, 60);
   }, [students, search]);
 
-  const canBook = !!studentId && !!teacherId && !!chosen && !student?.blocker && !teacher?.blocker && !saving;
+  const canBook = studentIds.length > 0 && !!teacherId && !!chosen && !unreachable && !teacher?.blocker && !saving;
 
   const submit = async () => {
     if (!canBook) return;
     setSaving(true);
     setError(null);
     const res = await bookTrial({
-      studentId, teacherId, slotStart: chosen,
+      studentIds, teacherId, slotStart: chosen,
       durationMinutes: DURATION_MINUTES,
       demoRequestId,
     });
@@ -114,7 +125,10 @@ export default function BookTrialModal({
     const when = new Date(chosen).toLocaleString('en-GB', {
       weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
     });
-    const msg = `Trial booked — ${student?.full_name ?? 'student'} with ${teacher?.full_name ?? 'teacher'}, ${when}.`;
+    const who = chosenStudents.length === 1
+      ? (chosenStudents[0].full_name ?? 'student')
+      : `${chosenStudents.length} students`;
+    const msg = `Trial booked — ${who} with ${teacher?.full_name ?? 'teacher'}, ${when}.`;
     setDone(msg);
     onBooked?.(msg);
     // The slot is gone now; reload so a second booking cannot be offered it.
@@ -180,25 +194,48 @@ export default function BookTrialModal({
                       style={{ fontFamily: 'var(--font-inter)' }}
                     />
                   </div>
-                  <select
-                    value={studentId} onChange={(e) => setStudentId(e.target.value)}
-                    className="w-full h-11 px-3 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-                    style={{ fontFamily: 'var(--font-inter)' }}
-                  >
-                    <option value="">Select a student…</option>
-                    {visibleStudents.map((s) => (
-                      <option key={s.id} value={s.id} disabled={!!s.blocker}>
-                        {s.full_name || s.email || 'Unnamed'}
-                        {s.blocker ? ' — no phone, cannot book' : ''}
-                      </option>
-                    ))}
-                  </select>
-                  {student?.blocker && (
-                    <p className="mt-1.5 text-xs text-amber-700 flex items-start gap-1.5">
-                      <PhoneOff className="w-3.5 h-3.5 shrink-0 mt-px" />
-                      {student.blocker} A trial costs a teacher half an hour — add a number in Users first.
-                    </p>
-                  )}
+                  {/* Checkboxes rather than a select, because a trial can hold
+                      several children and a multi-select is unusable on a
+                      phone, which is where sellers work. */}
+                  <div className="max-h-44 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100">
+                    {visibleStudents.length === 0 ? (
+                      <p className="text-xs text-slate-400 italic p-3">No students match that search.</p>
+                    ) : visibleStudents.map((s) => {
+                      const picked = studentIds.includes(s.id);
+                      const full = !picked && studentIds.length >= 4;
+                      return (
+                        <label
+                          key={s.id}
+                          className={`flex items-start gap-2.5 px-3 py-2 cursor-pointer hover:bg-slate-50 ${
+                            s.blocker || full ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={picked}
+                            disabled={!!s.blocker || full}
+                            onChange={() => toggleStudent(s.id)}
+                            className="mt-0.5 w-4 h-4 rounded accent-blue-600"
+                          />
+                          <span className="min-w-0">
+                            <span className="block text-sm text-slate-800 truncate">
+                              {s.full_name || s.email || 'Unnamed'}
+                            </span>
+                            {s.blocker && (
+                              <span className="block text-[11px] text-amber-700 flex items-center gap-1">
+                                <PhoneOff className="w-3 h-3" /> no phone — cannot be booked
+                              </span>
+                            )}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-1.5 text-[11px] text-slate-400">
+                    {studentIds.length === 0
+                      ? 'Pick one child, or up to four to share the class.'
+                      : `${studentIds.length} of 4 selected.`}
+                  </p>
                 </div>
 
                 {/* ── Teacher ── */}

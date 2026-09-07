@@ -74,7 +74,20 @@ export async function POST(req: NextRequest) {
   if (!booking) return NextResponse.json({ ok: false, error: 'no_such_class' }, { status: 404 });
 
   const isTeacher = booking.teacher_id === userId;
-  const isStudent = booking.trial_student_id === userId;
+  let isStudent = booking.trial_student_id === userId;
+  if (!isTeacher && !isStudent) {
+    // A second or third child in the class is just as entitled to say how it
+    // went as the first one, and only the join table knows they were there.
+    try {
+      const { data } = await admin
+        .from('trial_participants')
+        .select('id')
+        .eq('booking_id', booking.id)
+        .eq('student_id', userId)
+        .maybeSingle();
+      isStudent = !!data;
+    } catch { /* table not created yet */ }
+  }
   if (!isTeacher && !isStudent) {
     return NextResponse.json({ ok: false, error: 'not_your_class' }, { status: 403 });
   }
@@ -102,6 +115,17 @@ export async function POST(req: NextRequest) {
 
   // A parent writes about themselves; a teacher must name the child.
   const subject = role === 'student' ? userId : (body.subjectStudentId ?? booking.trial_student_id ?? null);
+  if (role === 'teacher' && subject) {
+    /* The named child has to actually be in the class. Without this a teacher
+       could write up — and be paid for — a child who was never there. */
+    const roster = await trialRoster(admin, booking);
+    if (roster.length > 0 && !roster.some((r) => r.id === subject)) {
+      return NextResponse.json(
+        { ok: false, error: 'not_in_class', message: 'That student was not in this class.' },
+        { status: 409 }
+      );
+    }
+  }
   if (role === 'teacher' && !subject) {
     return NextResponse.json({ ok: false, error: 'missing_subject' }, { status: 400 });
   }
@@ -169,10 +193,28 @@ type Booking = {
   slot_start: string;
 };
 
-/** Every child expected in this trial, named, so the gate can list who is left. */
+/**
+ * Every child expected in this trial, named, so the gate can list who is left.
+ *
+ * trial_participants is the truth when it has rows; bookings.trial_student_id
+ * is the fallback. A trial booked before that table existed has only the
+ * column, and scripts/trial-participants.sql backfills it — but a route that
+ * only reads the table would withhold pay for those until somebody ran the
+ * migration, which is the wrong way for this to fail.
+ */
 async function trialRoster(admin: Admin, booking: Booking): Promise<{ id: string; name: string }[]> {
-  const ids = [booking.trial_student_id].filter((v): v is string => !!v);
+  let ids: string[] = [];
+  try {
+    const { data } = await admin
+      .from('trial_participants')
+      .select('student_id')
+      .eq('booking_id', booking.id);
+    ids = (data ?? []).map((r) => r.student_id as string);
+  } catch { /* table not created yet — fall back below */ }
+
+  if (ids.length === 0 && booking.trial_student_id) ids = [booking.trial_student_id];
   if (ids.length === 0) return [];
+
   const { data } = await admin.from('profiles').select('id, full_name, email').in('id', ids);
   return (data ?? []).map((p) => ({
     id: p.id as string,

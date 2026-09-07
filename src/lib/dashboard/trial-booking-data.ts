@@ -251,7 +251,8 @@ function localMinutesToIso(localDate: string, minutes: number, timeZone: string)
 }
 
 export async function bookTrial(params: {
-  studentId: string;
+  /** Every child in the class. One is the common case, four is the cap. */
+  studentIds: string[];
   teacherId: string;
   slotStart: string;
   durationMinutes?: number;

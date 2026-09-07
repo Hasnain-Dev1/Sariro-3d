@@ -34,7 +34,10 @@ import { localWeekdayMinutes, slotIsFree } from '@/lib/scheduling/availability';
 export const runtime = 'nodejs';
 
 interface Body {
+  /** The first child. Kept for callers that book one. */
   studentId?: string;
+  /** Every child in the class, when there is more than one. */
+  studentIds?: string[];
   teacherId?: string;
   /** ISO instant. */
   slotStart?: string;
@@ -84,8 +87,23 @@ export async function POST(req: NextRequest) {
   try { body = await req.json(); } catch {
     return NextResponse.json({ ok: false, error: 'invalid_json' }, { status: 400 });
   }
-  if (!body.studentId || !body.teacherId || !body.slotStart) {
+  /* One child or several. A trial with three children is ONE class — one slot
+     in the diary, one attendance, one fee — so they arrive together rather
+     than as three bookings. */
+  const studentIds = [...new Set(
+    (body.studentIds && body.studentIds.length ? body.studentIds : [body.studentId])
+      .filter((v): v is string => !!v)
+  )];
+  if (studentIds.length === 0 || !body.teacherId || !body.slotStart) {
     return NextResponse.json({ ok: false, error: 'missing_params' }, { status: 400 });
+  }
+  if (studentIds.length > 4) {
+    // The same cap as a paid class. A trial is a sample of the real thing, and
+    // five children in it is not a sample of a class capped at four.
+    return NextResponse.json(
+      { ok: false, error: 'too_many', message: 'A trial holds at most four children.' },
+      { status: 400 }
+    );
   }
 
   const startMs = Date.parse(body.slotStart);
@@ -101,26 +119,30 @@ export async function POST(req: NextRequest) {
   const duration = Math.max(15, Math.min(180, Math.round(body.durationMinutes ?? DEFAULT_DURATION)));
   const endIso = new Date(startMs + duration * 60_000).toISOString();
 
-  // ── 2. Can we contact the student? ────────────────────────────────────────
-  const { data: student } = await admin
+  // ── 2. Can we contact EVERY child in the class? ───────────────────────────
+  const { data: students } = await admin
     .from('profiles')
     .select('id, full_name, email, phone')
-    .eq('id', body.studentId)
-    .maybeSingle();
-  if (!student) return NextResponse.json({ ok: false, error: 'no_such_student' }, { status: 404 });
+    .in('id', studentIds);
+  if (!students || students.length !== studentIds.length) {
+    return NextResponse.json({ ok: false, error: 'no_such_student' }, { status: 404 });
+  }
 
-  const contact = canAssignCourse(student);
-  if (!contact.ok) {
-    /* The founder's rule, said in the words the person booking needs: not
-       "validation failed" but "add a number first, and here is why". */
-    return NextResponse.json(
-      {
-        ok: false,
-        error: 'no_phone',
-        message: `${contact.message} A trial costs a teacher half an hour — we need to be able to reach them.`,
-      },
-      { status: 409 }
-    );
+  /* Every one of them, not just the first. One unreachable family in a class
+     of three is still a seat held and a teacher's hour committed with nobody
+     to ring about it. */
+  for (const st of students) {
+    const contact = canAssignCourse(st);
+    if (!contact.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'no_phone',
+          message: `${contact.message} A trial costs a teacher half an hour — we need to be able to reach them.`,
+        },
+        { status: 409 }
+      );
+    }
   }
 
   // ── 3. Has the teacher offered this slot, and are they free in it? ────────
@@ -210,7 +232,9 @@ export async function POST(req: NextRequest) {
     .from('bookings')
     .insert({
       teacher_id: body.teacherId,
-      trial_student_id: body.studentId,
+      // The first child, so everything that already reads this column keeps
+      // working. trial_participants below is the full roster.
+      trial_student_id: studentIds[0],
       demo_request_id: body.demoRequestId ?? null,
       booked_by: actorId,
       is_trial: true,
@@ -231,22 +255,37 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Best-effort: tell the student it exists.
-  await admin.from('notifications').insert({
-    user_id: body.studentId,
-    type: 'trial_booked',
-    title: 'Your free class is booked',
-    message: `You have a trial class with ${teacher.full_name ?? 'a Sariro mentor'}. Check your dashboard for the time and the link.`,
-    link: '/dashboard/student',
-  }).then(() => {}, () => {});
+  /* The full roster. Written after the booking so a failure here leaves a
+     one-child trial rather than an orphaned participants row — and the
+     feedback route falls back to trial_student_id, so that trial still works
+     end to end. */
+  try {
+    await admin.from('trial_participants').insert(
+      studentIds.map((id) => ({ booking_id: booking?.id, student_id: id, added_by: actorId }))
+    );
+  } catch (err) {
+    console.warn('[trial] participants insert failed:', err);
+  }
+
+  // Best-effort: tell each of them it exists.
+  await admin.from('notifications').insert(
+    studentIds.map((id) => ({
+      user_id: id,
+      type: 'trial_booked',
+      title: 'Your free class is booked',
+      message: `You have a trial class with ${teacher.full_name ?? 'a Sariro mentor'}. Check your dashboard for the time and the link.`,
+      link: '/dashboard/student',
+    }))
+  ).then(() => {}, () => {});
 
   await recordAdminAction(admin, {
     adminId: actorId,
     action: 'trial_booked',
     targetType: 'user',
-    targetId: body.studentId,
+    targetId: studentIds[0],
     metadata: {
       booking_id: booking?.id ?? null,
+      student_ids: studentIds,
       teacher_id: body.teacherId,
       slot_start: body.slotStart,
       duration_minutes: duration,
