@@ -8,7 +8,7 @@ import {
   Menu, X, LayoutDashboard, BookOpen, Calendar, Settings,
   LogOut, ChevronRight, Bell, Home as HomeIcon, GraduationCap,
   Users, ShieldCheck, DollarSign, ScrollText, ArrowLeft, Sparkles,
-  Loader2, AlertTriangle, Trophy, LifeBuoy, HelpCircle, MessageSquare,
+  Loader2, AlertTriangle, Trophy, LifeBuoy, HelpCircle, MessageSquare, Mic,
 } from 'lucide-react';
 import { useAuth, getRole, type UserRole } from '@/components/auth/auth-provider';
 import { BRAND } from '@/lib/sariro-data';
@@ -45,6 +45,10 @@ const STUDENT_NAV: NavItem[] = [
   { href: '/dashboard/student', label: 'Home', icon: LayoutDashboard },
   MESSAGES_NAV,
   { href: '/dashboard/student/lessons', label: 'My Lessons', icon: BookOpen },
+  /* A live class happens once a week. This is the other six days — speaking,
+     listening and writing, all running on the device with nothing to wait for
+     and no cost per attempt. */
+  { href: '/dashboard/student/practice', label: 'Practice Room', icon: Mic },
   { href: '/dashboard/student/leaderboard', label: 'Leaderboard', icon: Trophy },
   { href: '/dashboard/student/support', label: 'Support', icon: LifeBuoy },
   { href: '/courses', label: 'Browse Courses', icon: BookOpen },

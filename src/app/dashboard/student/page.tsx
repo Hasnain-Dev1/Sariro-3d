@@ -40,6 +40,7 @@ import {
 } from '@/lib/dashboard/credits-data';
 import { useRealtime } from '@/lib/dashboard/use-realtime';
 import TrialJourney, { type TrialClass } from '@/components/dashboard/trial-journey';
+import TrialCard from '@/components/dashboard/trial-card';
 
 /* ───── Types ───── */
 interface Enrollment {
@@ -1256,6 +1257,14 @@ function StudentDashboardInner() {
           </div>
           <DesktopClock />
         </motion.div>
+
+        {/* A booked trial, for somebody who already has classes. TrialJourney
+            takes the whole page for a student with nothing else on their
+            account; replacing a real dashboard would hide their actual
+            classes behind a trial for a second course. Without this, a booked
+            trial was invisible to anybody already enrolled — the class
+            existed, the teacher expected them, and nothing said so. */}
+        {trial && <TrialCard trial={trial} timezone={profile?.timezone ?? null} />}
 
         {/* Live class-status popup (teacher late / no-show) */}
         <TeacherLatePopup />
