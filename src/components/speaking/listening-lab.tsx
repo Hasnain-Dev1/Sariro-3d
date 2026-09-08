@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Ear, Play, Square, RotateCcw, Keyboard, Mic } from 'lucide-react';
 import { analyseListening, type ListeningReport } from '@/lib/speaking/listening';
+import { diagnoseMic, micMessage } from '@/lib/speaking/mic';
+import { logAttempt } from '@/lib/speaking/practice-log';
+import { listeningMetrics } from '@/lib/speaking/progress';
 
 /**
  * SARIRO — a listening drill that runs on the device
@@ -50,7 +53,13 @@ const PASSAGES = [
   'The experiment failed twice before anybody thought to check whether the thermometer itself was working.',
 ];
 
-export default function ListeningLab({ passage }: { passage?: string }) {
+export default function ListeningLab({
+  passage,
+  onLogged,
+}: {
+  passage?: string;
+  onLogged?: () => void;
+}) {
   const [index, setIndex] = useState(0);
   const source = passage ?? PASSAGES[index];
 
@@ -62,13 +71,15 @@ export default function ListeningLab({ passage }: { passage?: string }) {
   const [response, setResponse] = useState('');
   const [listening, setListening] = useState(false);
   const [report, setReport] = useState<ListeningReport | null>(null);
-  const [micSupported, setMicSupported] = useState(false);
+  /* Not a boolean. "Say it" being greyed out with no explanation is the same
+     dead-end the speaking lab had: on http:// the browser will never raise a
+     microphone prompt, and the reason has to be sayable. */
+  const [micBlocker, setMicBlocker] = useState<string | null>(null);
 
   const recRef = useRef<RecognitionLike | null>(null);
 
   useEffect(() => {
-    const w = window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown };
-    setMicSupported(!!(w.SpeechRecognition || w.webkitSpeechRecognition));
+    setMicBlocker(diagnoseMic());
     return () => {
       try { window.speechSynthesis?.cancel(); } catch { /* nothing playing */ }
       try { recRef.current?.stop(); } catch { /* not started */ }
@@ -122,7 +133,17 @@ export default function ListeningLab({ passage }: { passage?: string }) {
     try { rec.start(); } catch { setListening(false); }
   };
 
-  const check = () => setReport(analyseListening({ source, response, mode }));
+  const check = () => {
+    const result = analyseListening({ source, response, mode });
+    setReport(result);
+    // See speaking-lab: never awaited, never allowed to block the result.
+    void logAttempt({
+      kind: 'listening',
+      drillId: passage ? 'lesson' : `passage-${index}`,
+      score: result.score,
+      metrics: listeningMetrics(result),
+    }).then((ok) => { if (ok) onLogged?.(); });
+  };
 
   const reset = () => {
     stopPlaying();
@@ -205,8 +226,8 @@ export default function ListeningLab({ passage }: { passage?: string }) {
         </button>
         <button
           onClick={() => setMode('spoken')}
-          disabled={!micSupported}
-          title={micSupported ? undefined : 'Your browser has no speech recognition — typing works just as well.'}
+          disabled={!!micBlocker}
+          title={micBlocker ? micMessage(micBlocker as 'insecure' | 'no-recognition').title : undefined}
           className={`h-9 px-3 rounded-lg text-xs font-bold border-2 flex items-center gap-1.5 disabled:opacity-40 ${
             mode === 'spoken' ? 'border-cyan-500 bg-cyan-50 text-cyan-700' : 'border-slate-200 text-slate-500'
           }`}
@@ -215,6 +236,12 @@ export default function ListeningLab({ passage }: { passage?: string }) {
           <Mic className="w-3.5 h-3.5" /> Say it
         </button>
       </div>
+
+      {micBlocker && (
+        <p className="mt-2 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 leading-relaxed">
+          {micMessage(micBlocker as 'insecure' | 'no-recognition').title} Typing it back works just as well.
+        </p>
+      )}
 
       {mode === 'spoken' ? (
         <div className="mt-3">

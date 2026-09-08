@@ -79,8 +79,25 @@ export interface Drill {
   targetSeconds?: number;
 }
 
-export default function SpeakingLab({ drill }: { drill: Drill }) {
-  const [supported, setSupported] = useState<boolean | null>(null);
+import { diagnoseMic, micMessage, micErrorMessage, type MicBlocker } from '@/lib/speaking/mic';
+import { logAttempt } from '@/lib/speaking/practice-log';
+import { speakingMetrics } from '@/lib/speaking/progress';
+
+export default function SpeakingLab({
+  drill,
+  onLogged,
+}: {
+  drill: Drill;
+  /** Fired once a row is actually written, so a progress panel can refresh. */
+  onLogged?: () => void;
+}) {
+  /* null while unknown, '' when everything is present, otherwise the reason.
+     A boolean here was the bug: "this browser cannot listen" was shown for
+     three completely different causes, and the commonest one — an http:// page,
+     where the browser silently removes navigator.mediaDevices entirely — is
+     the one the message did not fit at all. Nobody could tell why the
+     microphone prompt never appeared, because it never had a chance to. */
+  const [blocker, setBlocker] = useState<MicBlocker | null>(null);
   const [state, setState] = useState<'idle' | 'recording' | 'done'>('idle');
   const [elapsed, setElapsed] = useState(0);
   const [transcript, setTranscript] = useState('');
@@ -100,7 +117,7 @@ export default function SpeakingLab({ drill }: { drill: Drill }) {
   const recording = useRef(false);
 
   useEffect(() => {
-    setSupported(!!recognitionCtor() && typeof navigator !== 'undefined' && !!navigator.mediaDevices);
+    setBlocker(diagnoseMic());
   }, []);
 
   /** Everything the recording holds open, released in one place. */
@@ -133,8 +150,21 @@ export default function SpeakingLab({ drill }: { drill: Drill }) {
       frameMs: FRAME_MS,
       reference: drill.passage,
     };
-    setReport(analyseSpeech(sample));
-  }, [teardown, drill.passage]);
+    const result = analyseSpeech(sample);
+    setReport(result);
+
+    /* Logged after the report is on screen, and deliberately not awaited. The
+       child has finished speaking and wants their result; a slow network must
+       not sit between them and it. A failed write loses one row, which is the
+       right thing to lose. */
+    void logAttempt({
+      kind: 'speaking',
+      drillId: drill.id,
+      score: result.score,
+      durationMs,
+      metrics: speakingMetrics(result),
+    }).then((ok) => { if (ok) onLogged?.(); });
+  }, [teardown, drill.passage, drill.id, onLogged]);
 
   const start = useCallback(async () => {
     const Ctor = recognitionCtor();
@@ -149,8 +179,13 @@ export default function SpeakingLab({ drill }: { drill: Drill }) {
 
     try {
       stream.current = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
-      setError('We could not reach your microphone. Check the permission in your browser and try again.');
+    } catch (err) {
+      /* Three different refusals, and the fix is different for each. "Check
+         the permission" is unhelpful to somebody whose laptop simply has no
+         microphone, and actively wrong for somebody who has blocked us once
+         and now gets no prompt at all — the browser denies instantly and
+         silently from then on, which reads exactly like nothing happened. */
+      setError(micErrorMessage(err));
       return;
     }
 
@@ -215,18 +250,16 @@ export default function SpeakingLab({ drill }: { drill: Drill }) {
     setState('recording');
   }, []);
 
-  /* ── Unsupported browser ── */
-  if (supported === false) {
+  /* ── Something is in the way, and it is worth naming which ── */
+  if (blocker) {
+    const said = micMessage(blocker);
+
     return (
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 flex gap-2.5">
         <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
         <div className="text-[13px] text-amber-900 leading-[1.6]">
-          <p className="font-bold mb-1">This browser cannot listen yet.</p>
-          <p>
-            The Speaking Lab needs speech recognition, which works in Chrome, Edge
-            and Safari. Read the drill aloud anyway — the practice is the part that
-            matters, and you can come back here for the measurements.
-          </p>
+          <p className="font-bold mb-1">{said.title}</p>
+          <p>{said.body}</p>
         </div>
       </div>
     );
@@ -267,11 +300,11 @@ export default function SpeakingLab({ drill }: { drill: Drill }) {
             <button
               type="button"
               onClick={start}
-              disabled={supported === null}
+              disabled={blocker === null}
               className="inline-flex items-center gap-2 min-h-[46px] px-5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold disabled:bg-slate-300"
               style={{ fontFamily: 'var(--font-grotesk)' }}
             >
-              {supported === null ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
+              {blocker === null ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
               {state === 'done' ? 'Record again' : 'Start recording'}
             </button>
           )}

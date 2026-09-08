@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Sparkles, Video, Clock } from 'lucide-react';
+import { Countdown } from '@/components/dashboard/trial-journey';
 import type { TrialClass } from '@/components/dashboard/trial-journey';
 
 /**
@@ -67,6 +68,19 @@ export default function TrialCard({
           </p>
           {trial.teacher_name && (
             <p className="text-xs text-slate-600 mt-0.5">with {trial.teacher_name}</p>
+          )}
+
+          {/* The one question they have. It was on the full-page version for a
+              student with nothing else booked, and missing here — so a child
+              who already had classes got a date and no sense of how close it
+              was. Same component, same maths, so the two cannot disagree. */}
+          {!joinable && now !== null && (
+            <div className="mt-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                Starts in
+              </p>
+              <Countdown iso={trial.slot_start} now={now} />
+            </div>
           )}
         </div>
 

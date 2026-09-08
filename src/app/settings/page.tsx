@@ -7,6 +7,7 @@ import { useAuth } from '@/components/auth/auth-provider';
 import { createClient } from '@/lib/supabase/client';
 import { TRACKS } from '@/lib/sariro-data';
 import AvailabilityEditor from '@/components/dashboard/availability-editor';
+import TeacherRoomEditor from '@/components/dashboard/teacher-room-editor';
 
 function SettingsInner() {
   const { user, profile, refreshProfile } = useAuth();
@@ -228,7 +229,14 @@ function SettingsInner() {
 
           {/* §5. Teachers only — a student has no hours to offer, and showing
               an empty scheduling card to a parent is noise. */}
-          {(profile?.role === 'teacher' || profile?.is_teacher) && <AvailabilityEditor />}
+          {(profile?.role === 'teacher' || profile?.is_teacher) && (
+            <>
+              {/* Above the hours on purpose. Offering a slot nobody can walk
+                  into is the more expensive of the two things to get wrong. */}
+              <TeacherRoomEditor />
+              <AvailabilityEditor />
+            </>
+          )}
 
           {/* Save button */}
           <div className="flex items-center gap-3 pt-2">

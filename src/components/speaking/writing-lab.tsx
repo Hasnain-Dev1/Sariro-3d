@@ -3,6 +3,8 @@
 import { useMemo, useState } from 'react';
 import { PenLine, RotateCcw, Sparkles } from 'lucide-react';
 import { analyseWriting } from '@/lib/speaking/writing';
+import { logAttempt } from '@/lib/speaking/practice-log';
+import { writingMetrics } from '@/lib/speaking/progress';
 
 /**
  * SARIRO — a writing coach that costs nothing to run
@@ -35,11 +37,14 @@ const PROMPTS = [
 export default function WritingLab({
   prompt,
   minWords = 60,
+  onLogged,
 }: {
   prompt?: string;
   minWords?: number;
+  onLogged?: () => void;
 }) {
   const [text, setText] = useState('');
+  const [saved, setSaved] = useState(false);
   const [promptIndex, setPromptIndex] = useState(0);
   const task = prompt ?? PROMPTS[promptIndex];
 
@@ -74,7 +79,7 @@ export default function WritingLab({
 
       <textarea
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => { setText(e.target.value); setSaved(false); }}
         rows={9}
         placeholder="Start writing. Nothing is sent anywhere — this runs on your own device."
         className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm leading-relaxed resize-y focus:outline-none focus:ring-2 focus:ring-violet-500/40"
@@ -128,6 +133,25 @@ export default function WritingLab({
               ))}
             </div>
           )}
+
+          {/* Writing re-analyses on every keystroke, so there is no single
+              moment to log. The writer says when a draft is finished — which
+              also stops a half-typed sentence being recorded as their work. */}
+          <button
+            onClick={async () => {
+              const ok = await logAttempt({
+                kind: 'writing', drillId: prompt ? 'lesson' : `prompt-${promptIndex}`,
+                score: report.score, metrics: writingMetrics(report),
+              });
+              setSaved(true);
+              if (ok) onLogged?.();
+            }}
+            disabled={saved}
+            className="mt-4 w-full h-11 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold disabled:opacity-50"
+            style={{ fontFamily: 'var(--font-grotesk)' }}
+          >
+            {saved ? 'Saved to your progress' : 'Save this draft to my progress'}
+          </button>
 
           <p className="mt-4 text-[11px] text-slate-400 flex items-center gap-1.5">
             <Sparkles className="w-3 h-3" />

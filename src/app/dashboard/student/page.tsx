@@ -8,7 +8,7 @@ import {
   BookOpen, Clock, Calendar, ArrowRight, Sparkles, Rocket,
   TrendingUp, Video, Loader2, AlertCircle, ChevronRight,
   ChevronDown, ChevronUp, CheckCircle2, Circle, Download, FolderOpen,
-  Trash2, X, Award, Users, CalendarPlus, Coins, History,
+  Trash2, X, Award, Users, CalendarPlus, Coins, History, Mic,
 } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import { DesktopClock } from '@/components/dashboard/desktop-clock';
@@ -41,6 +41,8 @@ import {
 import { useRealtime } from '@/lib/dashboard/use-realtime';
 import TrialJourney, { type TrialClass } from '@/components/dashboard/trial-journey';
 import TrialCard from '@/components/dashboard/trial-card';
+import PracticeProgress from '@/components/speaking/practice-progress';
+import { canPractise } from '@/lib/speaking/access';
 
 /* ───── Types ───── */
 interface Enrollment {
@@ -992,6 +994,15 @@ function StudentDashboardInner() {
      showing. Loaded separately because it is not an enrolment and must not be
      mistaken for one. */
   const [trial, setTrial] = useState<TrialClass | null>(null);
+  /* Whether the trial question has been ANSWERED, which is not the same as
+     whether there is a trial. The page a student with no enrolment sees is
+     decided by `trial`, and for months that decision was being taken while the
+     query was still in flight: the trial lookup is two round trips (the
+     participants row, then the booking) and the enrolments query is one, so
+     `loading` went false first, every single time. A child with a trial booked
+     was shown "We're still waiting for you" — the exact page that means the
+     opposite of what was true. */
+  const [trialLoaded, setTrialLoaded] = useState(false);
   const [bookings, setBookings] = useState<Booking[]>([]);
   // Capstone system: past bookings for "Class Notes & Projects" section
   const [pastBookings, setPastBookings] = useState<Booking[]>([]);
@@ -1023,6 +1034,7 @@ function StudentDashboardInner() {
     if (!user) return;
     cancelledRef.current = false;
     setLoading(true);
+    setTrialLoaded(false);
     setError(null);
     try {
       // 1. Enrollments + credits fire together — credits don't depend on
@@ -1050,7 +1062,7 @@ function StudentDashboardInner() {
 
           let q = sb
             .from('bookings')
-            .select('id, slot_start, slot_end, status, google_meet_url, teacher:profiles!teacher_id(full_name)')
+            .select('id, slot_start, slot_end, status, google_meet_url, teacher:profiles!teacher_id(full_name, meet_url)')
             .eq('is_trial', true)
             .not('status', 'in', '("cancelled")');
           q = alsoIn.length
@@ -1059,7 +1071,8 @@ function StudentDashboardInner() {
           const { data } = await q.order('slot_start', { ascending: false }).limit(1);
           const row = (data ?? [])[0] as unknown as {
             id: string; slot_start: string; slot_end: string; status: string;
-            google_meet_url: string | null; teacher: { full_name: string | null } | null;
+            google_meet_url: string | null;
+            teacher: { full_name: string | null; meet_url: string | null } | null;
           } | undefined;
           setTrial(
             row
@@ -1068,7 +1081,11 @@ function StudentDashboardInner() {
                   slot_start: row.slot_start,
                   slot_end: row.slot_end,
                   status: row.status,
-                  google_meet_url: row.google_meet_url,
+                  /* Trials booked before their teacher set a room have no
+                     link of their own. Falling back to the teacher's means an
+                     already-booked child gets a join button the moment their
+                     teacher fills the field in, without anybody re-booking. */
+                  google_meet_url: row.google_meet_url ?? row.teacher?.meet_url ?? null,
                   teacher_name: row.teacher?.full_name ?? null,
                 }
               : null
@@ -1077,6 +1094,9 @@ function StudentDashboardInner() {
           // The trial columns arrive with scripts/trial-booking.sql. Until then
           // this is simply a student with no trial, which is the safe reading.
           setTrial(null);
+        } finally {
+          // Answered either way. Nothing downstream may branch before this.
+          if (!cancelledRef.current) setTrialLoaded(true);
         }
       })();
 
@@ -1221,6 +1241,17 @@ function StudentDashboardInner() {
      student with no enrolment gets their own page rather than the dashboard
      with everything on it empty. */
   if (!loading && !error && enrollments.length === 0) {
+    /* The trial lookup outlives `loading`, and this branch is decided by its
+       answer. Waiting the extra fraction of a second is the difference between
+       a booked child seeing their countdown and being told nobody is expecting
+       them. */
+    if (!trialLoaded) {
+      return (
+        <section className="relative min-h-[70vh] flex items-center justify-center px-4">
+          <Loader2 className="w-6 h-6 text-slate-300 animate-spin" aria-label="Loading" />
+        </section>
+      );
+    }
     /* §8. Somebody with a trial booked has something to say — when it starts,
        how to join, and afterwards how it went. "We're still waiting for you"
        is for the person who has neither an enrolment nor a class. */
@@ -1366,6 +1397,32 @@ function StudentDashboardInner() {
 
             {/* Class Notes & Projects (Capstone system — links to submission page) */}
             <ClassNotesSection pastBookings={pastBookings} cohorts={cohorts} timezone={userTimezone} />
+
+            {/* What they did on the six days there was no class. A dashboard
+                that only counts attendance can only ever say "8 classes"; this
+                is the half of the story that belongs to the child.
+
+                Public Speaking only. A child learning Python has no use for a
+                filler-word chart, and the sidebar row plus the locked page
+                already carry the offer to everybody else — putting the pitch
+                on their home screen as well is nagging, not marketing. */}
+            {canPractise(enrollments) && (
+            <div>
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2" style={{ fontFamily: 'var(--font-jakarta)' }}>
+                  <Mic className="w-5 h-5 text-blue-600" /> Practice
+                </h2>
+                <Link
+                  href="/dashboard/student/practice"
+                  className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                  style={{ fontFamily: 'var(--font-grotesk)' }}
+                >
+                  Practice room <ArrowRight className="w-3 h-3" />
+                </Link>
+              </div>
+              <PracticeProgress />
+            </div>
+            )}
 
             {/* §56-57 — points earned by turning up, spent on cosmetics.
                 Below the work, above the browsing: it is a reason to come back,

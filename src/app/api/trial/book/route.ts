@@ -148,7 +148,7 @@ export async function POST(req: NextRequest) {
   // ── 3. Has the teacher offered this slot, and are they free in it? ────────
   const { data: teacher } = await admin
     .from('profiles')
-    .select('id, full_name, timezone')
+    .select('id, full_name, timezone, meet_url')
     .eq('id', body.teacherId)
     .maybeSingle();
   if (!teacher) return NextResponse.json({ ok: false, error: 'no_such_teacher' }, { status: 404 });
@@ -242,7 +242,11 @@ export async function POST(req: NextRequest) {
       slot_start: body.slotStart,
       slot_end: endIso,
       status: 'scheduled',
-      google_meet_url: body.meetUrl ?? null,
+      /* A trial has no cohort, so nothing here inherits a link. Without the
+         teacher's own room this column stayed NULL and the child's dashboard
+         reached the join moment with nothing to join — which is how every
+         trial booked before today ended up with no door. */
+      google_meet_url: body.meetUrl ?? teacher.meet_url ?? null,
       lesson_name: 'Trial class',
     })
     .select('id')

@@ -37,7 +37,9 @@ import { useRealtime } from '@/lib/dashboard/use-realtime';
 import { TeacherCalendar } from '@/components/dashboard/teacher-calendar';
 import LowCreditPanel from '@/components/dashboard/low-credit-panel';
 import { attendanceDeadline, deadlineTone } from '@/lib/dashboard/attendance-deadline';
-import { Coins } from 'lucide-react';
+import { Coins, Mic } from 'lucide-react';
+import PracticeProgress from '@/components/speaking/practice-progress';
+import NoRoomBanner from '@/components/dashboard/no-room-banner';
 import CapabilityChips from '@/components/dashboard/capability-chips';
 import { teacherRating, recentRating, type ClassFeedback } from '@/lib/dashboard/class-feedback';
 import { createClient } from '@/lib/supabase/client';
@@ -563,6 +565,10 @@ function SessionDetailsModal({
   const [endingClass, setEndingClass] = useState(false);
   const [roster, setRoster] = useState<SessionStudentRow[]>([]);
   const [loading, setLoading] = useState(false);
+  /* Which students' practice history is open. Closed by default and mounted
+     only when opened, because a class of six would otherwise fire six queries
+     for a panel nobody looked at. */
+  const [practiceOpen, setPracticeOpen] = useState<Record<string, boolean>>({});
   // Per-student editable note draft (string). Kept in a map so we don't
   // mutate the roster array on every keystroke.
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
@@ -948,6 +954,29 @@ function SessionDetailsModal({
                           );
                         })}
                       </div>
+                    </div>
+
+                    {/* What they did between classes. A teacher who opens a
+                        class knowing this student has done nine speaking reps
+                        this week teaches a different class. */}
+                    <div className="mb-3">
+                      <button
+                        onClick={() => setPracticeOpen(prev => ({ ...prev, [student.user_id]: !prev[student.user_id] }))}
+                        className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-600 hover:text-slate-900"
+                        style={{ fontFamily: 'var(--font-grotesk)' }}
+                      >
+                        <Mic className="w-3 h-3" />
+                        {practiceOpen[student.user_id] ? 'Hide practice' : 'Practice between classes'}
+                      </button>
+                      {practiceOpen[student.user_id] && (
+                        <div className="mt-2">
+                          <PracticeProgress
+                            userId={student.user_id}
+                            learnerName={student.student_name || 'This student'}
+                            heading="Practice between classes"
+                          />
+                        </div>
+                      )}
                     </div>
 
                     {/* Note */}
@@ -1933,6 +1962,11 @@ function TeacherDashboardInner() {
           </div>
           <DesktopClock />
         </motion.div>
+
+        {/* Above even the pay panel. A class the student cannot get into is
+            the only thing here that is already broken rather than merely
+            unpaid. Renders nothing when every class has a link. */}
+        <NoRoomBanner />
 
         {/* §10. Above everything, including the next class — because a rule
             that holds somebody's money and does not tell them is not a rule,

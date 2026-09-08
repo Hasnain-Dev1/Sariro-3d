@@ -54,7 +54,10 @@ function useNow(): number | null {
   return now;
 }
 
-function Countdown({ iso, now }: { iso: string; now: number }) {
+/** Exported so the dashboard card counts down with exactly the same maths.
+    Two countdowns disagreeing by a minute is the sort of thing a parent
+    notices and nobody can explain. */
+export function Countdown({ iso, now }: { iso: string; now: number }) {
   const ms = Date.parse(iso) - now;
   if (ms <= 0) return null;
 
