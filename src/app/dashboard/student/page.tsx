@@ -42,6 +42,7 @@ import { useRealtime } from '@/lib/dashboard/use-realtime';
 import { type TrialClass } from '@/components/dashboard/trial-journey';
 import TrialCard from '@/components/dashboard/trial-card';
 import PracticeProgress from '@/components/speaking/practice-progress';
+import ParentReportCard from '@/components/dashboard/parent-report-card';
 import { canPractise } from '@/lib/speaking/access';
 
 /* ───── Types ───── */
@@ -1293,7 +1294,12 @@ function StudentDashboardInner() {
                   Practice room <ArrowRight className="w-3 h-3" />
                 </Link>
               </div>
-              <PracticeProgress />
+              {/* The report first — it is the thing a parent reads and the
+                  thing they forward. The detail below it is for the child. */}
+              <ParentReportCard childName={displayName} />
+              <div className="mt-4">
+                <PracticeProgress />
+              </div>
             </div>
             )}
 

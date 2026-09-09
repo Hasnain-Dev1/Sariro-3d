@@ -40,6 +40,7 @@ import { attendanceDeadline, deadlineTone } from '@/lib/dashboard/attendance-dea
 import { Coins, Mic } from 'lucide-react';
 import PracticeProgress from '@/components/speaking/practice-progress';
 import NoRoomBanner from '@/components/dashboard/no-room-banner';
+import ParentReportCard from '@/components/dashboard/parent-report-card';
 import CapabilityChips from '@/components/dashboard/capability-chips';
 import { teacherRating, recentRating, type ClassFeedback } from '@/lib/dashboard/class-feedback';
 import { createClient } from '@/lib/supabase/client';
@@ -970,11 +971,20 @@ function SessionDetailsModal({
                       </button>
                       {practiceOpen[student.user_id] && (
                         <div className="mt-2">
-                          <PracticeProgress
+                          {/* The same report the parent sees. A teacher
+                              walking into a call about renewal should be
+                              looking at the same page the family is. */}
+                          <ParentReportCard
                             userId={student.user_id}
-                            learnerName={student.student_name || 'This student'}
-                            heading="Practice between classes"
+                            childName={student.student_name || 'This student'}
                           />
+                          <div className="mt-3">
+                            <PracticeProgress
+                              userId={student.user_id}
+                              learnerName={student.student_name || 'This student'}
+                              heading="Practice between classes"
+                            />
+                          </div>
                         </div>
                       )}
                     </div>
