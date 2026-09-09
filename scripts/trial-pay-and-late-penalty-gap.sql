@@ -3,6 +3,23 @@
 -- ============================================================================
 -- Run once in the Supabase SQL editor. Safe to re-run. Prints what it found.
 --
+-- ⚠️  READ THIS BEFORE EDITING THIS FILE ⚠️
+-- Five files in scripts/ define create_teacher_earning_on_complete(), each a
+-- full `create or replace`. Whichever ran LAST is the one that is live:
+--
+--     teacher-earnings-autocalc.sql        (base rates)
+--       → teacher-earnings-late-penalty.sql  (adds the late-join penalty)
+--         → teacher-pay-noshow-halfpay.sql     (adds student-no-show half pay)
+--           → teacher-pay-from-settings.sql      (rates from app_settings)
+--             → THIS FILE
+--
+-- This one is built on teacher-pay-from-settings.sql and keeps everything it
+-- does. An earlier draft of this file was built on the late-penalty version
+-- two generations back; running it would have silently deleted the editable
+-- per-tier rates AND the student-no-show half-pay rule, with no error and no
+-- visible symptom until somebody looked at a payslip. If you write the next
+-- one of these, start from whichever file is at the bottom of that list.
+--
 -- ── Hole 1: a class 39 minutes late cost nothing ────────────────────────────
 -- The payout screen tells every teacher:
 --
@@ -15,7 +32,8 @@
 -- is paid in full.
 --
 -- The first real class on this system did exactly that: scheduled 08:55,
--- teacher started 09:34, penalty ₹0, paid ₹250 in full.
+-- teacher started 09:34, penalty ₹0, paid in full. Thirty-nine minutes late
+-- and free.
 --
 -- A rule a teacher reads and then watches go unenforced teaches them which
 -- other rules to ignore. So the ceiling goes: over the grace is over the
@@ -23,26 +41,35 @@
 -- attended) is untouched and still lives in the app.
 --
 -- ── Hole 2: a trial would have been paid as a full class ────────────────────
--- A trial pays ₹100 flat, written by /api/trial/feedback once every child has
--- been written up. But this trigger fires on ANY booking reaching 'completed'
--- and knows nothing about trials: cohort_id is null, so it falls through to
--- the 1:1 branch and inserts ₹225–₹300. It fires first, so the feedback route
--- then finds a row already there and skips — and the teacher is paid two and a
--- half times the trial rate, with the flat-fee logic never running at all.
+-- A trial pays a flat fee, written by /api/trial/feedback once every child has
+-- been written up. This trigger fires on ANY booking reaching 'completed' and
+-- knows nothing about trials: cohort_id is null, so it falls through to the
+-- 1:1 branch and inserts the full rate — and it fires FIRST, so the feedback
+-- route then finds a row already there and skips. Two and a half times the
+-- trial rate, with the flat fee, the pay gate and the lead-stage move all
+-- never running.
 --
--- No trial has completed yet, so nothing has been overpaid. This closes it
--- before the first one does.
+-- Verified against live data before writing this: a trial marked completed
+-- produced a ₹300 earning row. Nothing real has been overpaid yet — no trial
+-- has completed — and this closes it before one does.
 --
 -- ── Why the trigger yields rather than learning about trials ────────────────
--- Trial pay is not just a different number. It is held until every child in
--- the class has feedback written (payGate in lib/dashboard/class-feedback.ts),
--- it moves the lead to its final stage, and its amount is configurable in
+-- Trial pay is not just a different number. It is held until every child has
+-- feedback written (payGate in lib/dashboard/class-feedback.ts), it moves the
+-- lead to its final stage, and its amount is configurable in
 -- trial_pay_settings. Teaching a Postgres trigger all of that would give us
--- two implementations of one policy, which is how they drift. The route owns
--- trials; the trigger owns everything else.
+-- two implementations of one policy, which is how they drift apart.
+-- The route owns trials; the trigger owns everything else.
 -- ============================================================================
 
 set search_path = public, extensions;
+
+-- Unchanged from teacher-pay-from-settings.sql; repeated so this file stands
+-- on its own if it is ever run against a fresh database.
+create or replace function public.setting_num(p_key text, p_default numeric)
+returns numeric language sql stable as $$
+  select coalesce((select nullif(value, '')::numeric from public.app_settings where key = p_key), p_default);
+$$;
 
 create or replace function public.create_teacher_earning_on_complete()
 returns trigger
@@ -62,14 +89,15 @@ declare
   v_penalty       numeric := 0;
   v_penalty_reason text := null;
   v_late_min      numeric;
+  v_withheld      numeric := 0;
 begin
   if new.status is distinct from 'completed' then return new; end if;
   if old.status is not distinct from 'completed' then return new; end if;
   if exists (select 1 from public.teacher_earnings where booking_id = new.id) then return new; end if;
 
-  -- A trial is paid by /api/trial/feedback: flat fee, held until every child
-  -- has been written up. Paying it here would pay the wrong amount, at the
-  -- wrong moment, and block the route that does it properly.
+  -- NEW: a trial is paid by /api/trial/feedback — flat fee, held until every
+  -- child has been written up. Paying it here pays the wrong amount, at the
+  -- wrong moment, and blocks the route that does it properly.
   if coalesce(new.is_trial, false) then return new; end if;
 
   select coalesce(teacher_tier, 3) into v_tier from public.profiles where id = new.teacher_id;
@@ -82,23 +110,39 @@ begin
   select greatest(count(*), 1) into v_student_count
   from public.enrollments e where e.cohort_id = new.cohort_id and e.status = 'active';
 
-  -- Rate matrix (same defaults as the base trigger).
+  -- Base rate from settings (falls back to original code defaults). KEPT.
   if v_is_group then
-    v_base := case v_tier when 1 then 300 when 2 then 275 else 250 end;
-    if v_student_count >= 4 then v_bonus := 25; end if;
+    v_base := public.setting_num(
+      'pay_tier' || v_tier || '_group',
+      case v_tier when 1 then 300 when 2 then 275 else 250 end);
+    if v_student_count >= 4 then v_bonus := public.setting_num('pay_group_bonus', 25); end if;
   else
-    v_base := case v_tier when 1 then 300 when 2 then 250 else 225 end;
+    v_base := public.setting_num(
+      'pay_tier' || v_tier || '_1on1',
+      case v_tier when 1 then 300 when 2 then 250 else 225 end);
   end if;
 
   -- Late join. Five minutes of grace, then ₹100 — with NO upper bound, which
-  -- is what the payout screen has always promised. See lib/dashboard/late-penalty.ts,
-  -- the TypeScript half of this same rule.
+  -- is what the payout screen has always promised. The `<= 10` that used to be
+  -- here is the change. See lib/dashboard/late-penalty.ts, the TypeScript half
+  -- of this same rule, which /api/trial/feedback uses for trials.
   if new.teacher_started_at is not null and new.slot_start is not null then
     v_late_min := round(extract(epoch from (new.teacher_started_at - new.slot_start)) / 60.0);
     if v_late_min > 5 then
       v_penalty := 100;
       v_penalty_reason := 'Late join (' || v_late_min::text || ' min)';
     end if;
+  end if;
+
+  -- 1:1 student no-show → withhold half the base (claimable via doubt session). KEPT.
+  if not v_is_group and exists (
+    select 1 from public.session_attendance a
+    where a.booking_id = new.id and a.status = 'absent'
+  ) then
+    v_withheld := round(v_base * 0.5);
+    v_penalty := v_penalty + v_withheld;
+    v_penalty_reason := coalesce(v_penalty_reason || '; ', '')
+      || 'Student no-show — half withheld (claim via doubt session)';
   end if;
 
   insert into public.teacher_earnings (
@@ -122,15 +166,40 @@ for each row
 when (new.status = 'completed')
 execute function public.create_teacher_earning_on_complete();
 
+-- ── Prove to yourself which version is live ────────────────────────────────
+-- "Success. No rows returned" is what DDL says whether or not it did what you
+-- meant. These two read the function that is ACTUALLY installed.
+do $$
+declare
+  v_src text;
+begin
+  select prosrc into v_src from pg_proc where proname = 'create_teacher_earning_on_complete';
+
+  raise notice '── which trigger is installed ─────────────────────────────';
+  if v_src is null then
+    raise notice '  NO FUNCTION FOUND — something is very wrong.';
+  else
+    raise notice '  trials skipped:        %',
+      case when v_src like '%is_trial%' then 'YES' else 'NO  ← this file did not take' end;
+    raise notice '  late penalty uncapped: %',
+      case when v_src like '%<= 10%' then 'NO  ← still capped at 10 min' else 'YES' end;
+    raise notice '  settings-driven rates: %',
+      case when v_src like '%setting_num%' then 'YES' else 'NO  ← REGRESSION, do not leave it here' end;
+    raise notice '  no-show half pay:      %',
+      case when v_src like '%half withheld%' then 'YES' else 'NO  ← REGRESSION, do not leave it here' end;
+  end if;
+end $$;
+
 -- ── What is already on the books, unpenalised ───────────────────────────────
 -- Deliberately NOT auto-corrected. Reducing a teacher's already-visible pay
--- without telling them is how you lose a teacher. It is listed so somebody can
--- have the conversation and adjust it deliberately.
+-- without telling them is how you lose a teacher. Listed so somebody can have
+-- the conversation and adjust it deliberately.
 do $$
 declare
   r record;
   v_n integer := 0;
 begin
+  raise notice '';
   raise notice '── settled classes that started late but were not charged ──';
   for r in
     select b.id,
@@ -148,8 +217,8 @@ begin
      order by b.slot_start
   loop
     v_n := v_n + 1;
-    raise notice '  %  %  % min late  paid ₹%  (%)',
-      r.id, to_char(r.slot_start, 'YYYY-MM-DD HH24:MI'), r.late_min, r.net_amount,
+    raise notice '  %  % min late  paid %  (%)',
+      to_char(r.slot_start, 'YYYY-MM-DD HH24:MI'), r.late_min, r.net_amount,
       coalesce(r.full_name, 'unknown teacher');
   end loop;
 
@@ -158,15 +227,7 @@ begin
   else
     raise notice '';
     raise notice '% class(es) above were paid in full despite a late start.', v_n;
-    raise notice 'From now on the trigger charges them. These are left alone';
-    raise notice 'on purpose — decide each one with the teacher, not silently.';
+    raise notice 'From now on the trigger charges them. These are left alone on';
+    raise notice 'purpose — decide each one with the teacher, not silently.';
   end if;
-
-  raise notice '';
-  raise notice '── trials ─────────────────────────────────────────────────';
-  raise notice 'completed trials with an earning row: %',
-    (select count(*) from public.bookings b
-       join public.teacher_earnings e on e.booking_id = b.id
-      where b.is_trial = true);
-  raise notice 'The trigger now leaves these to /api/trial/feedback.';
 end $$;
