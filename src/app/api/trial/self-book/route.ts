@@ -15,6 +15,13 @@ import { TRIAL_HOME } from '@/lib/dashboard/trial-only';
  * A parent books their own free class, from an advert, with no seller in the
  * loop. The counterpart of /api/trial/book, which is staff-only.
  *
+ * ── A name and a number, and nothing else ───────────────────────────────────
+ * Five fields for a free class is four too many on an advert. Everything else
+ * — the email, what they want to learn, how many children — is collected
+ * afterwards or by the human who rings them. An account with no email is a
+ * phone-only account, which Supabase supports natively and which is the truer
+ * identity anyway: the phone is the one they proved.
+ *
  * ── The identity rules, which are the whole risk here ───────────────────────
  * This endpoint creates accounts and hands back a sign-in link. Get that wrong
  * and it is an account-takeover machine: type somebody else's email, receive a
@@ -41,8 +48,9 @@ import { TRIAL_HOME } from '@/lib/dashboard/trial-only';
 export const runtime = 'nodejs';
 
 interface Body {
-  parentName?: string;
-  childName?: string;
+  /** One name. Whoever is filling the form decides whose it is. */
+  name?: string;
+  /** Optional, and asked for AFTER the booking rather than before it. */
   email?: string;
   phone?: string;
   teacherId?: string;
@@ -81,13 +89,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, booked: true });
   }
 
-  const parentName = (body.parentName ?? '').trim();
-  const childName = (body.childName ?? '').trim();
+  const name = (body.name ?? '').trim();
   const email = (body.email ?? '').trim().toLowerCase();
   const children = Math.max(1, Math.min(4, Math.round(body.children ?? 1)));
 
-  if (!parentName || !childName) return bad('missing_name', 'We need both names so the teacher knows who to expect.');
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return bad('bad_email', 'That email does not look right.');
+  if (name.length < 2) return bad('missing_name', 'We need a name so the teacher knows who to expect.');
+  // Email is optional on purpose — see the note above about the form. When it
+  // IS given it still has to be an email.
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return bad('bad_email', 'That email does not look right.');
   if (!body.teacherId || !body.slotStart) return bad('missing_slot', 'Choose a time for the class.');
 
   const startMs = Date.parse(body.slotStart);
@@ -194,7 +203,7 @@ export async function POST(req: NextRequest) {
   // ── Who is this? See the identity rules at the top. ───────────────────────
   const byPhone = await admin
     .from('profiles').select('id, email').eq('phone', phone).limit(1).maybeSingle();
-  const byEmail = byPhone.data
+  const byEmail = byPhone.data || !email
     ? { data: null }
     : await admin.from('profiles').select('id').eq('email', email).limit(1).maybeSingle();
 
@@ -211,11 +220,18 @@ export async function POST(req: NextRequest) {
     studentId = (byEmail.data as { id: string }).id;
     mayAutoSignIn = false;
   } else {
-    const { data: created, error: createErr } = await admin.auth.admin.createUser({
-      email,
-      email_confirm: true,
-      user_metadata: { full_name: childName },
-    });
+    /* A phone-only account when no email was given.
+       ──────────────────────────────────────────────────────────────────────
+       The form asks for a name and a number and nothing else, so most people
+       arriving here have no email on file. Supabase takes a phone as the
+       identity on its own, and the phone is the better identity anyway: it is
+       the one they proved, and the one anybody would use to chase a child who
+       does not appear. */
+    const { data: created, error: createErr } = await admin.auth.admin.createUser(
+      email
+        ? { email, email_confirm: true, phone, phone_confirm: true, user_metadata: { full_name: name } }
+        : { phone, phone_confirm: true, user_metadata: { full_name: name } }
+    );
     if (createErr || !created?.user) {
       console.warn('[self-book] createUser failed:', createErr?.message);
       return bad('account_failed', 'We could not set up your account. Please try again.', 500);
@@ -228,8 +244,8 @@ export async function POST(req: NextRequest) {
        anybody can chase a child who does not appear. */
     await admin.from('profiles').upsert({
       id: studentId,
-      email,
-      full_name: childName,
+      email: email || null,
+      full_name: name,
       phone,
       phone_verified: true,
       role: 'student',
@@ -277,9 +293,9 @@ export async function POST(req: NextRequest) {
   /* A lead, so a human knows this happened and can follow it up. Best-effort:
      the class is booked either way, and a failure here must not lose it. */
   await admin.from('student_leads').insert({
-    student_name: childName,
-    parent_name: parentName,
-    email,
+    student_name: name,
+    parent_name: name,
+    email: email || null,
     phone: phone.replace(/^\+91/, ''),
     phone_country_code: 'IN',
     lead_type: 'student',
@@ -300,7 +316,7 @@ export async function POST(req: NextRequest) {
      advert and every extra step loses people. Only ever when the phone proved
      them; otherwise they are told to sign in, which is the safe answer. */
   let signInUrl: string | null = null;
-  if (mayAutoSignIn) {
+  if (mayAutoSignIn && email) {
     try {
       const origin = new URL(req.url).origin;
       const { data: link } = await admin.auth.admin.generateLink({

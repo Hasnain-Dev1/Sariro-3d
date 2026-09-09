@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Loader2, AlertCircle, CheckCircle2, ArrowRight, ArrowLeft, Phone, Users, CalendarCheck,
+  Loader2, AlertCircle, CheckCircle2, ArrowRight, ArrowLeft, Phone, CalendarCheck,
 } from 'lucide-react';
 import { HoneypotField } from '@/components/security/honeypot';
 import { groupByDay, slotLabel, type PublicSlot } from '@/lib/trial/public-slots';
@@ -17,11 +17,12 @@ import { groupByDay, slotLabel, type PublicSlot } from '@/lib/trial/public-slots
  *
  * This is the same booking without the call.
  *
- * ── Three steps, and the order matters ──────────────────────────────────────
- * Details, then a time, then done. The time comes SECOND on purpose: the slot
- * list depends on how many children are coming, and a parent who picks 5pm and
- * is then told their two children do not fit has been made to do the work
- * twice. Asking first costs one screen and never wastes their choice.
+ * ── Two fields ──────────────────────────────────────────────────────────────
+ * A name and a number, and that is the whole form. Everything else is
+ * collected later: the email is offered on the confirmation screen once the
+ * class is already booked, and anything else the seller asks when they ring.
+ * Each field on an advert landing page costs people, and none of the ones
+ * removed were needed to put a class in the diary.
  *
  * ── Why the phone is verified before a time is even shown ───────────────────
  * A trial costs a teacher half an hour. An account nobody can ring is an
@@ -54,11 +55,11 @@ export default function SelfServeBooking() {
   const [tz, setTz] = useState('Asia/Kolkata');
   useEffect(() => { setTz(localZone()); }, []);
 
-  const [childName, setChildName] = useState('');
-  const [parentName, setParentName] = useState('');
+  const [name, setName] = useState('');
+  /* Asked AFTER the class is booked, not before. See the confirmation step. */
   const [email, setEmail] = useState('');
-  const [interest, setInterest] = useState('');
-  const [children, setChildren] = useState(1);
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [emailDone, setEmailDone] = useState<string | null>(null);
 
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
@@ -73,11 +74,7 @@ export default function SelfServeBooking() {
   const [error, setError] = useState<string | null>(null);
   const [booked, setBooked] = useState<Booked | null>(null);
 
-  const detailsReady =
-    childName.trim().length > 1 &&
-    parentName.trim().length > 1 &&
-    /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim()) &&
-    phoneVerified;
+  const detailsReady = name.trim().length > 1 && phoneVerified;
 
   /* ── The phone, proved ─────────────────────────────────────────────────── */
   const sendCode = async () => {
@@ -125,7 +122,7 @@ export default function SelfServeBooking() {
   const goToTimes = async () => {
     if (!detailsReady) { setError('Fill in the details above first.'); return; }
     setStep('time');
-    await loadSlots(children);
+    await loadSlots(1);
   };
 
   const days = useMemo(() => (slots ? groupByDay(slots, tz) : []), [slots, tz]);
@@ -138,8 +135,7 @@ export default function SelfServeBooking() {
       const r = await fetch('/api/trial/self-book', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          parentName, childName, email, phone, interest,
-          children, timezone: tz,
+          name, phone, timezone: tz,
           teacherId: chosen.teacherId, slotStart: chosen.iso,
         }),
       });
@@ -148,7 +144,7 @@ export default function SelfServeBooking() {
         setError(j?.message ?? 'We could not complete that booking. Please try again.');
         // Somebody took the seat while they were deciding. Refresh rather than
         // leave them staring at a time that no longer exists.
-        if (j?.error === 'slot_full' || j?.error === 'slot_gone') await loadSlots(children);
+        if (j?.error === 'slot_full' || j?.error === 'slot_gone') await loadSlots(1);
         return;
       }
       setBooked({
@@ -159,6 +155,24 @@ export default function SelfServeBooking() {
     } catch {
       setError('Could not reach us just now. Your class is not booked — please try again.');
     } finally { setBusy(false); }
+  };
+
+  /* ── The email, afterwards ─────────────────────────────────────────────── */
+  const addEmail = async () => {
+    setEmailBusy(true); setError(null);
+    try {
+      const r = await fetch('/api/trial/add-email', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, email: email.trim() }),
+      });
+      const j = await r.json().catch(() => null);
+      if (!r.ok || !j?.ok) { setError(j?.message ?? 'We could not save that.'); return; }
+      // The class is booked either way; this only decides whether they can
+      // walk straight into it.
+      setEmailDone(j.signInUrl ?? '/auth/sign-in?next=/my-class');
+    } catch {
+      setError('Could not reach us just now. Try again in a moment.');
+    } finally { setEmailBusy(false); }
   };
 
   /* ══ Done ═══════════════════════════════════════════════════════════════ */
@@ -182,6 +196,50 @@ export default function SelfServeBooking() {
         <p className="mt-1 text-sm text-slate-600">
           Thirty minutes, nothing to pay, and no card anywhere.
         </p>
+
+        {/* "Later we can collect more information." This is later.
+            A phone-only account has no way back in — there is no phone sign-in
+            on this site — so without an email the parent can never reopen
+            their own class page. Offered here, after the booking is safe, as
+            something they can skip. */}
+        {!booked.signInUrl && !booked.existingAccount && (
+          <div className="mt-6 text-left rounded-xl border border-green-200 bg-white p-4">
+            {emailDone ? (
+              <a href={emailDone} className="btn-tactile btn-tactile-primary w-full px-6 py-3 text-sm inline-flex items-center justify-center gap-2">
+                Go to your class page <ArrowRight className="w-4 h-4" />
+              </a>
+            ) : (
+              <>
+                <p className="text-sm font-bold text-slate-900" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                  Want the joining link by email too?
+                </p>
+                <p className="text-xs text-slate-600 mt-0.5 mb-2.5">
+                  Optional. We will message you on {phone} either way.
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => { setEmail(e.target.value); setError(null); }}
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                    className="flex-1 h-11 px-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/40"
+                    style={{ fontFamily: 'var(--font-inter)' }}
+                  />
+                  <button
+                    onClick={addEmail}
+                    disabled={emailBusy || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())}
+                    className="h-11 px-4 rounded-xl bg-slate-900 text-white text-sm font-bold disabled:opacity-40"
+                    style={{ fontFamily: 'var(--font-grotesk)' }}
+                  >
+                    {emailBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Add'}
+                  </button>
+                </div>
+                {error && <p className="mt-2 text-xs text-red-700">{error}</p>}
+              </>
+            )}
+          </div>
+        )}
 
         {booked.signInUrl ? (
           <a href={booked.signInUrl} className="btn-tactile btn-tactile-primary mt-6 px-6 py-3 text-sm inline-flex items-center justify-center gap-2">
@@ -229,8 +287,8 @@ export default function SelfServeBooking() {
           </div>
         ) : days.length === 0 ? (
           <p className="mt-4 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-            Nothing free in the next two weeks{children > 1 ? ` for ${children} children together` : ''}. We will
-            ring you on {phone} and find a time — usually within a day.
+            Nothing free in the next two weeks. We will ring you on {phone} and find a time —
+            usually within a day.
           </p>
         ) : (
           <div className="mt-4 space-y-4 max-h-[22rem] overflow-y-auto pr-1">
@@ -299,38 +357,11 @@ export default function SelfServeBooking() {
       </p>
 
       <div className="mt-4 space-y-3">
-        <Field label="Your child's name" value={childName} onChange={setChildName} autoComplete="off" />
-        <Field label="Your name" value={parentName} onChange={setParentName} autoComplete="name" />
-        <Field label="Email" value={email} onChange={setEmail} type="email" autoComplete="email" />
-        <Field label="What would they like to learn?" value={interest} onChange={setInterest} placeholder="Maths, coding, public speaking…" autoComplete="off" />
-
-        {/* How many children, asked BEFORE the times — the slot list depends on
-            it, and a parent told at the click that two do not fit has been made
-            to choose twice. */}
-        <div>
-          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
-            How many children?
-          </label>
-          <div className="flex gap-2">
-            {[1, 2, 3, 4].map((n) => (
-              <button
-                key={n}
-                onClick={() => setChildren(n)}
-                className={`h-11 flex-1 rounded-xl border-2 text-sm font-bold transition-colors ${
-                  children === n ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600'
-                }`}
-                style={{ fontFamily: 'var(--font-grotesk)' }}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-          {children > 1 && (
-            <p className="mt-1.5 text-[11px] text-slate-500 flex items-center gap-1.5">
-              <Users className="w-3 h-3" /> They will be in the same class together.
-            </p>
-          )}
-        </div>
+        {/* A name and a number. Everything else — the email, what they want to
+            learn, how many children — is collected afterwards or by the person
+            who rings them. Five fields for a free class is four too many on a
+            page somebody reached by tapping an advert. */}
+        <Field label="Your name" value={name} onChange={setName} autoComplete="name" placeholder="" />
 
         {/* ── Phone, and proving it ── */}
         <div>
