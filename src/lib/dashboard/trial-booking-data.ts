@@ -17,12 +17,17 @@ import {
 } from '@/lib/scheduling/availability';
 import { phoneReachability } from '@/lib/contact/reachability';
 import {
-  slotState, blockingIntervals, type SlotBooking, type SlotState,
+  slotState, blockingIntervals, TRIAL_MINUTES, type SlotBooking, type SlotState,
 } from '@/lib/scheduling/trial-capacity';
 import type { TeacherAssignmentRow } from '@/lib/dashboard/teacher-capability';
 
-/** Thirty minutes. A trial is a taster, not a lesson. */
-export const TRIAL_MINUTES = 30;
+/* Re-exported, not declared. This module is 'use client', and a server route
+   importing a value from a client module gets a client reference rather than
+   the value — silently, with no error: the public booking page returned
+   {"ok":true,"slots":[]} because slotMinutes arrived as undefined. The constant
+   lives in lib/scheduling/trial-capacity.ts, which has no directive; this
+   re-export is only so the components importing it here keep working. */
+export { TRIAL_MINUTES };
 
 export interface BookableTeacher {
   id: string;

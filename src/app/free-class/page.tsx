@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { ShieldCheck, Users, Clock, Star, Check } from 'lucide-react';
-import { DemoClassForm } from '@/app/welcome/page';
+import SelfServeBooking from '@/components/trial/self-serve-booking';
 
 /**
  * SARIRO — the page a paid ad lands on
@@ -90,9 +90,15 @@ export default function FreeClassPage() {
           </p>
         </section>
 
-        {/* The form, above the fold on a phone. This is the whole page. */}
-        <section id="book" className="rounded-2xl border border-[#E7DFD4] bg-white p-5 shadow-sm">
-          <DemoClassForm />
+        {/* The booking, above the fold on a phone. This is the whole page.
+
+            It used to be a form that left details for a seller to ring. That
+            is one human per booking, and it caps how many trials a day the
+            company can run at however many calls somebody can make. The parent
+            now picks a real time from a real diary and the class exists before
+            they close the tab. */}
+        <section id="book">
+          <SelfServeBooking />
         </section>
 
         {/* Reassurance goes UNDER the form. Above it, it is just delay. */}

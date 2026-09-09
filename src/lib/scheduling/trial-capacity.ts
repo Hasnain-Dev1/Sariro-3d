@@ -25,6 +25,20 @@
 /** Four children, no exceptions. The same number as a paid class. */
 export const TRIAL_CAPACITY = 4;
 
+/**
+ * Thirty minutes. A trial is a taster, not a lesson.
+ *
+ * It lives HERE rather than in lib/dashboard/trial-booking-data.ts, which is
+ * where it started, because that module is `'use client'`. A server route
+ * importing from it gets a client reference instead of the number: no error,
+ * no warning, just `undefined` — which fed `slotMinutes: undefined` into
+ * freeSlots and returned an empty list of times on the public booking page,
+ * with a cheerful `{"ok":true,"slots":[]}` to show for it.
+ *
+ * This file has no directive, so both sides get the actual value.
+ */
+export const TRIAL_MINUTES = 30;
+
 export interface SlotBooking {
   /** ISO instant the class starts. */
   slotStart: string;
