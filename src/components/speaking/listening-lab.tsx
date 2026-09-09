@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Ear, Play, Square, RotateCcw, Keyboard, Mic } from 'lucide-react';
 import { analyseListening, type ListeningReport } from '@/lib/speaking/listening';
 import { diagnoseMic, micMessage } from '@/lib/speaking/mic';
+import { assembleTranscript } from '@/lib/speaking/transcript';
 import { logAttempt } from '@/lib/speaking/practice-log';
 import { listeningMetrics } from '@/lib/speaking/progress';
 
@@ -120,12 +121,11 @@ export default function ListeningLab({
     rec.continuous = true;
     rec.interimResults = true;
     rec.lang = 'en-IN';
-    let heard = '';
+    /* Rebuilt each event rather than appended to — see lib/speaking/transcript.ts.
+       Appending from e.resultIndex duplicates phrases, and in a listening drill
+       a duplicated word is scored as a word they caught twice. */
     rec.onresult = (e) => {
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) heard += e.results[i][0].transcript + ' ';
-      }
-      setResponse(heard.trim());
+      setResponse(assembleTranscript(e.results).display.trim());
     };
     rec.onend = () => setListening(false);
     recRef.current = rec;

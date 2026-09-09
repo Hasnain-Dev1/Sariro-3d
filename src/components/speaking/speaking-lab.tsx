@@ -80,6 +80,7 @@ export interface Drill {
 }
 
 import { diagnoseMic, micMessage, micErrorMessage, type MicBlocker } from '@/lib/speaking/mic';
+import { assembleTranscript } from '@/lib/speaking/transcript';
 import { logAttempt } from '@/lib/speaking/practice-log';
 import { speakingMetrics } from '@/lib/speaking/progress';
 
@@ -110,6 +111,11 @@ export default function SpeakingLab({
   const audioCtx = useRef<AudioContext | null>(null);
   const levels = useRef<number[]>([]);
   const finalText = useRef('');
+  /* Everything heard in recognition sessions that have already ended. Chrome
+     stops on its own after a few seconds of silence and we restart it; each
+     restart gets an empty results list, so what came before has to live here
+     or it is lost. */
+  const priorSessions = useRef('');
   const startedAt = useRef(0);
   const sampler = useRef<number | null>(null);
   const ticker = useRef<number | null>(null);
@@ -174,6 +180,7 @@ export default function SpeakingLab({
     setReport(null);
     setTranscript('');
     finalText.current = '';
+    priorSessions.current = '';
     levels.current = [];
     setElapsed(0);
 
@@ -213,14 +220,24 @@ export default function SpeakingLab({
     rec.continuous = true;
     rec.interimResults = true;
     rec.lang = 'en-IN';
+    /* Rebuilt from scratch on every event, not appended to.
+       ────────────────────────────────────────────────────────────────────
+       This used to loop from e.resultIndex and do `finalText += ...`, which
+       duplicates words. resultIndex is the first result that CHANGED, not the
+       first UNSEEN one, and Chrome re-fires it at an index that is already
+       final often enough to matter. The transcript came back with phrases
+       doubled — and because every number in the report is derived from it,
+       the word count, the pace and the filler count were all inflated with
+       the child's own words counted twice.
+
+       Rebuilding is O(results) on a list of a few dozen, and it cannot
+       double-count because nothing is remembered between events. Text from
+       earlier sessions is banked separately in onend, since Chrome hands each
+       restarted session a fresh, empty results list. */
     rec.onresult = (e) => {
-      let interim = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const r = e.results[i];
-        if (r.isFinal) finalText.current += `${r[0].transcript} `;
-        else interim += r[0].transcript;
-      }
-      setTranscript(`${finalText.current}${interim}`);
+      const out = assembleTranscript(e.results, priorSessions.current);
+      finalText.current = out.final;
+      setTranscript(out.display);
     };
     rec.onerror = (e) => {
       // 'no-speech' fires on a quiet moment and is not worth alarming anybody
@@ -237,6 +254,11 @@ export default function SpeakingLab({
       // Read from a ref, not from `state`: this closure is created once when
       // recording starts, so the state variable it captured is whatever it was
       // THEN — 'idle' — and the session would never restart.
+      /* Bank what this session heard before the next one wipes e.results.
+         Without this, restarting after a silence loses everything said so far
+         — which on a 60-second drill is most of it, because Chrome gives up
+         after a few seconds of quiet and a child pauses to think. */
+      priorSessions.current = finalText.current;
       if (recording.current) { try { rec.start(); } catch { /* racing a stop */ } }
     };
     recognition.current = rec;
