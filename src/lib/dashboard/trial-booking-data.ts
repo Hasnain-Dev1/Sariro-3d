@@ -16,13 +16,21 @@ import {
   freeSlots, localWeekdayMinutes, byWeekday, type Window,
 } from '@/lib/scheduling/availability';
 import { phoneReachability } from '@/lib/contact/reachability';
+import {
+  slotState, blockingIntervals, type SlotBooking, type SlotState,
+} from '@/lib/scheduling/trial-capacity';
 import type { TeacherAssignmentRow } from '@/lib/dashboard/teacher-capability';
+
+/** Thirty minutes. A trial is a taster, not a lesson. */
+export const TRIAL_MINUTES = 30;
 
 export interface BookableTeacher {
   id: string;
   full_name: string | null;
   email: string | null;
   timezone: string | null;
+  /** Their permanent class room. Without it a booked child has no way in. */
+  meet_url: string | null;
   assignments: TeacherAssignmentRow[];
   windows: Window[];
   /** Why this teacher cannot be booked at all. Empty when they can. */
@@ -51,7 +59,7 @@ export async function fetchBookableTeachers(): Promise<BookableTeacher[]> {
   try {
     const { data: teachers, error } = await supabase
       .from('profiles')
-      .select('id, full_name, email, timezone')
+      .select('id, full_name, email, timezone, meet_url')
       .or('role.eq.teacher,is_teacher.eq.true')
       .order('full_name');
     if (error) throw error;
@@ -79,18 +87,26 @@ export async function fetchBookableTeachers(): Promise<BookableTeacher[]> {
     return (teachers ?? []).map((t) => {
       const windows = windowsBy.get(t.id as string) ?? [];
       const timezone = (t.timezone as string | null) ?? null;
+      const meetUrl = (t.meet_url as string | null) ?? null;
       return {
         id: t.id as string,
         full_name: (t.full_name as string | null) ?? null,
         email: (t.email as string | null) ?? null,
         timezone,
+        meet_url: meetUrl,
         assignments: assignBy.get(t.id as string) ?? [],
         windows,
-        blocker: !timezone
-          ? 'no timezone set'
-          : windows.length === 0
-            ? 'has not set their hours'
-            : '',
+        /* Order matters: the room is checked first because it is the one a
+           child feels. A teacher with hours but no room takes the booking,
+           the parent gets a confirmation, and then on the day there is no
+           button to press — which is worse than never being offered. */
+        blocker: !meetUrl
+          ? 'has not set their class room link'
+          : !timezone
+            ? 'no timezone set'
+            : windows.length === 0
+              ? 'has not set their hours'
+              : '',
       };
     });
   } catch (err) {
@@ -137,12 +153,18 @@ export async function fetchTrialStudents(): Promise<TrialStudent[]> {
   }
 }
 
+/** One start time, with how full it already is. */
+export interface Slot {
+  /** ISO instant the class would start. */
+  iso: string;
+  state: SlotState;
+}
+
 export interface DaySlots {
   /** Midnight UTC of the calendar date, as an ISO date string. */
   date: string;
   label: string;
-  /** ISO instants a class could start at. */
-  starts: string[];
+  slots: Slot[];
 }
 
 /**
@@ -158,25 +180,57 @@ export async function fetchTeacherSlots(
 ): Promise<DaySlots[]> {
   if (teacher.blocker) return [];
   const days = opts.days ?? 14;
-  const slotMinutes = opts.slotMinutes ?? 60;
-  const stepMinutes = opts.stepMinutes ?? 30;
+  const slotMinutes = opts.slotMinutes ?? TRIAL_MINUTES;
+  const stepMinutes = opts.stepMinutes ?? TRIAL_MINUTES;
   const tz = teacher.timezone!;
 
   const supabase = createClient();
   const now = new Date();
   const horizonEnd = new Date(now.getTime() + (days + 2) * 86_400_000);
 
-  let existing: { slot_start: string; slot_end: string }[] = [];
+  let existing: SlotBooking[] = [];
   try {
     const { data } = await supabase
       .from('bookings')
-      .select('slot_start, slot_end')
+      .select('id, slot_start, slot_end, is_trial')
       .eq('teacher_id', teacher.id)
       .gte('slot_start', new Date(now.getTime() - 86_400_000).toISOString())
       .lte('slot_start', horizonEnd.toISOString())
       .not('status', 'in', '("cancelled","no_show")');
-    existing = (data ?? []) as { slot_start: string; slot_end: string }[];
+
+    const rows = (data ?? []) as { id: string; slot_start: string; slot_end: string; is_trial: boolean | null }[];
+
+    /* How many children are in each trial. Without this every trial counts as
+       a full class, the slot vanishes from the picker, and the other three
+       seats are never sold — which was the bug. */
+    const seatsBy = new Map<string, number>();
+    const trialIds = rows.filter((r) => r.is_trial).map((r) => r.id);
+    if (trialIds.length > 0) {
+      const { data: parts } = await supabase
+        .from('trial_participants')
+        .select('booking_id')
+        .in('booking_id', trialIds);
+      for (const p of parts ?? []) {
+        const k = p.booking_id as string;
+        seatsBy.set(k, (seatsBy.get(k) ?? 0) + 1);
+      }
+    }
+
+    existing = rows.map((r) => ({
+      bookingId: r.id,
+      slotStart: r.slot_start,
+      slotEnd: r.slot_end,
+      isTrial: !!r.is_trial,
+      /* A trial row with no participants pre-dates that table and holds one
+         child on bookings.trial_student_id. Counting it as empty would seat a
+         fifth; one is the honest floor. */
+      seatsTaken: r.is_trial ? Math.max(1, seatsBy.get(r.id) ?? 0) : undefined,
+    }));
   } catch { /* an empty diary is the safe assumption to SHOW; the API re-checks */ }
+
+  /* Only these block a new booking. A trial with seats left is deliberately
+     absent, so its slot keeps appearing and the seats can be filled. */
+  const blocking = blockingIntervals(existing);
 
   const perDay = byWeekday(teacher.windows);
   const out: DaySlots[] = [];
@@ -190,16 +244,16 @@ export async function fetchTeacherSlots(
 
     // Busy intervals that fall on this local weekday, in local minutes.
     const busy: { start: number; end: number }[] = [];
-    for (const b of existing) {
-      const s = localWeekdayMinutes(b.slot_start, tz);
+    for (const b of blocking) {
+      const s = localWeekdayMinutes(b.slotStart, tz);
       if (!s) continue;
       const sameLocalDate =
-        new Date(b.slot_start).toLocaleDateString('en-CA', { timeZone: tz }) ===
+        new Date(b.slotStart).toLocaleDateString('en-CA', { timeZone: tz }) ===
         dayStart.toLocaleDateString('en-CA', { timeZone: tz });
       if (!sameLocalDate) continue;
       const len = Math.max(
         1,
-        Math.round((Date.parse(b.slot_end) - Date.parse(b.slot_start)) / 60_000)
+        Math.round((Date.parse(b.slotEnd) - Date.parse(b.slotStart)) / 60_000)
       );
       busy.push({ start: s.minutes, end: s.minutes + len });
     }
@@ -218,7 +272,13 @@ export async function fetchTeacherSlots(
       label: dayStart.toLocaleDateString('en-GB', {
         timeZone: tz, weekday: 'short', day: 'numeric', month: 'short',
       }),
-      starts: starts.map((m) => localMinutesToIso(localDate, m, tz)),
+      /* Every offered start carries how full it already is, so the picker can
+         say "2 of 4 booked" rather than presenting a half-full class as if it
+         were empty. */
+      slots: starts.map((m) => {
+        const iso = localMinutesToIso(localDate, m, tz);
+        return { iso, state: slotState(iso, existing) };
+      }),
     });
   }
 

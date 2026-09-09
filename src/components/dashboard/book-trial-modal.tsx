@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2, CalendarCheck, AlertCircle, PhoneOff, CheckCircle2, Search } from 'lucide-react';
 import CapabilityChips from '@/components/dashboard/capability-chips';
 import {
-  fetchBookableTeachers, fetchTrialStudents, fetchTeacherSlots, bookTrial,
+  fetchBookableTeachers, fetchTrialStudents, fetchTeacherSlots, bookTrial, TRIAL_MINUTES,
   type BookableTeacher, type TrialStudent, type DaySlots,
 } from '@/lib/dashboard/trial-booking-data';
 
@@ -30,7 +30,10 @@ import {
  * against the student before a slot is chosen, rather than as a refusal after.
  */
 
-const DURATION_MINUTES = 60;
+/* Half an hour. Long enough to show a parent what a class is like, and it
+   doubles how many a teacher can run in an evening. Imported rather than
+   re-declared so this cannot drift from the picker or the API. */
+const DURATION_MINUTES = TRIAL_MINUTES;
 
 export default function BookTrialModal({
   open,
@@ -283,22 +286,50 @@ export default function BookTrialModal({
                             <p className="text-[11px] font-bold text-slate-500 mb-1" style={{ fontFamily: 'var(--font-grotesk)' }}>
                               {day.label}
                             </p>
+                            {/* Occupancy on every slot. A trial holds four
+                                children, so a half-full one is an opportunity
+                                rather than a clash — and a seller who cannot
+                                see that fills a fresh slot instead, spending
+                                another half-hour of a teacher's evening. */}
                             <div className="flex flex-wrap gap-1.5">
-                              {day.starts.map((iso) => {
+                              {day.slots.map(({ iso, state }) => {
                                 const label = new Date(iso).toLocaleTimeString('en-GB', {
                                   timeZone: teacher.timezone!, hour: '2-digit', minute: '2-digit',
                                 });
                                 const active = chosen === iso;
+                                const tooMany = studentIds.length > state.free;
+                                const disabled = state.full || tooMany;
                                 return (
                                   <button
                                     key={iso}
                                     onClick={() => setChosen(iso)}
-                                    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold border-2 transition-colors ${
-                                      active ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                                    disabled={disabled}
+                                    title={
+                                      state.full
+                                        ? 'Full — all four seats taken'
+                                        : tooMany
+                                          ? `Only ${state.free} left, and you have chosen ${studentIds.length}`
+                                          : state.label
+                                    }
+                                    className={`px-2.5 py-1.5 rounded-lg border-2 transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed ${
+                                      active
+                                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                        : state.full
+                                          ? 'border-slate-200 bg-slate-50 text-slate-400'
+                                          : state.taken > 0
+                                            ? 'border-amber-300 bg-amber-50 text-amber-800 hover:border-amber-400'
+                                            : 'border-slate-200 text-slate-600 hover:border-slate-300'
                                     }`}
                                     style={{ fontFamily: 'var(--font-grotesk)' }}
                                   >
-                                    {label}
+                                    <span className="block text-[11px] font-bold">{label}</span>
+                                    <span className="block text-[9px] font-bold uppercase tracking-wider opacity-70">
+                                      {state.full
+                                        ? 'Full'
+                                        : state.taken === 0
+                                          ? '4 seats'
+                                          : `${state.free} left`}
+                                    </span>
                                   </button>
                                 );
                               })}

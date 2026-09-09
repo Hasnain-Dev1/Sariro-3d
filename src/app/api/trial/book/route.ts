@@ -5,6 +5,9 @@ import { assertSameOrigin } from '@/lib/security/origin-check';
 import { recordAdminAction } from '@/lib/audit/log';
 import { canAssignCourse } from '@/lib/contact/reachability';
 import { localWeekdayMinutes, slotIsFree } from '@/lib/scheduling/availability';
+import {
+  slotState, blockingIntervals, canSeat, type SlotBooking,
+} from '@/lib/scheduling/trial-capacity';
 
 /**
  * SARIRO — POST /api/trial/book
@@ -48,7 +51,11 @@ interface Body {
   meetUrl?: string;
 }
 
-const DEFAULT_DURATION = 60;
+/* Thirty minutes, not sixty. A trial is a taster — half an hour is enough to
+   show a parent what a class is like, and it doubles how many a teacher can
+   run in an evening. Kept as a constant here because the picker's own default
+   (TRIAL_MINUTES in lib/dashboard/trial-booking-data.ts) must agree with it. */
+const DEFAULT_DURATION = 30;
 
 export async function POST(req: NextRequest) {
   if (req.headers.get('origin')) {
@@ -152,6 +159,20 @@ export async function POST(req: NextRequest) {
     .eq('id', body.teacherId)
     .maybeSingle();
   if (!teacher) return NextResponse.json({ ok: false, error: 'no_such_teacher' }, { status: 404 });
+  /* No room, no booking. A trial has no cohort to inherit a link from, so a
+     teacher without one takes the booking, the parent gets a confirmation,
+     and on the day there is no button to press. Refusing here is the only
+     point at which that is still recoverable. */
+  if (!teacher.meet_url) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'teacher_no_room',
+        message: `${teacher.full_name ?? 'That teacher'} has not set their class room link, so a child booked with them would have no way to join. Ask them to add it in Settings.`,
+      },
+      { status: 409 }
+    );
+  }
   if (!teacher.timezone) {
     return NextResponse.json(
       {
@@ -190,20 +211,61 @@ export async function POST(req: NextRequest) {
      express "that teacher's Tuesday" as a UTC range — which is a different
      range depending on the month. */
   const dayPad = 36 * 60 * 60_000;
-  const { data: existing } = await admin
+  const { data: existingRows } = await admin
     .from('bookings')
-    .select('slot_start, slot_end, status')
+    .select('id, slot_start, slot_end, status, is_trial')
     .eq('teacher_id', body.teacherId)
     .gte('slot_start', new Date(startMs - dayPad).toISOString())
     .lte('slot_start', new Date(startMs + dayPad).toISOString())
     .not('status', 'in', '("cancelled","no_show")');
 
+  const rows = (existingRows ?? []) as {
+    id: string; slot_start: string; slot_end: string; status: string; is_trial: boolean | null;
+  }[];
+
+  /* Who is already sitting in each trial. A trial holds four children, so a
+     slot with one in it is not busy — it is a class with three seats left,
+     and treating it as busy is how those three were never sold. */
+  const seatsBy = new Map<string, number>();
+  const trialIds = rows.filter((r) => r.is_trial).map((r) => r.id);
+  if (trialIds.length > 0) {
+    const { data: parts } = await admin
+      .from('trial_participants')
+      .select('booking_id')
+      .in('booking_id', trialIds);
+    for (const p of parts ?? []) {
+      const k = p.booking_id as string;
+      seatsBy.set(k, (seatsBy.get(k) ?? 0) + 1);
+    }
+  }
+
+  const asSlots: SlotBooking[] = rows.map((r) => ({
+    bookingId: r.id,
+    slotStart: r.slot_start,
+    slotEnd: r.slot_end,
+    isTrial: !!r.is_trial,
+    // A pre-participants trial row still holds one child on trial_student_id.
+    seatsTaken: r.is_trial ? Math.max(1, seatsBy.get(r.id) ?? 0) : undefined,
+  }));
+
+  /* Is there room in this exact slot, and is there a class to join? Asked
+     before the availability check so a full slot says "full" rather than the
+     less useful "outside their hours". */
+  const here = slotState(body.slotStart, asSlots);
+  const seat = canSeat(here, studentIds.length);
+  if (!seat.ok) {
+    return NextResponse.json(
+      { ok: false, error: 'slot_full', message: seat.message, taken: here.taken, capacity: here.capacity },
+      { status: 409 }
+    );
+  }
+
   const busy: { start: number; end: number }[] = [];
-  for (const b of existing ?? []) {
-    const s = localWeekdayMinutes(b.slot_start as string, teacher.timezone);
+  for (const b of blockingIntervals(asSlots)) {
+    const s = localWeekdayMinutes(b.slotStart, teacher.timezone);
     if (!s || s.weekday !== local.weekday) continue;
-    const endMs = Date.parse(b.slot_end as string);
-    const startMs2 = Date.parse(b.slot_start as string);
+    const endMs = Date.parse(b.slotEnd);
+    const startMs2 = Date.parse(b.slotStart);
     const len = Number.isFinite(endMs) && Number.isFinite(startMs2)
       ? Math.max(1, Math.round((endMs - startMs2) / 60_000))
       : DEFAULT_DURATION;
@@ -228,6 +290,57 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 4. Book it ────────────────────────────────────────────────────────────
+  /* Joining, when there is already a trial at this exact time with room.
+     Two bookings at the same time with the same teacher is not two classes —
+     it is one class recorded twice, and the calendar, the attendance sheet
+     and the pay calculation then all disagree with what actually happened.
+     So the children are added to the class that is already there. */
+  if (here.joinBookingId) {
+    const joinId = here.joinBookingId;
+    const { error: joinErr } = await admin.from('trial_participants').insert(
+      studentIds.map((id) => ({ booking_id: joinId, student_id: id, added_by: actorId }))
+    );
+    if (joinErr) {
+      return NextResponse.json(
+        { ok: false, error: 'join_failed', message: joinErr.message },
+        { status: 500 }
+      );
+    }
+
+    await admin.from('notifications').insert(
+      studentIds.map((id) => ({
+        user_id: id,
+        type: 'trial_booked',
+        title: 'Your free class is booked',
+        message: `You have a trial class with ${teacher.full_name ?? 'a Sariro mentor'}. Check your dashboard for the time and the link.`,
+        link: '/dashboard/student',
+      }))
+    ).then(() => {}, () => {});
+
+    await recordAdminAction(admin, {
+      adminId: actorId,
+      action: 'trial_joined',
+      targetType: 'user',
+      targetId: studentIds[0],
+      metadata: {
+        booking_id: joinId,
+        student_ids: studentIds,
+        teacher_id: body.teacherId,
+        slot_start: body.slotStart,
+        seats_before: here.taken,
+        seats_after: here.taken + studentIds.length,
+      },
+    });
+
+    return NextResponse.json({
+      ok: true,
+      booking_id: joinId,
+      joined: true,
+      taken: here.taken + studentIds.length,
+      capacity: here.capacity,
+    });
+  }
+
   const { data: booking, error: insErr } = await admin
     .from('bookings')
     .insert({

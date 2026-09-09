@@ -47,6 +47,11 @@ export type AuditAction =
      It commits somebody's half hour and it is the moment a lead becomes an
      obligation, so it wants a name attached to it. */
   | 'trial_booked'
+  /* Children added to a trial that already existed. Distinct from booking one,
+     because it changes a class somebody else created — the seller who filled
+     the last seat and the seller who opened the slot are different people to
+     ask when four children turn up expecting a taster and one is a stranger. */
+  | 'trial_joined'
   | 'impersonate_user';
 
 export interface AuditEntry {

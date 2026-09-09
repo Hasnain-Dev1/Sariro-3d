@@ -40,7 +40,8 @@ function gitCommit(): string {
  *   - X-Content-Type-Options: nosniff — blocks MIME-type sniffing.
  *   - Referrer-Policy: strict-origin-when-cross-origin — only send
  *     origin (not full path) on cross-origin requests.
- *   - Permissions-Policy: disables camera/mic/geolocation we don't use.
+ *   - Permissions-Policy: disables camera/geolocation/usb we don't use, and
+ *     allows the microphone to THIS origin only, for the practice room.
  *   - Strict-Transport-Security: enforces HTTPS for 2 years (only sent
  *     over HTTPS by browsers — safe to set even in dev).
  *
@@ -63,7 +64,21 @@ const securityHeaders = [
   { key: 'X-Frame-Options', value: 'DENY' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=(self), usb=()' },
+  /* microphone=(self), NOT microphone=().
+     ────────────────────────────────────────────────────────────────────────
+     An empty allowlist switches the microphone off for every origin INCLUDING
+     our own, and the browser then refuses getUserMedia without showing a
+     permission box at all. This header was written before the practice room
+     existed — "disables camera/mic/geolocation we don't use" — and then we
+     built a microphone feature and never came back to it.
+
+     The result looked exactly like a browser problem: the record button did
+     nothing, no prompt ever appeared, and every diagnosis pointed at the
+     wrong layer. Nought practice attempts had been recorded on production.
+
+     (self) permits this origin and nothing embedded in it. Camera, geolocation
+     and USB stay off, because those we genuinely do not use. */
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(self), geolocation=(), payment=(self), usb=()' },
   { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
   { key: 'X-DNS-Prefetch-Control', value: 'on' },
   // Cross-Origin policies — enable PWA / SharedArrayBuffer; safe defaults.
