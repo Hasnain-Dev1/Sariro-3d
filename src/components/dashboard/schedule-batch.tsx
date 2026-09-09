@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { X, CalendarClock, Loader2, Check, Globe } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { generateOccurrences } from '@/lib/dashboard/schedule-generation';
+import { lessonsOf } from '@/lib/dashboard/lesson-plan';
 
 /* ════════════════════════════════════════════════════════════════════════
    ScheduleBatchModal — admin/super-admin recurring class scheduler.
@@ -209,6 +210,18 @@ export default function ScheduleBatchModal({
       .filter((p): p is { day: number; iso: string } => !!p.iso);
   }, [startDate, weekdays, classesPerWeek, dayTimes, durationMin, anchorTz, perDay]);
 
+  /* Which lesson the first class teaches. Batches resuming after a break, or
+     picking up from a bridge course, do not start at lesson 1 — and the
+     scheduler is the only person who knows which. */
+  const [startLesson, setStartLesson] = useState(1);
+  const lessons = useMemo(() => {
+    const c = cohorts.find((x) => x.id === cohortId);
+    return c ? lessonsOf(c.track, c.level) : [];
+  }, [cohorts, cohortId]);
+  // A different course means a different syllabus; lesson 9 of one is not
+  // lesson 9 of another.
+  useEffect(() => { setStartLesson(1); }, [cohortId]);
+
   const valid = !!(teacherId && cohortId && startDate && weekdays.length === classesPerWeek && weekdays.every((d) => dayTimes[d]));
 
   const submit = async () => {
@@ -220,7 +233,7 @@ export default function ScheduleBatchModal({
         body: JSON.stringify({
           cohortId, teacherId, startDate,
           days: weekdays.map((d) => ({ day: d, time: dayTimes[d] })),
-          durationMin, timezone: anchorTz,
+          durationMin, timezone: anchorTz, startLesson,
         }),
       });
       const json = await res.json();
@@ -333,6 +346,42 @@ export default function ScheduleBatchModal({
             </select>
           </Field>
         </div>
+
+        {/* Where in the course this batch begins.
+            ────────────────────────────────────────────────────────────────
+            The lesson used to be derived from a count — the Nth class is the
+            Nth lesson — which is right for a batch starting at the beginning
+            and wrong for one resuming after a break, or picking up from a
+            bridge course. The scheduler is the only person who knows which.
+
+            Hidden when the syllabus is not in code: Public Speaking's lessons
+            live in lib/speaking/, and an empty dropdown is worse than none.
+            Those classes still generate, they simply carry no lesson name —
+            which is what happened for every batch before this. */}
+        {lessons.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+            <Field label="Start from lesson">
+              <select
+                value={startLesson}
+                onChange={(e) => setStartLesson(Number(e.target.value) || 1)}
+                className={selectCls}
+              >
+                {lessons.map((l) => (
+                  <option key={l.number} value={l.number}>
+                    {l.number}. {l.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <div className="flex items-end">
+              <p className="text-[11px] text-slate-500 leading-relaxed pb-2">
+                {startLesson === 1
+                  ? `The whole course — ${lessons.length} lessons.`
+                  : `Covers ${lessons.length - startLesson + 1} of ${lessons.length}. The first ${startLesson - 1} count as already taught.`}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Dual-timezone preview */}
         <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 mb-4">

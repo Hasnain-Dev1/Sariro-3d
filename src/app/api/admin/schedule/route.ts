@@ -4,6 +4,7 @@ import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import { generateOccurrences } from '@/lib/dashboard/schedule-generation';
 import { teacherHasConflict, cohortStudentConflicts, studentNamesFor } from '@/lib/dashboard/schedule-ops-server';
+import { lessonForIndex } from '@/lib/dashboard/lesson-plan';
 
 /**
  * SARIRO — POST /api/admin/schedule
@@ -30,6 +31,15 @@ interface DayTime {
 }
 
 interface Body {
+  /**
+   * Which lesson the first generated class teaches. 1 unless said otherwise.
+   *
+   * The lesson used to be derived from a count — the Nth booking is the Nth
+   * lesson — which is right for a batch starting at the beginning and wrong
+   * for a batch resuming after a break, a group that covered the early lessons
+   * elsewhere, or a re-run for children who joined late.
+   */
+  startLesson?: number;
   cohortId?: string;
   teacherId?: string;
   startDate?: string;
@@ -232,14 +242,30 @@ export async function POST(req: NextRequest) {
 
   // ── 2. Insert the (already-generated + conflict-checked) horizon ──
   if (slots.length > 0) {
-    const rows = slots.map((s) => ({
-      cohort_id: body.cohortId,
-      teacher_id: body.teacherId,
-      schedule_id: schedule.id,
-      slot_start: s.slotStart,
-      slot_end: s.slotEnd,
-      status: 'scheduled',
-    }));
+    /* The lesson each class teaches, stamped at generation.
+       ────────────────────────────────────────────────────────────────────
+       This used to write nothing, which is why every batch-generated booking
+       in production has module_num and lesson_name NULL and no screen can
+       name what is being taught — the teacher's class list, the student's
+       "Today:", the reminder, all blank. */
+    const startLesson = Math.max(1, Math.round(body.startLesson ?? 1));
+    const rows = slots.map((s, i) => {
+      const lesson = cohortRow?.track && cohortRow?.level
+        ? lessonForIndex(cohortRow.track as string, cohortRow.level as string, i, startLesson)
+        : null;
+      return {
+        cohort_id: body.cohortId,
+        teacher_id: body.teacherId,
+        schedule_id: schedule.id,
+        slot_start: s.slotStart,
+        slot_end: s.slotEnd,
+        status: 'scheduled',
+        // Null past the end of the course: those are revision classes, and
+        // labelling them "Lesson 1" again would be worse than saying nothing.
+        module_num: lesson ? Number(lesson.moduleNum) : null,
+        lesson_name: lesson?.name ?? null,
+      };
+    });
     const { error: bErr } = await admin.from('bookings').insert(rows);
     if (bErr) {
       // Roll back the schedule so we don't strand an empty rule.
