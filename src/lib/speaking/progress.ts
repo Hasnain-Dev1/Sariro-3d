@@ -261,6 +261,21 @@ const compact = (o: Record<string, number | null>): Record<string, number> =>
   Object.fromEntries(Object.entries(o).filter(([, v]) => v !== null)) as Record<string, number>;
 
 export function speakingMetrics(report: {
+  /**
+   * Whether speech recognition returned any words at all.
+   *
+   * It sometimes does not, even when the microphone is plainly working — the
+   * loudness trace is full and the transcript is empty. Every word-derived
+   * metric is then ZERO, and zero is not "they spoke very slowly": it is "we
+   * did not hear them". Production logged three such attempts in a row, and a
+   * curve told from them would report a child's pace collapsing to nothing.
+   *
+   * When there were no words, the word metrics are omitted rather than
+   * recorded as 0. trendFor skips a metric with no readings, so the attempt
+   * still counts as practice and still contributes its loudness — it simply
+   * makes no claim it cannot support.
+   */
+  hadWords?: boolean;
   /** From analysePronunciation. Absent on drills with no passage. */
   pronunciationAccuracy?: number;
   /** From analyseModulation. */
@@ -271,10 +286,12 @@ export function speakingMetrics(report: {
   phrasing?: { averageWords?: number };
   delivery?: { variation?: number };
 }): Record<string, number> {
+  /* Undefined, not zero, when nothing was heard. compact() then drops them. */
+  const heard = report?.hadWords !== false;
   return compact({
-    wpm: num(report?.pace?.wpm),
-    fillersPerMin: num(report?.fillers?.perMinute),
-    phraseAverage: num(report?.phrasing?.averageWords),
+    wpm: heard ? num(report?.pace?.wpm) : null,
+    fillersPerMin: heard ? num(report?.fillers?.perMinute) : null,
+    phraseAverage: heard ? num(report?.phrasing?.averageWords) : null,
     deliveryVariation: num(report?.delivery?.variation),
     pronunciation: num(report?.pronunciationAccuracy),
     pitchRange: num(report?.pitchRange),

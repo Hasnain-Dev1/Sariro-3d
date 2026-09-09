@@ -368,3 +368,56 @@ describe('nextFocus', () => {
     assert.equal(f, null);
   });
 });
+
+describe('speakingMetrics when nothing was heard', () => {
+  const spoken = {
+    pace: { wpm: 140 }, fillers: { perMinute: 3 },
+    phrasing: { averageWords: 11 }, delivery: { variation: 0.48 },
+  };
+
+  test('a normal attempt records every metric', () => {
+    const m = speakingMetrics({ ...spoken, hadWords: true });
+    assert.equal(m.wpm, 140);
+    assert.equal(m.fillersPerMin, 3);
+    assert.equal(m.deliveryVariation, 0.48);
+  });
+
+  test('no words means NO word metrics — not zeroes', () => {
+    // Production logged three attempts with wpm 0 and a full loudness trace:
+    // the microphone worked and the recogniser returned nothing. Zero is not
+    // "they spoke very slowly", and a curve told from it reports a child's
+    // pace collapsing to nothing.
+    const m = speakingMetrics({
+      pace: { wpm: 0 }, fillers: { perMinute: 0 },
+      phrasing: { averageWords: 0 }, delivery: { variation: 0.48 },
+      hadWords: false,
+    });
+    assert.equal('wpm' in m, false);
+    assert.equal('fillersPerMin' in m, false);
+    assert.equal('phraseAverage' in m, false);
+  });
+
+  test('but the loudness IS kept — it was really measured', () => {
+    // The attempt still counts as practice and still contributes what it
+    // legitimately observed. It simply makes no claim it cannot support.
+    const m = speakingMetrics({
+      pace: { wpm: 0 }, delivery: { variation: 0.48 }, hadWords: false,
+    });
+    assert.equal(m.deliveryVariation, 0.48);
+  });
+
+  test('an omitted flag behaves as before, so old callers are unchanged', () => {
+    assert.equal(speakingMetrics(spoken).wpm, 140);
+  });
+
+  test('a metric with no readings never becomes a trend', () => {
+    // The guarantee the omission relies on.
+    const attempts: PracticeAttempt[] = [1, 2, 3, 4, 5, 6].map((i) => ({
+      kind: 'speaking' as const, score: 60,
+      metrics: { deliveryVariation: 0.5 },
+      createdAt: new Date(NOW - i * DAY).toISOString(),
+    }));
+    const t = trendFor(attempts, METRICS.speaking.find((m) => m.key === 'wpm')!);
+    assert.equal(t.direction, 'unknown');
+  });
+});

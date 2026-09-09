@@ -169,6 +169,18 @@ export default function SpeakingLab({
     const result = analyseSpeech(sample);
     setReport(result);
 
+    /* Audio came through and no words did. That is not a slow speaker, it is
+       a recogniser that gave us nothing — and it must not be recorded as a
+       pace of zero. */
+    const heardWords = sample.transcript.trim().length > 0;
+    if (!heardWords) {
+      setError(
+        levels.current.some((l) => l > 0.02)
+          ? 'We heard you, but the browser turned none of it into words. Chrome or Edge are the most reliable — and check the passage is being read aloud rather than under your breath.'
+          : 'We did not pick up any sound. Check the right microphone is selected and try once more.'
+      );
+    }
+
     /* Pronunciation only exists for a drill with a passage — free speech has
        no target to compare against. Logged alongside the rest so it becomes a
        CURVE rather than a one-off reading: "words heard right, 71% to 88%" is
@@ -191,6 +203,7 @@ export default function SpeakingLab({
       durationMs,
       metrics: speakingMetrics({
         ...result,
+        hadWords: heardWords,
         pronunciationAccuracy: said?.scored ? said.accuracy : undefined,
         pitchRange: moved.scored && moved.rangeSemitones > 0 ? moved.rangeSemitones : undefined,
         energyDrift: moved.scored ? moved.energyDrift : undefined,

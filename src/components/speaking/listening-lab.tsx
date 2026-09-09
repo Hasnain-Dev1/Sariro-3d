@@ -72,6 +72,12 @@ export default function ListeningLab({
   const [response, setResponse] = useState('');
   const [listening, setListening] = useState(false);
   const [report, setReport] = useState<ListeningReport | null>(null);
+  /* What has already been written down. Pressing "Check what I heard" a
+     second time re-scores the SAME answer, and every press used to write
+     another row: production has four identical listening attempts logged
+     within one second of each other. Four rows for one go inflates the
+     practice count and flattens the curve with copies of itself. */
+  const logged = useRef<string | null>(null);
   /* Not a boolean. "Say it" being greyed out with no explanation is the same
      dead-end the speaking lab had: on http:// the browser will never raise a
      microphone prompt, and the reason has to be sayable. */
@@ -136,13 +142,18 @@ export default function ListeningLab({
   const check = () => {
     const result = analyseListening({ source, response, mode });
     setReport(result);
-    // See speaking-lab: never awaited, never allowed to block the result.
-    void logAttempt({
-      kind: 'listening',
-      drillId: passage ? 'lesson' : `passage-${index}`,
-      score: result.score,
-      metrics: listeningMetrics(result),
-    }).then((ok) => { if (ok) onLogged?.(); });
+    // One row per answer. Re-checking the same words is the same attempt.
+    const fingerprint = `${source}::${response.trim()}`;
+    if (logged.current !== fingerprint) {
+      logged.current = fingerprint;
+      // See speaking-lab: never awaited, never allowed to block the result.
+      void logAttempt({
+        kind: 'listening',
+        drillId: passage ? 'lesson' : `passage-${index}`,
+        score: result.score,
+        metrics: listeningMetrics(result),
+      }).then((ok) => { if (ok) onLogged?.(); });
+    }
   };
 
   const reset = () => {
@@ -150,6 +161,7 @@ export default function ListeningLab({
     setResponse('');
     setReport(null);
     setPlays(0);
+    logged.current = null;
   };
 
   const next = () => { setIndex((i) => (i + 1) % PASSAGES.length); reset(); };
