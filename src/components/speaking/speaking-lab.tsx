@@ -83,6 +83,9 @@ import { diagnoseMic, micMessage, micErrorMessage, type MicBlocker } from '@/lib
 import { assembleTranscript } from '@/lib/speaking/transcript';
 import PronunciationPanel from '@/components/speaking/pronunciation-panel';
 import { analysePronunciation } from '@/lib/speaking/pronunciation';
+import { detectPitch } from '@/lib/speaking/pitch';
+import { analyseModulation } from '@/lib/speaking/modulation';
+import ModulationPanel from '@/components/speaking/modulation-panel';
 import { logAttempt } from '@/lib/speaking/practice-log';
 import { speakingMetrics } from '@/lib/speaking/progress';
 
@@ -112,6 +115,11 @@ export default function SpeakingLab({
   const stream = useRef<MediaStream | null>(null);
   const audioCtx = useRef<AudioContext | null>(null);
   const levels = useRef<number[]>([]);
+  /* Pitch per frame, aligned to `levels`. null on unvoiced frames — roughly
+     half of ordinary speech, since s, f, sh and silence have no pitch at all.
+     The buffer was already being read for loudness and then discarded; this is
+     the same buffer, asked a second question. */
+  const pitches = useRef<(number | null)[]>([]);
   const finalText = useRef('');
   /* Everything heard in recognition sessions that have already ended. Chrome
      stops on its own after a few seconds of silence and we restart it; each
@@ -168,6 +176,9 @@ export default function SpeakingLab({
     const said = drill.passage
       ? analysePronunciation({ reference: drill.passage, transcript: finalText.current })
       : null;
+    const moved = analyseModulation({
+      levels: levels.current, pitches: pitches.current, frameMs: FRAME_MS,
+    });
 
     /* Logged after the report is on screen, and deliberately not awaited. The
        child has finished speaking and wants their result; a slow network must
@@ -181,6 +192,8 @@ export default function SpeakingLab({
       metrics: speakingMetrics({
         ...result,
         pronunciationAccuracy: said?.scored ? said.accuracy : undefined,
+        pitchRange: moved.scored && moved.rangeSemitones > 0 ? moved.rangeSemitones : undefined,
+        energyDrift: moved.scored ? moved.energyDrift : undefined,
       }),
     }).then((ok) => { if (ok) onLogged?.(); });
   }, [teardown, drill.passage, drill.id, onLogged]);
@@ -195,6 +208,7 @@ export default function SpeakingLab({
     finalText.current = '';
     priorSessions.current = '';
     levels.current = [];
+    pitches.current = [];
     setElapsed(0);
 
     try {
@@ -225,6 +239,10 @@ export default function SpeakingLab({
       for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
       const rms = Math.sqrt(sum / buf.length);
       levels.current.push(rms);
+      /* The same frame, asked how HIGH it was. Loudness says whether somebody
+         is audible; pitch is what separates reciting from presenting, and it
+         was already in this buffer being thrown away. */
+      pitches.current.push(detectPitch(buf, ctx.sampleRate));
       setLevel(rms);
     }, FRAME_MS);
 
@@ -400,6 +418,16 @@ export default function SpeakingLab({
           would mean guessing what a child meant to say. */}
       {report && drill.passage && state === 'done' && (
         <PronunciationPanel reference={drill.passage} transcript={finalText.current} />
+      )}
+
+      {/* Every drill, not just read-aloud: how a voice moves needs no target
+          text, only the voice. */}
+      {report && state === 'done' && (
+        <ModulationPanel
+          levels={levels.current}
+          pitches={pitches.current}
+          frameMs={FRAME_MS}
+        />
       )}
     </div>
   );

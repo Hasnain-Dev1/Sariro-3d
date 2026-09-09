@@ -64,6 +64,12 @@ export const METRICS: Record<PracticeKind, MetricSpec[]> = {
        compare against. trendFor skips a metric with no readings, so a child
        who only does open drills never sees an empty row. */
     { key: 'pronunciation', label: 'Words heard right', direction: 'up', unit: '%' },
+    /* How far the voice moves, in semitones. Ordinary speech is 4-6, engaged
+       is 8-12 — so 'up' with no ceiling would be wrong, but nobody in practice
+       overshoots, and a band would hide real progress from 2 to 5. */
+    { key: 'pitchRange', label: 'Voice range', direction: 'up', unit: ' semitones' },
+    /* Negative means they faded. Toward zero is better, from either side. */
+    { key: 'energyDrift', label: 'Holding energy', direction: 'band', band: { min: -15, max: 15 }, unit: '%' },
   ],
   listening: [
     { key: 'recallPercent', label: 'Words caught', direction: 'up', unit: '%' },
@@ -257,6 +263,9 @@ const compact = (o: Record<string, number | null>): Record<string, number> =>
 export function speakingMetrics(report: {
   /** From analysePronunciation. Absent on drills with no passage. */
   pronunciationAccuracy?: number;
+  /** From analyseModulation. */
+  pitchRange?: number;
+  energyDrift?: number;
   pace?: { wpm?: number };
   fillers?: { perMinute?: number };
   phrasing?: { averageWords?: number };
@@ -268,6 +277,8 @@ export function speakingMetrics(report: {
     phraseAverage: num(report?.phrasing?.averageWords),
     deliveryVariation: num(report?.delivery?.variation),
     pronunciation: num(report?.pronunciationAccuracy),
+    pitchRange: num(report?.pitchRange),
+    energyDrift: num(report?.energyDrift),
   });
 }
 
@@ -379,6 +390,8 @@ export function streak(attempts: PracticeAttempt[], now: number = Date.now()): S
    ══════════════════════════════════════════════════════════════════════════ */
 
 const ADVICE: Record<string, string> = {
+  pitchRange: 'Pick one word in each sentence and lift it. Just one — the whole line changes, and it is far easier than trying to be expressive everywhere at once.',
+  energyDrift: 'Say your last sentence as though it were your first. Nearly everybody fades at the end and nobody can hear themselves doing it, which is exactly why it is worth practising.',
   pronunciation: 'Read the passage once more slowly, and hold the sound the report named. Speed hides it; slow makes it obvious to your own ear, which is how it gets fixed.',
   wpm: 'Read your next passage a shade slower than feels natural. Aim to land between 120 and 165 words a minute — that is the range a listener can follow without effort.',
   fillersPerMin: 'When you feel an "um" coming, close your mouth instead. A silent gap sounds considered; a filled one sounds unsure. Try one drill where you deliberately pause rather than fill.',
