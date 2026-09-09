@@ -9,6 +9,7 @@ import {
   slotState, blockingIntervals, canSeat, type SlotBooking,
 } from '@/lib/scheduling/trial-capacity';
 import { TRIAL_HOME } from '@/lib/dashboard/trial-only';
+import { bandOf, fits } from '@/lib/trial/grade-band';
 
 /**
  * SARIRO — POST /api/trial/book
@@ -259,6 +260,33 @@ export async function POST(req: NextRequest) {
       { ok: false, error: 'slot_full', message: seat.message, taken: here.taken, capacity: here.capacity },
       { status: 409 }
     );
+  }
+
+  /* ── The grade band ───────────────────────────────────────────────────────
+     The first child in a slot fixes it at their grade plus or minus one, so a
+     grade 1 is never seated with a grade 10 — see lib/trial/grade-band.ts.
+     Enforced here as well as in the picker, because a stale tab and two
+     sellers booking at once both arrive at this route. */
+  if (here.joinBookingId) {
+    const { data: seated } = await admin
+      .from('trial_participants')
+      .select('grade, created_at')
+      .eq('booking_id', here.joinBookingId)
+      .order('created_at', { ascending: true });
+    const band = bandOf((seated ?? []).map((r) => (r.grade as number | null) ?? null));
+
+    const { data: joining } = await admin
+      .from('profiles').select('id, full_name, grade').in('id', studentIds);
+    for (const st of joining ?? []) {
+      const fit = fits((st.grade as number | null) ?? null, band);
+      if (!fit.ok) {
+        return NextResponse.json(
+          { ok: false, error: 'grade_mismatch',
+            message: `${st.full_name ?? 'That student'}: ${fit.message}` },
+          { status: 409 }
+        );
+      }
+    }
   }
 
   const busy: { start: number; end: number }[] = [];

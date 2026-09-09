@@ -119,19 +119,44 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'save_failed', message: upErr.message }, { status: 500 });
   }
 
-  /* The children already waiting. Only forward, only this teacher's, and only
-     where there is no link already — a class that has its own room keeps it. */
+  /* Every upcoming class of theirs, not only the ones with no link.
+     ────────────────────────────────────────────────────────────────────────
+     This used to fill blanks only. But a teacher who changes their room —
+     because the old link stopped working, or they moved from Meet to Zoom —
+     had a diary full of classes still pointing at a door that no longer
+     opens, and no way to know. "If a teacher at any time updates their link
+     it should update the link everywhere, in all the future trial classes
+     booked and the already booked ones, immediately."
+
+     Trials only. A cohort class inherits its link from its cohort, which an
+     admin owns deliberately — a teacher redirecting a batch's permanent room
+     by editing their own profile is not a thing that should be possible. */
   let backfilled = 0;
   if (meetUrl) {
     const { data: patched } = await admin
       .from('bookings')
       .update({ google_meet_url: meetUrl })
       .eq('teacher_id', me)
+      .eq('is_trial', true)
+      .neq('status', 'cancelled')
+      .gt('slot_end', new Date().toISOString())
+      .neq('google_meet_url', meetUrl)
+      .select('id');
+    backfilled = (patched ?? []).length;
+
+    /* A non-trial class with no link at all still gets one — that is a gap
+       rather than a deliberate choice, and a student with no button is the
+       thing this whole feature exists to stop. */
+    const { data: alsoFilled } = await admin
+      .from('bookings')
+      .update({ google_meet_url: meetUrl })
+      .eq('teacher_id', me)
+      .neq('is_trial', true)
       .is('google_meet_url', null)
       .neq('status', 'cancelled')
       .gt('slot_end', new Date().toISOString())
       .select('id');
-    backfilled = (patched ?? []).length;
+    backfilled += (alsoFilled ?? []).length;
   }
 
   return NextResponse.json({ ok: true, meetUrl, backfilled });

@@ -37,6 +37,19 @@ export interface AccessInput {
    * loading, or the query failed.
    */
   enrolmentCount: number | null;
+  /**
+   * Whether the profile has actually arrived.
+   *
+   * This is not a nicety. getRole(null) returns 'student' — a sensible default
+   * for rendering, and a disastrous one for a security decision. Without this
+   * flag a super-admin whose profile was still in flight read as a student
+   * with no enrolments and was thrown out of their own dashboard onto the
+   * trial page. That is exactly what happened in production.
+   *
+   * A role derived from a missing profile is not a role. It is a placeholder,
+   * and nothing may be decided on it.
+   */
+  profileLoaded: boolean;
 }
 
 /**
@@ -49,7 +62,14 @@ export interface AccessInput {
  * 'bounce' and a paying student is thrown off their own dashboard by a network
  * blip. So the caller holds the loading screen until the answer is real.
  */
-export function dashboardAccess({ role, enrolmentCount }: AccessInput): DashboardAccess {
+export function dashboardAccess({
+  role, enrolmentCount, profileLoaded,
+}: AccessInput): DashboardAccess {
+  /* Nothing is decided on a role we have not actually read. getRole(null)
+     answers 'student', which is the right thing to render and the wrong thing
+     to act on — see AccessInput.profileLoaded. */
+  if (!profileLoaded) return 'wait';
+
   // Anyone who is not a student is staff, and staff always have a dashboard.
   if (role && role !== 'student') return 'allow';
 

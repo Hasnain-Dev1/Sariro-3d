@@ -8,6 +8,7 @@ import { smsConfigured } from '@/lib/phone/otp';
 import { localWeekdayMinutes, slotIsFree } from '@/lib/scheduling/availability';
 import { slotState, blockingIntervals, canSeat, TRIAL_MINUTES, type SlotBooking } from '@/lib/scheduling/trial-capacity';
 import { TRIAL_HOME } from '@/lib/dashboard/trial-only';
+import { bandOf, fits, MIN_GRADE, MAX_GRADE, type GradeBand } from '@/lib/trial/grade-band';
 
 /**
  * SARIRO — POST /api/trial/self-book
@@ -52,6 +53,8 @@ interface Body {
   name?: string;
   /** Optional, and asked for AFTER the booking rather than before it. */
   email?: string;
+  /** 1-12. Required: a class cannot be banded without it. */
+  grade?: number;
   phone?: string;
   teacherId?: string;
   slotStart?: string;
@@ -94,6 +97,13 @@ export async function POST(req: NextRequest) {
   const children = Math.max(1, Math.min(4, Math.round(body.children ?? 1)));
 
   if (name.length < 2) return bad('missing_name', 'We need a name so the teacher knows who to expect.');
+
+  /* Refused rather than defaulted. Seating a child whose level nobody recorded
+     is exactly how the grade 1 and the grade 10 end up in the same room. */
+  const grade = Math.round(Number(body.grade));
+  if (!Number.isFinite(grade) || grade < MIN_GRADE || grade > MAX_GRADE) {
+    return bad('missing_grade', 'Please choose which grade they are in.');
+  }
   // Email is optional on purpose — see the note above about the form. When it
   // IS given it still has to be an email.
   if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return bad('bad_email', 'That email does not look right.');
@@ -185,6 +195,25 @@ export async function POST(req: NextRequest) {
   const seat = canSeat(here, children);
   if (!seat.ok) return bad('slot_full', seat.message, 409);
 
+  /* ── The grade band ───────────────────────────────────────────────────────
+     A trial holds four children and, until this, any four — a grade 1 could be
+     seated with a grade 10. The first child to book a slot fixes it at their
+     grade plus or minus one; see lib/trial/grade-band.ts. Checked here as well
+     as in the picker because the picker is a courtesy and this is the
+     boundary. */
+  let band: GradeBand | null = null;
+  if (here.joinBookingId) {
+    const { data: seated } = await admin
+      .from('trial_participants')
+      .select('grade, created_at')
+      .eq('booking_id', here.joinBookingId)
+      .order('created_at', { ascending: true });
+    band = bandOf((seated ?? []).map((r) => (r.grade as number | null) ?? null));
+  }
+  const fit = fits(grade, band);
+  if (!fit.ok) return bad('grade_mismatch', fit.message, 409);
+
+
   const busy: { start: number; end: number }[] = [];
   for (const b of blockingIntervals(asSlots)) {
     const s = localWeekdayMinutes(b.slotStart, teacher.timezone);
@@ -250,6 +279,7 @@ export async function POST(req: NextRequest) {
       phone_verified: true,
       role: 'student',
       is_student: true,
+      grade,
       timezone: body.timezone || null,
     }, { onConflict: 'id' });
   }
@@ -262,7 +292,7 @@ export async function POST(req: NextRequest) {
     // Joining the class that is already there rather than opening a second one
     // at the same time — see /api/trial/book for why that matters.
     const { error } = await admin.from('trial_participants')
-      .insert({ booking_id: bookingId, student_id: studentId, added_by: studentId });
+      .insert({ booking_id: bookingId, student_id: studentId, added_by: studentId, grade });
     if (error) {
       console.warn('[self-book] join failed:', error.message);
       return bad('book_failed', 'We could not complete that booking. Please try again.', 500);
@@ -286,7 +316,7 @@ export async function POST(req: NextRequest) {
     }
     bookingId = booking.id;
     await admin.from('trial_participants')
-      .insert({ booking_id: bookingId, student_id: studentId, added_by: studentId })
+      .insert({ booking_id: bookingId, student_id: studentId, added_by: studentId, grade })
       .then(() => {}, () => {});
   }
 

@@ -56,6 +56,7 @@ export default function SelfServeBooking() {
   useEffect(() => { setTz(localZone()); }, []);
 
   const [name, setName] = useState('');
+  const [grade, setGrade] = useState<number | null>(null);
   /* Asked AFTER the class is booked, not before. See the confirmation step. */
   const [email, setEmail] = useState('');
   const [emailBusy, setEmailBusy] = useState(false);
@@ -74,7 +75,7 @@ export default function SelfServeBooking() {
   const [error, setError] = useState<string | null>(null);
   const [booked, setBooked] = useState<Booked | null>(null);
 
-  const detailsReady = name.trim().length > 1 && phoneVerified;
+  const detailsReady = name.trim().length > 1 && grade !== null && phoneVerified;
 
   /* ── The phone, proved ─────────────────────────────────────────────────── */
   const sendCode = async () => {
@@ -111,13 +112,13 @@ export default function SelfServeBooking() {
   const loadSlots = useCallback(async (seats: number) => {
     setSlots(null); setChosen(null); setError(null);
     try {
-      const r = await fetch(`/api/trial/slots?seats=${seats}`);
+      const r = await fetch(`/api/trial/slots?seats=${seats}&grade=${grade ?? ''}`);
       const j = await r.json().catch(() => null);
       setSlots(j?.ok ? (j.slots as PublicSlot[]) : []);
     } catch {
       setSlots([]);
     }
-  }, []);
+  }, [grade]);
 
   const goToTimes = async () => {
     if (!detailsReady) { setError('Fill in the details above first.'); return; }
@@ -135,7 +136,7 @@ export default function SelfServeBooking() {
       const r = await fetch('/api/trial/self-book', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name, phone, timezone: tz,
+          name, grade, phone, timezone: tz,
           teacherId: chosen.teacherId, slotStart: chosen.iso,
         }),
       });
@@ -319,6 +320,9 @@ export default function SelfServeBooking() {
                             {s.seatsLeft} {s.seatsLeft === 1 ? 'seat' : 'seats'} left
                           </span>
                         )}
+                        {s.joining && (
+                          <span className="block text-[10px] text-slate-400">{s.gradeLabel}</span>
+                        )}
                       </button>
                     );
                   })}
@@ -362,6 +366,34 @@ export default function SelfServeBooking() {
             who rings them. Five fields for a free class is four too many on a
             page somebody reached by tapping an advert. */}
         <Field label="Your name" value={name} onChange={setName} autoComplete="name" placeholder="" />
+
+        {/* The grade, asked with the name and before any time is shown.
+            A trial holds four children and one lesson cannot serve a grade 1
+            and a grade 10 at once, so the first child to book a slot fixes it
+            at their grade plus or minus one. Without this the times offered
+            would include classes this child could never actually join. */}
+        <div>
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
+            Which grade are they in?
+          </label>
+          <div className="grid grid-cols-6 gap-1.5">
+            {Array.from({ length: 12 }, (_, i) => i + 1).map((g) => (
+              <button
+                key={g}
+                onClick={() => { setGrade(g); setError(null); }}
+                className={`h-10 rounded-lg border-2 text-sm font-bold transition-colors ${
+                  grade === g ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600'
+                }`}
+                style={{ fontFamily: 'var(--font-grotesk)' }}
+              >
+                {g}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1.5 text-[11px] text-slate-500">
+            So we put them with children at the same level.
+          </p>
+        </div>
 
         {/* ── Phone, and proving it ── */}
         <div>

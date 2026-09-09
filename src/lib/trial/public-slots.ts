@@ -24,12 +24,15 @@
  */
 
 import type { SlotState } from '@/lib/scheduling/trial-capacity';
+import { fits, bandLabel, type GradeBand } from '@/lib/trial/grade-band';
 
 /** One teacher's answer for one instant. */
 export interface Candidate {
   teacherId: string;
   iso: string;
   state: SlotState;
+  /** The grade range this class is already fixed at. Null when it is empty. */
+  band?: GradeBand | null;
 }
 
 /** What the page renders and posts back. */
@@ -40,6 +43,8 @@ export interface PublicSlot {
   seatsLeft: number;
   /** True when this joins a class that already exists. */
   joining: boolean;
+  /** "Grades 5-7" when the class is already banded, else "Any grade". */
+  gradeLabel: string;
 }
 
 /**
@@ -54,12 +59,20 @@ export interface PublicSlot {
  * a class with one seat left. Filtering here rather than at the click means
  * they never choose a time that is about to be refused.
  */
-export function chooseSlots(candidates: readonly Candidate[], seatsNeeded = 1): PublicSlot[] {
+export function chooseSlots(
+  candidates: readonly Candidate[],
+  seatsNeeded = 1,
+  grade?: number | null
+): PublicSlot[] {
   const best = new Map<string, Candidate>();
 
   for (const c of candidates) {
     if (!c?.iso || !c.state) continue;
     if (c.state.free < Math.max(1, seatsNeeded)) continue;
+    /* A class already fixed at grades 5-7 is not a time this child can have,
+       so it is not offered. Showing it greyed out would only invite the
+       question "why not", and the answer is somebody else's booking. */
+    if (grade != null && c.band && !fits(grade, c.band).ok) continue;
 
     const incumbent = best.get(c.iso);
     if (!incumbent || beats(c, incumbent)) best.set(c.iso, c);
@@ -72,6 +85,7 @@ export function chooseSlots(candidates: readonly Candidate[], seatsNeeded = 1): 
       teacherId: c.teacherId,
       seatsLeft: c.state.free,
       joining: c.state.joinBookingId !== null,
+      gradeLabel: bandLabel(c.band ?? null),
     }));
 }
 
@@ -82,6 +96,11 @@ function beats(a: Candidate, b: Candidate): boolean {
   if (aJoins !== bJoins) return aJoins;
   // Among equals, the emptiest — so one teacher is not handed every booking.
   if (a.state.free !== b.state.free) return a.state.free > b.state.free;
+  /* An unbanded class before a banded one when nothing else separates them:
+     it leaves the next family more room, since an empty slot can still become
+     any grade. */
+  const aOpen = !a.band, bOpen = !b.band;
+  if (aOpen !== bOpen) return aOpen;
   // Deterministic, so the same query twice gives the same answer.
   return a.teacherId < b.teacherId;
 }

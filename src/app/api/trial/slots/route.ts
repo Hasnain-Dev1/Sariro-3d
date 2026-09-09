@@ -4,6 +4,7 @@ import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/
 import { freeSlots, localWeekdayMinutes, byWeekday, type Window } from '@/lib/scheduling/availability';
 import { slotState, blockingIntervals, TRIAL_MINUTES, type SlotBooking } from '@/lib/scheduling/trial-capacity';
 import { chooseSlots, type Candidate } from '@/lib/trial/public-slots';
+import { bandOf, MIN_GRADE, MAX_GRADE, type GradeBand } from '@/lib/trial/grade-band';
 
 /**
  * SARIRO — GET /api/trial/slots?seats=1
@@ -47,6 +48,13 @@ export async function GET(req: NextRequest) {
 
   const params = new URL(req.url).searchParams;
   const seats = Math.max(1, Math.min(4, Number(params.get('seats')) || 1));
+  /* The child's grade. Without it every banded class is offered and the
+     refusal happens at the click — see lib/trial/grade-band.ts for why a
+     grade 1 and a grade 10 cannot share the half hour. */
+  const rawGrade = Number(params.get('grade'));
+  const grade = Number.isFinite(rawGrade) && rawGrade >= MIN_GRADE && rawGrade <= MAX_GRADE
+    ? Math.round(rawGrade)
+    : null;
 
   const admin = createServiceClient();
 
@@ -85,16 +93,25 @@ export async function GET(req: NextRequest) {
     id: string; teacher_id: string; slot_start: string; slot_end: string; is_trial: boolean | null;
   }[];
   const seatsBy = new Map<string, number>();
+  /* And the band each class is already fixed at, read from the children in it
+     in the order they joined — the first one anchors it. */
+  const bandBy = new Map<string, GradeBand | null>();
   const trialIds = rows.filter((r) => r.is_trial).map((r) => r.id);
   if (trialIds.length > 0) {
     const { data: parts } = await admin
       .from('trial_participants')
-      .select('booking_id')
-      .in('booking_id', trialIds);
+      .select('booking_id, grade, created_at')
+      .in('booking_id', trialIds)
+      .order('created_at', { ascending: true });
+    const gradesBy = new Map<string, (number | null)[]>();
     for (const p of parts ?? []) {
       const k = p.booking_id as string;
       seatsBy.set(k, (seatsBy.get(k) ?? 0) + 1);
+      const list = gradesBy.get(k) ?? [];
+      list.push((p.grade as number | null) ?? null);
+      gradesBy.set(k, list);
     }
+    for (const [k, grades] of gradesBy) bandBy.set(k, bandOf(grades));
   }
 
   const windowsBy = new Map<string, Window[]>();
@@ -163,7 +180,13 @@ export async function GET(req: NextRequest) {
 
       for (const m of starts) {
         const iso = localMinutesToIso(localDate, m, tz);
-        candidates.push({ teacherId, iso, state: slotState(iso, mine) });
+        const state = slotState(iso, mine);
+        candidates.push({
+          teacherId,
+          iso,
+          state,
+          band: state.joinBookingId ? bandBy.get(state.joinBookingId) ?? null : null,
+        });
       }
     }
   }
@@ -171,7 +194,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     durationMinutes: TRIAL_MINUTES,
-    slots: chooseSlots(candidates, seats),
+    slots: chooseSlots(candidates, seats, grade),
   });
 }
 

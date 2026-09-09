@@ -682,7 +682,7 @@ function AuthGate({ children }: { children: ReactNode }) {
       router.replace(correctPath);
       return;
     }
-    if (dashboardAccess({ role: userRole, enrolmentCount }) === 'bounce') {
+    if (dashboardAccess({ role: userRole, enrolmentCount, profileLoaded: !!profile }) === 'bounce') {
       router.replace(TRIAL_HOME);
     }
   }, [user, profile, loading, router, pathname, enrolmentCount]);
@@ -699,7 +699,7 @@ function AuthGate({ children }: { children: ReactNode }) {
   /* Nothing of the dashboard renders until this is settled. A single frame is
      enough to screenshot, so 'wait' and 'bounce' both hold the loading screen
      rather than painting the shell and taking it away. */
-  if (dashboardAccess({ role, enrolmentCount }) !== 'allow') {
+  if (dashboardAccess({ role, enrolmentCount, profileLoaded: !!profile }) !== 'allow') {
     return <LoadingGate />;
   }
 

@@ -8,7 +8,7 @@ import {
   BookOpen, Clock, Calendar, ArrowRight, Sparkles, Rocket,
   TrendingUp, Video, Loader2, AlertCircle, ChevronRight,
   ChevronDown, ChevronUp, CheckCircle2, Circle, Download, FolderOpen,
-  Trash2, X, Award, Users, CalendarPlus, Coins, History, Mic,
+  X, Award, Users, CalendarPlus, Coins, History, Mic,
 } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import { DesktopClock } from '@/components/dashboard/desktop-clock';
@@ -28,7 +28,7 @@ import {
 } from '@/lib/dashboard/upsell-engine';
 import {
   fetchLessonProgress, markLessonComplete, unmarkLesson,
-  calculateProgress, getCourseSyllabus, dropCourse, fetchCohortMaterials,
+  calculateProgress, getCourseSyllabus, fetchCohortMaterials,
   lessonNumberOf,
   type LessonProgressRow,
 } from '@/lib/dashboard/student-data';
@@ -132,8 +132,6 @@ function CourseCard({ enrollment, cohort, onChanged }: {
 
   const [progressRows, setProgressRows] = useState<LessonProgressRow[]>([]);
   const [expanded, setExpanded] = useState(false);
-  const [showDropModal, setShowDropModal] = useState(false);
-  const [dropping, setDropping] = useState(false);
   const [hasMaterials, setHasMaterials] = useState(false);
 
   const syllabus = getCourseSyllabus(enrollment.track, enrollment.level);
@@ -184,18 +182,6 @@ function CourseCard({ enrollment, cohort, onChanged }: {
     }
   };
 
-  const handleDrop = async () => {
-    setDropping(true);
-    const result = await dropCourse(enrollment.id);
-    Promise.resolve().then(() => setDropping(false));
-    if (result.success) {
-      Promise.resolve().then(() => setShowDropModal(false));
-      onChanged?.();
-    } else {
-      console.warn('[CourseCard] drop failed:', result.error);
-      Promise.resolve().then(() => setShowDropModal(false));
-    }
-  };
 
   const showMaterialsLink = Boolean(cohort?.materials_url) || hasMaterials;
   const materialsUrl = cohort?.materials_url ?? null;
@@ -305,16 +291,15 @@ function CourseCard({ enrollment, cohort, onChanged }: {
           </Link>
         )}
 
-        {isActive && (
-          <button
-            type="button"
-            onClick={() => setShowDropModal(true)}
-            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold text-red-600 hover:bg-red-50 transition-colors ml-auto min-h-[32px]"
-            style={{ fontFamily: 'var(--font-grotesk)' }}
-          >
-            <Trash2 className="w-3 h-3" /> Drop
-          </button>
-        )}
+        {/* No Drop button.
+            ────────────────────────────────────────────────────────────────
+            A child clicking "Drop" ends a course their parent paid for, in
+            one tap, with nothing to undo it. Leaving is a conversation — with
+            a refund, a reason, and somebody who might fix whatever went wrong
+            — and a red button on a dashboard is not that conversation.
+
+            Staff can still drop an enrolment from the admin side, which is
+            where the refund and the note live anyway. */}
       </div>
 
       {/* Next scheduled class (only for active enrollments) — replaces old Current/Next Lesson cards.
@@ -368,45 +353,6 @@ function CourseCard({ enrollment, cohort, onChanged }: {
       )}
 
       {/* Drop confirmation modal */}
-      {showDropModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" role="dialog" aria-modal="true">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full">
-            <div className="flex items-start justify-between mb-3">
-              <h3 className="font-extrabold text-slate-900 text-lg" style={{ fontFamily: 'var(--font-jakarta)' }}>
-                Drop this course?
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowDropModal(false)}
-                className="text-slate-400 hover:text-slate-600"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <p className="text-sm text-slate-600 mb-5">
-              You&apos;re about to drop <span className="font-bold text-slate-900">{trackName}</span>. You&apos;ll lose access to live sessions and progress tracking. This cannot be undone.
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setShowDropModal(false)}
-                className="flex-1 px-4 py-2.5 rounded-lg text-sm font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors min-h-[44px]"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDrop}
-                disabled={dropping}
-                className="flex-1 px-4 py-2.5 rounded-lg text-sm font-bold text-white bg-red-600 hover:bg-red-700 transition-colors min-h-[44px] disabled:opacity-50"
-              >
-                {dropping ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Drop course'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
