@@ -166,68 +166,55 @@ for each row
 when (new.status = 'completed')
 execute function public.create_teacher_earning_on_complete();
 
--- ── Prove to yourself which version is live ────────────────────────────────
--- "Success. No rows returned" is what DDL says whether or not it did what you
--- meant. These two read the function that is ACTUALLY installed.
-do $$
-declare
-  v_src text;
-begin
-  select prosrc into v_src from pg_proc where proname = 'create_teacher_earning_on_complete';
-
-  raise notice '── which trigger is installed ─────────────────────────────';
-  if v_src is null then
-    raise notice '  NO FUNCTION FOUND — something is very wrong.';
-  else
-    raise notice '  trials skipped:        %',
-      case when v_src like '%is_trial%' then 'YES' else 'NO  ← this file did not take' end;
-    raise notice '  late penalty uncapped: %',
-      case when v_src like '%<= 10%' then 'NO  ← still capped at 10 min' else 'YES' end;
-    raise notice '  settings-driven rates: %',
-      case when v_src like '%setting_num%' then 'YES' else 'NO  ← REGRESSION, do not leave it here' end;
-    raise notice '  no-show half pay:      %',
-      case when v_src like '%half withheld%' then 'YES' else 'NO  ← REGRESSION, do not leave it here' end;
-  end if;
-end $$;
-
--- ── What is already on the books, unpenalised ───────────────────────────────
--- Deliberately NOT auto-corrected. Reducing a teacher's already-visible pay
--- without telling them is how you lose a teacher. Listed so somebody can have
--- the conversation and adjust it deliberately.
-do $$
-declare
-  r record;
-  v_n integer := 0;
-begin
-  raise notice '';
-  raise notice '── settled classes that started late but were not charged ──';
-  for r in
-    select b.id,
-           b.slot_start,
-           round(extract(epoch from (b.teacher_started_at - b.slot_start)) / 60.0) as late_min,
-           e.net_amount,
-           p.full_name
+-- ============================================================================
+-- ── DID IT WORK? ────────────────────────────────────────────────────────────
+-- ============================================================================
+-- This ends with a SELECT, on purpose. Earlier versions ended with `do $$`
+-- blocks that raise NOTICE, and NOTICEs go to the Messages tab, not the
+-- results grid — so the editor reported "Success. No rows returned" whether
+-- the migration had taken or not, twice, and nobody could tell the difference.
+--
+-- The rows below are read from the function that is ACTUALLY installed
+-- (pg_proc.prosrc), not from this file. Every `check` column must say OK.
+--
+-- If you see FAILED anywhere: the editor probably ran only part of this file.
+-- Supabase runs the SELECTED text when there is a selection — click once in
+-- the editor to clear any highlight, then Run again.
+-- ============================================================================
+select *
+from (
+  select
+    1 as ord,
+    'trials skipped' as rule,
+    case when prosrc like '%is_trial%' then 'OK' else 'FAILED — this file did not take' end as check
+  from pg_proc where proname = 'create_teacher_earning_on_complete'
+  union all
+  select 2, 'late penalty uncapped',
+    case when prosrc like '%<= 10%' then 'FAILED — still capped at 10 min' else 'OK' end
+  from pg_proc where proname = 'create_teacher_earning_on_complete'
+  union all
+  -- These two must survive. An earlier draft of this file was built on an
+  -- ancestor that had neither, and would have deleted both silently.
+  select 3, 'settings-driven rates KEPT',
+    case when prosrc like '%setting_num%' then 'OK' else 'FAILED — REGRESSION, do not leave it here' end
+  from pg_proc where proname = 'create_teacher_earning_on_complete'
+  union all
+  select 4, 'no-show half pay KEPT',
+    case when prosrc like '%half withheld%' then 'OK' else 'FAILED — REGRESSION, do not leave it here' end
+  from pg_proc where proname = 'create_teacher_earning_on_complete'
+  union all
+  -- Already-settled classes this rule would have caught. Deliberately NOT
+  -- corrected automatically: reducing a teacher's visible pay without telling
+  -- them is how you lose a teacher. Have the conversation, then adjust.
+  select 5, 'late classes paid in full (fix by hand)',
+    coalesce((
+      select count(*)::text || ' — see the second result set'
       from public.bookings b
       join public.teacher_earnings e on e.booking_id = b.id
-      left join public.profiles p on p.id = b.teacher_id
-     where b.teacher_started_at is not null
-       and b.slot_start is not null
-       and extract(epoch from (b.teacher_started_at - b.slot_start)) / 60.0 > 5
-       and coalesce(e.penalty_amount, 0) = 0
-     order by b.slot_start
-  loop
-    v_n := v_n + 1;
-    raise notice '  %  % min late  paid %  (%)',
-      to_char(r.slot_start, 'YYYY-MM-DD HH24:MI'), r.late_min, r.net_amount,
-      coalesce(r.full_name, 'unknown teacher');
-  end loop;
-
-  if v_n = 0 then
-    raise notice '  none.';
-  else
-    raise notice '';
-    raise notice '% class(es) above were paid in full despite a late start.', v_n;
-    raise notice 'From now on the trigger charges them. These are left alone on';
-    raise notice 'purpose — decide each one with the teacher, not silently.';
-  end if;
-end $$;
+      where b.teacher_started_at is not null
+        and b.slot_start is not null
+        and extract(epoch from (b.teacher_started_at - b.slot_start)) / 60.0 > 5
+        and coalesce(e.penalty_amount, 0) = 0
+    ), '0')
+) t
+order by ord;
