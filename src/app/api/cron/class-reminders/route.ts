@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
+import { TRIAL_HOME } from '@/lib/dashboard/trial-only';
 import { notifyUsers } from '@/lib/notify';
 
 /**
@@ -212,7 +213,7 @@ async function run(req: NextRequest) {
            them. Their countdown and join button are on the dashboard itself —
            sending them anywhere else is sending them to an empty page ten
            minutes before their first ever class. */
-        link: booking.is_trial ? '/dashboard/student' : '/dashboard/student/next-class',
+        link: booking.is_trial ? TRIAL_HOME : '/dashboard/student/next-class',
         email: sendEmail,
       })),
       // The teacher too. A teacher who forgets costs more than a student who

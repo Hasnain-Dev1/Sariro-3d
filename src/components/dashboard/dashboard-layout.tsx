@@ -11,6 +11,8 @@ import {
   Loader2, AlertTriangle, Trophy, LifeBuoy, HelpCircle, MessageSquare, Mic,
 } from 'lucide-react';
 import { useAuth, getRole, type UserRole } from '@/components/auth/auth-provider';
+import { createClient } from '@/lib/supabase/client';
+import { dashboardAccess, TRIAL_HOME } from '@/lib/dashboard/trial-only';
 import { BRAND } from '@/lib/sariro-data';
 import { useRealtime } from '@/lib/dashboard/use-realtime';
 import { alertPermission, requestAlertPermission, showAlert, type AlertPermission } from '@/lib/dashboard/alerts';
@@ -637,6 +639,34 @@ function AuthGate({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
+  /* How many courses this person is enrolled in. null until we know.
+     ────────────────────────────────────────────────────────────────────────
+     A free trial creates a real account, and that account used to land here —
+     inside the shell, with the sidebar: Practice Room, Leaderboard, My
+     Lessons, Messages, Browse Courses. Anybody could see the whole product by
+     giving us a phone number.
+
+     The check lives in AuthGate rather than on the student dashboard page
+     because a redirect on one page is not a fence: /dashboard/student/practice
+     and /dashboard/student/leaderboard are one typed URL away. Everything
+     under /dashboard goes through here. */
+  const [enrolmentCount, setEnrolmentCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    let live = true;
+    (async () => {
+      const { count, error } = await createClient()
+        .from('enrollments')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+      // An error leaves it null, which holds the loading screen rather than
+      // guessing. See dashboardAccess: both guesses are expensive.
+      if (live && !error) setEnrolmentCount(count ?? 0);
+    })();
+    return () => { live = false; };
+  }, [user]);
+
   useEffect(() => {
     if (loading) return;
     if (!user) {
@@ -652,7 +682,10 @@ function AuthGate({ children }: { children: ReactNode }) {
       router.replace(correctPath);
       return;
     }
-  }, [user, profile, loading, router, pathname]);
+    if (dashboardAccess({ role: userRole, enrolmentCount }) === 'bounce') {
+      router.replace(TRIAL_HOME);
+    }
+  }, [user, profile, loading, router, pathname, enrolmentCount]);
 
   if (loading || !user) return <LoadingGate />;
 
@@ -660,6 +693,13 @@ function AuthGate({ children }: { children: ReactNode }) {
   // If user is on a wrong-role dashboard, show loading while redirect happens
   const pathRole = getRoleFromPath(pathname);
   if (pathRole && pathRole !== role) {
+    return <LoadingGate />;
+  }
+
+  /* Nothing of the dashboard renders until this is settled. A single frame is
+     enough to screenshot, so 'wait' and 'bounce' both hold the loading screen
+     rather than painting the shell and taking it away. */
+  if (dashboardAccess({ role, enrolmentCount }) !== 'allow') {
     return <LoadingGate />;
   }
 

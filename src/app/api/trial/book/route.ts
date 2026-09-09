@@ -8,6 +8,7 @@ import { localWeekdayMinutes, slotIsFree } from '@/lib/scheduling/availability';
 import {
   slotState, blockingIntervals, canSeat, type SlotBooking,
 } from '@/lib/scheduling/trial-capacity';
+import { TRIAL_HOME } from '@/lib/dashboard/trial-only';
 
 /**
  * SARIRO — POST /api/trial/book
@@ -313,7 +314,7 @@ export async function POST(req: NextRequest) {
         type: 'trial_booked',
         title: 'Your free class is booked',
         message: `You have a trial class with ${teacher.full_name ?? 'a Sariro mentor'}. Check your dashboard for the time and the link.`,
-        link: '/dashboard/student',
+        link: TRIAL_HOME,
       }))
     ).then(() => {}, () => {});
 
@@ -391,7 +392,7 @@ export async function POST(req: NextRequest) {
       type: 'trial_booked',
       title: 'Your free class is booked',
       message: `You have a trial class with ${teacher.full_name ?? 'a Sariro mentor'}. Check your dashboard for the time and the link.`,
-      link: '/dashboard/student',
+      link: TRIAL_HOME,
     }))
   ).then(() => {}, () => {});
 

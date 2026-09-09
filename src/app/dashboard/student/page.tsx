@@ -39,7 +39,7 @@ import {
   type CreditRow, type CreditTransactionRow,
 } from '@/lib/dashboard/credits-data';
 import { useRealtime } from '@/lib/dashboard/use-realtime';
-import TrialJourney, { type TrialClass } from '@/components/dashboard/trial-journey';
+import { type TrialClass } from '@/components/dashboard/trial-journey';
 import TrialCard from '@/components/dashboard/trial-card';
 import PracticeProgress from '@/components/speaking/practice-progress';
 import { canPractise } from '@/lib/speaking/access';
@@ -117,68 +117,6 @@ function formatSessionTime(iso: string, timezone: string | null): string {
   } catch {
     return iso;
   }
-}
-
-/* ───── Not enrolled in anything yet ───── */
-/**
- * A whole page rather than a card inside the dashboard.
- *
- * Two reasons. A student who has bought nothing has nothing on that dashboard
- * — no classes, no credits, no progress, no classmates — so what they met was
- * eight empty sections and one small "no courses yet" card buried among them.
- * That reads as a broken product on somebody's first visit.
- *
- * And it means the working dashboard is never rendered to an account that has
- * not bought anything, which is the other thing it was asked to do.
- */
-function NotEnrolledYet({ firstName }: { firstName: string }) {
-  return (
-    <section className="relative min-h-[70vh] flex items-center px-4 sm:px-6 lg:px-10 py-16">
-      <div className="max-w-2xl mx-auto text-center">
-        <div className="w-16 h-16 rounded-2xl bg-blue-100 flex items-center justify-center mx-auto mb-6">
-          <Sparkles className="w-8 h-8 text-blue-600" />
-        </div>
-
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-3" style={{ fontFamily: 'var(--font-jakarta)' }}>
-          We&apos;re still waiting for you, {firstName}.
-        </h1>
-
-        <p className="text-[15px] sm:text-base text-slate-600 leading-[1.75] mb-2">
-          Your account is ready. There is no class on it yet — so there is nothing
-          here to show you, and we would rather say that than fill the page with
-          empty boxes.
-        </p>
-        <p className="text-[15px] sm:text-base text-slate-600 leading-[1.75] mb-8">
-          Book a free class and meet a mentor first. Thirty minutes, a real lesson,
-          and nothing to pay.
-        </p>
-
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Link
-            href="/welcome#book"
-            className="btn-tactile btn-tactile-primary px-6 py-3 text-sm inline-flex items-center justify-center gap-2"
-          >
-            <Sparkles className="w-4 h-4" /> Book a free class
-          </Link>
-          <Link
-            href="/courses"
-            className="btn-tactile btn-tactile-light px-6 py-3 text-sm inline-flex items-center justify-center gap-2"
-          >
-            <BookOpen className="w-4 h-4" /> See what we teach
-          </Link>
-        </div>
-
-        <p className="text-[13px] text-slate-400 mt-8 leading-[1.7]">
-          Already paid and nothing has appeared? It can take a little while for an
-          enrolment to be confirmed. Write to{' '}
-          <a href="mailto:support@sariro.com" className="font-semibold text-slate-600 hover:text-slate-900">
-            support@sariro.com
-          </a>{' '}
-          and we will sort it out.
-        </p>
-      </div>
-    </section>
-  );
 }
 
 /* ───── Course card ───── */
@@ -1002,7 +940,7 @@ function StudentDashboardInner() {
      `loading` went false first, every single time. A child with a trial booked
      was shown "We're still waiting for you" — the exact page that means the
      opposite of what was true. */
-  const [trialLoaded, setTrialLoaded] = useState(false);
+
   const [bookings, setBookings] = useState<Booking[]>([]);
   // Capstone system: past bookings for "Class Notes & Projects" section
   const [pastBookings, setPastBookings] = useState<Booking[]>([]);
@@ -1034,7 +972,6 @@ function StudentDashboardInner() {
     if (!user) return;
     cancelledRef.current = false;
     setLoading(true);
-    setTrialLoaded(false);
     setError(null);
     try {
       // 1. Enrollments + credits fire together — credits don't depend on
@@ -1094,9 +1031,6 @@ function StudentDashboardInner() {
           // The trial columns arrive with scripts/trial-booking.sql. Until then
           // this is simply a student with no trial, which is the safe reading.
           setTrial(null);
-        } finally {
-          // Answered either way. Nothing downstream may branch before this.
-          if (!cancelledRef.current) setTrialLoaded(true);
         }
       })();
 
@@ -1240,31 +1174,24 @@ function StudentDashboardInner() {
   /* Below every hook, so the hook order never changes between renders. A
      student with no enrolment gets their own page rather than the dashboard
      with everything on it empty. */
+  /* A student with no enrolment does not belong on the dashboard at all.
+     ──────────────────────────────────────────────────────────────────────────
+     This used to render TrialJourney here — inside DashboardLayout, so a free
+     trial account arrived with the whole sidebar attached: Practice Room,
+     Leaderboard, My Lessons, Messages, Browse Courses. Anybody could see the
+     product by giving us a phone number.
+
+     The decision now lives in AuthGate (lib/dashboard/trial-only.ts), which
+     covers every route under /dashboard rather than only this page — a
+     redirect on one page is not a fence when /dashboard/student/practice is a
+     typed URL away. This is the belt to that pair of braces: if the gate ever
+     fails open, nothing of the dashboard is painted here either. */
   if (!loading && !error && enrollments.length === 0) {
-    /* The trial lookup outlives `loading`, and this branch is decided by its
-       answer. Waiting the extra fraction of a second is the difference between
-       a booked child seeing their countdown and being told nobody is expecting
-       them. */
-    if (!trialLoaded) {
-      return (
-        <section className="relative min-h-[70vh] flex items-center justify-center px-4">
-          <Loader2 className="w-6 h-6 text-slate-300 animate-spin" aria-label="Loading" />
-        </section>
-      );
-    }
-    /* §8. Somebody with a trial booked has something to say — when it starts,
-       how to join, and afterwards how it went. "We're still waiting for you"
-       is for the person who has neither an enrolment nor a class. */
-    if (trial) {
-      return (
-        <TrialJourney
-          trial={trial}
-          firstName={firstName}
-          timezone={profile?.timezone ?? null}
-        />
-      );
-    }
-    return <NotEnrolledYet firstName={firstName} />;
+    return (
+      <section className="relative min-h-[70vh] flex items-center justify-center px-4">
+        <Loader2 className="w-6 h-6 text-slate-300 animate-spin" aria-label="Loading" />
+      </section>
+    );
   }
 
   return (
