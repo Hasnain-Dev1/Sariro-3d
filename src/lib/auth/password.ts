@@ -197,3 +197,106 @@ export function resetRequestedMessage(email: string): string {
   const shown = email.trim();
   return `If ${shown} has a Sariro account, a reset link is on its way. It is valid for one hour, and it sometimes lands in spam.`;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   The code in the email, for when the link does not work
+   ══════════════════════════════════════════════════════════════════════════
+   The reset email has always carried a six-digit code as well as a button,
+   and until now nothing on the site would accept it. That mattered more than
+   it sounds, because the button fails in two ordinary situations that have
+   nothing to do with the person doing anything wrong:
+
+     · They ask for the reset on a laptop and open the email on their phone.
+       The browser client uses PKCE, so the secret half of the exchange is in
+       the laptop's storage. The phone has half a handshake and gets an error.
+
+     · A mail scanner — Outlook, a school filter, some antivirus suites —
+       fetches every link in the message to check it. The reset link works
+       exactly once, so by the time a human clicks it, it has been used.
+
+   A typed code has neither problem: no browser state, and nothing to consume
+   in advance. It is the reliable path, which is why it is offered rather than
+   hidden behind "having trouble?".
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** Supabase sends six digits. */
+export const CODE_LENGTH = 6;
+
+/**
+ * What a person actually types, turned into what the API expects.
+ *
+ * People paste "123 456", copy a trailing space out of the email, or type an
+ * O for a 0 out of habit from other codes. Rejecting those is technically
+ * correct and practically hostile — the digits are right there.
+ */
+export function normaliseCode(raw: string): string {
+  return raw
+    .replace(/[oO]/g, '0')
+    .replace(/[lLiI]/g, '1')
+    .replace(/\D/g, '')
+    .slice(0, CODE_LENGTH);
+}
+
+export function codeLooksComplete(raw: string): boolean {
+  return normaliseCode(raw).length === CODE_LENGTH;
+}
+
+/**
+ * What to say when a typed code is refused.
+ *
+ * Supabase returns the same shape of error for "wrong code" and "expired
+ * code", and they need different actions from the person: try again, versus
+ * go and get a new email. Where they can be told apart, they are.
+ */
+export function codeErrorMessage(raw: string | null | undefined): string {
+  const m = (raw ?? '').toLowerCase();
+  /* Supabase's real message is "Token has expired or is invalid" — one string
+     for two causes it will not separate, and they need opposite actions. So
+     this covers both and leads with the cheap one: re-reading six digits costs
+     nothing, requesting another email costs five minutes. Checked BEFORE the
+     bare /expired/ branch, which would otherwise claim a certainty the API
+     never offered and send every mistyped digit back to the start. */
+  if (/expired or is invalid|invalid or has expired/.test(m)) {
+    return 'That code did not work. Check the six digits against the newest email — and if it has been more than an hour, ask for a fresh one.';
+  }
+  if (/expired/.test(m)) {
+    return 'That code has expired — they last an hour. Ask for a new email and use the code in that one.';
+  }
+  if (/rate|too many|security purposes/.test(m)) {
+    return 'Too many tries. Wait a minute and then try the code again.';
+  }
+  if (/invalid|not found|token/.test(m)) {
+    return 'That code did not match. Check the six digits in the email — it is the most recent one that counts.';
+  }
+  return 'We could not check that code. Try again in a moment.';
+}
+
+/**
+ * The address they just asked a reset for, remembered on this device only.
+ *
+ * The code form needs an email as well as the code. Putting it in the reset
+ * URL would be the easy way and the wrong one — it would then sit in server
+ * logs, browser history and any referrer, which is not somewhere a customer's
+ * email address belongs. localStorage never leaves the machine.
+ *
+ * It is a convenience, not a mechanism: on a second device the field is simply
+ * shown and typed, which is one line of work and always available.
+ */
+const RESET_EMAIL_KEY = 'sariro.reset.email';
+
+export function rememberResetEmail(email: string): void {
+  try {
+    window.localStorage.setItem(RESET_EMAIL_KEY, email.trim());
+  } catch {
+    /* Private mode, or storage blocked. The field is typed instead. */
+  }
+}
+
+export function recallResetEmail(): string | null {
+  try {
+    const v = window.localStorage.getItem(RESET_EMAIL_KEY);
+    return v && v.includes('@') ? v : null;
+  } catch {
+    return null;
+  }
+}

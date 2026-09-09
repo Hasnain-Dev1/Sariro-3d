@@ -2,13 +2,14 @@
 
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Lock, Loader2, Eye, EyeOff, AlertCircle, CheckCircle2, ArrowRight, ShieldCheck, KeyRound, Sparkles,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import AuthShell from '@/components/auth/auth-shell';
 import { checkPassword, passwordsMatch, resetErrorMessage } from '@/lib/auth/password';
+import RecoveryCodeForm from '@/components/auth/recovery-code-form';
 
 /**
  * SARIRO — /auth/reset-password
@@ -38,6 +39,9 @@ import { checkPassword, passwordsMatch, resetErrorMessage } from '@/lib/auth/pas
 function ResetPasswordInner() {
   const supabase = createClient();
   const router = useRouter();
+  /* forgot-password carries the address across so the code form is one field
+     rather than two. It is the address they just typed, not a secret. */
+  const presetEmail = useSearchParams().get('email');
 
   const [checking, setChecking] = useState(true);
   const [email, setEmail] = useState<string | null>(null);
@@ -149,29 +153,14 @@ function ResetPasswordInner() {
           </div>
         </div>
       ) : !linkOk ? (
-        /* An expired link, an already-used one, or somebody who typed the URL.
-           Said here rather than after they have filled in two boxes. */
-        <div className="space-y-4">
-          <div className="flex gap-3 p-4 rounded-xl bg-amber-50 border border-amber-200">
-            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-bold text-amber-900 mb-1" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                This link has expired
-              </p>
-              <p className="text-sm text-amber-800 leading-relaxed">
-                Reset links last an hour and work once. Ask for a fresh one and it will land in a moment.
-              </p>
-            </div>
-          </div>
-          <Link
-            href="/auth/forgot-password"
-            className="w-full h-12 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold flex items-center justify-center gap-2 transition-colors"
-            style={{ fontFamily: 'var(--font-grotesk)' }}
-          >
-            Send me a new link
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
+        /* No recovery session — an expired link, one a mail scanner already
+           used, or a link opened on a different device from the one it was
+           asked on. This used to be a dead end offering another link that
+           would fail the same way; the code in that same email does not. */
+        <RecoveryCodeForm
+          presetEmail={presetEmail}
+          onVerified={() => { setLinkOk(true); setChecking(false); }}
+        />
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <div>

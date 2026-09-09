@@ -11,6 +11,11 @@ export type FaqCategory =
   | 'schools'
   | 'auth'
   | 'contact'
+  /* Added Sept 2026, when the trial chain and the practice room went live.
+     The chat answers from this file and nowhere else, so anything that ships
+     without an entry here is something the chat will confidently deny. */
+  | 'trial'
+  | 'practice'
   | 'general';
 
 export interface FaqEntry {
@@ -224,9 +229,78 @@ export const FAQ_KNOWLEDGE_BASE: FaqEntry[] = [
     id: 'auth-reset-password',
     question: 'How do I reset my password?',
     answer:
-      'On the sign-in page, click "Forgot password?" and enter your email. We\'ll send you a reset link valid for 1 hour. Click the link, choose a new password, and you\'re back in. If you signed up with Google or GitHub, you don\'t need a password — just sign in with the same provider again.',
+      'On the sign-in page, click "Forgot password?" and enter your email. The email that arrives has two ways in: a button, and a six-digit code underneath it. Use the button first — and if it says the link did not open a session, type the six digits instead. That happens when you ask on a laptop and open the email on your phone, or when a mail scanner has already used the link, and the code works in both cases. Both last an hour. If you signed up with Google or GitHub you have no password at all — just sign in with the same provider again.',
     category: 'auth',
-    keywords: ['reset', 'forgot', 'password', 'lost password', 'recover', 'locked out'],
+    keywords: ['reset', 'forgot', 'password', 'lost password', 'recover', 'locked out', 'code', 'otp', 'six digit', '6 digit', 'link expired', 'link not working', 'choose a new password'],
+    priority: 8,
+  },
+
+  // ===== TRIAL CLASSES =====
+  // Added Sept 2026. The whole trial chain went live and the chat knew none
+  // of it — a parent asking "when is my free class" got the fallback.
+  {
+    id: 'trial-what-is-it',
+    question: 'What happens in the free trial class?',
+    answer:
+      'A real lesson with a real mentor, about thirty minutes, capped at four learners like every other class. Nothing to pay and no card on file — you decide afterwards. Book it from the site and it appears on your dashboard straight away, with a countdown to the start.',
+    category: 'trial',
+    keywords: ['trial', 'free class', 'demo', 'demo class', 'free trial', 'first class', 'try a class'],
+    priority: 10,
+  },
+  {
+    id: 'trial-where-is-it',
+    question: 'Where do I see my booked trial class?',
+    answer:
+      'On your dashboard, as soon as it is booked. If it is the only thing on your account, the whole page becomes the trial: when it starts, a live countdown, and the join button. If you already have classes with us, it sits at the top of your normal dashboard as a blue card with the same countdown. You do not need a separate link or email to find it.',
+    category: 'trial',
+    keywords: ['where is my trial', 'see my trial', 'my free class', 'my trial class', 'trial dashboard', 'trial booked', 'countdown', 'when is my class', 'when is my trial', 'time remaining'],
+    priority: 9,
+  },
+  {
+    id: 'trial-join',
+    question: 'How do I join my trial class?',
+    answer:
+      'The join button appears on your dashboard ten minutes before the start — not on the hour, so you are never told "not yet" while you are already sitting there waiting. If the time has come and it says your mentor is still setting up the link, message support@sariro.com and we will chase it; that means the teacher has not saved their class room yet.',
+    category: 'trial',
+    keywords: ['join', 'how to join', 'join button', 'cant join', 'no join link', 'join my class', 'google meet', 'zoom link'],
+    priority: 9,
+  },
+
+  // ===== PRACTICE ROOM =====
+  {
+    id: 'practice-what-is-it',
+    question: 'What is the practice room?',
+    answer:
+      'Somewhere to practise on the six days a week there is no class. Three drills: speaking (your pace, pauses, filler words and whether your voice actually moves), listening (a passage read once, which you give back), and writing (sentence rhythm, soft words, and the sentences that hide who did the thing). It comes with the Public Speaking course and lives in your dashboard sidebar.',
+    category: 'practice',
+    keywords: ['practice', 'practice room', 'speaking', 'listening', 'writing', 'drill', 'homework', 'public speaking'],
+    priority: 9,
+  },
+  {
+    id: 'practice-privacy',
+    question: 'Is my voice recorded in the practice room?',
+    answer:
+      'No. Every measurement is made on your own device as you speak, and only the numbers are kept — no recording, no transcript, nothing anybody can play back. That is also why you can try a passage forty times: there is no server to wait for and it costs nothing each go.',
+    category: 'practice',
+    keywords: ['recorded', 'recording', 'is my voice', 'my voice', 'voice stored', 'practice privacy', 'listen back', 'played back'],
+    priority: 8,
+  },
+  {
+    id: 'practice-mic-not-working',
+    question: 'The practice room is not asking for my microphone. What is wrong?',
+    answer:
+      'Almost always the address rather than the browser. A browser only hands over a microphone on a secure page — https:// or localhost — and on anything else it will never even show the permission box. Open https://sariro.com and it will ask straight away. If you have blocked it once before, the browser then refuses silently for good: tap the padlock in the address bar, set Microphone to Allow, and try again. Speech recognition itself needs Chrome, Edge or Safari — on other browsers the typing option does the same drill.',
+    category: 'practice',
+    keywords: ['microphone', 'mic', 'mic not working', 'microphone not working', 'microphone permission', 'no popup', 'wont record', 'cant hear', 'allow microphone', 'microphone blocked'],
+    priority: 8,
+  },
+  {
+    id: 'practice-progress',
+    question: 'Can I see whether my speaking is improving?',
+    answer:
+      'Yes — the practice room and your dashboard both show it. Not "attended 8 classes", but the actual numbers over time: filler words a minute, speaking pace, how much of a passage you caught. Nothing is claimed under three attempts, because two attempts is not a trend. It also picks one thing to work on next and tells you what to do about it, rather than handing you four numbers and leaving you with them.',
+    category: 'practice',
+    keywords: ['progress', 'improving', 'improvement', 'getting better', 'my score', 'streak', 'my stats', 'chart'],
     priority: 8,
   },
 

@@ -7,7 +7,7 @@ import { ArrowLeft, Mail, Loader2, CheckCircle2, AlertCircle, KeyRound, ShieldCh
 import { createClient } from '@/lib/supabase/client';
 import AuthShell from '@/components/auth/auth-shell';
 import { HoneypotField } from '@/components/security/honeypot';
-import { resetErrorMessage, resetRequestedMessage } from '@/lib/auth/password';
+import { resetErrorMessage, resetRequestedMessage, rememberResetEmail } from '@/lib/auth/password';
 import { cooldownFor, recordSend, cooldownSeconds, SEND_COOLDOWN_MS } from '@/lib/auth/send-cooldown';
 
 /**
@@ -87,6 +87,10 @@ function ForgotPasswordInner() {
 
     setSubmitting(true);
     try {
+      /* So the code form on the other end is one field rather than two. Kept
+         on this device only — an email address does not belong in a URL. */
+      rememberResetEmail(address);
+
       const { error: err } = await supabase.auth.resetPasswordForEmail(address, {
         redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent('/auth/reset-password')}`,
       });

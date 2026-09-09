@@ -24,6 +24,9 @@ export async function GET(request: Request) {
   if (requestUrl.searchParams.get('type') === 'recovery') {
     next = '/auth/reset-password';
   }
+  /* Whether this is a password reset at all, however it was labelled. Both
+     routes below need it, and the answer decides where a failure lands. */
+  const isRecovery = next.startsWith('/auth/reset-password');
 
   /* An expired or already-used link comes back as an error in the URL FRAGMENT
      (#error=...), which never reaches the server. Supabase also sends
@@ -32,8 +35,12 @@ export async function GET(request: Request) {
      dropped on sign-in with a raw error string. */
   const errorCode = requestUrl.searchParams.get('error_code');
   if (errorCode === 'otp_expired' || errorCode === 'access_denied') {
+    /* A spent reset link goes to the reset screen, not back to the start.
+       The same email carries a six-digit code, and that code is unaffected by
+       whatever consumed the link — so the screen that accepts it is the one
+       thing here that can still finish the job. */
     return NextResponse.redirect(
-      new URL('/auth/forgot-password?expired=1', requestUrl.origin)
+      new URL(isRecovery ? '/auth/reset-password' : '/auth/forgot-password?expired=1', requestUrl.origin)
     );
   }
 
@@ -57,14 +64,24 @@ export async function GET(request: Request) {
       const { error } = await supabase.auth.exchangeCodeForSession(code);
       if (error) {
         console.error('[auth/callback] exchange error:', error.message);
+        /* A reset that fails to exchange is NOT a sign-in problem, and dumping
+           a raw Supabase string on the sign-in page told a locked-out parent
+           nothing they could act on. The commonest cause is asking on a laptop
+           and opening the email on a phone: the client uses PKCE, so the other
+           half of the exchange is in the laptop's storage and the phone
+           arrives with half a handshake. Send them to the screen that takes
+           the code instead, which needs no browser state at all. */
         return NextResponse.redirect(
-          new URL(`/auth/sign-in?error=${encodeURIComponent(error.message)}`, requestUrl.origin)
+          new URL(
+            isRecovery ? '/auth/reset-password' : `/auth/sign-in?error=${encodeURIComponent(error.message)}`,
+            requestUrl.origin
+          )
         );
       }
     } catch (err) {
       console.error('[auth/callback] exception:', err);
       return NextResponse.redirect(
-        new URL(`/auth/sign-in?error=callback_failed`, requestUrl.origin)
+        new URL(isRecovery ? '/auth/reset-password' : '/auth/sign-in?error=callback_failed', requestUrl.origin)
       );
     }
   }

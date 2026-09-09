@@ -5,6 +5,9 @@ import {
   passwordsMatch,
   resetErrorMessage,
   resetRequestedMessage,
+  normaliseCode,
+  codeLooksComplete,
+  codeErrorMessage,
   MIN_LENGTH,
   MAX_LENGTH,
 } from './password';
@@ -209,5 +212,78 @@ describe('asking for a link never reveals who has an account', () => {
 
   test('the address is trimmed before it is shown back', () => {
     assert.match(resetRequestedMessage('  parent@example.com  '), /If parent@example\.com has/);
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+   The code in the email
+   ══════════════════════════════════════════════════════════════════════════ */
+
+describe('normaliseCode', () => {
+  test('plain six digits pass through', () => {
+    assert.equal(normaliseCode('483920'), '483920');
+  });
+
+  test('a pasted code with a space still works', () => {
+    // Copying out of the email brings the gap with it more often than not.
+    assert.equal(normaliseCode('483 920'), '483920');
+  });
+
+  test('a leading or trailing space is not a failed reset', () => {
+    assert.equal(normaliseCode('  483920 '), '483920');
+  });
+
+  test('an O typed for a zero is read as a zero', () => {
+    // Habit from every other code people are sent. The digits are right there.
+    assert.equal(normaliseCode('4O392O'), '403920');
+  });
+
+  test('an l or I typed for a one is read as a one', () => {
+    assert.equal(normaliseCode('4l392I'), '413921');
+  });
+
+  test('anything past six digits is dropped', () => {
+    assert.equal(normaliseCode('4839201234'), '483920');
+  });
+
+  test('nothing typed is an empty string, not a crash', () => {
+    assert.equal(normaliseCode(''), '');
+  });
+
+  test('completeness is judged after cleaning, not before', () => {
+    assert.equal(codeLooksComplete('483 920'), true);
+    assert.equal(codeLooksComplete('48392'), false);
+  });
+});
+
+describe('codeErrorMessage', () => {
+  test('the real combined message from Supabase offers both actions, cheap one first', () => {
+    // Verified against the live API: a wrong code comes back as "Token has
+    // expired or is invalid" — one string for two causes needing opposite
+    // fixes. Claiming "expired" sends every mistyped digit back to the start.
+    const m = codeErrorMessage('Token has expired or is invalid');
+    assert.match(m, /Check the six digits/);
+    assert.match(m, /fresh one/);
+  });
+
+  test('an expired code sends them for a new email', () => {
+    assert.match(codeErrorMessage('Token has expired'), /new email/);
+  });
+
+  test('a wrong code tells them to try again, not to start over', () => {
+    // Different action from expired. Telling somebody to request a new email
+    // when they simply mistyped costs them another five minutes.
+    const m = codeErrorMessage('Invalid token');
+    assert.match(m, /did not match/);
+    assert.doesNotMatch(m, /new email/);
+  });
+
+  test('a rate limit says how long, roughly', () => {
+    assert.match(codeErrorMessage('For security purposes, you can only request this after 60 seconds'), /Wait a minute/);
+  });
+
+  test('an unrecognised error still says something useful', () => {
+    assert.match(codeErrorMessage('kaboom'), /Try again/);
+    assert.match(codeErrorMessage(null), /Try again/);
   });
 });
