@@ -57,11 +57,15 @@ const MAX_BOOKINGS_PER_RUN = 200;
 
 interface DueBooking {
   id: string;
-  cohort_id: string;
+  /** Null on a trial — it has no cohort, which is why the roster differs. */
+  cohort_id: string | null;
   teacher_id: string | null;
   slot_start: string;
   module_num: string | null;
   lesson_name: string | null;
+  is_trial: boolean | null;
+  /** The first child. trial_participants holds the rest. */
+  trial_student_id: string | null;
 }
 
 function authorised(req: NextRequest): boolean {
@@ -111,7 +115,7 @@ async function run(req: NextRequest) {
 
   const { data: due, error: dueErr } = await admin
     .from('bookings')
-    .select('id, cohort_id, teacher_id, slot_start, module_num, lesson_name')
+    .select('id, cohort_id, teacher_id, slot_start, module_num, lesson_name, is_trial, trial_student_id')
     .eq('status', 'scheduled')
     .is('reminder_sent_at', null)
     .gt('slot_start', now.toISOString())
@@ -154,19 +158,45 @@ async function run(req: NextRequest) {
     if (!claimed || claimed.length === 0) continue;
     reminded++;
 
-    const { data: roster } = await admin
-      .from('enrollments')
-      .select('user_id')
-      .eq('cohort_id', booking.cohort_id)
-      .eq('status', 'active');
+    /* A trial has no cohort, so its roster is not in `enrollments`.
+       ────────────────────────────────────────────────────────────────────
+       This loop claims the booking BEFORE finding out who to tell — which is
+       correct for concurrency, and was silently fatal for trials: the query
+       below ran as cohort_id = null, matched nobody, and the reminder flag was
+       spent on a message that went to no one. A child booked for a free class
+       heard nothing, once, and there was no second chance because the row now
+       said it had been reminded.
 
-    const studentIds = [
-      ...new Set<string>(
-        (roster ?? [])
-          .map((r: { user_id: string | null }) => r.user_id)
-          .filter((id): id is string => !!id)
-      ),
-    ];
+       trial_participants is the full roster; trial_student_id is the fallback
+       for trials booked before that table existed. */
+    let studentIds: string[] = [];
+    if (booking.is_trial) {
+      const { data: parts } = await admin
+        .from('trial_participants')
+        .select('student_id')
+        .eq('booking_id', booking.id);
+      studentIds = [
+        ...new Set<string>(
+          [
+            ...(parts ?? []).map((r: { student_id: string | null }) => r.student_id),
+            booking.trial_student_id,
+          ].filter((id): id is string => !!id)
+        ),
+      ];
+    } else {
+      const { data: roster } = await admin
+        .from('enrollments')
+        .select('user_id')
+        .eq('cohort_id', booking.cohort_id)
+        .eq('status', 'active');
+      studentIds = [
+        ...new Set<string>(
+          (roster ?? [])
+            .map((r: { user_id: string | null }) => r.user_id)
+            .filter((id): id is string => !!id)
+        ),
+      ];
+    }
 
     const when = minutesUntil(booking.slot_start);
     const lesson = booking.lesson_name?.trim();
@@ -176,9 +206,13 @@ async function run(req: NextRequest) {
       ...studentIds.map((userId) => ({
         userId,
         type: 'session_reminder' as const,
-        title: `Your class starts ${when}`,
+        title: booking.is_trial ? `Your free class starts ${when}` : `Your class starts ${when}`,
         message: detail,
-        link: '/dashboard/student/next-class',
+        /* A trial student has no enrolment, so /next-class has nothing to show
+           them. Their countdown and join button are on the dashboard itself —
+           sending them anywhere else is sending them to an empty page ten
+           minutes before their first ever class. */
+        link: booking.is_trial ? '/dashboard/student' : '/dashboard/student/next-class',
         email: sendEmail,
       })),
       // The teacher too. A teacher who forgets costs more than a student who

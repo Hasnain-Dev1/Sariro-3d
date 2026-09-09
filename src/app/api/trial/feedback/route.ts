@@ -3,6 +3,7 @@ import { createServerClientHelper, createServiceClient } from '@/lib/supabase/se
 import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import { checkFeedback, payGate, type ClassFeedback } from '@/lib/dashboard/class-feedback';
+import { latePenalty } from '@/lib/dashboard/late-penalty';
 
 /**
  * SARIRO — POST /api/trial/feedback
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
   // ── Were you actually in this class? ──────────────────────────────────────
   const { data: booking } = await admin
     .from('bookings')
-    .select('id, teacher_id, trial_student_id, demo_request_id, cohort_id, is_trial, status, slot_start')
+    .select('id, teacher_id, trial_student_id, demo_request_id, cohort_id, is_trial, status, slot_start, teacher_started_at')
     .eq('id', body.bookingId)
     .maybeSingle();
   if (!booking) return NextResponse.json({ ok: false, error: 'no_such_class' }, { status: 404 });
@@ -191,6 +192,8 @@ type Booking = {
   demo_request_id: string | null;
   is_trial: boolean;
   slot_start: string;
+  /** When the teacher actually pressed Start. Null when they never did. */
+  teacher_started_at: string | null;
 };
 
 /**
@@ -240,6 +243,16 @@ async function payForTrial(admin: Admin, booking: Booking, studentCount: number)
     if (setting?.amount != null) amount = Number(setting.amount);
   } catch { /* the default is the documented one */ }
 
+  /* The same late-join rule as every other class.
+     ────────────────────────────────────────────────────────────────────────
+     This was hardcoded to zero, so a teacher who joined a trial twenty
+     minutes late was paid the full fee while the payout screen told them the
+     rule was "more than 5 minutes — ₹100". A trial is half an hour of a
+     child's first impression of Sariro; if anything it is the class where
+     turning up on time matters most. */
+  const penalty = latePenalty(booking.slot_start, booking.teacher_started_at);
+  const net = Math.max(0, amount - penalty.amount);
+
   const { error } = await admin.from('teacher_earnings').insert({
     teacher_id: booking.teacher_id,
     booking_id: booking.id,
@@ -251,9 +264,10 @@ async function payForTrial(admin: Admin, booking: Booking, studentCount: number)
     student_count: Math.max(1, studentCount),
     base_amount: amount,
     bonus_amount: 0,
-    penalty_amount: 0,
-    amount,
-    net_amount: amount,
+    penalty_amount: penalty.amount,
+    penalty_reason: penalty.reason,
+    amount: net,
+    net_amount: net,
     status: 'pending',
   });
   if (error) {

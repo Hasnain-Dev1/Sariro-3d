@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
 
   const admin = createServiceClient();
   const { data: booking } = await admin.from('bookings')
-    .select('id, cohort_id, teacher_id, slot_start, slot_end, status, schedule_id, lesson_name')
+    .select('id, cohort_id, teacher_id, slot_start, slot_end, status, schedule_id, lesson_name, is_trial, trial_student_id')
     .eq('id', body.bookingId).maybeSingle();
   if (!booking) return NextResponse.json({ ok: false, error: 'booking_not_found' }, { status: 404 });
   if (booking.status !== 'scheduled') {
@@ -104,13 +104,70 @@ export async function POST(req: NextRequest) {
   // Ownership: student must be enrolled in the cohort; teacher must own it.
   let isOwnerStudent = false;
   if (actor.isStudent) {
-    const { data: enr } = await admin.from('enrollments').select('id')
-      .eq('cohort_id', booking.cohort_id).eq('user_id', actor.userId).neq('status', 'dropped').limit(1).maybeSingle();
-    isOwnerStudent = !!enr;
+    if (booking.is_trial) {
+      /* A trial has no cohort, so the enrolment lookup below matched nothing
+         and the parent was told "forbidden" about their own child's free
+         class. They then either turn up to a class they meant to cancel, or
+         silently do not — and a teacher sits in an empty room for half an
+         hour with no warning. Their membership is trial_participants, with
+         trial_student_id for trials booked before that table existed. */
+      const { data: part } = await admin.from('trial_participants').select('id')
+        .eq('booking_id', booking.id).eq('student_id', actor.userId).limit(1).maybeSingle();
+      isOwnerStudent = !!part || booking.trial_student_id === actor.userId;
+    } else {
+      const { data: enr } = await admin.from('enrollments').select('id')
+        .eq('cohort_id', booking.cohort_id).eq('user_id', actor.userId).neq('status', 'dropped').limit(1).maybeSingle();
+      isOwnerStudent = !!enr;
+    }
   }
   const isOwnerTeacher = actor.isTeacher && booking.teacher_id === actor.userId;
   if (!actor.isAdmin && !isOwnerStudent && !isOwnerTeacher) {
     return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
+  }
+
+  /* ── One child leaving a trial that holds four is not a cancellation ──────
+     A trial seats up to four children from different families. Cancelling the
+     booking because one of them dropped out would take the class away from the
+     other three, who never asked for anything — and the teacher would lose a
+     class that is still worth teaching.
+
+     So a student leaving a shared trial gives up their seat and nothing else.
+     The class survives, the seat returns to the picker, and only the last
+     child out actually cancels it (falling through to the code below).
+
+     Staff are deliberately excluded: an admin cancelling a trial means the
+     class is off, not that one name should quietly disappear from it. */
+  if (booking.is_trial && isOwnerStudent && !actor.isAdmin) {
+    const { data: roster } = await admin
+      .from('trial_participants')
+      .select('id, student_id')
+      .eq('booking_id', booking.id);
+
+    const others = (roster ?? []).filter((r) => r.student_id !== actor.userId);
+    if (others.length > 0) {
+      await admin.from('trial_participants')
+        .delete()
+        .eq('booking_id', booking.id)
+        .eq('student_id', actor.userId);
+
+      if (booking.teacher_id) {
+        await admin.from('notifications').insert({
+          user_id: booking.teacher_id,
+          type: 'session_reminder',
+          title: 'A child has left your trial class',
+          message: `One student has withdrawn. ${others.length} ${others.length === 1 ? 'child is' : 'children are'} still booked in.`,
+          link: '/dashboard/teacher',
+        }).then(() => {}, () => {});
+      }
+
+      return NextResponse.json({
+        ok: true,
+        bookingId: booking.id,
+        withdrawn: true,
+        remaining: others.length,
+        message: 'You have been taken off that trial class. It is still running for the other children booked in.',
+      });
+    }
   }
 
   // ── Decide cancel_type + pay_status + who ──
