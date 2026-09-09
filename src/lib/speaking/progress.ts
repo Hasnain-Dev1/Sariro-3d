@@ -60,6 +60,10 @@ export const METRICS: Record<PracticeKind, MetricSpec[]> = {
     { key: 'fillersPerMin', label: 'Filler words', direction: 'down', unit: '/min' },
     { key: 'phraseAverage', label: 'Words per phrase', direction: 'band', band: { min: 5, max: 18 } },
     { key: 'deliveryVariation', label: 'Voice variation', direction: 'up' },
+    /* Only present on read-aloud drills — free speech has no target to
+       compare against. trendFor skips a metric with no readings, so a child
+       who only does open drills never sees an empty row. */
+    { key: 'pronunciation', label: 'Words heard right', direction: 'up', unit: '%' },
   ],
   listening: [
     { key: 'recallPercent', label: 'Words caught', direction: 'up', unit: '%' },
@@ -251,6 +255,8 @@ const compact = (o: Record<string, number | null>): Record<string, number> =>
   Object.fromEntries(Object.entries(o).filter(([, v]) => v !== null)) as Record<string, number>;
 
 export function speakingMetrics(report: {
+  /** From analysePronunciation. Absent on drills with no passage. */
+  pronunciationAccuracy?: number;
   pace?: { wpm?: number };
   fillers?: { perMinute?: number };
   phrasing?: { averageWords?: number };
@@ -261,6 +267,7 @@ export function speakingMetrics(report: {
     fillersPerMin: num(report?.fillers?.perMinute),
     phraseAverage: num(report?.phrasing?.averageWords),
     deliveryVariation: num(report?.delivery?.variation),
+    pronunciation: num(report?.pronunciationAccuracy),
   });
 }
 
@@ -372,6 +379,7 @@ export function streak(attempts: PracticeAttempt[], now: number = Date.now()): S
    ══════════════════════════════════════════════════════════════════════════ */
 
 const ADVICE: Record<string, string> = {
+  pronunciation: 'Read the passage once more slowly, and hold the sound the report named. Speed hides it; slow makes it obvious to your own ear, which is how it gets fixed.',
   wpm: 'Read your next passage a shade slower than feels natural. Aim to land between 120 and 165 words a minute — that is the range a listener can follow without effort.',
   fillersPerMin: 'When you feel an "um" coming, close your mouth instead. A silent gap sounds considered; a filled one sounds unsure. Try one drill where you deliberately pause rather than fill.',
   phraseAverage: 'Break at the full stops. Read the passage drill and treat every comma as a small breath and every full stop as a real one.',

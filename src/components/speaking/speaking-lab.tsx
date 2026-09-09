@@ -81,6 +81,8 @@ export interface Drill {
 
 import { diagnoseMic, micMessage, micErrorMessage, type MicBlocker } from '@/lib/speaking/mic';
 import { assembleTranscript } from '@/lib/speaking/transcript';
+import PronunciationPanel from '@/components/speaking/pronunciation-panel';
+import { analysePronunciation } from '@/lib/speaking/pronunciation';
 import { logAttempt } from '@/lib/speaking/practice-log';
 import { speakingMetrics } from '@/lib/speaking/progress';
 
@@ -159,6 +161,14 @@ export default function SpeakingLab({
     const result = analyseSpeech(sample);
     setReport(result);
 
+    /* Pronunciation only exists for a drill with a passage — free speech has
+       no target to compare against. Logged alongside the rest so it becomes a
+       CURVE rather than a one-off reading: "words heard right, 71% to 88%" is
+       the sentence a parent renews on. */
+    const said = drill.passage
+      ? analysePronunciation({ reference: drill.passage, transcript: finalText.current })
+      : null;
+
     /* Logged after the report is on screen, and deliberately not awaited. The
        child has finished speaking and wants their result; a slow network must
        not sit between them and it. A failed write loses one row, which is the
@@ -168,7 +178,10 @@ export default function SpeakingLab({
       drillId: drill.id,
       score: result.score,
       durationMs,
-      metrics: speakingMetrics(result),
+      metrics: speakingMetrics({
+        ...result,
+        pronunciationAccuracy: said?.scored ? said.accuracy : undefined,
+      }),
     }).then((ok) => { if (ok) onLogged?.(); });
   }, [teardown, drill.passage, drill.id, onLogged]);
 
@@ -381,6 +394,13 @@ export default function SpeakingLab({
       </div>
 
       {report && <SpeechReportCard report={report} />}
+
+      {/* Only for a drill with a passage. Pronunciation needs a target: with
+          free speech there is nothing to compare against, and inventing one
+          would mean guessing what a child meant to say. */}
+      {report && drill.passage && state === 'done' && (
+        <PronunciationPanel reference={drill.passage} transcript={finalText.current} />
+      )}
     </div>
   );
 }
