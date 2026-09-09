@@ -8,7 +8,7 @@ import { smsConfigured } from '@/lib/phone/otp';
 import { localWeekdayMinutes, slotIsFree } from '@/lib/scheduling/availability';
 import { slotState, blockingIntervals, canSeat, TRIAL_MINUTES, type SlotBooking } from '@/lib/scheduling/trial-capacity';
 import { TRIAL_HOME } from '@/lib/dashboard/trial-only';
-import { bandOf, fits, MIN_GRADE, MAX_GRADE, type GradeBand } from '@/lib/trial/grade-band';
+import { bandOf, fits, joinable, MIN_GRADE, MAX_GRADE, type GradeBand } from '@/lib/trial/grade-band';
 
 /**
  * SARIRO — POST /api/trial/self-book
@@ -208,7 +208,12 @@ export async function POST(req: NextRequest) {
       .select('grade, created_at')
       .eq('booking_id', here.joinBookingId)
       .order('created_at', { ascending: true });
-    band = bandOf((seated ?? []).map((r) => (r.grade as number | null) ?? null));
+    const seatedGrades = (seated ?? []).map((r) => (r.grade as number | null) ?? null);
+    band = bandOf(seatedGrades);
+    /* Somebody is already in this class and nobody recorded their level.
+       Not open — unknown. See joinable(). */
+    const open = joinable(seatedGrades.length, seatedGrades);
+    if (!open.ok) return bad('grade_unknown', open.message, 409);
   }
   const fit = fits(grade, band);
   if (!fit.ok) return bad('grade_mismatch', fit.message, 409);

@@ -33,6 +33,12 @@ export interface Candidate {
   state: SlotState;
   /** The grade range this class is already fixed at. Null when it is empty. */
   band?: GradeBand | null;
+  /**
+   * False when the class holds children whose grades were never recorded.
+   * Distinct from an empty slot: that is open, this is unknown, and offering
+   * an unknown one is how a grade 1 lands in a grade 10's class.
+   */
+  bandKnown?: boolean;
 }
 
 /** What the page renders and posts back. */
@@ -73,6 +79,9 @@ export function chooseSlots(
        so it is not offered. Showing it greyed out would only invite the
        question "why not", and the answer is somebody else's booking. */
     if (grade != null && c.band && !fits(grade, c.band).ok) continue;
+    /* A class with somebody already in it whose level nobody recorded. Not
+       offered at all — see joinable() in lib/trial/grade-band.ts. */
+    if (c.bandKnown === false) continue;
 
     const incumbent = best.get(c.iso);
     if (!incumbent || beats(c, incumbent)) best.set(c.iso, c);

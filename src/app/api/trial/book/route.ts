@@ -9,7 +9,7 @@ import {
   slotState, blockingIntervals, canSeat, type SlotBooking,
 } from '@/lib/scheduling/trial-capacity';
 import { TRIAL_HOME } from '@/lib/dashboard/trial-only';
-import { bandOf, fits } from '@/lib/trial/grade-band';
+import { bandOf, fits, joinable } from '@/lib/trial/grade-band';
 
 /**
  * SARIRO — POST /api/trial/book
@@ -273,7 +273,15 @@ export async function POST(req: NextRequest) {
       .select('grade, created_at')
       .eq('booking_id', here.joinBookingId)
       .order('created_at', { ascending: true });
-    const band = bandOf((seated ?? []).map((r) => (r.grade as number | null) ?? null));
+    const seatedGrades = (seated ?? []).map((r) => (r.grade as number | null) ?? null);
+    const band = bandOf(seatedGrades);
+    /* A class with children in it and no recorded level. Refused rather than
+       treated as open — that is how a grade 1 lands with a grade 10. Set a
+       grade on the child already seated and it opens again. */
+    const open = joinable(seatedGrades.length, seatedGrades);
+    if (!open.ok) {
+      return NextResponse.json({ ok: false, error: 'grade_unknown', message: open.message }, { status: 409 });
+    }
 
     const { data: joining } = await admin
       .from('profiles').select('id, full_name, grade').in('id', studentIds);

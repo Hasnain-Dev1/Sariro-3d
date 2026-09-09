@@ -62,6 +62,33 @@ export function bandOf(grades: readonly (number | null | undefined)[]): GradeBan
   return null;
 }
 
+/**
+ * Whether a class may take another child at all.
+ *
+ * `bandOf` answers null for two OPPOSITE situations, and collapsing them is a
+ * hole:
+ *
+ *   · an EMPTY slot          — no band yet, and anybody may open it
+ *   · a class holding children whose grades were never recorded
+ *
+ * The second is not open, it is unknown. Treating it as open is precisely how
+ * a grade 1 gets seated with a grade 10 — the class already has somebody in
+ * it, we simply cannot see who. Every trial booked before grades existed is in
+ * that state, so this is not hypothetical.
+ *
+ * A class like that is closed to newcomers until somebody records a grade for
+ * the child already in it. That costs three seats; the alternative costs the
+ * lesson.
+ */
+export function joinable(seatsTaken: number, grades: readonly (number | null | undefined)[]): Fit {
+  if (seatsTaken <= 0) return { ok: true, message: '' };
+  if (bandOf(grades) !== null) return { ok: true, message: '' };
+  return {
+    ok: false,
+    message: 'We do not know what level that class is teaching at, so we cannot add anybody to it. Please pick another time.',
+  };
+}
+
 export interface Fit {
   ok: boolean;
   /** Shown to a seller, and to a parent, so a refusal is never a shrug. */

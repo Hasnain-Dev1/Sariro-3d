@@ -1,7 +1,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  bandFor, bandOf, fits, bandLabel, GRADE_SPREAD, MIN_GRADE, MAX_GRADE,
+  bandFor, bandOf, fits, bandLabel, joinable, GRADE_SPREAD, MIN_GRADE, MAX_GRADE,
 } from './grade-band';
 
 /**
@@ -126,5 +126,34 @@ describe('bandLabel', () => {
 
   test('no band yet says so rather than pretending', () => {
     assert.equal(bandLabel(null), 'Any grade');
+  });
+});
+
+describe('joinable', () => {
+  test('an empty slot takes anybody — they become the anchor', () => {
+    assert.equal(joinable(0, []).ok, true);
+  });
+
+  test('a class with a recorded grade is joinable', () => {
+    assert.equal(joinable(1, [6]).ok, true);
+  });
+
+  test('a class holding children with NO recorded grade is closed', () => {
+    // The hole this closes. bandOf answers null for an empty slot AND for a
+    // class whose children were booked before grades were collected. The first
+    // is open to anybody; the second is UNKNOWN, and treating it as open is
+    // exactly how a grade 1 gets seated with a grade 10. Every trial booked
+    // before this feature existed is in that state.
+    const r = joinable(1, [null]);
+    assert.equal(r.ok, false);
+    assert.match(r.message, /do not know what level/);
+  });
+
+  test('one recorded grade among several unknown is enough to open it', () => {
+    assert.equal(joinable(3, [null, 7, null]).ok, true);
+  });
+
+  test('a negative or nonsense seat count is treated as empty, not closed', () => {
+    assert.equal(joinable(-1, []).ok, true);
   });
 });

@@ -4,7 +4,7 @@ import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/
 import { freeSlots, localWeekdayMinutes, byWeekday, type Window } from '@/lib/scheduling/availability';
 import { slotState, blockingIntervals, TRIAL_MINUTES, type SlotBooking } from '@/lib/scheduling/trial-capacity';
 import { chooseSlots, type Candidate } from '@/lib/trial/public-slots';
-import { bandOf, MIN_GRADE, MAX_GRADE, type GradeBand } from '@/lib/trial/grade-band';
+import { bandOf, joinable, MIN_GRADE, MAX_GRADE, type GradeBand } from '@/lib/trial/grade-band';
 
 /**
  * SARIRO — GET /api/trial/slots?seats=1
@@ -96,6 +96,9 @@ export async function GET(req: NextRequest) {
   /* And the band each class is already fixed at, read from the children in it
      in the order they joined — the first one anchors it. */
   const bandBy = new Map<string, GradeBand | null>();
+  /* And whether we know that band at all. A class booked before grades were
+     collected has children in it and nothing that says what level they are. */
+  const knownBy = new Map<string, boolean>();
   const trialIds = rows.filter((r) => r.is_trial).map((r) => r.id);
   if (trialIds.length > 0) {
     const { data: parts } = await admin
@@ -111,7 +114,10 @@ export async function GET(req: NextRequest) {
       list.push((p.grade as number | null) ?? null);
       gradesBy.set(k, list);
     }
-    for (const [k, grades] of gradesBy) bandBy.set(k, bandOf(grades));
+    for (const [k, grades] of gradesBy) {
+      bandBy.set(k, bandOf(grades));
+      knownBy.set(k, joinable(grades.length, grades).ok);
+    }
   }
 
   const windowsBy = new Map<string, Window[]>();
@@ -186,6 +192,7 @@ export async function GET(req: NextRequest) {
           iso,
           state,
           band: state.joinBookingId ? bandBy.get(state.joinBookingId) ?? null : null,
+          bandKnown: state.joinBookingId ? knownBy.get(state.joinBookingId) ?? false : true,
         });
       }
     }
