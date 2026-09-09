@@ -46,10 +46,11 @@ export async function fetchSystemHealth(): Promise<HealthCheck[]> {
     const staleBefore = new Date(now.getTime() - STALE_CLASS_HOURS * 3600_000).toISOString();
 
     const [unassigned, stale, pendingIntents, activeEnrolments] = await Promise.all([
+      // See admin-data.ts: cohorts has no teacher_id. The teacher is attached
+      // when the batch is scheduled, so an unscheduled batch is the alert.
       supabase
         .from('cohorts')
-        .select('id', { count: 'exact', head: true })
-        .is('teacher_id', null)
+        .select('id, cohort_schedules(id)')
         .neq('status', 'completed'),
       supabase
         .from('bookings')
@@ -65,13 +66,19 @@ export async function fetchSystemHealth(): Promise<HealthCheck[]> {
       supabase.from('enrollments').select('user_id').eq('status', 'active'),
     ]);
 
-    if ((unassigned.count ?? 0) > 0) {
+    /* Counted in code: "has no schedule" is an absence, and PostgREST cannot
+       count the absence of an embedded row. */
+    const unassignedCount = (unassigned.data ?? []).filter(
+      (c: { cohort_schedules?: unknown[] | null }) => (c.cohort_schedules ?? []).length === 0
+    ).length;
+
+    if (unassignedCount > 0) {
       checks.push({
         key: 'unassigned_batches',
         severity: 'critical',
-        label: `${unassigned.count} ${unassigned.count === 1 ? 'batch has' : 'batches have'} no teacher`,
+        label: `${unassignedCount} ${unassignedCount === 1 ? 'batch has' : 'batches have'} no teacher`,
         detail: 'These cannot run. Nothing else in the product will surface them until a class is due to start.',
-        count: unassigned.count ?? 0,
+        count: unassignedCount,
       });
     }
 

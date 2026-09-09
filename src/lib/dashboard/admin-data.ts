@@ -39,9 +39,18 @@ export async function fetchAdminActionQueue(): Promise<AdminActionItem[]> {
 
     const [approvals, unassigned, stale] = await Promise.all([
       supabase.from('purchase_intents').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-      // A batch with no teacher cannot run, and nothing else in the product
-      // will surface it until a class is due to start.
-      supabase.from('cohorts').select('id', { count: 'exact', head: true }).is('teacher_id', null).neq('status', 'completed'),
+      /* A batch with no teacher cannot run, and nothing else in the product will
+         surface it until a class is due to start.
+      
+         Asked of cohort_schedules, not cohorts. `cohorts` has no teacher_id column
+         at all — the query returned 400 42703 every time, `count` came back null,
+         and the alert therefore never fired once. An admin was never told about an
+         unassigned batch, and nothing looked broken while that was true.
+      
+         The teacher is attached when the batch is SCHEDULED, so "no teacher" and
+         "not scheduled yet" are the same condition, which is the one worth an
+         alert. */
+      supabase.from('cohorts').select('id, cohort_schedules(id)').neq('status', 'completed'),
       // Classes whose time has passed but which nobody marked. Left alone these
       // silently break credits, teacher pay and attendance at once.
       supabase.from('bookings').select('id', { count: 'exact', head: true }).eq('status', 'scheduled').lt('slot_start', nowIso),
@@ -56,11 +65,17 @@ export async function fetchAdminActionQueue(): Promise<AdminActionItem[]> {
       });
     }
 
-    if ((unassigned.count ?? 0) > 0) {
+    /* Counted here rather than by the database: "has no schedule" is an
+       absence, and PostgREST cannot count the absence of an embedded row. */
+    const unassignedCount = (unassigned.data ?? []).filter(
+      (c: { cohort_schedules?: unknown[] | null }) => (c.cohort_schedules ?? []).length === 0
+    ).length;
+
+    if (unassignedCount > 0) {
       items.push({
         key: 'unassigned_batches',
-        label: (unassigned.count ?? 0) === 1 ? '1 batch has no teacher' : `${unassigned.count} batches have no teacher`,
-        count: unassigned.count ?? 0,
+        label: unassignedCount === 1 ? '1 batch has no teacher' : `${unassignedCount} batches have no teacher`,
+        count: unassignedCount,
         href: '#batches',
       });
     }
