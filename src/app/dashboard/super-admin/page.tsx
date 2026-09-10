@@ -25,6 +25,7 @@ import UnrecordedInvoicesPanel from '@/components/dashboard/unrecorded-invoices-
 import { Receipt, ShieldAlert, Coins as CoinsIcon, HelpCircle, CalendarClock } from 'lucide-react';
 import UnresolvedClassesPanel from '@/components/dashboard/unresolved-classes-panel';
 import CatchUpOverduePanel from '@/components/dashboard/catchup-overdue-panel';
+import TrialGradesPanel from '@/components/dashboard/trial-grades-panel';
 import { useAuth } from '@/components/auth/auth-provider';
 import { TRACKS, COURSES, RAZORPAY_LINKS, RAZORPAY_LINKS_PREMIUM } from '@/lib/sariro-data';
 import { createClient } from '@/lib/supabase/client';
@@ -833,6 +834,17 @@ function SuperAdminDashboardInner() {
             problem. The stale-class job closes what it can prove and hands
             the rest here, rather than fining a teacher for a class they
             taught. */}
+        {/* First, because each answer here is worth three saleable seats. A
+            trial seat with no grade cannot be banded, so the class stops being
+            offered as one to JOIN and every new booking opens a fresh one. */}
+        <section className="mb-10">
+          <div className="flex items-center gap-2.5 mb-4">
+            <GraduationCap className="w-5 h-5 text-slate-400" />
+            <h2 className="text-lg font-bold text-slate-900">Trial seats with no grade</h2>
+          </div>
+          <TrialGradesPanel />
+        </section>
+
         <section className="mb-10">
           <div className="flex items-center gap-2.5 mb-4">
             <HelpCircle className="w-5 h-5 text-slate-400" />

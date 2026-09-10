@@ -8,6 +8,7 @@ import { useState } from 'react';
 import BookTrialModal from '@/components/dashboard/book-trial-modal';
 import LeadSignalsPanel from '@/components/dashboard/lead-signals-panel';
 import DashboardToast, { useDashboardToast } from '@/components/dashboard/dashboard-toast';
+import TrialGradesPanel from '@/components/dashboard/trial-grades-panel';
 
 export default function SellerDashboard() {
   const { user, profile, loading } = useAuth();
@@ -57,6 +58,13 @@ export default function SellerDashboard() {
               <CalendarPlus className="w-4 h-4" />
               Book a trial class
             </button>
+          </div>
+
+          {/* Here as well as on the super-admin dashboard, because a seller is
+              the one who books trials and therefore the one who notices a
+              class refusing joiners. Each grade opens up to three seats. */}
+          <div className="mb-6">
+            <TrialGradesPanel />
           </div>
 
           {/* §9. What the two write-ups say, turned into an order to ring in.
