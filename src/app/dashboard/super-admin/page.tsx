@@ -22,7 +22,8 @@ import RiskPanel from '@/components/dashboard/risk-panel';
 import ForecastPanel from '@/components/dashboard/forecast-panel';
 import SalesLedgerPanel from '@/components/dashboard/sales-ledger-panel';
 import UnrecordedInvoicesPanel from '@/components/dashboard/unrecorded-invoices-panel';
-import { Receipt, ShieldAlert, Coins as CoinsIcon } from 'lucide-react';
+import { Receipt, ShieldAlert, Coins as CoinsIcon, HelpCircle } from 'lucide-react';
+import UnresolvedClassesPanel from '@/components/dashboard/unresolved-classes-panel';
 import { useAuth } from '@/components/auth/auth-provider';
 import { TRACKS, COURSES, RAZORPAY_LINKS, RAZORPAY_LINKS_PREMIUM } from '@/lib/sariro-data';
 import { createClient } from '@/lib/supabase/client';
@@ -824,6 +825,19 @@ function SuperAdminDashboardInner() {
             <h2 className="text-lg font-bold text-slate-900">Needs attention</h2>
           </div>
           <RiskPanel />
+        </section>
+
+        {/* The only two readings of a class nobody started are ₹1,250 apart,
+            and no timestamp separates them — the missing timestamp IS the
+            problem. The stale-class job closes what it can prove and hands
+            the rest here, rather than fining a teacher for a class they
+            taught. */}
+        <section className="mb-10">
+          <div className="flex items-center gap-2.5 mb-4">
+            <HelpCircle className="w-5 h-5 text-slate-400" />
+            <h2 className="text-lg font-bold text-slate-900">Classes needing a decision</h2>
+          </div>
+          <UnresolvedClassesPanel />
         </section>
 
         {/* §63 — the students closest to stopping. Credits are what they paid
