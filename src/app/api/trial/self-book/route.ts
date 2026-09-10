@@ -3,7 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked, recordHoneypotTrip } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import { isHoneypotTripped } from '@/lib/security/honeypot';
-import { normalizeIndianMobile } from '@/lib/phone/india';
+import { acceptPhone } from '@/lib/phone/accept';
 import { smsConfigured } from '@/lib/phone/otp';
 import { localWeekdayMinutes, slotIsFree } from '@/lib/scheduling/availability';
 import { slotState, blockingIntervals, canSeat, TRIAL_MINUTES, type SlotBooking } from '@/lib/scheduling/trial-capacity';
@@ -61,6 +61,14 @@ interface Body {
   /** 1-12. Required: a class cannot be banded without it. */
   grade?: number;
   phone?: string;
+  /**
+   * ISO-2 of the country the number belongs to, as PICKED by the person.
+   *
+   * Trusted over anything guessed from a timezone — deriving a stored country
+   * from a timezone is a bug this codebase has already had. Defaults to India
+   * in acceptPhone(), which is where the overwhelming majority are.
+   */
+  country?: string;
   teacherId?: string;
   slotStart?: string;
   /** 1–4. A family booking siblings into one class. */
@@ -132,16 +140,30 @@ export async function POST(req: NextRequest) {
   if (!Number.isFinite(startMs)) return bad('bad_slot', 'That time is not valid.');
   if (startMs < Date.now()) return bad('slot_in_past', 'That time has already passed. Pick another.', 409);
 
-  // ── The phone, and the fact that it was proved ────────────────────────────
-  const parsed = normalizeIndianMobile(body.phone ?? '');
-  if (!parsed.ok) {
-    return bad('bad_phone', 'We need an Indian mobile number we can reach you on.');
-  }
-  const phone = parsed.e164;
+  /* ── The phone, and whether it COULD be proved ────────────────────────────
+     This used to demand an Indian mobile and refuse everything else outright:
+     "We need an Indian mobile number we can reach you on." Seven of the
+     sixteen numbers on the live database are outside India, one of them with
+     an active enrolment — so the rule was turning away families the business
+     already has.
+
+     apitxt.com delivers SMS to India and nowhere else. Demanding verification
+     abroad demands something impossible, so the rule is now:
+
+       India      — must be verified. The code reaches them, so an unproved
+                    number is a number somebody else typed, and this route
+                    creates accounts and hands back a sign-in link.
+       Elsewhere  — accepted unverified, and recorded as such. There is no
+                    code to skip, so there is no gate to defeat.
+
+     See lib/phone/accept.ts, which is the one place that distinction lives. */
+  const accepted = acceptPhone(body.phone, body.country);
+  if (!accepted.ok) return bad('bad_phone', accepted.problem);
+  const phone = accepted.e164;
 
   const admin = createServiceClient();
 
-  if (smsConfigured()) {
+  if (smsConfigured() && accepted.canVerify) {
     let verified = false;
     try {
       const { data, error } = await admin.rpc('phone_is_verified', { p_phone: phone });
@@ -165,12 +187,19 @@ export async function POST(req: NextRequest) {
      Skipped only when the verification table does not exist yet, so a lagging
      migration cannot take the whole booking funnel down; the check starts
      applying the moment scripts/email-verification.sql is run. */
+  /* Whether the address was actually PROVED in this request, as opposed to
+     merely not disproved. The distinction matters below: when the check could
+     not run at all (a lagging migration), the booking still goes through but
+     the email is no longer strong enough to sign anybody in with. */
+  let emailProved = false;
   {
     const { data, error } = await admin.rpc('email_is_verified', { p_email: email });
     if (error) {
       console.warn('[self-book] email_is_verified unavailable:', error.message);
     } else if (data !== true) {
       return bad('email_not_verified', 'Please verify your email address first.');
+    } else {
+      emailProved = true;
     }
   }
 
@@ -306,17 +335,32 @@ export async function POST(req: NextRequest) {
     : await admin.from('profiles').select('id').eq('email', email).limit(1).maybeSingle();
 
   let studentId: string;
-  /* Only ever true when the PHONE proved them — the one thing they had to
-     demonstrate with a code they received. An email typed into a form proves
-     nothing, and handing back a session for it would be a takeover. */
+  /* Only ever true when the identity that MATCHED was proved in this request.
+     Handing back a session for something merely typed is a takeover machine.
+
+     ── Why this is no longer "phone match ⇒ signed in" ──────────────────────
+     It was, and that was right while every number had to be an Indian mobile
+     with a code read back. Now that numbers outside India are accepted
+     UNVERIFIED — there is no SMS route to them, so demanding a code would
+     demand the impossible — a phone match on its own proves nothing at all:
+     type a stranger's foreign number and receive their account.
+
+     So each identity carries its own proof:
+       · phone matched AND the phone was verifiable (India, checked above)
+       · email matched AND email_is_verified actually returned true
+
+     An international family therefore signs in on the strength of the email
+     they proved, and one whose email check could not run signs in normally
+     instead. Their class is booked either way — this only decides whether
+     they walk straight into it. */
   let mayAutoSignIn = false;
 
   if (byPhone.data) {
     studentId = byPhone.data.id as string;
-    mayAutoSignIn = true;
+    mayAutoSignIn = accepted.canVerify;
   } else if (byEmail.data) {
     studentId = (byEmail.data as { id: string }).id;
-    mayAutoSignIn = false;
+    mayAutoSignIn = emailProved;
   } else {
     /* A phone-only account when no email was given.
        ──────────────────────────────────────────────────────────────────────
@@ -345,7 +389,11 @@ export async function POST(req: NextRequest) {
       email: email || null,
       full_name: name,
       phone,
-      phone_verified: true,
+      /* The truth, not a constant. Writing `true` for a number no code ever
+         reached would put a verified badge on an unproved number and let every
+         later screen trust it. */
+      phone_verified: accepted.canVerify,
+      phone_country_code: accepted.countryCode,
       role: 'student',
       is_student: true,
       grade,
@@ -433,7 +481,10 @@ export async function POST(req: NextRequest) {
     subject,
     source: 'self_book',
     timezone: body.timezone || null,
-    country: 'IN',
+    /* Was hardcoded 'IN'. Every lead from outside India was therefore recorded
+       as Indian, which is wrong on the lead, wrong in any country breakdown,
+       and wrong for the seller deciding when it is reasonable to ring. */
+    country: accepted.countryCode,
     actorId: null, // nobody on staff was involved; they booked it themselves
   });
   if (lead.error) console.warn('[self-book] lead link failed:', lead.error);

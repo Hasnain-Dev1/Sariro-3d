@@ -4,6 +4,8 @@ import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import { checkFeedback, payGate, type ClassFeedback } from '@/lib/dashboard/class-feedback';
 import { latePenalty } from '@/lib/dashboard/late-penalty';
+import { bestEffort } from '@/lib/supabase/best-effort';
+import { recordEvent } from '@/lib/events/log';
 
 /**
  * SARIRO — POST /api/trial/feedback
@@ -36,6 +38,18 @@ interface Body {
   rating?: number;
   remarks?: string;
   interestLevel?: 'hot' | 'warm' | 'cold';
+  /**
+   * Whether the child was actually there. Teacher only.
+   *
+   * Omitted means "they were" — every call before this field existed was a
+   * write-up of a child who attended, and defaulting the other way would
+   * retrospectively mark all of them absent.
+   *
+   * `false` is a different action, not a variant of this one: there is no
+   * rating for a class a child did not sit in, and the lead goes back to the
+   * gathering pool rather than forward to the closing conversation.
+   */
+  attended?: boolean;
 }
 
 export async function POST(req: NextRequest) {
@@ -107,6 +121,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  /* ── The absence path ────────────────────────────────────────────────────
+     Handled before the rating is validated, because there is nothing to rate.
+     A teacher forced to invent a score for a child who never appeared would
+     be putting a number on the seller's screen that describes nobody. */
+  if (role === 'teacher' && body.attended === false) {
+    return markNoShow(admin, booking, body.subjectStudentId ?? booking.trial_student_id ?? null, userId);
+  }
+
   const rating = typeof body.rating === 'number' ? body.rating : null;
   const remarks = (body.remarks ?? '').trim();
   const check = checkFeedback(role, rating, remarks);
@@ -166,6 +188,11 @@ export async function POST(req: NextRequest) {
   let gateMessage = '';
 
   if (role === 'teacher' && booking.is_trial) {
+    /* The child was there. Recorded per student, in the same table every
+       other class uses, so "did they attend" has one answer whatever kind of
+       class it was. */
+    if (subject) await markAttendance(admin, booking.id, subject, 'present', userId);
+
     const roster = await trialRoster(admin, booking);
     const { data: rows } = await admin
       .from('class_feedback')
@@ -177,11 +204,143 @@ export async function POST(req: NextRequest) {
 
     if (gate.unlocked) {
       payReleased = await payForTrial(admin, booking, roster.length);
-      await advanceLeadStage(admin, booking);
     }
+
+    /* The lead moves as soon as THIS child's write-up exists, not when the
+       whole class is finished. A family whose child was written up first
+       should not wait for a sibling's classmate before their seller is told
+       the trial went well — the pay gate is about the teacher, not them. */
+    if (subject) await advanceLeadStage(admin, booking, subject);
   }
 
   return NextResponse.json({ ok: true, payReleased, gateMessage });
+}
+
+/**
+ * The child did not come.
+ *
+ * ── Why this is a whole branch and not a flag ───────────────────────────────
+ * Everything downstream differs. There is no rating, so nothing is written to
+ * class_feedback. The lead does not go forward to the closing conversation; it
+ * goes back to the gathering pool, because the thing that was supposed to sell
+ * the course did not happen. And the seller needs a different verb — rebook,
+ * not close.
+ *
+ * The teacher is still paid: they turned up and waited, which is the deal.
+ * That is why this does NOT touch the pay gate — payGate() already treats an
+ * absent child as written up, so one no-show cannot hold a whole class's fee.
+ */
+async function markNoShow(
+  admin: Admin,
+  booking: Booking,
+  studentId: string | null,
+  teacherId: string
+): Promise<NextResponse> {
+  if (!studentId) {
+    return NextResponse.json(
+      { ok: false, error: 'missing_subject', message: 'Say which student did not attend.' },
+      { status: 400 }
+    );
+  }
+
+  const roster = await trialRoster(admin, booking);
+  if (roster.length > 0 && !roster.some((r) => r.id === studentId)) {
+    return NextResponse.json(
+      { ok: false, error: 'not_in_class', message: 'That student was not in this class.' },
+      { status: 409 }
+    );
+  }
+
+  await markAttendance(admin, booking.id, studentId, 'absent', teacherId);
+
+  const now = new Date().toISOString();
+  const leads = await leadsForTrial(admin, booking, studentId);
+
+  for (const lead of leads) {
+    /* `gathering_booked` rather than a new 'gathering' stage. This pipeline
+       already carries four hand-written stage lists and the fourth was stale;
+       a fifth name for one place a lead sits is how a board starts
+       double-counting. The trial_status carries the actual reason. */
+    await bestEffort(
+      'trial-feedback: no-show stage',
+      admin
+        .from('student_leads')
+        .update({ stage: 'gathering_booked', trial_status: 'no_show', last_updated: now, updated_at: now })
+        .eq('id', lead.id)
+        .not('stage', 'in', '("enrolled")')
+    );
+
+    await bestEffort(
+      'trial-feedback: no-show note',
+      admin.from('lead_notes').insert({
+        lead_id: lead.id,
+        author_id: teacherId,
+        author_role: 'teacher',
+        priority: 'high',
+        category: 'no_show',
+        note: 'Student did not attend the trial. Needs rebooking.',
+      })
+    );
+
+    if (lead.assigned_seller) {
+      await bestEffort(
+        'trial-feedback: notify seller of no-show',
+        admin.from('notifications').insert({
+          user_id: lead.assigned_seller,
+          type: 'trial_no_show',
+          title: 'A trial was missed',
+          message: `${lead.student_name ?? 'A student'} did not attend their trial. Ring them and rebook.`,
+          link: '/dashboard/seller',
+        })
+      );
+    }
+
+    await recordEvent(admin, {
+      event: 'trial.no_show',
+      subjectType: 'lead',
+      subjectId: lead.id,
+      actorId: teacherId,
+      payload: { bookingId: booking.id, studentId },
+    });
+  }
+
+  return NextResponse.json({
+    ok: true,
+    outcome: 'no_show',
+    leadsMoved: leads.length,
+    message: leads.length
+      ? 'Recorded. Their seller has been told to rebook.'
+      : 'Recorded. There was no lead attached to this student to move.',
+  });
+}
+
+/**
+ * One row per child per class, the same table every other class uses.
+ *
+ * Idempotent on (booking_id, student_id): a teacher correcting themselves —
+ * marked absent, then the child appears — must overwrite rather than leave two
+ * contradictory rows for the same half hour.
+ */
+async function markAttendance(
+  admin: Admin,
+  bookingId: string,
+  studentId: string,
+  status: 'present' | 'absent',
+  markedBy: string
+): Promise<void> {
+  await bestEffort(
+    `trial-feedback: attendance ${status}`,
+    admin.from('session_attendance').upsert(
+      {
+        booking_id: bookingId,
+        student_id: studentId,
+        status,
+        marked_at: new Date().toISOString(),
+        marked_by: markedBy,
+      },
+      { onConflict: 'booking_id,student_id' }
+    )
+  );
 }
 
 type Admin = ReturnType<typeof createServiceClient>;
@@ -295,29 +454,120 @@ async function payForTrial(admin: Admin, booking: Booking, studentCount: number)
  * Best effort throughout: a stage that did not move must never cost a teacher
  * their pay.
  */
-async function advanceLeadStage(admin: Admin, booking: Booking): Promise<void> {
-  if (!booking.demo_request_id) return;
+async function advanceLeadStage(admin: Admin, booking: Booking, studentId: string): Promise<void> {
   const now = new Date().toISOString();
+  const leads = await leadsForTrial(admin, booking, studentId);
 
-  try {
+  for (const lead of leads) {
     /* Only forward. A lead already enrolled has moved past `final`, and
        dragging it back would tell a seller to re-close a sale they have
        already made. */
-    await admin
-      .from('student_leads')
-      .update({ stage: 'final', updated_at: now, last_updated: now })
-      .eq('demo_request_id', booking.demo_request_id)
-      .not('stage', 'in', '("final","enrolled")');
-  } catch (err) {
-    console.warn('[trial-feedback] lead stage update failed:', err);
+    await bestEffort(
+      'trial-feedback: advance to final',
+      admin
+        .from('student_leads')
+        .update({
+          stage: 'final',
+          /* The seller's queue reads this, not the stage. `final` alone says
+             where the lead is; this says what it is waiting for. */
+          trial_status: 'final_conversation_pending',
+          updated_at: now,
+          last_updated: now,
+        })
+        .eq('id', lead.id)
+        .not('stage', 'in', '("final","enrolled")')
+    );
+
+    if (lead.assigned_seller) {
+      await bestEffort(
+        'trial-feedback: notify seller of completion',
+        admin.from('notifications').insert({
+          user_id: lead.assigned_seller,
+          type: 'trial_completed',
+          title: 'A trial is finished — ring them',
+          message: `${lead.student_name ?? 'A student'} has had their trial class. They are in your Final Conversation queue.`,
+          link: '/dashboard/seller',
+        })
+      );
+    }
+
+    await recordEvent(admin, {
+      event: 'trial.completed',
+      subjectType: 'lead',
+      subjectId: lead.id,
+      payload: { bookingId: booking.id, studentId },
+    });
   }
 
-  try {
-    await admin
-      .from('demo_class_requests')
-      .update({ status: 'completed', updated_at: now })
-      .eq('id', booking.demo_request_id);
-  } catch (err) {
-    console.warn('[trial-feedback] demo request update failed:', err);
+  if (booking.demo_request_id) {
+    await bestEffort(
+      'trial-feedback: demo request completed',
+      admin
+        .from('demo_class_requests')
+        .update({ status: 'completed', updated_at: now })
+        .eq('id', booking.demo_request_id)
+    );
   }
+}
+
+/**
+ * The lead (or leads) this trial belongs to.
+ *
+ * ── The bug this replaced ───────────────────────────────────────────────────
+ * This used to be a single `.eq('demo_request_id', …)` behind an early return
+ * on that column being null. Self-booked trials — the whole public booking
+ * page — never have a demo request; they are joined to their lead by
+ * `student_leads.booking_id`, which was written by the spine migration and
+ * never read here.
+ *
+ * So the branch returned immediately and NO SELF-BOOKED TRIAL HAS EVER MOVED
+ * TO `final`. The teacher wrote the class up, was paid, and the seller's board
+ * never changed — the family sat in Trial Booked forever, with nothing
+ * anywhere to say the class had happened.
+ *
+ * Three joins now, most specific first, and the results de-duplicated because
+ * a lead can legitimately match on two of them at once.
+ */
+async function leadsForTrial(
+  admin: Admin,
+  booking: Booking,
+  studentId: string | null
+): Promise<{ id: string; assigned_seller: string | null; student_name: string | null }[]> {
+  const found = new Map<string, { id: string; assigned_seller: string | null; student_name: string | null }>();
+
+  const collect = (rows: unknown[] | null | undefined) => {
+    for (const r of (rows ?? []) as Record<string, unknown>[]) {
+      const id = r.id as string;
+      if (id && !found.has(id)) {
+        found.set(id, {
+          id,
+          assigned_seller: (r.assigned_seller as string | null) ?? null,
+          student_name: (r.student_name as string | null) ?? null,
+        });
+      }
+    }
+  };
+
+  const cols = 'id, assigned_seller, student_name';
+
+  try {
+    const { data } = await admin.from('student_leads').select(cols).eq('booking_id', booking.id);
+    collect(data);
+  } catch { /* the column predates some deployments; the other two still work */ }
+
+  if (studentId) {
+    try {
+      const { data } = await admin.from('student_leads').select(cols).eq('student_id', studentId);
+      collect(data);
+    } catch { /* same */ }
+  }
+
+  if (booking.demo_request_id) {
+    try {
+      const { data } = await admin.from('student_leads').select(cols).eq('demo_request_id', booking.demo_request_id);
+      collect(data);
+    } catch { /* same */ }
+  }
+
+  return [...found.values()];
 }
