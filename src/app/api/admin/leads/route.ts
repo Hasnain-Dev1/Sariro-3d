@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClientHelper, createServiceClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
+import { isLeadStage } from '@/lib/dashboard/leads-data';
 
 export const runtime = 'nodejs';
 
@@ -77,8 +78,14 @@ export async function POST(req: NextRequest) {
       if (!isStaff && lead.assigned_seller !== user.id) {
         return NextResponse.json({ ok: false, error: 'forbidden', message: 'You can only update your own leads.' }, { status: 403 });
       }
-      const validStages = ['new', 'seller_assigned', 'connected', 'gathering_booked', 'final', 'deferred', 'enrolled'];
-      if (!body.new_stage || !validStages.includes(body.new_stage)) return NextResponse.json({ ok: false, error: 'invalid_stage' }, { status: 400 });
+      /* Taken from the stage list itself rather than written out again. This
+         was a fourth hand-written copy and it had already gone stale: it did
+         not know about `trial_booked`, so a seller trying to move a
+         self-booked lead onto the board was refused as "invalid stage" —
+         a stage the rest of the system creates automatically. */
+      if (!isLeadStage(body.new_stage)) {
+        return NextResponse.json({ ok: false, error: 'invalid_stage' }, { status: 400 });
+      }
       const oldStage = lead.stage;
       if (oldStage === body.new_stage) return NextResponse.json({ ok: true, message: 'no_change' });
 

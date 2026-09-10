@@ -11,6 +11,7 @@ import { TRIAL_HOME } from '@/lib/dashboard/trial-only';
 import { bandOf, fits, joinable, MIN_GRADE, MAX_GRADE, type GradeBand } from '@/lib/trial/grade-band';
 import { linkTrialToLead } from '@/lib/leads/link-trial';
 import { bestEffort } from '@/lib/supabase/best-effort';
+import { isTrialSubject, subjectLabel, teachersFor, teacherCanTake } from '@/lib/trial/subjects';
 
 /**
  * SARIRO — POST /api/trial/self-book
@@ -53,8 +54,10 @@ export const runtime = 'nodejs';
 interface Body {
   /** One name. Whoever is filling the form decides whose it is. */
   name?: string;
-  /** Optional, and asked for AFTER the booking rather than before it. */
+  /** Required and verified — it is how they sign in afterwards. */
   email?: string;
+  /** Course/track slug. Required: it decides which teachers are eligible. */
+  subject?: string;
   /** 1-12. Required: a class cannot be banded without it. */
   grade?: number;
   phone?: string;
@@ -108,7 +111,21 @@ export async function POST(req: NextRequest) {
   }
   // Email is optional on purpose — see the note above about the form. When it
   // IS given it still has to be an email.
-  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return bad('bad_email', 'That email does not look right.');
+  /* ── The email, now a step rather than decoration ────────────────────────
+     It used to be optional and unchecked. It is how a family signs in after
+     the trial, so an unverified address is an account nobody can get into and
+     a typo is an account belonging to somebody else — occasionally a real
+     stranger, who then receives a child's class links. */
+  if (!email) return bad('missing_email', 'We need an email address to set up their account.');
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)) return bad('bad_email', 'That email does not look right.');
+
+  /* ── The subject ─────────────────────────────────────────────────────────
+     §6. Without it a Mathematics enquiry and a Public Speaking enquiry are the
+     same record, and the teacher matching below has nothing to match on. */
+  const subject = (body.subject ?? '').trim();
+  if (!subject || !isTrialSubject(subject)) {
+    return bad('missing_subject', 'Please choose what they would like to learn.');
+  }
   if (!body.teacherId || !body.slotStart) return bad('missing_slot', 'Choose a time for the class.');
 
   const startMs = Date.parse(body.slotStart);
@@ -139,14 +156,59 @@ export async function POST(req: NextRequest) {
     if (!verified) return bad('phone_not_verified', 'Please verify your mobile number first.');
   }
 
+  /* ── And the email, asked of the DATABASE ────────────────────────────────
+     Never read from the request body. A flag in a POST has proved nothing,
+     and this route creates accounts — the same reasoning as the phone check
+     above, for the same reason: this is the boundary between "somebody typed
+     an address" and "somebody read a code we sent to it".
+
+     Skipped only when the verification table does not exist yet, so a lagging
+     migration cannot take the whole booking funnel down; the check starts
+     applying the moment scripts/email-verification.sql is run. */
+  {
+    const { data, error } = await admin.rpc('email_is_verified', { p_email: email });
+    if (error) {
+      console.warn('[self-book] email_is_verified unavailable:', error.message);
+    } else if (data !== true) {
+      return bad('email_not_verified', 'Please verify your email address first.');
+    }
+  }
+
   // ── The teacher, and whether they can take this ───────────────────────────
   const { data: teacher } = await admin
     .from('profiles')
-    .select('id, full_name, timezone, meet_url')
+    .select('id, full_name, timezone, meet_url, trial_min_grade, trial_max_grade')
     .eq('id', body.teacherId)
     .maybeSingle();
   if (!teacher || !teacher.timezone || !teacher.meet_url) {
     return bad('slot_gone', 'That time is no longer available. Please pick another.', 409);
+  }
+
+  /* ── §9: the subject AND the grade, checked here too ─────────────────────
+     The picker only offers eligible teachers, but the picker is a courtesy and
+     this is the boundary. A stale tab, a hand-written POST, and an eligibility
+     that changed while somebody was choosing all arrive here — and a child
+     seated with a teacher never approved for the subject is something both of
+     them discover during the class. */
+  {
+    const { data: approvals } = await admin
+      .from('teacher_course_assignments')
+      .select('teacher_id, track, level')
+      .eq('teacher_id', teacher.id);
+    const eligible = teachersFor(
+      subject,
+      (approvals ?? []) as { teacher_id: string; track: string | null; level: string | null }[],
+      [teacher.id as string]
+    );
+    const canTake = teacherCanTake({
+      subjectOk: eligible.has(teacher.id as string),
+      grade,
+      minGrade: (teacher.trial_min_grade as number | null) ?? null,
+      maxGrade: (teacher.trial_max_grade as number | null) ?? null,
+    });
+    if (!canTake) {
+      return bad('teacher_not_eligible', 'That time is no longer available. Please pick another.', 409);
+    }
   }
 
   const local = localWeekdayMinutes(body.slotStart, teacher.timezone);
@@ -315,7 +377,10 @@ export async function POST(req: NextRequest) {
       slot_end: endIso,
       status: 'scheduled',
       google_meet_url: teacher.meet_url,
-      lesson_name: 'Trial class',
+      // What the class is actually about, so the teacher, the lead and every
+      // later screen name the same thing rather than "Trial class".
+      trial_subject: subject,
+      lesson_name: `Trial — ${subjectLabel(subject)}`,
     }).select('id').single();
     if (error || !booking) {
       console.warn('[self-book] insert failed:', error?.message);
@@ -365,7 +430,7 @@ export async function POST(req: NextRequest) {
     email: email || null,
     phone,
     grade,
-    subject: (body.interest ?? '').slice(0, 60) || null,
+    subject,
     source: 'self_book',
     timezone: body.timezone || null,
     country: 'IN',

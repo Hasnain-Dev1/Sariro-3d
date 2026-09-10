@@ -2,10 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Loader2, AlertCircle, CheckCircle2, ArrowRight, ArrowLeft, Phone, CalendarCheck,
+  Loader2, AlertCircle, CheckCircle2, ArrowRight, ArrowLeft, Phone, CalendarCheck, Mail,
 } from 'lucide-react';
 import { HoneypotField } from '@/components/security/honeypot';
 import { groupByDay, slotLabel, type PublicSlot } from '@/lib/trial/public-slots';
+import { trialSubjects } from '@/lib/trial/subjects';
+
+/* The catalogue, grouped once at module load rather than on every keystroke. */
+const SUBJECT_GROUPS: [string, { value: string; label: string }[]][] = Object.entries(
+  trialSubjects().reduce<Record<string, { value: string; label: string }[]>>((acc, s) => {
+    (acc[s.group] ??= []).push({ value: s.value, label: s.label });
+    return acc;
+  }, {})
+);
 
 /**
  * SARIRO — booking your own free class, from an advert
@@ -58,9 +67,14 @@ export default function SelfServeBooking() {
   const [name, setName] = useState('');
   const [grade, setGrade] = useState<number | null>(null);
   /* Asked AFTER the class is booked, not before. See the confirmation step. */
+  const [subject, setSubject] = useState('');
+
   const [email, setEmail] = useState('');
   const [emailBusy, setEmailBusy] = useState(false);
   const [emailDone, setEmailDone] = useState<string | null>(null);
+  const [emailCode, setEmailCode] = useState('');
+  const [emailCodeSent, setEmailCodeSent] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
 
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
@@ -69,13 +83,54 @@ export default function SelfServeBooking() {
   const [otpBusy, setOtpBusy] = useState(false);
 
   const [slots, setSlots] = useState<PublicSlot[] | null>(null);
+  /** Why there are none, when there are none. 'no_teacher_for_subject' is the
+      one worth saying out loud — it is not "we are full", it is "nobody here
+      teaches that yet", and those need different sentences. */
+  const [slotReason, setSlotReason] = useState<string | null>(null);
   const [chosen, setChosen] = useState<PublicSlot | null>(null);
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [booked, setBooked] = useState<Booked | null>(null);
 
-  const detailsReady = name.trim().length > 1 && grade !== null && phoneVerified;
+  /* §1's steps, all of them. The subject decides which teachers can appear at
+     all, and the email is how they sign in afterwards — neither is optional
+     any more, and the booking route refuses without them. */
+  const detailsReady =
+    name.trim().length > 1 && subject !== '' && grade !== null && phoneVerified && emailVerified;
+
+  /* ── The email, proved ─────────────────────────────────────────────────
+     The same two calls as the phone, against /api/email. The code is
+     generated and hashed on the server; nothing here ever sees it. */
+  const sendEmailCode = async () => {
+    setEmailBusy(true); setError(null);
+    try {
+      const r = await fetch('/api/email', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'send', email: email.trim() }),
+      });
+      const j = await r.json().catch(() => null);
+      if (!r.ok || !j?.ok) { setError(j?.message ?? 'We could not send a code to that address.'); return; }
+      setEmailCodeSent(true);
+    } catch {
+      setError('Could not reach us just now. Check your connection and try again.');
+    } finally { setEmailBusy(false); }
+  };
+
+  const verifyEmailCode = async () => {
+    setEmailBusy(true); setError(null);
+    try {
+      const r = await fetch('/api/email', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify', email: email.trim(), code: emailCode }),
+      });
+      const j = await r.json().catch(() => null);
+      if (!r.ok || !j?.ok) { setError(j?.message ?? 'That code did not match.'); return; }
+      setEmailVerified(true);
+    } catch {
+      setError('Could not reach us just now. Try again in a moment.');
+    } finally { setEmailBusy(false); }
+  };
 
   /* ── The phone, proved ─────────────────────────────────────────────────── */
   const sendCode = async () => {
@@ -112,13 +167,19 @@ export default function SelfServeBooking() {
   const loadSlots = useCallback(async (seats: number) => {
     setSlots(null); setChosen(null); setError(null);
     try {
-      const r = await fetch(`/api/trial/slots?seats=${seats}&grade=${grade ?? ''}`);
+      // The subject goes with the grade: together they decide which teachers
+      // can appear at all. §13.
+      const r = await fetch(
+        `/api/trial/slots?seats=${seats}&grade=${grade ?? ''}&subject=${encodeURIComponent(subject)}`
+      );
       const j = await r.json().catch(() => null);
       setSlots(j?.ok ? (j.slots as PublicSlot[]) : []);
+      setSlotReason(j?.reason ?? null);
     } catch {
       setSlots([]);
+      setSlotReason(null);
     }
-  }, [grade]);
+  }, [grade, subject]);
 
   const goToTimes = async () => {
     if (!detailsReady) { setError('Fill in the details above first.'); return; }
@@ -137,6 +198,7 @@ export default function SelfServeBooking() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name, grade, phone, timezone: tz,
+          email: email.trim(), subject,
           teacherId: chosen.teacherId, slotStart: chosen.iso,
         }),
       });
@@ -287,9 +349,17 @@ export default function SelfServeBooking() {
             <Loader2 className="w-4 h-4 animate-spin" /> Finding times…
           </div>
         ) : days.length === 0 ? (
+          /* Two different situations, and they need different sentences. "We
+             are full" is a scheduling problem the family can wait out; "nobody
+             here teaches that yet" is not, and pretending otherwise wastes
+             their week. Either way they are not lost — somebody rings them. */
           <p className="mt-4 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-            Nothing free in the next two weeks. We will ring you on {phone} and find a time —
-            usually within a day.
+            {slotReason === 'no_teacher_for_subject'
+              ? <>No teacher is free for that subject at this grade just yet. Leave it with
+                  us — we will ring you on {phone} as soon as we can place them, usually
+                  within a day.</>
+              : <>Nothing free in the next two weeks. We will ring you on {phone} and find a
+                  time — usually within a day.</>}
           </p>
         ) : (
           <div className="mt-4 space-y-4 max-h-[22rem] overflow-y-auto pr-1">
@@ -366,6 +436,37 @@ export default function SelfServeBooking() {
             who rings them. Five fields for a free class is four too many on a
             page somebody reached by tapping an advert. */}
         <Field label="Your name" value={name} onChange={setName} autoComplete="name" placeholder="" />
+
+        {/* ── What they want to learn ──────────────────────────────────────
+            §6. Asked before any time is shown, because it decides WHICH
+            teachers can appear at all: a family wanting Mathematics must
+            never be offered a Public Speaking teacher's evening, and the
+            first thing that would tell anybody is the class itself.
+
+            Grouped by <optgroup> rather than laid out as tiles: the real
+            catalogue is thirty-odd subjects, and thirty tiles is the "hundreds
+            of fields at once" the spec asks us not to do. */}
+        <div>
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
+            What would they like to learn?
+          </label>
+          <select
+            value={subject}
+            onChange={(e) => { setSubject(e.target.value); setError(null); }}
+            className="w-full h-11 px-3 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+            style={{ fontFamily: 'var(--font-inter)' }}
+          >
+            <option value="">Choose a subject…</option>
+            {SUBJECT_GROUPS.map(([group, items]) => (
+              <optgroup key={group} label={group}>
+                {items.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </optgroup>
+            ))}
+          </select>
+          <p className="mt-1.5 text-[11px] text-slate-500">
+            We only show times with a teacher who actually teaches this.
+          </p>
+        </div>
 
         {/* The grade, asked with the name and before any time is shown.
             A trial holds four children and one lesson cannot serve a grade 1
@@ -457,8 +558,94 @@ export default function SelfServeBooking() {
           )}
         </div>
 
+        {/* ── Email, and proving it ────────────────────────────────────────
+            §4. Deliberately the same shape as the phone step above, because
+            it is the same act and a second pattern would only be a second
+            thing to learn.
+
+            It is not decoration any more: this address is how the family
+            signs in after the trial, so an unverified one is an account
+            nobody can get into and a typo is an account belonging to somebody
+            else — occasionally a real stranger who then receives a child's
+            class links. */}
+        <div>
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
+            Email address
+          </label>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); setEmailVerified(false); setEmailCodeSent(false); setError(null); }}
+                inputMode="email"
+                autoComplete="email"
+                disabled={emailVerified}
+                placeholder="you@example.com"
+                className="w-full h-11 pl-10 pr-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 disabled:bg-slate-50"
+                style={{ fontFamily: 'var(--font-inter)' }}
+              />
+            </div>
+            {!emailVerified && (
+              <button
+                onClick={sendEmailCode}
+                disabled={emailBusy || !/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email.trim())}
+                className="h-11 px-4 rounded-xl border-2 border-slate-200 text-sm font-bold text-slate-700 disabled:opacity-40"
+                style={{ fontFamily: 'var(--font-grotesk)' }}
+              >
+                {emailBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : emailCodeSent ? 'Resend' : 'Send code'}
+              </button>
+            )}
+          </div>
+
+          {emailVerified ? (
+            <p className="mt-1.5 text-[11px] font-bold text-green-700 flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5" /> Email confirmed
+            </p>
+          ) : emailCodeSent ? (
+            <div className="mt-2 flex gap-2">
+              <input
+                value={emailCode}
+                onChange={(e) => { setEmailCode(e.target.value); setError(null); }}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="6-digit code"
+                className="flex-1 h-11 px-3 rounded-xl border border-slate-200 text-sm tracking-[0.3em] font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                style={{ fontFamily: 'var(--font-grotesk)' }}
+              />
+              <button
+                onClick={verifyEmailCode}
+                disabled={emailBusy || emailCode.replace(/\D/g, '').length < 4}
+                className="h-11 px-4 rounded-xl bg-slate-900 text-white text-sm font-bold disabled:opacity-40"
+                style={{ fontFamily: 'var(--font-grotesk)' }}
+              >
+                {emailBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirm'}
+              </button>
+            </div>
+          ) : (
+            <p className="mt-1.5 text-[11px] text-slate-500">
+              This is how they will sign in to see the class.
+            </p>
+          )}
+        </div>
+
         <HoneypotField />
       </div>
+
+      {/* A disabled button with no reason is the worst thing on any form —
+          and this one used to give none, so somebody who had not verified sat
+          looking at a grey button with nothing to tell them why. */}
+      {!detailsReady && (name.trim() || subject || grade || phone) && (
+        <p className="mt-4 text-[12px] text-slate-500">
+          Still needed: {[
+            name.trim().length > 1 ? null : 'a name',
+            subject ? null : 'a subject',
+            grade !== null ? null : 'a grade',
+            phoneVerified ? null : 'your mobile confirmed',
+            emailVerified ? null : 'your email confirmed',
+          ].filter(Boolean).join(', ')}.
+        </p>
+      )}
 
       {error && (
         <p className="mt-3 text-sm text-red-800 bg-red-50 border border-red-200 rounded-xl px-3 py-2 flex items-start gap-2">

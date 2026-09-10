@@ -5,6 +5,7 @@ import { freeSlots, localWeekdayMinutes, byWeekday, type Window } from '@/lib/sc
 import { slotState, blockingIntervals, TRIAL_MINUTES, type SlotBooking } from '@/lib/scheduling/trial-capacity';
 import { chooseSlots, type Candidate } from '@/lib/trial/public-slots';
 import { bandOf, joinable, MIN_GRADE, MAX_GRADE, type GradeBand } from '@/lib/trial/grade-band';
+import { teachersFor, teacherCanTake } from '@/lib/trial/subjects';
 
 /**
  * SARIRO — GET /api/trial/slots?seats=1
@@ -55,20 +56,58 @@ export async function GET(req: NextRequest) {
   const grade = Number.isFinite(rawGrade) && rawGrade >= MIN_GRADE && rawGrade <= MAX_GRADE
     ? Math.round(rawGrade)
     : null;
+  /* What they want to learn. Absent means "not chosen yet", which still shows
+     times — a family part-way through the form should see that slots exist. */
+  const subject = (params.get('subject') ?? '').trim().slice(0, 60) || null;
 
   const admin = createServiceClient();
 
   const { data: teachers } = await admin
     .from('profiles')
-    .select('id, timezone, meet_url')
+    .select('id, timezone, meet_url, trial_min_grade, trial_max_grade')
     .or('role.eq.teacher,is_teacher.eq.true');
 
   // Only teachers who can actually take a trial: a timezone (or their 5pm is
   // unknowable) and a room (or the child cannot get in).
-  const bookable = (teachers ?? []).filter((t) => t.timezone && t.meet_url);
+  let bookable = (teachers ?? []).filter((t) => t.timezone && t.meet_url);
   if (bookable.length === 0) {
     return NextResponse.json({ ok: true, slots: [], reason: 'no_bookable_teachers' });
   }
+
+  /* ── §7-§9: the subject, and the grade, and BOTH ─────────────────────────
+     Until now this offered every free half hour any teacher had, whatever the
+     family had asked for — so somebody looking for Mathematics could be given
+     a Public Speaking teacher's evening, and the first thing to say so would
+     be the class itself.
+
+     Filtered BEFORE the times are drawn rather than refused after the click:
+     an offer that is withdrawn at the last step is worse than never making it. */
+  if (subject) {
+    const { data: approvals } = await admin
+      .from('teacher_course_assignments')
+      .select('teacher_id, track, level');
+    const eligible = teachersFor(
+      subject,
+      (approvals ?? []) as { teacher_id: string; track: string | null; level: string | null }[],
+      bookable.map((t) => t.id as string)
+    );
+    bookable = bookable.filter((t) =>
+      eligible.has(t.id as string) &&
+      teacherCanTake({
+        subjectOk: true,
+        grade,
+        minGrade: (t.trial_min_grade as number | null) ?? null,
+        maxGrade: (t.trial_max_grade as number | null) ?? null,
+      })
+    );
+    if (bookable.length === 0) {
+      /* Said as its own reason so the page can offer the one useful thing:
+         leave a number and let a person find a time. §2 of the post-trial
+         spec — a family with no slot is not a family who has gone away. */
+      return NextResponse.json({ ok: true, slots: [], reason: 'no_teacher_for_subject' });
+    }
+  }
+
   const ids = bookable.map((t) => t.id as string);
 
   const now = new Date();
