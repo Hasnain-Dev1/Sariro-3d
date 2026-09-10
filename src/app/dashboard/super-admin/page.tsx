@@ -26,6 +26,7 @@ import { Receipt, ShieldAlert, Coins as CoinsIcon, HelpCircle, CalendarClock } f
 import UnresolvedClassesPanel from '@/components/dashboard/unresolved-classes-panel';
 import CatchUpOverduePanel from '@/components/dashboard/catchup-overdue-panel';
 import TrialGradesPanel from '@/components/dashboard/trial-grades-panel';
+import TrialManagementPanel from '@/components/dashboard/trial-management-panel';
 import { useAuth } from '@/components/auth/auth-provider';
 import { TRACKS, COURSES, RAZORPAY_LINKS, RAZORPAY_LINKS_PREMIUM } from '@/lib/sariro-data';
 import { createClient } from '@/lib/supabase/client';
@@ -843,6 +844,15 @@ function SuperAdminDashboardInner() {
             <h2 className="text-lg font-bold text-slate-900">Trial seats with no grade</h2>
           </div>
           <TrialGradesPanel />
+        </section>
+
+        {/* Every trial with its whole chain — child, teacher, class, seller,
+            and both write-ups. The question "is the trial funnel working" used
+            to need four screens and a join done in somebody's head; the one
+            answer that matters, a trial with a child and no lead behind them,
+            was not visible on any of them. */}
+        <section className="mb-10">
+          <TrialManagementPanel />
         </section>
 
         <section className="mb-10">

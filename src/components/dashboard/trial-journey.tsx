@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Clock, Video, Sparkles, Users, ShieldCheck, CalendarCheck } from 'lucide-react';
 import ClassFeedbackForm from '@/components/dashboard/class-feedback-form';
+import { subjectLabel } from '@/lib/trial/subjects';
 
 /**
  * SARIRO — what a child sees before their first class, and after it
@@ -30,6 +31,15 @@ export interface TrialClass {
   status: string;
   google_meet_url: string | null;
   teacher_name: string | null;
+  /**
+   * What the class is about, and at what level.
+   *
+   * Both optional because a trial booked before `bookings.trial_subject`
+   * existed has neither, and a card that renders "undefined" is worse than one
+   * that quietly omits a line.
+   */
+  subject?: string | null;
+  grade?: number | null;
 }
 
 /**
@@ -126,14 +136,32 @@ export default function TrialJourney({
             <CalendarCheck className="w-3 h-3" /> Class finished
           </span>
           <h1 className="mt-4 text-2xl sm:text-3xl font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
-            How was it, {firstName}?
+            Your trial class is complete 🎉
           </h1>
-          <p className="mt-2 text-sm text-slate-600 leading-relaxed">
-            You met {trial.teacher_name ?? 'one of our mentors'}. Two minutes of your thoughts tells us
-            whether we got it right — and it reaches a person, not a report.
+
+          {/* ── What happens next, said plainly ────────────────────────────
+              A family who has just had a good class and is told nothing
+              assumes the next move is theirs. It is not — a person is going
+              to ring them, and saying so is the difference between waiting
+              and drifting. It is also true: marking the class complete puts
+              them in the seller's Final Conversation queue automatically. */}
+          <p className="mt-3 text-sm text-slate-700 leading-relaxed">
+            Thank you, {firstName} — you met {trial.teacher_name ?? 'one of our mentors'}.
+            A Sariro counsellor will contact you shortly to talk through how it went and
+            what would suit your child next. There is nothing you need to do.
           </p>
 
-          <div className="mt-6">
+          <div className="mt-6 pt-6 border-t border-slate-100">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1" style={{ fontFamily: 'var(--font-grotesk)' }}>
+              How was the class?
+            </p>
+            <p className="text-xs text-slate-500 mb-3">
+              A rating is enough. Anything you add reaches a person, not a report.
+            </p>
+            {/* The family's rating OF THE CLASS. Kept entirely separate from
+                the teacher's rating of the child — two different questions
+                with two different answers, and averaging them would produce a
+                number that means nothing. */}
             <ClassFeedbackForm bookingId={trial.id} role="student" />
           </div>
         </motion.div>
@@ -157,6 +185,17 @@ export default function TrialJourney({
           {when}
           {trial.teacher_name ? <> · with <span className="font-bold text-slate-800">{trial.teacher_name}</span></> : null}
         </p>
+
+        {/* What the class is, which the page never said. A parent with two
+            children booked into two different subjects had no way to tell
+            these apart. */}
+        {(trial.subject || trial.grade != null) && (
+          <p className="mt-1 text-sm text-slate-600">
+            {trial.subject && <span className="font-bold text-slate-800">{subjectLabel(trial.subject)}</span>}
+            {trial.subject && trial.grade != null && ' · '}
+            {trial.grade != null && <>Grade {trial.grade}</>}
+          </p>
+        )}
 
         {!joinable && (
           <div className="mt-6 pt-6 border-t border-slate-100">

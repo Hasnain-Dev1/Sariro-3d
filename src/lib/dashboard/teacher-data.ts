@@ -17,6 +17,27 @@ export interface TeacherStats {
   hoursTaught: number; // sum of completed bookings duration in hours
 }
 
+/**
+ * One child in a class, as the teacher needs to see them.
+ *
+ * `paused` is the one that is not cosmetic. A student whose main credits hit
+ * zero has their upcoming classes paused automatically — but until now the
+ * teacher was never told, so they would sit in a room waiting for a child
+ * whose family the system had already stopped. In a group the class runs
+ * regardless and only that child is inactive, which is exactly the case a
+ * teacher cannot work out from an empty seat.
+ */
+export interface TeacherRosterEntry {
+  id: string;
+  name: string;
+  /** 1–12, or null when nobody has recorded one. */
+  grade: number | null;
+  /** True when the account is any non-active state — currently credit pause. */
+  paused: boolean;
+  /** 'paused_credit_issue' → the sentence the teacher is shown. */
+  statusLabel: string | null;
+}
+
 export interface TeacherBookingRow {
   id: string;
   cohort_id: string;
@@ -35,8 +56,19 @@ export interface TeacherBookingRow {
   // Names of the (active) students enrolled in this booking's cohort — the
   // roster, so a teacher can tell whose class this is at a glance.
   student_names: string[];
+  /**
+   * The same roster, with what a teacher actually needs to teach it.
+   *
+   * `student_names` stays a plain string[] because three screens already
+   * render it and none of them needed changing. This sits alongside for the
+   * ones that do: a trial without a grade and a subject is a teacher finding
+   * out what the class is about when the family joins it.
+   */
+  roster: TeacherRosterEntry[];
   /** A free trial: no cohort, one student, flat pay. */
   is_trial?: boolean;
+  /** What a TRIAL is about. Cohort classes get their subject from the track. */
+  trial_subject: string | null;
   /**
    * The class recording, and the moment the teacher closed the class.
    *
@@ -191,12 +223,20 @@ export async function fetchTeacherBookings(filter: 'upcoming' | 'past' | 'all' =
     // of bookings, so each booking can show whose class it is.
     const cohortIds = [...new Set(data.map(b => b.cohort_id).filter((id): id is string => !!id))];
     const rosterMap = new Map<string, string[]>();
+    /* Cohort id -> the student ids in it, kept alongside the names so the
+       richer roster below can look each child up without a second query. */
+    const cohortStudentIds = new Map<string, string[]>();
     if (cohortIds.length > 0) {
       const { data: enrollments } = await supabase
         .from('enrollments')
         .select('cohort_id, user_id')
         .in('cohort_id', cohortIds)
         .eq('status', 'active');
+      for (const e of enrollments ?? []) {
+        const list = cohortStudentIds.get(e.cohort_id as string) ?? [];
+        list.push(e.user_id as string);
+        cohortStudentIds.set(e.cohort_id as string, list);
+      }
       const userIds = [...new Set((enrollments ?? []).map(e => e.user_id))];
       if (userIds.length > 0) {
         const { data: profiles } = await supabase
@@ -220,14 +260,20 @@ export async function fetchTeacherBookings(filter: 'upcoming' | 'past' | 'all' =
        the column is the fallback for anything booked before it existed. */
     const trialBookingIds = data.filter(b => b.is_trial).map(b => b.id as string);
     const trialRoster = new Map<string, string[]>();   // booking id -> student ids
+    /* The grade recorded ON THE SEAT, which is the one the class was banded
+       at. profiles.grade can have moved on since — a child who booked in
+       August as a grade 6 is a grade 7 by the time the class runs, and the
+       band the other three children were matched against did not change. */
+    const seatGrade = new Map<string, number | null>();  // student id -> grade
     if (trialBookingIds.length > 0) {
       try {
         const { data: parts } = await supabase
-          .from('trial_participants').select('booking_id, student_id').in('booking_id', trialBookingIds);
+          .from('trial_participants').select('booking_id, student_id, grade').in('booking_id', trialBookingIds);
         for (const row of parts ?? []) {
           const list = trialRoster.get(row.booking_id as string) ?? [];
           list.push(row.student_id as string);
           trialRoster.set(row.booking_id as string, list);
+          if (row.grade != null) seatGrade.set(row.student_id as string, Number(row.grade));
         }
       } catch { /* table not created yet */ }
     }
@@ -248,6 +294,54 @@ export async function fetchTeacherBookings(filter: 'upcoming' | 'past' | 'all' =
         trialNames.set(p.id as string, (p.full_name as string) || (p.email as string) || 'Trial student');
       }
     }
+
+    /* ── Who each child is, once, for every class on the screen ─────────────
+       One read covering both kinds of class. The two things it adds are the
+       grade (so a teacher knows what to pitch at) and the account status —
+       which is how "PAUSED — STUDENT CREDIT ISSUE" reaches the person who
+       would otherwise be sitting in a room waiting for a child the system has
+       already stopped. */
+    const everyStudentId = [...new Set([
+      ...trialStudentIds,
+      ...[...cohortStudentIds.values()].flat(),
+    ])];
+    const detail = new Map<string, { name: string; grade: number | null; status: string | null }>();
+    if (everyStudentId.length > 0) {
+      const { data: rows } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, grade, student_status')
+        .in('id', everyStudentId);
+      for (const p of rows ?? []) {
+        detail.set(p.id as string, {
+          name: (p.full_name as string) || (p.email as string) || 'Student',
+          grade: p.grade == null ? null : Number(p.grade),
+          status: (p.student_status as string | null) ?? null,
+        });
+      }
+    }
+
+    const entryFor = (id: string): TeacherRosterEntry => {
+      const d = detail.get(id);
+      const status = d?.status ?? null;
+      /* Anything that is not 'active' is a pause as far as a teacher is
+         concerned. Written this way rather than matching one literal so a
+         status added later shows up as "something is wrong" rather than
+         silently reading as normal — the failure mode this codebase keeps
+         producing is the absence nobody notices. */
+      const paused = status != null && status !== 'active';
+      return {
+        id,
+        name: d?.name ?? trialNames.get(id) ?? 'Student',
+        /* The seat's grade wins over the profile's. See seatGrade above. */
+        grade: seatGrade.get(id) ?? d?.grade ?? null,
+        paused,
+        statusLabel: paused
+          ? status === 'paused_credit_issue'
+            ? 'PAUSED — STUDENT CREDIT ISSUE'
+            : `PAUSED — ${String(status).replace(/_/g, ' ').toUpperCase()}`
+          : null,
+      };
+    };
 
     return data.map(b => {
       const cohort = b.cohort as Record<string, unknown> | null;
@@ -271,7 +365,12 @@ export async function fetchTeacherBookings(filter: 'upcoming' | 'past' | 'all' =
         student_names: b.is_trial
           ? trialKids
           : (rosterMap.get(b.cohort_id) ?? []),
+        roster: (b.is_trial
+          ? (trialRoster.get(b.id as string) ?? [])
+          : (cohortStudentIds.get(b.cohort_id as string) ?? [])
+        ).map(entryFor),
         is_trial: !!b.is_trial,
+        trial_subject: (b.trial_subject as string | null) ?? null,
         // select('*') already returns these; they just were not mapped through.
         recording_url: (b.recording_url as string) ?? null,
         attendance_finalized_at: (b.attendance_finalized_at as string) ?? null,

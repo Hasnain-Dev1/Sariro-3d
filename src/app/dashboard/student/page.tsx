@@ -947,7 +947,7 @@ function StudentDashboardInner() {
 
           let q = sb
             .from('bookings')
-            .select('id, slot_start, slot_end, status, google_meet_url, teacher:profiles!teacher_id(full_name, meet_url)')
+            .select('id, slot_start, slot_end, status, google_meet_url, trial_subject, teacher:profiles!teacher_id(full_name, meet_url)')
             .eq('is_trial', true)
             .not('status', 'in', '("cancelled")');
           q = alsoIn.length
@@ -956,9 +956,25 @@ function StudentDashboardInner() {
           const { data } = await q.order('slot_start', { ascending: false }).limit(1);
           const row = (data ?? [])[0] as unknown as {
             id: string; slot_start: string; slot_end: string; status: string;
-            google_meet_url: string | null;
+            google_meet_url: string | null; trial_subject: string | null;
             teacher: { full_name: string | null; meet_url: string | null } | null;
           } | undefined;
+
+          /* The grade the SEAT was booked at, which is what the class was
+             banded on — not whatever profiles.grade says today. */
+          let seatGrade: number | null = null;
+          if (row) {
+            try {
+              const { data: seat } = await sb
+                .from('trial_participants')
+                .select('grade')
+                .eq('booking_id', row.id)
+                .eq('student_id', user!.id)
+                .maybeSingle();
+              if (seat?.grade != null) seatGrade = Number(seat.grade);
+            } catch { /* table not created yet — the card simply omits it */ }
+          }
+
           setTrial(
             row
               ? {
@@ -972,6 +988,8 @@ function StudentDashboardInner() {
                      teacher fills the field in, without anybody re-booking. */
                   google_meet_url: row.google_meet_url ?? row.teacher?.meet_url ?? null,
                   teacher_name: row.teacher?.full_name ?? null,
+                  subject: row.trial_subject ?? null,
+                  grade: seatGrade,
                 }
               : null
           );

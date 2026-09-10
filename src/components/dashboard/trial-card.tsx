@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Sparkles, Video, Clock } from 'lucide-react';
 import { Countdown } from '@/components/dashboard/trial-journey';
 import type { TrialClass } from '@/components/dashboard/trial-journey';
+import { subjectLabel } from '@/lib/trial/subjects';
 
 /**
  * SARIRO — the trial, for a student who already has a dashboard
@@ -68,6 +69,15 @@ export default function TrialCard({
           </p>
           {trial.teacher_name && (
             <p className="text-xs text-slate-600 mt-0.5">with {trial.teacher_name}</p>
+          )}
+          {/* Which class this is. A parent with two children booked into two
+              subjects could not tell these apart from the date alone. */}
+          {(trial.subject || trial.grade != null) && (
+            <p className="text-xs font-bold text-slate-700 mt-0.5">
+              {trial.subject ? subjectLabel(trial.subject) : ''}
+              {trial.subject && trial.grade != null ? ' · ' : ''}
+              {trial.grade != null ? `Grade ${trial.grade}` : ''}
+            </p>
           )}
 
           {/* The one question they have. It was on the full-page version for a

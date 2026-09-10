@@ -47,6 +47,7 @@ import { teacherRating, recentRating, type ClassFeedback } from '@/lib/dashboard
 import { createClient } from '@/lib/supabase/client';
 import PayHeldPanel from '@/components/dashboard/pay-held-panel';
 import { fetchMyAssignments } from '@/lib/dashboard/teacher-assignments-data';
+import { subjectLabel } from '@/lib/trial/subjects';
 
 /* ───── Helpers ───── */
 function levelDisplay(level: string): string {
@@ -179,7 +180,12 @@ function BookingCard({
   const meetUrl = booking.google_meet_url || booking.cohort_meet_url;
   const status = BOOKING_STATUS[booking.status] || BOOKING_STATUS.scheduled;
   const isPast = new Date(booking.slot_start) < new Date();
-  const trackName = getTrackName(booking.cohort_track);
+  /* A trial has no cohort, so `cohort_track` is empty and this card used to
+     say nothing at all about what the class was for — the teacher found out
+     when the family joined it. `trial_subject` is what the parent chose. */
+  const trackName = booking.is_trial
+    ? (booking.trial_subject ? subjectLabel(booking.trial_subject) : 'Trial class')
+    : getTrackName(booking.cohort_track);
 
   const [started, setStarted] = useState(false);
   const [startInfo, setStartInfo] = useState<string | null>(null);
@@ -254,11 +260,38 @@ function BookingCard({
           <h4 className="font-extrabold text-slate-900 text-base leading-tight" style={{ fontFamily: 'var(--font-jakarta)' }}>
             {trackName}
           </h4>
-          {booking.student_names.length > 0 && (
+          {/* ── Who is in the room, and at what level ─────────────────────
+              The name alone was never enough for a trial: a teacher walking
+              into a half hour that decides whether a family buys needs to
+              know the child's grade and what the class is supposed to be
+              about. Both were already in the database and on neither screen. */}
+          {booking.roster.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
+              {booking.roster.map((s) => (
+                <span key={s.id} className="inline-flex items-center gap-1 text-xs font-bold text-slate-600">
+                  {s.name}
+                  {s.grade != null && (
+                    <span className="px-1 py-0.5 rounded text-[9px] font-black bg-slate-100 text-slate-600">
+                      G{s.grade}
+                    </span>
+                  )}
+                  {/* The teacher's half of the credit pause. Without it they
+                      sit waiting for a child the system has already stopped —
+                      and in a group the class runs regardless, so an empty
+                      seat explains nothing. */}
+                  {s.paused && (
+                    <span className="px-1 py-0.5 rounded text-[9px] font-black bg-red-100 text-red-700 tracking-wide">
+                      {s.statusLabel}
+                    </span>
+                  )}
+                </span>
+              ))}
+            </div>
+          ) : booking.student_names.length > 0 ? (
             <div className="text-xs font-bold text-slate-600 mt-0.5 truncate">
               {booking.student_names.join(', ')}
             </div>
-          )}
+          ) : null}
           <div className="text-xs text-slate-500 mt-0.5">
             {formatSessionTime(booking.slot_start, timezone)}
           </div>
