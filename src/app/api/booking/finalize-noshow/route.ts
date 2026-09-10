@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
 
   const { data: booking } = await admin
     .from('bookings')
-    .select('id, cohort_id, teacher_id, schedule_id, slot_start, slot_end, status, teacher_started_at')
+    .select('id, cohort_id, teacher_id, schedule_id, slot_start, slot_end, status, teacher_started_at, is_trial, trial_student_id')
     .eq('id', bookingId)
     .maybeSingle();
   if (!booking) return NextResponse.json({ ok: false, error: 'not_found' }, { status: 404 });
@@ -66,10 +66,26 @@ export async function POST(req: NextRequest) {
     const { data: prof } = await admin.from('profiles').select('role, is_admin, is_super_admin').eq('id', userId).single();
     related = prof?.role === 'admin' || prof?.role === 'super_admin' || prof?.is_admin === true || prof?.is_super_admin === true;
   }
-  if (!related) {
+  if (!related && booking.cohort_id) {
     const { count } = await admin.from('enrollments').select('id', { count: 'exact', head: true })
       .eq('cohort_id', booking.cohort_id).eq('user_id', userId).eq('status', 'active');
     related = (count ?? 0) > 0;
+  }
+  /* A trial student is not in enrolments — they are in trial_participants, and
+     a trial has no cohort at all. So this check used to compare against
+     cohort_id = NULL, match nothing, and refuse the one person actually sitting
+     in the empty room. A teacher could miss a trial entirely and no no-show was
+     ever recorded, which is the class where it matters most: it is the half
+     hour a family uses to decide whether to buy anything. */
+  if (!related) {
+    if (booking.trial_student_id === userId) {
+      related = true;
+    } else {
+      const { count } = await admin.from('trial_participants')
+        .select('id', { count: 'exact', head: true })
+        .eq('booking_id', bookingId).eq('student_id', userId);
+      related = (count ?? 0) > 0;
+    }
   }
   if (!related) return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
 
@@ -89,7 +105,10 @@ export async function POST(req: NextRequest) {
   // 2. −₹1000 penalty earning (skip if one already exists for this booking).
   const { data: existing } = await admin.from('teacher_earnings').select('id').eq('booking_id', bookingId).maybeSingle();
   if (!existing) {
-    const { data: cohort } = await admin.from('cohorts').select('ratio, track, level').eq('id', booking.cohort_id).maybeSingle();
+    // Guarded: a trial has no cohort, and `id = null` is not a lookup.
+    const { data: cohort } = booking.cohort_id
+      ? await admin.from('cohorts').select('ratio, track, level').eq('id', booking.cohort_id).maybeSingle()
+      : { data: null };
     await admin.from('teacher_earnings').insert({
       teacher_id: booking.teacher_id, booking_id: bookingId, class_date: booking.slot_start,
       ratio: cohort?.ratio ?? null, track: cohort?.track ?? null, level: cohort?.level ?? null,
@@ -99,11 +118,26 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // 3. Excuse enrolled students (no credit consumed).
-  const { data: enrs } = await admin.from('enrollments').select('user_id').eq('cohort_id', booking.cohort_id).eq('status', 'active');
-  for (const e of enrs ?? []) {
+  /* 3. Excuse everybody who was due in the room (no credit consumed).
+        Enrolments for an ordinary class, the trial roster for a trial — a
+        trial student is in neither enrolments nor a cohort, so reading only
+        enrolments left the child who turned up with no attendance record at
+        all against a class their teacher missed. */
+  const excusing = new Set<string>();
+  if (booking.cohort_id) {
+    const { data: enrs } = await admin.from('enrollments')
+      .select('user_id').eq('cohort_id', booking.cohort_id).eq('status', 'active');
+    for (const e of enrs ?? []) excusing.add(e.user_id as string);
+  }
+  if (booking.is_trial) {
+    if (booking.trial_student_id) excusing.add(booking.trial_student_id as string);
+    const { data: seats } = await admin.from('trial_participants')
+      .select('student_id').eq('booking_id', bookingId);
+    for (const s of seats ?? []) excusing.add(s.student_id as string);
+  }
+  for (const studentId of excusing) {
     await admin.from('session_attendance').upsert(
-      { booking_id: bookingId, student_id: e.user_id, status: 'excused', marked_at: new Date().toISOString() },
+      { booking_id: bookingId, student_id: studentId, status: 'excused', marked_at: new Date().toISOString() },
       { onConflict: 'booking_id,student_id' }
     );
   }

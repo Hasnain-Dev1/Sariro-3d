@@ -41,18 +41,53 @@ export default function TeacherLatePopup() {
   const load = useCallback(async () => {
     if (!user) return;
     const sb = createClient();
-    const { data: enrs } = await sb.from('enrollments').select('cohort_id').eq('user_id', user.id).eq('status', 'active');
+    /* ── Which classes are this child's ──────────────────────────────────────
+       Both kinds. This used to read enrolments only and then filter bookings
+       by cohort_id — and a TRIAL has no cohort, so a trial student never saw
+       this at all. No "your teacher is joining", no countdown, and, because
+       this component is what calls finalize-noshow, no teacher no-show was
+       ever recorded for a trial. The one class where a family is deciding
+       whether to buy anything was the one class with no cover. */
+    const [{ data: enrs }, { data: seats }] = await Promise.all([
+      sb.from('enrollments').select('cohort_id').eq('user_id', user.id).eq('status', 'active'),
+      sb.from('trial_participants').select('booking_id').eq('student_id', user.id),
+    ]);
     const cohortIds = (enrs ?? []).map((e: { cohort_id: string }) => e.cohort_id).filter(Boolean);
-    if (cohortIds.length === 0) { setBooking(null); setMeetUrl(null); return; }
+    const trialIds = (seats ?? []).map((s: { booking_id: string }) => s.booking_id).filter(Boolean);
+
     // A class whose start is within [-2h, +15min] and still scheduled.
     const from = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
     const to = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-    const { data } = await sb.from('bookings')
-      .select('id, slot_start, status, teacher_started_at, google_meet_url, cohort_id')
-      .in('cohort_id', cohortIds).eq('status', 'scheduled')
-      .gte('slot_start', from).lte('slot_start', to)
-      .order('slot_start', { ascending: false }).limit(1);
-    const b = (data && data[0]) ? (data[0] as ImminentBooking) : null;
+
+    /* One query per kind rather than one `or`, because trial_participants
+       cannot be reached from a filter on bookings. The nearest match wins. */
+    const cols = 'id, slot_start, status, teacher_started_at, google_meet_url, cohort_id';
+    const imminent = async (
+      column: 'cohort_id' | 'id' | 'trial_student_id',
+      values: string[]
+    ): Promise<ImminentBooking[]> => {
+      const { data } = await sb.from('bookings').select(cols)
+        .in(column, values).eq('status', 'scheduled')
+        .gte('slot_start', from).lte('slot_start', to)
+        .order('slot_start', { ascending: false }).limit(1);
+      return (data ?? []) as unknown as ImminentBooking[];
+    };
+
+    const runs: Promise<ImminentBooking[]>[] = [];
+    if (cohortIds.length > 0) runs.push(imminent('cohort_id', cohortIds));
+    if (trialIds.length > 0) runs.push(imminent('id', trialIds));
+    /* Their own trial, when they are the only child on it — booked before the
+       roster table existed, or by a route that only stamped the column. */
+    runs.push(imminent('trial_student_id', [user.id]));
+
+    const found = (await Promise.all(runs))
+      .flat()
+      // Same booking can arrive from two queries; keep one.
+      .filter((x, i, arr) => arr.findIndex((y) => y.id === x.id) === i)
+      .sort((a, b2) => Date.parse(b2.slot_start) - Date.parse(a.slot_start));
+
+    if (found.length === 0) { setBooking(null); setMeetUrl(null); return; }
+    const b = found[0];
     setBooking(b);
     // Resolve a join link: booking's own, else the cohort's shared Meet URL.
     if (b) {
