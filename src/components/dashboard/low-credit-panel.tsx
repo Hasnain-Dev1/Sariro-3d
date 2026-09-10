@@ -48,10 +48,61 @@ function whenDate(iso: string): string {
   return `${date} (${days} days)`;
 }
 
-export default function LowCreditPanel({ compact = false }: { compact?: boolean }) {
+export default function LowCreditPanel({
+  compact = false,
+  canTopUp = false,
+}: {
+  compact?: boolean;
+  /**
+   * Whether to offer the top-up control. Admin screens only — a teacher can
+   * see that a family is out of credits, which they need in order to have the
+   * conversation, but granting one is a decision about money.
+   */
+  canTopUp?: boolean;
+}) {
   const [students, setStudents] = useState<AtRiskStudent[] | null>(null);
   const [threshold, setThreshold] = useState(4);
   const [failed, setFailed] = useState<string | null>(null);
+
+  /* Which row is open for a top-up, what is typed in it, and what came back.
+     Keyed by student so two rows cannot share a state. */
+  const [openFor, setOpenFor] = useState<string | null>(null);
+  const [amount, setAmount] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [rowError, setRowError] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
+
+  const topUp = async (s: AtRiskStudent) => {
+    const n = Math.round(Number(amount));
+    if (!Number.isFinite(n) || n <= 0) { setRowError('Enter how many classes they have paid for.'); return; }
+    setSaving(true);
+    setRowError(null);
+    try {
+      const res = await fetch('/api/admin/adjust-credits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: s.student_id,
+          amount: n,
+          reason: `Payment received — ${n} ${n === 1 ? 'class' : 'classes'}`,
+        }),
+      });
+      const json = await res.json();
+      // `message` first: the API puts a machine slug in `error` and the
+      // sentence a person should read in `message`.
+      if (!res.ok || !json.ok) {
+        setRowError(json.message || json.errors?.join(', ') || json.error || 'Could not add credits.');
+        return;
+      }
+      setOpenFor(null);
+      setAmount('');
+      setReload((r) => r + 1); // re-read, so the number on screen is the real one
+    } catch {
+      setRowError('Network error — please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -72,7 +123,7 @@ export default function LowCreditPanel({ compact = false }: { compact?: boolean 
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [reload]);
 
   if (failed) {
     return (
@@ -147,8 +198,67 @@ export default function LowCreditPanel({ compact = false }: { compact?: boolean 
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mt-1">
                     credits
                   </p>
+                  {canTopUp && openFor !== s.student_id && (
+                    <button
+                      onClick={() => { setOpenFor(s.student_id); setAmount(''); setRowError(null); }}
+                      className="mt-2 h-7 px-2.5 rounded-lg border border-slate-200 text-[11px] font-bold text-slate-700 hover:bg-slate-50"
+                      style={{ fontFamily: 'var(--font-grotesk)' }}
+                    >
+                      Add credits
+                    </button>
+                  )}
                 </div>
               </div>
+
+              {/* ── Top up ────────────────────────────────────────────────
+                  Credits used to be granted automatically on enrolment — a
+                  full course, free, for everybody — so nothing in the product
+                  ever needed a way to add them. With that removed this is the
+                  door, and it sits on the screen that already knows who is
+                  empty. */}
+              {canTopUp && openFor === s.student_id && (
+                <div className="mt-3 pt-3 border-t border-slate-100">
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                    Classes paid for
+                  </label>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <input
+                      type="number"
+                      min={1}
+                      max={1000}
+                      value={amount}
+                      autoFocus
+                      onChange={(e) => setAmount(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && !saving) void topUp(s); }}
+                      placeholder="e.g. 42"
+                      className="h-9 w-28 rounded-lg border border-slate-200 px-2.5 text-sm tabular-nums"
+                    />
+                    <button
+                      onClick={() => void topUp(s)}
+                      disabled={saving}
+                      className="h-9 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-bold disabled:opacity-50 inline-flex items-center gap-1.5"
+                      style={{ fontFamily: 'var(--font-grotesk)' }}
+                    >
+                      {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                      Add
+                    </button>
+                    <button
+                      onClick={() => { setOpenFor(null); setRowError(null); }}
+                      className="h-9 px-3 rounded-lg text-[12px] font-bold text-slate-500 hover:bg-slate-50"
+                      style={{ fontFamily: 'var(--font-grotesk)' }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <p className="mt-1.5 text-[11px] text-slate-400">
+                    Added to their balance — {s.balance} now, {s.balance + (Number(amount) || 0)} after.
+                    One credit is one class.
+                  </p>
+                  {rowError && (
+                    <p className="mt-1.5 text-[11px] text-red-600">{rowError}</p>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}

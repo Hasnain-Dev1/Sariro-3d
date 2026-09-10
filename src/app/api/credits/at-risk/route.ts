@@ -94,9 +94,38 @@ export async function POST(req: NextRequest) {
       .select('user_id, balance, updated_at')
       .lt('balance', LOW_CREDIT_THRESHOLD);
     const low = (lowRaw ?? []) as { user_id: string; balance: number; updated_at: string }[];
+
+    /* ── The learners with no credits row at all ─────────────────────────────
+       This list used to be read entirely OUT OF the credits table, so a
+       learner who has never held a credit — no row, not a row saying zero —
+       could not appear on it. They were the emptiest people in the school and
+       the one screen for spotting an empty balance could not see them.
+
+       It never showed, because enrolling used to mint a full course of
+       credits, so everybody had a row within a second of being enrolled. With
+       that removed, EVERY newly enrolled learner is in this state, and this
+       panel is where an admin finds them to top up.
+
+       Read from the enrolments instead: an active enrolment with no credits
+       row is a learner at zero. */
+    const [{ data: activeRaw }, { data: anyCreditRaw }] = await Promise.all([
+      admin.from('enrollments').select('user_id').eq('status', 'active'),
+      admin.from('credits').select('user_id'),
+    ]);
+    /* Everyone who holds a row at all, low or not — so a learner comfortably
+       in credit is not re-added here at zero. */
+    const holdsARow = new Set(
+      ((anyCreditRaw ?? []) as { user_id: string }[]).map((c) => c.user_id)
+    );
+    for (const e of (activeRaw ?? []) as { user_id: string }[]) {
+      if (holdsARow.has(e.user_id)) continue;
+      holdsARow.add(e.user_id); // one entry per learner, however many courses
+      low.push({ user_id: e.user_id, balance: 0, updated_at: nowIso });
+    }
+
     if (low.length === 0) return NextResponse.json({ ok: true, students: [], threshold: LOW_CREDIT_THRESHOLD });
 
-    const studentIds = low.map((c) => c.user_id);
+    const studentIds = [...new Set(low.map((c) => c.user_id))];
 
     const { data: enrolRaw } = await admin
       .from('enrollments')

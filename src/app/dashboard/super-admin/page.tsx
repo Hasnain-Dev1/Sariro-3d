@@ -834,7 +834,10 @@ function SuperAdminDashboardInner() {
             <CoinsIcon className="w-5 h-5 text-slate-400" />
             <h2 className="text-lg font-bold text-slate-900">Credits running low</h2>
           </div>
-          <LowCreditPanel />
+          {/* Top-up here and only here. A teacher sees the same panel so they
+              can have the conversation with a parent, but granting a credit is
+              a decision about money. */}
+          <LowCreditPanel canTopUp />
         </section>
 
         {/* §52 — "Super Admin should see the complete history." Same queue HR
