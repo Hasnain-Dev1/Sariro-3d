@@ -329,8 +329,58 @@ function LeadRow({
   const [updating, setUpdating] = useState(false);
   const colors = STAGE_COLORS[lead.stage];
 
+  /**
+   * Assigning and transferring are two different acts.
+   *
+   * Giving an unowned lead to somebody is housekeeping. Taking one OFF a
+   * colleague who has been working it changes who gets paid for it, so it
+   * needs a reason and a record that a person can be shown six weeks later —
+   * and it must be refused outright once the sale has been punched.
+   *
+   * Same dropdown, because a super-admin should not have to know which of the
+   * two they are doing; the code knows from whether the lead has a seller.
+   */
   const handleAssignSeller = async (sellerId: string) => {
-    if (!sellerId) return;
+    if (!sellerId || sellerId === lead.assigned_seller) return;
+
+    const isTransfer = Boolean(lead.assigned_seller);
+
+    if (isTransfer) {
+      const reason = globalThis.prompt(
+        `Move ${lead.student_name || 'this lead'} to another seller.\n\n` +
+        'Why? This decides who is paid for the sale, so it is recorded against your name.'
+      );
+      /* Cancelled, or waved through with nothing. The API refuses an empty
+         reason anyway; asking again here saves a round trip and keeps the
+         dropdown from looking as though it did something. */
+      if (reason === null) return;
+      if (reason.trim().length < 3) {
+        onToast('A transfer needs a reason.', 'error');
+        return;
+      }
+
+      setUpdating(true);
+      try {
+        const res = await fetch('/api/admin/leads/transfer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ leadId: lead.id, toSeller: sellerId, reason: reason.trim() }),
+        });
+        const json = await res.json();
+        if (json?.ok) {
+          onToast('Lead moved, and the reason recorded.', 'success');
+          onChanged();
+        } else {
+          onToast(json?.message || 'Could not move that lead.', 'error');
+        }
+      } catch {
+        onToast('Could not reach the server.', 'error');
+      } finally {
+        setUpdating(false);
+      }
+      return;
+    }
+
     setUpdating(true);
     const result = await assignSeller(lead.id, sellerId);
     setUpdating(false);

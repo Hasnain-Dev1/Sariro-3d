@@ -122,3 +122,49 @@ export function monthWindow(
     key: `${year}-${String(month).padStart(2, '0')}`,
   };
 }
+
+/**
+ * The same thing for a single day — "today", as the office would say it.
+ *
+ * Sits beside monthWindow because it answers the same question at a different
+ * scale and must agree with it at the boundaries: the first day of a month has
+ * to start at the same instant the month does, or a follow-up due at 00:15 on
+ * the 1st lands in today's list and last month's count.
+ *
+ * Used by the seller's Today's Follow-Ups queue and by reminderStatus(), which
+ * is the whole reason "overdue" means a day that has ended rather than a fixed
+ * number of hours. See lib/seller/reminders.ts.
+ */
+export function dayWindow(
+  now: number | Date = Date.now(),
+  timeZone = 'Asia/Kolkata'
+): { start: string; end: string; key: string } {
+  const at = new Date(now);
+
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+  }).formatToParts(at);
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? '0');
+
+  const year = get('year');
+  const month = get('month');
+  const day = get('day');
+
+  const asUtc = Date.UTC(year, month - 1, day, get('hour') % 24, get('minute'), get('second'));
+  const offsetMs = asUtc - (at.getTime() - (at.getTime() % 1000));
+
+  /* day + 1 rather than start + 24h. Date.UTC rolls the month and the year
+     over by itself, and a day is not always 24 hours long in a zone that
+     observes DST — the same reason monthWindow builds its end from the next
+     month's first day rather than by adding thirty of anything. */
+  const startUtc = Date.UTC(year, month - 1, day, 0, 0, 0) - offsetMs;
+  const endUtc = Date.UTC(year, month - 1, day + 1, 0, 0, 0) - offsetMs;
+
+  return {
+    start: new Date(startUtc).toISOString(),
+    end: new Date(endUtc).toISOString(),
+    /** "2026-09-10". */
+    key: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+  };
+}

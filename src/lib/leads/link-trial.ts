@@ -53,6 +53,19 @@ export interface TrialLeadInput {
   country?: string | null;
   /** Who did this. Null for the public form, where there is no staff actor. */
   actorId?: string | null;
+  /**
+   * Where the lead should land. Defaults to a booked trial, which is what
+   * every caller wanted until "none of these times work" existed.
+   *
+   * That family has NO booking — inventing one to represent a class that will
+   * not happen puts a ghost in the teacher's calendar and in every trial
+   * count. They are a real lead at `seller_assigned` whose class still has to
+   * be arranged by a person, so the caller says so rather than this module
+   * assuming a booking happened.
+   */
+  stage?: 'trial_booked' | 'seller_assigned';
+  /** Where the CLASS stands. Not the same question as the seller stage. */
+  trialStatus?: 'booked' | 'slot_assistance';
 }
 
 export interface TrialLeadResult {
@@ -186,8 +199,8 @@ export async function linkTrialToLead(
       subject: input.subject,
       grade: input.grade,
       source: input.source,
-      trial_status: 'booked',
-      stage: 'trial_booked',
+      trial_status: input.trialStatus ?? 'booked',
+      stage: input.stage ?? 'trial_booked',
       last_updated: new Date().toISOString(),
     };
 
@@ -214,9 +227,12 @@ export async function linkTrialToLead(
       if (upd.error) return { leadId: existing.id, sellerId, created: false, error: upd.error.message };
 
       await note(admin, existing.id, {
-        action: 'trial_booked',
+        /* The history has to say which of the two actually happened. A family
+           who could not be given a time, recorded as "trial_booked", is a
+           trial nobody will ever find and a count that is quietly too high. */
+        action: fromTrial.stage === 'trial_booked' ? 'trial_booked' : 'stage_changed',
         old_value: prior?.stage ?? null,
-        new_value: `trial_booked (matched on ${existing.on})`,
+        new_value: `${fromTrial.stage} (matched on ${existing.on})`,
         performed_by: input.actorId ?? null,
       });
 

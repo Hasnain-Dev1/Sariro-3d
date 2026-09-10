@@ -9,6 +9,7 @@ import BookTrialModal from '@/components/dashboard/book-trial-modal';
 import LeadSignalsPanel from '@/components/dashboard/lead-signals-panel';
 import DashboardToast, { useDashboardToast } from '@/components/dashboard/dashboard-toast';
 import TrialGradesPanel from '@/components/dashboard/trial-grades-panel';
+import SellerQueues from '@/components/dashboard/seller-queues';
 
 export default function SellerDashboard() {
   const { user, profile, loading } = useAuth();
@@ -65,6 +66,16 @@ export default function SellerDashboard() {
               class refusing joiners. Each grade opens up to three seats. */}
           <div className="mb-6">
             <TrialGradesPanel />
+          </div>
+
+          {/* The day's work, before anything else on the page.
+              ────────────────────────────────────────────────────────────────
+              Six queues, each with a verb, bucketed on the server so a badge
+              can never disagree with the list under it. Everything below this
+              is reference material — this is the part that says what to do
+              now, which is why it is first. */}
+          <div className="mb-6">
+            <SellerQueues />
           </div>
 
           {/* §9. What the two write-ups say, turned into an order to ring in.

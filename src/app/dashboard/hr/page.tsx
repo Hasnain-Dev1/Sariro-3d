@@ -23,6 +23,7 @@ import CreditRequestsPanel from '@/components/dashboard/credit-requests-panel';
 import InvoiceWorkspace from '@/components/dashboard/invoice-workspace';
 import SalesLedgerPanel from '@/components/dashboard/sales-ledger-panel';
 import UnrecordedInvoicesPanel from '@/components/dashboard/unrecorded-invoices-panel';
+import HrSalesPanel from '@/components/dashboard/hr-sales-panel';
 
 export default function HRDashboard() {
   const { user, loading } = useAuth();
@@ -293,6 +294,13 @@ export default function HRDashboard() {
                   customer holds. */}
               {activeTab === 'sales' && (
                 <div className="space-y-6">
+                  {/* First, because it is the only part of this tab with a
+                      deadline attached: a family has agreed to buy and is
+                      waiting to be invoiced. Punching the sale here is what
+                      locks the attribution and counts it towards a seller's
+                      month — everything below is the record afterwards. */}
+                  <HrSalesPanel />
+
                   {/* The gap the ledger cannot close on its own: a sale needs
                       an invoice, but an invoice does not need a sale. */}
                   <section>
