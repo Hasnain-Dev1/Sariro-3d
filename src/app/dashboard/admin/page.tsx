@@ -48,6 +48,7 @@ import { COUNTRIES } from '@/lib/invoice/company';
 import { contactIdentity, canAssignCourse } from '@/lib/contact/reachability';
 import { UnknownBadge } from '@/components/dashboard/unknown-contact';
 import BookTrialModal from '@/components/dashboard/book-trial-modal';
+import CatchUpOverduePanel from '@/components/dashboard/catchup-overdue-panel';
 import { ShieldAlert } from 'lucide-react';
 
 /* ───── Helpers ───── */
@@ -1649,6 +1650,18 @@ function AdminDashboardInner() {
             </div>
           </div>
         )}
+
+        {/* §32 — the teachers reporting to THIS admin who have not arranged a
+            catch-up session in time. The route scopes by reporting_admin_id,
+            so the same panel the super-admin sees over everyone shows an admin
+            only their own people. Empty for three days by design. */}
+        <div className="mb-8">
+          <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2.5 mb-4">
+            <CalendarClock className="w-5 h-5 text-slate-400" />
+            Overdue catch-up sessions
+          </h2>
+          <CatchUpOverduePanel />
+        </div>
 
         {/* Stats grid */}
                 {/* What needs a decision, separated from what is merely true. The stat

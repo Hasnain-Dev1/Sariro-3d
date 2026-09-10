@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import { resolveActor } from '@/lib/dashboard/schedule-ops-server';
+import { pauseIfExhausted } from '@/lib/credits/apply';
 
 /**
  * SARIRO — POST /api/teacher/complete-class
@@ -148,5 +149,16 @@ async function deductClassCredits(
     });
     if (txErr) continue; // a concurrent completion already charged this student
     await admin.from('credits').upsert({ user_id: sid, balance: newBalance }, { onConflict: 'user_id' });
+
+    /* ── The class that used their last credit ─────────────────────────────
+       Spending the last one pauses them, here, with no admin action and no
+       button — the moment it happens rather than the next time somebody
+       notices. Nothing about their teacher, group, schedule or place in the
+       course is touched: holding all of that is what makes starting again
+       automatic when they pay.
+
+       Never fatal. A class was just taught and the teacher is owed for it;
+       failing to pause must not undo marking it complete. */
+    if (newBalance <= 0) await pauseIfExhausted(admin, String(sid));
   }
 }

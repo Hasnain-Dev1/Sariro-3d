@@ -18,6 +18,7 @@ import { canJoinNow, humanCountdown } from '@/lib/dashboard/join-window';
 import { useLiveJoinWindow } from '@/lib/dashboard/use-join-window';
 import StudentNextUp from '@/components/dashboard/student-next-up';
 import TeacherLatePopup from '@/components/dashboard/teacher-late-popup';
+import StudentCreditsPanel from '@/components/dashboard/student-credits-panel';
 import { useAuth } from '@/components/auth/auth-provider';
 import { TRACKS } from '@/lib/sariro-data';
 import { createClient } from '@/lib/supabase/client';
@@ -1218,6 +1219,13 @@ function StudentDashboardInner() {
                 />
               </div>
             )}
+
+            {/* Two balances, the pause notice, and every lesson still owed.
+                Above the transaction history on purpose: a family whose
+                classes have stopped needs the explanation before the ledger. */}
+            <div className="mb-10">
+              <StudentCreditsPanel />
+            </div>
 
             {/* Credits balance + transaction history */}
             <CreditsSection credits={credits} transactions={creditTransactions} />

@@ -36,6 +36,7 @@ import { getTrackName } from '@/lib/dashboard/upsell-engine';
 import { useRealtime } from '@/lib/dashboard/use-realtime';
 import { TeacherCalendar } from '@/components/dashboard/teacher-calendar';
 import LowCreditPanel from '@/components/dashboard/low-credit-panel';
+import CatchUpPanel from '@/components/dashboard/catchup-panel';
 import { attendanceDeadline, deadlineTone } from '@/lib/dashboard/attendance-deadline';
 import { Coins, Mic } from 'lucide-react';
 import PracticeProgress from '@/components/speaking/practice-progress';
@@ -2087,6 +2088,17 @@ function TeacherDashboardInner() {
         {/* §26 — a student who runs out of credits stops coming, and the
             teacher is the person placed to notice first. Above the roster
             because it is the part that needs acting on. */}
+        {/* §20 — above the low-credit list on purpose. That one is something to
+            be aware of; this is a list of things this teacher owes people, each
+            with a deadline of its own. */}
+        <div className="mb-10" id="catchup">
+          <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-jakarta)' }}>
+            <CalendarPlus className="w-5 h-5 text-blue-600" />
+            Catch-up sessions
+          </h2>
+          <CatchUpPanel />
+        </div>
+
         <div className="mb-10" id="low-credits">
           <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-jakarta)' }}>
             <Coins className="w-5 h-5 text-amber-600" />

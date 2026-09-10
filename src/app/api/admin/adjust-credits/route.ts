@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClientHelper, createServiceClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
+import { addCredits } from '@/lib/credits/apply';
 
 /**
  * SARIRO — POST /api/admin/adjust-credits
@@ -110,6 +111,44 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    /* ── Adding credits is never just adding credits ─────────────────────────
+       If the family fell behind while their classes were paused, part of this
+       payment pays for the lessons they missed and the rest pays for carrying
+       on. addCredits() works that out, writes both balances together, creates
+       one catch-up obligation per missed lesson, restarts the student if there
+       is anything left to attend with, and tells them and their teacher.
+
+       A DEDUCTION still goes the old way below: taking credits away is an
+       admin correcting something, and it never buys anything. */
+    if (body.amount! > 0) {
+      const result = await addCredits(admin, {
+        studentId: body.user_id!,
+        credits: body.amount!,
+        reason: body.reason!.trim(),
+        actorId: user.id,
+      });
+      if (!result.ok) {
+        return NextResponse.json(
+          { ok: false, error: 'adjust_failed', message: result.error ?? 'Could not add those credits.' },
+          { status: 500 }
+        );
+      }
+      return NextResponse.json({
+        ok: true,
+        duplicate: result.duplicate ?? false,
+        balance: result.mainBalance,
+        catchup_balance: result.catchupBalance,
+        main_added: result.mainAdded,
+        catchup_added: result.catchupAdded,
+        catchup_lessons: result.catchupLessons,
+        still_unfunded: result.stillUnfunded,
+        resumed: result.resumed,
+        resume_at_lesson: result.resumeAtLesson,
+        // §18 — the sentence the family reads the instant payment lands.
+        message: result.message,
+      });
+    }
+
     // Read the CURRENT balance, then ADD the delta. We do the arithmetic here
     // (read-modify-write) rather than trusting a DB function — a hand-written
     // `adjust_credits_balance` on the live DB was SETTING the balance to the
