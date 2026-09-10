@@ -56,22 +56,45 @@ export default function ParentReportCard({
       /* Attendance and the teacher's remarks come from the same rows the
          teacher writes during class, so the page cannot disagree with what
          they were told at the time. */
-      const { data } = await sb
+      /* Two queries, not one embed.
+         ────────────────────────────────────────────────────────────────────
+         This used to ask for the teacher's name through
+         `bookings(slot_start, profiles!teacher_id(full_name))`, and PostgREST
+         answered 400: bookings.teacher_id carries no foreign key, so there is
+         no relationship for it to follow. The catch below turned that into an
+         empty list, so this report showed ZERO classes and no teacher quote
+         for every child, always — while the practice half above it worked
+         perfectly and made the page look fine.
+
+         An earlier fix to this very query (student_id, not user_id) missed it
+         for the same reason: the failure never reached anybody. */
+      const { data, error } = await sb
         .from('session_attendance')
         // student_id, not user_id. Getting that wrong returns an empty list
-        // rather than an error, so the report would have quietly shown zero
-        // classes for every child.
-        .select('status, note, marked_at, bookings(slot_start, profiles!teacher_id(full_name))')
+        // rather than an error, so the report would quietly show zero classes.
+        .select('status, note, marked_at, bookings(slot_start, teacher_id)')
         .eq('student_id', id)
         .order('marked_at', { ascending: false })
         .limit(60);
+      if (error) throw error;
+
+      const rows = data ?? [];
+      const teacherIds = [...new Set(
+        rows.map((r) => (r.bookings as unknown as { teacher_id?: string } | null)?.teacher_id)
+          .filter((v): v is string => !!v)
+      )];
+      const names = new Map<string, string | null>();
+      if (teacherIds.length > 0) {
+        const { data: people } = await sb
+          .from('profiles').select('id, full_name').in('id', teacherIds);
+        for (const p of (people ?? []) as { id: string; full_name: string | null }[]) {
+          names.set(p.id, p.full_name);
+        }
+      }
 
       setClasses(
-        (data ?? []).map((r) => {
-          const b = r.bookings as unknown as {
-            slot_start?: string;
-            profiles?: { full_name?: string | null } | null;
-          } | null;
+        rows.map((r) => {
+          const b = r.bookings as unknown as { slot_start?: string; teacher_id?: string } | null;
           return {
             // The class time, falling back to when it was marked. A missing
             // slot_start must not date the row to "now" and drag an old class
@@ -79,13 +102,15 @@ export default function ParentReportCard({
             at: b?.slot_start ?? (r.marked_at as string) ?? new Date(0).toISOString(),
             attended: r.status === 'present' || r.status === 'late',
             remark: (r.note as string | null) ?? null,
-            teacherName: b?.profiles?.full_name ?? null,
+            teacherName: b?.teacher_id ? names.get(b.teacher_id) ?? null : null,
           };
         })
       );
-    } catch {
-      // The practice half is the half nobody else has. A missing attendance
-      // read must not take the whole report down with it.
+    } catch (err) {
+      /* The practice half is the half nobody else has, so a missing attendance
+         read must not take the whole report down. But it is LOGGED now: this
+         catch is what hid a broken query for the entire life of the feature. */
+      console.warn('[parent-report] attendance read failed:', err instanceof Error ? err.message : err);
       setClasses([]);
     }
   }, [userId]);

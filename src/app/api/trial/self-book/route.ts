@@ -10,6 +10,7 @@ import { slotState, blockingIntervals, canSeat, TRIAL_MINUTES, type SlotBooking 
 import { TRIAL_HOME } from '@/lib/dashboard/trial-only';
 import { bandOf, fits, joinable, MIN_GRADE, MAX_GRADE, type GradeBand } from '@/lib/trial/grade-band';
 import { linkTrialToLead } from '@/lib/leads/link-trial';
+import { bestEffort } from '@/lib/supabase/best-effort';
 
 /**
  * SARIRO — POST /api/trial/self-book
@@ -321,9 +322,30 @@ export async function POST(req: NextRequest) {
       return bad('book_failed', 'We could not complete that booking. Please try again.', 500);
     }
     bookingId = booking.id;
-    await admin.from('trial_participants')
-      .insert({ booking_id: bookingId, student_id: studentId, added_by: studentId, grade })
-      .then(() => {}, () => {});
+
+    /* ── The seat, and why its failure is no longer discarded ──────────────
+       The joining branch above returns 500 when this insert fails. This one
+       swallowed the error entirely, and that is the more dangerous half: the
+       booking exists, so the class is real, but with no seat row bandOf()
+       reads an EMPTY class. joinable() then reports it as open to anybody,
+       and the next family books a grade 1 into a grade 10's half hour — the
+       exact thing the band rules exist to prevent.
+
+       Still not fatal, because the booking is committed and telling a parent
+       it failed would be a lie. But it is retried once, always logged, and a
+       booking that ends with no seat is reported loudly enough to be repaired
+       rather than discovered by whoever turns up to the class. */
+    const seat = { booking_id: bookingId, student_id: studentId, added_by: studentId, grade };
+    let seated = await bestEffort('self-book: trial seat', admin.from('trial_participants').insert(seat));
+    if (!seated) {
+      seated = await bestEffort('self-book: trial seat (retry)', admin.from('trial_participants').insert(seat));
+    }
+    if (!seated) {
+      console.error(
+        `[self-book] booking ${bookingId} has NO SEAT ROW — it will read as an empty class ` +
+        `and accept any grade. Insert trial_participants for student ${studentId}, grade ${grade}.`
+      );
+    }
   }
 
   /* ── A lead, on somebody's desk ─────────────────────────────────────────
