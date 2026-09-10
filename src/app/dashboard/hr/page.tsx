@@ -13,6 +13,7 @@ import {
 import { TRACKS } from '@/lib/sariro-data';
 import SalesEarningsReport from '@/components/dashboard/sales-earnings-report';
 import MyTeachers from '@/components/dashboard/my-teachers';
+import CatchUpCompliancePanel from '@/components/dashboard/catchup-compliance-panel';
 import CapabilityChips from '@/components/dashboard/capability-chips';
 import type { TeacherAssignmentRow } from '@/lib/dashboard/teacher-capability';
 import PaymentRequestsPanel from '@/components/dashboard/payment-requests-panel';
@@ -256,7 +257,18 @@ export default function HRDashboard() {
           ) : (
             <>
               {/* ─── MY TEACHERS TAB ─── */}
-              {activeTab === 'my_teachers' && <MyTeachers field="hr" />}
+              {/* §49 — beneath the roster, because "who reports to me" is the
+                  question and "did they do what they were asked" is the
+                  follow-up. Teacher-side only: no student names, no balances. */}
+              {activeTab === 'my_teachers' && (
+                <>
+                  <MyTeachers field="hr" />
+                  <div className="mt-8">
+                    <h3 className="text-base font-bold text-slate-900 mb-3">Catch-up compliance</h3>
+                    <CatchUpCompliancePanel />
+                  </div>
+                </>
+              )}
 
               {/* ─── ENQUIRIES TAB ───
                   Contact messages and bank-transfer requests. Before this they

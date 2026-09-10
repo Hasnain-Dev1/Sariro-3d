@@ -70,6 +70,16 @@ const JOBS: Job[] = [
     everyMs: 30 * MINUTE,
     offsetMs: 150_000,
   },
+  {
+    /* The catch-up reminder ladder and the seven-day grace expiry. Hourly:
+       every threshold it watches is measured in days, and each obligation
+       carries `last_reminder` so a sweep cannot send the same nudge twice
+       however often it runs. */
+    name: 'catchup-sweep',
+    path: '/api/cron/catchup-sweep',
+    everyMs: 60 * MINUTE,
+    offsetMs: 210_000,
+  },
 ];
 
 /** Module-level, so a hot reload in development cannot stack a second set. */
