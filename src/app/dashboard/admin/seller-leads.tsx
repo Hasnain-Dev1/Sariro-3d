@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import {
   fetchLeads, fetchLeadHistory, updateLeadStage,
-  STAGE_ORDER, STAGE_LABELS, STAGE_COLORS,
+  STAGE_ORDER, STAGE_LABELS, STAGE_COLORS, zeroCounts, isLeadStage,
   type StudentLead, type LeadStage, type StageSummary,
   type LeadHistoryRow,
 } from '@/lib/dashboard/leads-data';
@@ -54,12 +54,11 @@ export function SellerLeads({ onToast }: { onToast: (msg: string, kind?: 'succes
   });
 
   // Compute summary from loaded leads (sellers see only their own)
-  const summary: StageSummary = {
-    new: 0, seller_assigned: 0, connected: 0, gathering_booked: 0,
-    final: 0, deferred: 0, enrolled: 0, total: leads.length,
-  };
+  const summary: StageSummary = { ...zeroCounts(), total: leads.length };
   for (const lead of leads) {
-    summary[lead.stage]++;
+    // Guarded: a stage this build has not been taught about would otherwise
+    // increment undefined to NaN and drop the lead off the board silently.
+    if (isLeadStage(lead.stage)) summary[lead.stage]++;
   }
 
   return (

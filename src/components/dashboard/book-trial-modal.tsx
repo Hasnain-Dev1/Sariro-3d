@@ -8,6 +8,7 @@ import {
   fetchBookableTeachers, fetchTrialStudents, fetchTeacherSlots, bookTrial, TRIAL_MINUTES,
   type BookableTeacher, type TrialStudent, type DaySlots,
 } from '@/lib/dashboard/trial-booking-data';
+import { MIN_GRADE, MAX_GRADE } from '@/lib/trial/grade-band';
 
 /**
  * SARIRO — booking a free trial, from any staff dashboard
@@ -35,6 +36,11 @@ import {
    re-declared so this cannot drift from the picker or the API. */
 const DURATION_MINUTES = TRIAL_MINUTES;
 
+/* The years a child can be in. Same bounds the booking route enforces, taken
+   from the band rules rather than written out again — the picker offering a
+   grade the API would refuse is a dead end a seller cannot get out of. */
+const GRADES = Array.from({ length: MAX_GRADE - MIN_GRADE + 1 }, (_, i) => MIN_GRADE + i);
+
 export default function BookTrialModal({
   open,
   onClose,
@@ -61,6 +67,11 @@ export default function BookTrialModal({
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [chosen, setChosen] = useState('');
 
+  /* Grades typed in here for children whose profile carries none. Keyed by
+     student id rather than held on the row, so switching the search text does
+     not lose what has already been answered. */
+  const [grades, setGrades] = useState<Record<string, number>>({});
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
@@ -84,6 +95,21 @@ export default function BookTrialModal({
     [students, studentIds]
   );
   const unreachable = chosenStudents.find((s) => !!s.blocker) ?? null;
+
+  /* ── Who still has no grade ───────────────────────────────────────────────
+     A trial holds four children and the first one fixes what level the class
+     is teaching at, plus or minus a year. A child with no recorded grade
+     cannot be seated by that rule at all — and until now nothing in the
+     product let a seller record one, so every child they booked had none and
+     every class they made quietly refused the second family.
+
+     Asked here, for the selected children only. Nobody is made to fill in a
+     grade for a student they are not booking. */
+  const needGrade = useMemo(
+    () => chosenStudents.filter((s) => s.grade == null && grades[s.id] == null),
+    [chosenStudents, grades]
+  );
+  const gradeFor = (s: TrialStudent) => grades[s.id] ?? s.grade ?? null;
 
   const toggleStudent = (id: string) =>
     setStudentIds((prev) =>
@@ -111,7 +137,9 @@ export default function BookTrialModal({
       .slice(0, 60);
   }, [students, search]);
 
-  const canBook = studentIds.length > 0 && !!teacherId && !!chosen && !unreachable && !teacher?.blocker && !saving;
+  const canBook =
+    studentIds.length > 0 && !!teacherId && !!chosen &&
+    !unreachable && !teacher?.blocker && needGrade.length === 0 && !saving;
 
   const submit = async () => {
     if (!canBook) return;
@@ -121,6 +149,10 @@ export default function BookTrialModal({
       studentIds, teacherId, slotStart: chosen,
       durationMinutes: DURATION_MINUTES,
       demoRequestId,
+      /* Only the ones typed in. A child whose profile already carries a grade
+         is not re-sent, so a stale copy in this tab cannot overwrite a newer
+         one recorded elsewhere. */
+      grades,
     });
     setSaving(false);
     if (!res.ok) { setError(res.error ?? 'Could not book that trial.'); return; }
@@ -220,9 +252,19 @@ export default function BookTrialModal({
                             onChange={() => toggleStudent(s.id)}
                             className="mt-0.5 w-4 h-4 rounded accent-blue-600"
                           />
-                          <span className="min-w-0">
-                            <span className="block text-sm text-slate-800 truncate">
-                              {s.full_name || s.email || 'Unnamed'}
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-center gap-1.5 min-w-0">
+                              <span className="text-sm text-slate-800 truncate">
+                                {s.full_name || s.email || 'Unnamed'}
+                              </span>
+                              {/* The year they are in, where anybody has ever
+                                  recorded it. Shown on the row because it is
+                                  what decides which classes they can join. */}
+                              {gradeFor(s) != null && (
+                                <span className="shrink-0 text-[10px] font-bold text-slate-500 bg-slate-100 rounded px-1.5 py-0.5">
+                                  G{gradeFor(s)}
+                                </span>
+                              )}
                             </span>
                             {s.blocker && (
                               <span className="block text-[11px] text-amber-700 flex items-center gap-1">
@@ -239,6 +281,49 @@ export default function BookTrialModal({
                       ? 'Pick one child, or up to four to share the class.'
                       : `${studentIds.length} of 4 selected.`}
                   </p>
+
+                  {/* ── The grades we do not have ──────────────────────────
+                      Appears only when something is actually missing, and
+                      lists the child by name. "A student has no grade" sends
+                      a seller hunting; "Mehul" does not. */}
+                  {needGrade.length > 0 && (
+                    <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-amber-800" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                        Which year {needGrade.length === 1 ? 'is this child' : 'are these children'} in?
+                      </p>
+                      <p className="mt-1 text-[11px] text-amber-800/80 leading-relaxed">
+                        A trial seats children within one year of each other, so we cannot place
+                        {needGrade.length === 1 ? ' them' : ' them'} without it. Asked once — it is saved to their profile.
+                      </p>
+                      <div className="mt-2.5 space-y-2">
+                        {needGrade.map((s) => (
+                          <div key={s.id} className="flex items-center gap-2">
+                            <span className="text-xs text-slate-700 truncate flex-1 min-w-0">
+                              {s.full_name || s.email || 'Unnamed'}
+                            </span>
+                            <select
+                              value={grades[s.id] ?? ''}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setGrades((prev) => {
+                                  const next = { ...prev };
+                                  if (v === '') delete next[s.id];
+                                  else next[s.id] = Number(v);
+                                  return next;
+                                });
+                              }}
+                              className="shrink-0 h-8 rounded-lg border border-amber-300 bg-white px-2 text-xs text-slate-800"
+                            >
+                              <option value="">Grade…</option>
+                              {GRADES.map((g) => (
+                                <option key={g} value={g}>Grade {g}</option>
+                              ))}
+                            </select>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* ── Teacher ── */}
@@ -356,6 +441,16 @@ export default function BookTrialModal({
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CalendarCheck className="w-4 h-4" />}
                   Book the trial
                 </button>
+
+                {/* The slot picker is long, so by the time somebody reaches
+                    this button the missing grade is scrolled off the screen.
+                    A disabled button with no reason is the worst thing on any
+                    form. */}
+                {needGrade.length > 0 && studentIds.length > 0 && (
+                  <p className="-mt-1 text-[11px] text-amber-700 text-center">
+                    Add a grade for {needGrade.map((s) => s.full_name || 'this child').join(', ')} to book.
+                  </p>
+                )}
               </div>
             )}
           </motion.div>

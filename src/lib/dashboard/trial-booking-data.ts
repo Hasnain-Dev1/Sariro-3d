@@ -47,6 +47,13 @@ export interface TrialStudent {
   full_name: string | null;
   email: string | null;
   phone: string | null;
+  /**
+   * Which year they are in. Null means nobody has ever recorded it — which
+   * until now was every child a seller booked, because the public form was the
+   * only place in the product that asked. A trial cannot be banded without it,
+   * so the picker asks for the ones that are missing.
+   */
+  grade: number | null;
   /** Empty when they can be booked. */
   blocker: string;
 }
@@ -132,7 +139,7 @@ export async function fetchTrialStudents(): Promise<TrialStudent[]> {
   try {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, full_name, email, phone, role, is_student, is_teacher, is_admin, is_super_admin')
+      .select('id, full_name, email, phone, grade, role, is_student, is_teacher, is_admin, is_super_admin')
       .order('created_at', { ascending: false })
       .limit(300);
     if (error) throw error;
@@ -149,6 +156,7 @@ export async function fetchTrialStudents(): Promise<TrialStudent[]> {
           full_name: (r.full_name as string | null) ?? null,
           email: (r.email as string | null) ?? null,
           phone: (r.phone as string | null) ?? null,
+          grade: (r.grade as number | null) ?? null,
           blocker: reach.ok ? '' : reach.reason,
         };
       });
@@ -322,6 +330,8 @@ export async function bookTrial(params: {
   slotStart: string;
   durationMinutes?: number;
   demoRequestId?: string;
+  /** Grade per student id, for the children whose profile has none yet. */
+  grades?: Record<string, number>;
 }): Promise<{ ok: boolean; error?: string }> {
   try {
     const res = await fetch('/api/trial/book', {

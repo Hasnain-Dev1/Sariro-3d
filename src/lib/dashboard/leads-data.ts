@@ -18,11 +18,24 @@ import { createClient } from '@/lib/supabase/client';
    Types
    ════════════════════════════════════════════════════════════════════════ */
 
+/**
+ * Where a family has got to.
+ *
+ * `trial_booked` was added because /api/trial/self-book was already writing it
+ * and nothing here knew the word. An unrecognised stage does not throw — it
+ * simply matches no column, so a family who booked their own free class was
+ * counted in the total and drawn nowhere on the board. Invisible, not broken,
+ * which is the worse of the two.
+ *
+ * `enrolled` is the spec's "Sale Done"; it is the same stage under the name
+ * this codebase has always used for it, not a second one.
+ */
 export type LeadStage =
   | 'new'
   | 'seller_assigned'
   | 'connected'
   | 'gathering_booked'
+  | 'trial_booked'
   | 'final'
   | 'deferred'
   | 'enrolled';
@@ -67,40 +80,41 @@ export interface LeadHistoryRow {
   performer_name?: string | null;
 }
 
-export interface StageSummary {
-  new: number;
-  seller_assigned: number;
-  connected: number;
-  gathering_booked: number;
-  final: number;
-  deferred: number;
-  enrolled: number;
-  total: number;
-}
+/* One count per stage, derived from LeadStage itself rather than written out.
+   Both of these used to list the stages by hand, so adding one meant editing
+   two places and the second was where it got missed. */
+export type StageCounts = Record<LeadStage, number>;
 
-export interface SellerWorkload {
+export type StageSummary = StageCounts & { total: number };
+
+export type SellerWorkload = StageCounts & {
   seller_id: string;
   seller_name: string;
   seller_email: string;
-  new: number;
-  seller_assigned: number;
-  connected: number;
-  gathering_booked: number;
-  final: number;
-  deferred: number;
-  enrolled: number;
   total: number;
+};
+
+/** Every stage at zero. The single place the list of stages is enumerated. */
+export function zeroCounts(): StageCounts {
+  return {
+    new: 0, seller_assigned: 0, connected: 0, gathering_booked: 0,
+    trial_booked: 0, final: 0, deferred: 0, enrolled: 0,
+  };
 }
 
 /* ════════════════════════════════════════════════════════════════════════
    Stage helpers
    ════════════════════════════════════════════════════════════════════════ */
 
+/* The board, left to right. `deferred` is deliberately absent: it is a place a
+   lead sits rather than a step towards anything, and a column for it on the
+   pipeline reads as progress. */
 export const STAGE_ORDER: LeadStage[] = [
   'new',
   'seller_assigned',
   'connected',
   'gathering_booked',
+  'trial_booked',
   'final',
   'enrolled',
 ];
@@ -110,6 +124,7 @@ export const STAGE_LABELS: Record<LeadStage, string> = {
   seller_assigned: 'Seller Assigned',
   connected: 'Connected',
   gathering_booked: 'Gathering Booked',
+  trial_booked: 'Trial Booked',
   final: 'Final',
   deferred: 'Deferred',
   enrolled: 'Enrolled',
@@ -120,10 +135,16 @@ export const STAGE_COLORS: Record<LeadStage, { bg: string; text: string; chip: s
   seller_assigned: { bg: 'bg-blue-50', text: 'text-blue-700', chip: 'bg-blue-100 text-blue-700' },
   connected: { bg: 'bg-violet-50', text: 'text-violet-700', chip: 'bg-violet-100 text-violet-700' },
   gathering_booked: { bg: 'bg-cyan-50', text: 'text-cyan-700', chip: 'bg-cyan-100 text-cyan-700' },
+  trial_booked: { bg: 'bg-teal-50', text: 'text-teal-700', chip: 'bg-teal-100 text-teal-700' },
   final: { bg: 'bg-orange-50', text: 'text-orange-700', chip: 'bg-orange-100 text-orange-700' },
   deferred: { bg: 'bg-slate-50', text: 'text-slate-600', chip: 'bg-slate-100 text-slate-600' },
   enrolled: { bg: 'bg-green-50', text: 'text-green-700', chip: 'bg-green-100 text-green-700' },
 };
+
+/** Whether a string off the wire is a stage this build knows about. */
+export function isLeadStage(v: unknown): v is LeadStage {
+  return typeof v === 'string' && v in STAGE_LABELS;
+}
 
 /* ════════════════════════════════════════════════════════════════════════
    Reads
@@ -203,29 +224,23 @@ export async function fetchStageSummary(): Promise<StageSummary> {
     const { data, error } = await supabase.from('student_leads').select('stage');
     if (error) throw error;
 
-    const summary: StageSummary = {
-      new: 0,
-      seller_assigned: 0,
-      connected: 0,
-      gathering_booked: 0,
-      final: 0,
-      deferred: 0,
-      enrolled: 0,
-      total: 0,
-    };
+    const summary: StageSummary = { ...zeroCounts(), total: 0 };
 
     for (const row of data ?? []) {
-      summary[row.stage as LeadStage]++;
+      /* Guarded. The cast used to be unconditional, so a stage this build did
+         not know about incremented `undefined` to NaN, wrote it onto the
+         object under a key nothing renders, and the lead vanished from the
+         board while still counting towards the total. Silent, and it took a
+         stage rename to notice. */
+      if (isLeadStage(row.stage)) summary[row.stage]++;
+      else console.warn('[leads] unknown stage on a lead:', row.stage);
       summary.total++;
     }
 
     return summary;
   } catch (err) {
     console.warn('[leads] fetchStageSummary error:', err);
-    return {
-      new: 0, seller_assigned: 0, connected: 0, gathering_booked: 0,
-      final: 0, deferred: 0, enrolled: 0, total: 0,
-    };
+    return { ...zeroCounts(), total: 0 };
   }
 }
 
@@ -252,12 +267,12 @@ export async function fetchSellerWorkload(): Promise<SellerWorkload[]> {
           seller_id: sellerId,
           seller_name: seller?.full_name ?? 'Unknown',
           seller_email: seller?.email ?? '',
-          new: 0, seller_assigned: 0, connected: 0, gathering_booked: 0,
-          final: 0, deferred: 0, enrolled: 0, total: 0,
+          ...zeroCounts(),
+          total: 0,
         });
       }
       const wl = sellerMap.get(sellerId)!;
-      wl[r.stage as LeadStage]++;
+      if (isLeadStage(r.stage)) wl[r.stage]++;
       wl.total++;
     }
 

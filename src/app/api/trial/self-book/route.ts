@@ -9,6 +9,7 @@ import { localWeekdayMinutes, slotIsFree } from '@/lib/scheduling/availability';
 import { slotState, blockingIntervals, canSeat, TRIAL_MINUTES, type SlotBooking } from '@/lib/scheduling/trial-capacity';
 import { TRIAL_HOME } from '@/lib/dashboard/trial-only';
 import { bandOf, fits, joinable, MIN_GRADE, MAX_GRADE, type GradeBand } from '@/lib/trial/grade-band';
+import { linkTrialToLead } from '@/lib/leads/link-trial';
 
 /**
  * SARIRO — POST /api/trial/self-book
@@ -325,19 +326,30 @@ export async function POST(req: NextRequest) {
       .then(() => {}, () => {});
   }
 
-  /* A lead, so a human knows this happened and can follow it up. Best-effort:
-     the class is booked either way, and a failure here must not lose it. */
-  await admin.from('student_leads').insert({
-    student_name: name,
-    parent_name: name,
+  /* ── A lead, on somebody's desk ─────────────────────────────────────────
+     This used to insert a bare row: a name, a number, no account, no booking
+     and no seller. Five of the thirteen leads in production had nobody
+     assigned, which is five families who booked a free class that nobody was
+     ever told to ring.
+
+     Now it finds the family if we have met them, links the account and the
+     booking, and gives it to whichever seller is carrying the least this
+     month. Best-effort still: the class is booked either way and a CRM write
+     must never be the thing that loses it. */
+  const lead = await linkTrialToLead(admin, {
+    studentId,
+    bookingId: bookingId ?? null,
+    name,
     email: email || null,
-    phone: phone.replace(/^\+91/, ''),
-    phone_country_code: 'IN',
-    lead_type: 'student',
-    area_of_interest: (body.interest ?? '').slice(0, 60) || null,
-    stage: 'trial_booked',
+    phone,
+    grade,
+    subject: (body.interest ?? '').slice(0, 60) || null,
+    source: 'self_book',
     timezone: body.timezone || null,
-  }).then(() => {}, () => {});
+    country: 'IN',
+    actorId: null, // nobody on staff was involved; they booked it themselves
+  });
+  if (lead.error) console.warn('[self-book] lead link failed:', lead.error);
 
   await admin.from('notifications').insert({
     user_id: studentId,

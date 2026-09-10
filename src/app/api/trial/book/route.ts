@@ -9,7 +9,8 @@ import {
   slotState, blockingIntervals, canSeat, type SlotBooking,
 } from '@/lib/scheduling/trial-capacity';
 import { TRIAL_HOME } from '@/lib/dashboard/trial-only';
-import { bandOf, fits, joinable } from '@/lib/trial/grade-band';
+import { bandOf, fits, joinable, MIN_GRADE, MAX_GRADE } from '@/lib/trial/grade-band';
+import { linkTrialToLead } from '@/lib/leads/link-trial';
 
 /**
  * SARIRO — POST /api/trial/book
@@ -51,6 +52,11 @@ interface Body {
   level?: string;
   demoRequestId?: string;
   meetUrl?: string;
+  /**
+   * Grade per student id, for children whose profile does not carry one yet.
+   * Written to the profile as well as the seat, so it is asked once.
+   */
+  grades?: Record<string, number>;
 }
 
 /* Thirty minutes, not sixty. A trial is a taster — half an hour is enough to
@@ -131,11 +137,81 @@ export async function POST(req: NextRequest) {
   // ── 2. Can we contact EVERY child in the class? ───────────────────────────
   const { data: students } = await admin
     .from('profiles')
-    .select('id, full_name, email, phone')
+    // grade comes back here so the value that is CHECKED against the band is
+    // the same value that gets WRITTEN onto the seat. Read twice, and the two
+    // can differ; read once, and they cannot.
+    .select('id, full_name, email, phone, grade')
     .in('id', studentIds);
   if (!students || students.length !== studentIds.length) {
     return NextResponse.json({ ok: false, error: 'no_such_student' }, { status: 404 });
   }
+
+  /* ── The grade of each child, kept for the seat row ───────────────────────
+     This route used to validate the band off profiles.grade and then insert
+     the participant rows WITHOUT it. Every seat it ever wrote had grade NULL
+     — all ten of them live — and a class whose seats have no grade cannot be
+     banded at all, so joinable() refused every later child. The whole band
+     mechanism was checking a number the write threw away, and the symptom was
+     silent: bookings worked, they just quietly stopped accepting a second
+     family for ever.
+
+     One map, used by the check below and by both inserts. */
+  const gradeOf = new Map<string, number | null>(
+    students.map((s) => [s.id as string, (s.grade as number | null) ?? null])
+  );
+
+  /* ── Grades supplied by whoever is booking ────────────────────────────────
+     profiles.grade was written in exactly one place in this codebase — the
+     public form — so every child a seller booked had no grade at all, and the
+     seller had nowhere to put one. The picker now asks, and the answer arrives
+     here.
+
+     Persisted to the profile as well as the seat, because the next person to
+     book this child should not be asked again. Rejected rather than clamped:
+     a grade nobody can read is how a grade 1 ends up sitting with a grade 10,
+     and silently turning 15 into 12 is a worse answer than refusing. */
+  const supplied = body.grades ?? {};
+  const toPersist: { id: string; grade: number }[] = [];
+  for (const [id, raw] of Object.entries(supplied)) {
+    if (!gradeOf.has(id)) continue; // not in this class; ignore
+    const g = Math.round(Number(raw));
+    if (!Number.isFinite(g) || g < MIN_GRADE || g > MAX_GRADE) {
+      return NextResponse.json(
+        { ok: false, error: 'bad_grade',
+          message: `A grade must be between ${MIN_GRADE} and ${MAX_GRADE}.` },
+        { status: 400 }
+      );
+    }
+    if (gradeOf.get(id) !== g) toPersist.push({ id, grade: g });
+    gradeOf.set(id, g);
+  }
+
+  /* No grade, from the profile or the form. Refused, and named — "somebody has
+     no grade" sends a seller hunting through four children. */
+  const ungraded = students.filter((s) => gradeOf.get(s.id as string) == null);
+  if (ungraded.length > 0) {
+    const who = ungraded.map((s) => (s.full_name as string | null) ?? 'a student').join(', ');
+    return NextResponse.json(
+      { ok: false, error: 'missing_grade',
+        message: `We need a grade for ${who} before booking a trial — it decides which class they can sit in.` },
+      { status: 400 }
+    );
+  }
+
+  /* Recorded now rather than after the booking succeeds. The child's grade is
+     true whether or not this particular slot works out, and a booking refused
+     on the band would otherwise throw away the answer and ask again. */
+  for (const { id, grade } of toPersist) {
+    const { error } = await admin.from('profiles').update({ grade }).eq('id', id);
+    if (error) console.warn('[trial] could not record grade:', id, error.message);
+  }
+
+  const seatRow = (bookingId: string | undefined, id: string) => ({
+    booking_id: bookingId,
+    student_id: id,
+    added_by: actorId,
+    grade: gradeOf.get(id) ?? null,
+  });
 
   /* Every one of them, not just the first. One unreachable family in a class
      of three is still a seat held and a teacher's hour committed with nobody
@@ -283,10 +359,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'grade_unknown', message: open.message }, { status: 409 });
     }
 
-    const { data: joining } = await admin
-      .from('profiles').select('id, full_name, grade').in('id', studentIds);
-    for (const st of joining ?? []) {
-      const fit = fits((st.grade as number | null) ?? null, band);
+    for (const st of students) {
+      const fit = fits(gradeOf.get(st.id as string) ?? null, band);
       if (!fit.ok) {
         return NextResponse.json(
           { ok: false, error: 'grade_mismatch',
@@ -335,7 +409,7 @@ export async function POST(req: NextRequest) {
   if (here.joinBookingId) {
     const joinId = here.joinBookingId;
     const { error: joinErr } = await admin.from('trial_participants').insert(
-      studentIds.map((id) => ({ booking_id: joinId, student_id: id, added_by: actorId }))
+      studentIds.map((id) => seatRow(joinId, id))
     );
     if (joinErr) {
       return NextResponse.json(
@@ -343,6 +417,24 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
+
+    /* Same as the new-class path below. A child who joined an existing trial
+       is exactly as much of a lead as one who opened it, and forgetting the
+       lead on this branch only would mean the second family in every shared
+       class went unfollowed. */
+    const joinFirst = students.find((s) => s.id === studentIds[0]);
+    const joinLead = await linkTrialToLead(admin, {
+      studentId: studentIds[0],
+      bookingId: joinId,
+      name: (joinFirst?.full_name as string | null) ?? 'Student',
+      email: (joinFirst?.email as string | null) ?? null,
+      phone: (joinFirst?.phone as string | null) ?? null,
+      grade: gradeOf.get(studentIds[0]) ?? null,
+      subject: body.track ?? null,
+      source: body.demoRequestId ? 'demo_request' : 'staff',
+      actorId,
+    });
+    if (joinLead.error) console.warn('[trial] lead link failed:', joinLead.error);
 
     await admin.from('notifications').insert(
       studentIds.map((id) => ({
@@ -415,11 +507,33 @@ export async function POST(req: NextRequest) {
      end to end. */
   try {
     await admin.from('trial_participants').insert(
-      studentIds.map((id) => ({ booking_id: booking?.id, student_id: id, added_by: actorId }))
+      studentIds.map((id) => seatRow(booking?.id, id))
     );
   } catch (err) {
     console.warn('[trial] participants insert failed:', err);
   }
+
+  /* ── The lead ────────────────────────────────────────────────────────────
+     §18: every trial, however it was booked, has to show up as a lead — this
+     route is usually reached FROM one, but not always, and a staff booking
+     that produced no lead was a class nobody was following up.
+
+     One lead per family, so a class of siblings does not become four rows and
+     four sellers. The first child is the one the booking is filed under, the
+     same way trial_student_id works. */
+  const first = students.find((s) => s.id === studentIds[0]);
+  const lead = await linkTrialToLead(admin, {
+    studentId: studentIds[0],
+    bookingId: (booking?.id as string | undefined) ?? null,
+    name: (first?.full_name as string | null) ?? 'Student',
+    email: (first?.email as string | null) ?? null,
+    phone: (first?.phone as string | null) ?? null,
+    grade: gradeOf.get(studentIds[0]) ?? null,
+    subject: body.track ?? null,
+    source: body.demoRequestId ? 'demo_request' : 'staff',
+    actorId,
+  });
+  if (lead.error) console.warn('[trial] lead link failed:', lead.error);
 
   // Best-effort: tell each of them it exists.
   await admin.from('notifications').insert(
