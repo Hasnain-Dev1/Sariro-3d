@@ -6,6 +6,9 @@ import { generateOccurrences } from '@/lib/dashboard/schedule-generation';
 import { getCourseSyllabus } from '@/lib/dashboard/student-data';
 import { recordAdminAction } from '@/lib/audit/log';
 import { canAssignCourse } from '@/lib/contact/reachability';
+import {
+  creditGate, creditBlockMessage, type LearnerCredit,
+} from '@/lib/dashboard/schedule-credit-gate';
 
 /**
  * SARIRO — POST /api/admin/schedule/manage  (admin/super-admin only)
@@ -44,33 +47,44 @@ async function requireAdmin(admin: ReturnType<typeof createServiceClient>): Prom
   return ok ? user.id : null;
 }
 
-/**
- * Grant class credits for an enrollment (idempotent per enrollment). A kid can
- * only JOIN a class if they have credits (1 credit = 1 class, consumed on
- * completion), so adding a kid to a batch MUST grant them — otherwise the kid
- * enrols but can never join. Mirrors /api/admin/enroll's grant so both the
- * "add kid" path and renewals top up correctly without double-counting.
- */
-async function grantEnrollmentCredits(
+/* ── Adding a kid to a batch no longer mints credits ────────────────────────
+   grantEnrollmentCredits() used to live here, granting one credit per lesson
+   in the course — forty-two for a forty-two-lesson course, recorded as a
+   'purchase' nobody made. Its own comment explained the reasoning: a kid can
+   only join a class if they have credits, so adding them to a batch must grant
+   them, or they enrol and can never join.
+
+   That is true, and it is the wrong conclusion. It makes the credit balance a
+   copy of the syllabus length and the whole system decorative. The right
+   answer is the other one: a child with no credits should not be put into a
+   batch at all until somebody has paid — which is what creditGate() below now
+   enforces, early enough that an admin can fix it rather than a parent finding
+   out at the join button.
+
+   Credits are created only where money is: the grant and adjust screens. */
+
+/** Balances and names for a set of learners. A missing row means nothing held. */
+async function learnerCredits(
   admin: ReturnType<typeof createServiceClient>,
-  opts: { userId: string; enrollmentId: string; track: string | null; level: string | null; grantedBy: string }
-) {
-  if (!opts.track || !opts.level) return;
-  const lessonCount = getCourseSyllabus(opts.track, opts.level).totalLessons;
-  if (!lessonCount || lessonCount < 1) return;
-  const { data: txns } = await admin.from('credit_transactions')
-    .select('amount').eq('related_enrollment_id', opts.enrollmentId);
-  const already = (txns ?? []).reduce((s: number, t: { amount: number }) => s + (t.amount > 0 ? t.amount : 0), 0);
-  const topUp = lessonCount - already;
-  if (topUp <= 0) return;
-  const { data: cr } = await admin.from('credits').select('balance').eq('user_id', opts.userId).maybeSingle();
-  const newBalance = (cr?.balance ?? 0) + topUp;
-  await admin.from('credits').upsert({ user_id: opts.userId, balance: newBalance }, { onConflict: 'user_id' });
-  await admin.from('credit_transactions').insert({
-    user_id: opts.userId, amount: topUp, type: 'purchase',
-    description: `Enrollment credits — ${opts.track} ${opts.level} (${lessonCount} lessons)`,
-    related_enrollment_id: opts.enrollmentId, created_by: opts.grantedBy,
-  });
+  ids: string[]
+): Promise<LearnerCredit[]> {
+  const [{ data: creds }, { data: people }] = await Promise.all([
+    admin.from('credits').select('user_id, balance').in('user_id', ids),
+    admin.from('profiles').select('id, full_name').in('id', ids),
+  ]);
+  const balance = new Map<string, number | null>(
+    (creds ?? []).map((c) => [c.user_id as string, (c.balance as number | null) ?? null])
+  );
+  const name = new Map<string, string | null>(
+    (people ?? []).map((p) => [p.id as string, (p.full_name as string | null) ?? null])
+  );
+  return ids.map((id) => ({
+    studentId: id,
+    name: name.get(id) ?? null,
+    // Absent row and zero are the same thing. Reading absent as "unknown, so
+    // allow" is exactly how a gate like this leaks.
+    balance: balance.get(id) ?? null,
+  }));
 }
 
 /**
@@ -264,12 +278,25 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: false, error: verdict.code, message: verdict.message }, { status: 409 });
       }
 
+      /* ── And have they paid for any of it? ─────────────────────────────
+         The batch this child is joining already has classes in the diary, so
+         adding them here commits a seat in every one of them. Refused at the
+         door rather than at the join button on the evening of the class —
+         which is where it used to surface, and only because enrolling had
+         quietly granted a full course of credits to stop it surfacing at all. */
+      const joining = await learnerCredits(admin, [body.studentId]);
+      const gate = creditGate(joining);
+      if (!gate.ok) {
+        return NextResponse.json(
+          { ok: false, error: 'no_credits', message: creditBlockMessage(gate.blocked) },
+          { status: 409 }
+        );
+      }
+
       const { data: cohort } = await admin.from('cohorts').select('track, level, ratio').eq('id', body.cohortId).maybeSingle();
       const { data: existing } = await admin.from('enrollments').select('id, status').eq('cohort_id', body.cohortId).eq('user_id', body.studentId).maybeSingle();
       if (existing) {
         if (existing.status !== 'active') await admin.from('enrollments').update({ status: 'active' }).eq('id', existing.id);
-        // Ensure credits exist even on reactivation (idempotent top-up).
-        await grantEnrollmentCredits(admin, { userId: body.studentId, enrollmentId: existing.id, track: cohort?.track ?? null, level: cohort?.level ?? null, grantedBy: userId });
         // Catch the kid up to wherever the batch is (unlock prior lessons).
         await backfillLessonProgressToBatch(admin, { cohortId: body.cohortId, enrollmentId: existing.id, track: cohort?.track ?? null, level: cohort?.level ?? null });
 
@@ -290,10 +317,9 @@ export async function POST(req: NextRequest) {
         status: 'active',
       }).select('id').single();
       if (e2) return NextResponse.json({ ok: false, error: 'enroll_failed', message: e2.message }, { status: 500 });
-      // Grant class credits (idempotent) so the kid can actually join classes,
-      // then unlock every lesson the batch has already covered.
+      // Unlock every lesson the batch has already covered, so the new kid can
+      // continue from where the group is.
       if (enrollment) {
-        await grantEnrollmentCredits(admin, { userId: body.studentId, enrollmentId: enrollment.id, track: cohort?.track ?? null, level: cohort?.level ?? null, grantedBy: userId });
         await backfillLessonProgressToBatch(admin, { cohortId: body.cohortId, enrollmentId: enrollment.id, track: cohort?.track ?? null, level: cohort?.level ?? null });
       }
 

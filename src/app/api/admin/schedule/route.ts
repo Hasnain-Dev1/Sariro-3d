@@ -5,6 +5,9 @@ import { assertSameOrigin } from '@/lib/security/origin-check';
 import { generateOccurrences } from '@/lib/dashboard/schedule-generation';
 import { teacherHasConflict, cohortStudentConflicts, studentNamesFor } from '@/lib/dashboard/schedule-ops-server';
 import { lessonForIndex } from '@/lib/dashboard/lesson-plan';
+import {
+  creditGate, creditBlockMessage, creditShortMessage, type LearnerCredit,
+} from '@/lib/dashboard/schedule-credit-gate';
 
 /**
  * SARIRO — POST /api/admin/schedule
@@ -164,6 +167,60 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  /* ── 0a. Has anybody paid for these classes? ──────────────────────────────
+     A credit is one class. The join button has always refused a child who has
+     none — but nothing refused the SCHEDULING, so the refusal arrived at 5pm
+     on the day, after a teacher's eight Tuesdays had already been committed.
+
+     It never showed, because enrolling a child used to grant them one credit
+     per lesson in the course. Forty-two credits for a forty-two-lesson course,
+     recorded as a purchase nobody made. With that removed, this is the gate.
+
+     Zero refuses. A shortfall — three credits against eight classes — is
+     reported and allowed, because instalments are real and consumption clamps
+     at zero rather than going negative, which makes a shortfall otherwise
+     completely invisible. */
+  const { data: roster } = await admin
+    .from('enrollments').select('user_id').eq('cohort_id', body.cohortId!).eq('status', 'active');
+  const learnerIds: string[] = Array.from(
+    new Set<string>((roster ?? []).map((e) => String(e.user_id)))
+  );
+
+  let shortNote = '';
+  if (learnerIds.length > 0) {
+    const [{ data: creds }, { data: people }] = await Promise.all([
+      admin.from('credits').select('user_id, balance').in('user_id', learnerIds),
+      admin.from('profiles').select('id, full_name').in('id', learnerIds),
+    ]);
+    const balance = new Map<string, number | null>(
+      (creds ?? []).map((c) => [c.user_id as string, (c.balance as number | null) ?? null])
+    );
+    const name = new Map<string, string | null>(
+      (people ?? []).map((p) => [p.id as string, (p.full_name as string | null) ?? null])
+    );
+    const learners: LearnerCredit[] = learnerIds.map((id) => ({
+      studentId: id,
+      name: name.get(id) ?? null,
+      // Absent row and zero are the same thing. Reading absent as "unknown, so
+      // allow" is exactly how a gate like this leaks.
+      balance: balance.get(id) ?? null,
+    }));
+
+    const gate = creditGate(learners, count);
+    if (!gate.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'no_credits',
+          message: creditBlockMessage(gate.blocked),
+          students: gate.blocked.map((b) => ({ id: b.studentId, name: b.name, balance: b.balance ?? 0 })),
+        },
+        { status: 409 }
+      );
+    }
+    shortNote = creditShortMessage(gate.short, count);
+  }
+
   // ── 0b. Generate the horizon FIRST and check for teacher double-booking
   //        before creating anything, so a conflict rejects cleanly. ──
   const slots = generateOccurrences(
@@ -274,5 +331,13 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, schedule_id: schedule.id, generated: slots.length });
+  return NextResponse.json({
+    ok: true,
+    schedule_id: schedule.id,
+    generated: slots.length,
+    /* Set when somebody is scheduled for more classes than they hold credits
+       for. Not a refusal — see the gate at 0a — but the admin should be told,
+       because nothing downstream will ever mention it again. */
+    ...(shortNote ? { warning: shortNote } : {}),
+  });
 }
