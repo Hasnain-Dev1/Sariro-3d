@@ -44,8 +44,10 @@ export async function GET(req: NextRequest) {
     .from('bookings')
     .select(
       'id, slot_start, slot_end, status, trial_subject, teacher_id, google_meet_url, ' +
-      'trial_student_id, booked_by, created_at, attendance_finalized_at, ' +
-      'teacher:teacher_id(full_name, email)'
+      /* No `teacher:teacher_id(...)` embed: bookings.teacher_id has no foreign
+         key the API can follow, and asking for one failed this whole read.
+         Teacher names are fetched separately below. */
+      'trial_student_id, booked_by, created_at, attendance_finalized_at'
     )
     .eq('is_trial', true)
     .order('slot_start', { ascending: false })
@@ -61,11 +63,16 @@ export async function GET(req: NextRequest) {
 
   const bookingIds = bookings.map((b) => String(b.id));
 
+  const teacherIds = [...new Set(
+    bookings.map((b) => b.teacher_id).filter((t): t is string => typeof t === 'string')
+  )];
+
   const [
     { data: participants },
     { data: leads },
     { data: feedback },
     { data: attendance },
+    { data: teacherRows },
   ] = await Promise.all([
     actor.admin
       .from('trial_participants')
@@ -87,7 +94,14 @@ export async function GET(req: NextRequest) {
       .select('booking_id, student_id, status, marked_at')
       .in('booking_id', bookingIds)
       .limit(2000),
+    teacherIds.length
+      ? actor.admin.from('profiles').select('id, full_name').in('id', teacherIds)
+      : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
   ]);
+
+  const teacherName = new Map(
+    ((teacherRows ?? []) as { id: string; full_name: string | null }[]).map((t) => [t.id, t.full_name])
+  );
 
   const by = <T,>(rows: T[] | null | undefined, key: (r: T) => string) => {
     const map = new Map<string, T[]>();
@@ -157,7 +171,7 @@ export async function GET(req: NextRequest) {
       subject: b.trial_subject ?? null,
       joinUrl: b.google_meet_url ?? null,
       finalisedAt: b.attendance_finalized_at ?? null,
-      teacherName: (b.teacher as { full_name?: string } | null)?.full_name ?? null,
+      teacherName: teacherName.get(String(b.teacher_id)) ?? null,
       students,
       /* The gap worth seeing at a glance: a trial with children in it and no
          lead behind any of them is the failure this whole spine exists to

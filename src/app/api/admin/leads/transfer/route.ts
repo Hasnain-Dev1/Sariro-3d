@@ -100,7 +100,10 @@ export async function POST(req: NextRequest) {
   /* ── Is the commission already settled? ─────────────────────────────────── */
   const { data: punched } = await actor.admin
     .from('sales')
-    .select('id, invoice_number, seller_locked, punched_at')
+    /* No `id` — sales is keyed by invoice_number. Asking for one failed this
+       read, `punched` came back null, and this guard silently let a punched
+       sale's lead be moved to another seller. */
+    .select('invoice_number, seller_locked, punched_at')
     .eq('lead_id', leadId)
     .not('punched_at', 'is', null)
     .limit(1);

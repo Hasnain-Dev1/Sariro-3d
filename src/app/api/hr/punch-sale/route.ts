@@ -110,17 +110,19 @@ export async function POST(req: NextRequest) {
   }
 
   const row = sale as {
-    id: string; invoice_number: string; seller_id: string | null;
+    invoice_number: string; invoice_id: string | null; seller_id: string | null;
     amount: number | null; punched_at: string | null; lead_id: string | null;
     student_name: string | null;
   };
 
   /* ── Everything that is allowed to fail, after the money is settled ────── */
 
+  /* A sale is keyed by its invoice number, which is text, and the event log's
+     subject is a uuid — so the event hangs off the invoice's own id. */
   await recordEvent(actor.admin, {
     event: 'sale.punched',
-    subjectType: 'sale',
-    subjectId: row.id,
+    subjectType: 'invoice',
+    subjectId: row.invoice_id,
     actorId: actor.id,
     payload: {
       invoiceNumber: row.invoice_number,
@@ -184,7 +186,6 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     sale: {
-      id: row.id,
       invoiceNumber: row.invoice_number,
       sellerId: row.seller_id,
       amount: Number(row.amount) || 0,

@@ -947,7 +947,14 @@ function StudentDashboardInner() {
 
           let q = sb
             .from('bookings')
-            .select('id, slot_start, slot_end, status, google_meet_url, trial_subject, teacher:profiles!teacher_id(full_name, meet_url)')
+            /* No `teacher:profiles!teacher_id(...)` embed. bookings.teacher_id
+               has no foreign key the API can follow, so that embed failed the
+               whole query — as an error in `data`, not a thrown exception, so
+               the catch below never saw it. `data` came back null, the page
+               decided there was no trial, and no student ever saw their trial
+               screen, its join button, or the rating form after the class.
+               The teacher is read separately below. */
+            .select('id, slot_start, slot_end, status, google_meet_url, trial_subject, teacher_id')
             .eq('is_trial', true)
             .not('status', 'in', '("cancelled")');
           q = alsoIn.length
@@ -957,8 +964,21 @@ function StudentDashboardInner() {
           const row = (data ?? [])[0] as unknown as {
             id: string; slot_start: string; slot_end: string; status: string;
             google_meet_url: string | null; trial_subject: string | null;
-            teacher: { full_name: string | null; meet_url: string | null } | null;
+            teacher_id: string | null;
           } | undefined;
+
+          /* Best effort: if the teacher's profile cannot be read the trial still
+             shows, with the booking's own join link. A missing name must not
+             hide the class the way the old embed did. */
+          let teacher: { full_name: string | null; meet_url: string | null } | null = null;
+          if (row?.teacher_id) {
+            const { data: t } = await sb
+              .from('profiles')
+              .select('full_name, meet_url')
+              .eq('id', row.teacher_id)
+              .maybeSingle();
+            teacher = (t as { full_name: string | null; meet_url: string | null } | null) ?? null;
+          }
 
           /* The grade the SEAT was booked at, which is what the class was
              banded on — not whatever profiles.grade says today. */
@@ -986,8 +1006,8 @@ function StudentDashboardInner() {
                      link of their own. Falling back to the teacher's means an
                      already-booked child gets a join button the moment their
                      teacher fills the field in, without anybody re-booking. */
-                  google_meet_url: row.google_meet_url ?? row.teacher?.meet_url ?? null,
-                  teacher_name: row.teacher?.full_name ?? null,
+                  google_meet_url: row.google_meet_url ?? teacher?.meet_url ?? null,
+                  teacher_name: teacher?.full_name ?? null,
                   subject: row.trial_subject ?? null,
                   grade: seatGrade,
                 }

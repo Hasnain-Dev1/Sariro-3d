@@ -98,7 +98,9 @@ export async function GET(req: NextRequest) {
       : Promise.resolve({ data: [] as ReminderRow[] }),
     actor.admin
       .from('sales')
-      .select('id, seller_id, amount, punched_at, refunded_at, lead_id, invoice_number, student_name, sold_on')
+      /* No `id` — sales is keyed by invoice_number, and asking for a column
+         that does not exist failed the read and showed every seller 0 sales. */
+      .select('invoice_number, seller_id, amount, punched_at, refunded_at, lead_id, student_name, sold_on')
       .eq('seller_id', sellerId)
       .limit(2000),
     actor.admin.from('app_settings').select('key, value').like('key', 'seller_%'),
@@ -118,7 +120,7 @@ export async function GET(req: NextRequest) {
     bookingIds.length
       ? actor.admin
           .from('bookings')
-          .select('id, slot_start, slot_end, status, trial_subject, teacher_id, google_meet_url, teacher:teacher_id(full_name)')
+          .select('id, slot_start, slot_end, status, trial_subject, teacher_id, google_meet_url')
           .in('id', bookingIds)
           .limit(2000)
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
@@ -134,6 +136,22 @@ export async function GET(req: NextRequest) {
   /* ── Stitch the trial and its two opinions onto each lead ───────────────── */
   const bookingById = new Map(
     ((bookingRows ?? []) as Record<string, unknown>[]).map((b) => [String(b.id), b])
+  );
+
+  /* Teacher names in a read of their own. bookings.teacher_id has no foreign
+     key the API can follow, so embedding `teacher:teacher_id(...)` failed the
+     whole bookings read — silently, since its error was not checked — and
+     every lead lost its trial, and with it both ratings, from this screen. */
+  const teacherIds = [...new Set(
+    ((bookingRows ?? []) as Record<string, unknown>[])
+      .map((b) => b.teacher_id)
+      .filter((t): t is string => typeof t === 'string')
+  )];
+  const { data: teacherRows } = teacherIds.length
+    ? await actor.admin.from('profiles').select('id, full_name').in('id', teacherIds)
+    : { data: [] as { id: string; full_name: string | null }[] };
+  const teacherName = new Map(
+    ((teacherRows ?? []) as { id: string; full_name: string | null }[]).map((t) => [t.id, t.full_name])
   );
   const feedbackByBooking = new Map<string, Record<string, unknown>[]>();
   for (const f of (feedbackRows ?? []) as Record<string, unknown>[]) {
@@ -170,7 +188,7 @@ export async function GET(req: NextRequest) {
             slot_end: booking.slot_end,
             status: booking.status,
             subject: booking.trial_subject ?? lead.subject ?? null,
-            teacher_name: (booking.teacher as { full_name?: string } | null)?.full_name ?? null,
+            teacher_name: teacherName.get(String(booking.teacher_id)) ?? null,
             join_url: booking.google_meet_url ?? null,
           }
         : null,

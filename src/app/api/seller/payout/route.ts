@@ -88,7 +88,10 @@ export async function GET(req: NextRequest) {
     actor.admin.from('app_settings').select('key, value').like('key', 'seller_%'),
     actor.admin
       .from('sales')
-      .select('id, invoice_number, student_name, amount, punched_at, refunded_at')
+      /* invoice_number is the key — `sales` has no id column. Asking for one
+         failed the read, and this screen then reported the migration as
+         missing forever. */
+      .select('invoice_number, student_name, amount, punched_at, refunded_at')
       .eq('seller_id', sellerId)
       .not('punched_at', 'is', null)
       .order('punched_at', { ascending: false })
@@ -116,7 +119,7 @@ export async function GET(req: NextRequest) {
 
   /* ── This month, sale by sale ───────────────────────────────────────────── */
   type SaleDb = {
-    id: string; invoice_number: string | null; student_name: string | null;
+    invoice_number: string; student_name: string | null;
     amount: number | string | null; punched_at: string | null; refunded_at: string | null;
   };
   const from = Date.parse(cycle.accruing.periodStart);
@@ -128,7 +131,7 @@ export async function GET(req: NextRequest) {
   });
 
   const breakdown = computeIncentive(
-    thisMonth.map((s) => ({ id: s.id, amount: Number(s.amount) || 0 })),
+    thisMonth.map((s) => ({ id: s.invoice_number, amount: Number(s.amount) || 0 })),
     config
   );
   const sales = thisMonth.map((s) => {
@@ -137,7 +140,7 @@ export async function GET(req: NextRequest) {
        total did not count. */
     const bonus = saleBonus(amount, config);
     return {
-      id: s.id,
+      id: s.invoice_number,
       invoiceNumber: s.invoice_number,
       studentName: s.student_name,
       amount,

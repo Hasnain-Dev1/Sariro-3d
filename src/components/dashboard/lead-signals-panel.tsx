@@ -62,7 +62,11 @@ export default function LeadSignalsPanel() {
       const sb = createClient();
       const { data: trials, error } = await sb
         .from('bookings')
-        .select('id, slot_start, trial_student_id, status, teacher:profiles!teacher_id(full_name)')
+        /* teacher_id, not a `teacher:profiles!teacher_id(...)` embed: that
+           column has no foreign key the API can follow, and the embed failed
+           this read every time — which is why this panel only ever said
+           "Could not load trial feedback". Names are read separately below. */
+        .select('id, slot_start, trial_student_id, status, teacher_id')
         .eq('is_trial', true)
         .eq('status', 'completed')
         .order('slot_start', { ascending: false })
@@ -72,15 +76,23 @@ export default function LeadSignalsPanel() {
 
       const ids = trials.map((t) => t.id as string);
       const studentIds = [...new Set(trials.map((t) => t.trial_student_id as string | null).filter((v): v is string => !!v))];
+      const teacherIds = [...new Set(trials.map((t) => t.teacher_id as string | null).filter((v): v is string => !!v))];
 
-      const [fbRes, profRes] = await Promise.all([
+      const [fbRes, profRes, teacherRes] = await Promise.all([
         sb.from('class_feedback')
           .select('booking_id, author_id, author_role, subject_student_id, rating, remarks, interest_level, created_at')
           .in('booking_id', ids),
         studentIds.length
           ? sb.from('profiles').select('id, full_name, email, phone').in('id', studentIds)
           : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+        teacherIds.length
+          ? sb.from('profiles').select('id, full_name').in('id', teacherIds)
+          : Promise.resolve({ data: [] as Record<string, unknown>[] }),
       ]);
+
+      const teacherBy = new Map(
+        ((teacherRes.data ?? []) as { id: string; full_name: string | null }[]).map((p) => [p.id, p])
+      );
 
       const fbBy = new Map<string, ClassFeedback[]>();
       for (const f of (fbRes.data ?? []) as ClassFeedback[]) {
@@ -96,7 +108,7 @@ export default function LeadSignalsPanel() {
       const built: TrialRow[] = trials.map((t) => {
         const feedback = fbBy.get(t.id as string) ?? [];
         const prof = profBy.get((t.trial_student_id as string) ?? '');
-        const teacher = t.teacher as unknown as { full_name: string | null } | null;
+        const teacher = teacherBy.get((t.teacher_id as string | null) ?? '') ?? null;
         return {
           bookingId: t.id as string,
           studentId: (t.trial_student_id as string) ?? null,

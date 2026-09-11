@@ -62,7 +62,11 @@ export async function syncSellerIncentive(
   const [{ data: sales }, { data: settings }] = await Promise.all([
     admin
       .from('sales')
-      .select('id, amount, punched_at, refunded_at')
+      /* `sales` is keyed by invoice_number and has no `id` column. Asking for
+         one failed the whole read — and the failure looked exactly like a
+         seller with no sales, so no incentive would ever have been raised.
+         Caught against the live database, not by any test. */
+      .select('invoice_number, amount, punched_at, refunded_at')
       .eq('seller_id', sellerId)
       .not('punched_at', 'is', null)
       .is('refunded_at', null)
@@ -72,9 +76,9 @@ export async function syncSellerIncentive(
   ]);
 
   const config = readIncentiveConfig(settings ?? []);
-  const rows = (sales ?? []) as { id: string; amount: number | null }[];
+  const rows = (sales ?? []) as { invoice_number: string; amount: number | null }[];
   const breakdown = computeIncentive(
-    rows.map((s) => ({ id: s.id, amount: Number(s.amount) || 0 })),
+    rows.map((s) => ({ id: s.invoice_number, amount: Number(s.amount) || 0 })),
     config
   );
 

@@ -112,7 +112,8 @@ export async function GET(req: NextRequest) {
     sellerIds.length
       ? actor.admin
           .from('sales')
-          .select('id, seller_id, amount, punched_at, refunded_at')
+          /* invoice_number, not id — `sales` has no id column. */
+          .select('invoice_number, seller_id, amount, punched_at, refunded_at')
           .in('seller_id', sellerIds)
           .limit(5000)
       : Promise.resolve({ data: [] as MetricSale[] }),

@@ -61,7 +61,12 @@ export default function MyClassPage() {
 
       let q = sb
         .from('bookings')
-        .select('id, slot_start, slot_end, status, google_meet_url, teacher:profiles!teacher_id(full_name, meet_url)')
+        /* No `teacher:profiles!teacher_id(...)` embed: bookings.teacher_id has
+           no foreign key the API can follow, so the embed failed this whole
+           query — returned as an error, not thrown, so the catch never saw it.
+           Every family who booked their own class landed here and was told
+           nothing was booked. The teacher is read separately below. */
+        .select('id, slot_start, slot_end, status, google_meet_url, teacher_id')
         .eq('is_trial', true)
         .not('status', 'in', '("cancelled")');
       q = alsoIn.length
@@ -72,8 +77,20 @@ export default function MyClassPage() {
       const row = (data ?? [])[0] as unknown as {
         id: string; slot_start: string; slot_end: string; status: string;
         google_meet_url: string | null;
-        teacher: { full_name: string | null; meet_url: string | null } | null;
+        teacher_id: string | null;
       } | undefined;
+
+      /* Best effort. A teacher profile that cannot be read leaves the name
+         blank; it must never again hide the class itself. */
+      let teacher: { full_name: string | null; meet_url: string | null } | null = null;
+      if (row?.teacher_id) {
+        const { data: t } = await sb
+          .from('profiles')
+          .select('full_name, meet_url')
+          .eq('id', row.teacher_id)
+          .maybeSingle();
+        teacher = (t as { full_name: string | null; meet_url: string | null } | null) ?? null;
+      }
 
       setTrial(
         row
@@ -84,8 +101,8 @@ export default function MyClassPage() {
               status: row.status,
               // Trials booked before their teacher set a room have no link of
               // their own; theirs works the moment the teacher fills it in.
-              google_meet_url: row.google_meet_url ?? row.teacher?.meet_url ?? null,
-              teacher_name: row.teacher?.full_name ?? null,
+              google_meet_url: row.google_meet_url ?? teacher?.meet_url ?? null,
+              teacher_name: teacher?.full_name ?? null,
             }
           : null
       );
