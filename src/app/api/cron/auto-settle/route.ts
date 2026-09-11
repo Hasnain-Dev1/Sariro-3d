@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { describeSettlement, isAutoSettleDue } from '@/lib/dashboard/settlement-period';
 import { settleMonthForTeacher } from '@/lib/dashboard/settle-month';
+import { settleMonthForSeller, activeSellerIds } from '@/lib/seller/settle';
 
 /**
  * SARIRO — POST /api/cron/auto-settle
@@ -103,11 +104,27 @@ export async function POST(req: NextRequest) {
     else results.nothing += 1;
   }
 
+  /* Sellers, through the same idempotent function the pg_cron schedule calls.
+     Every seller is considered, not only those with activity — a base salary
+     is owed whether or not anything sold, which is the one way this loop has
+     to differ from the teacher loop above. */
+  const sellers = { settled: 0, alreadySettled: 0, nothing: 0, failed: [] as string[] };
+  const sellerIds = await activeSellerIds(admin);
+  for (const sellerId of sellerIds) {
+    const res = await settleMonthForSeller(admin, sellerId, cycle.settling, { type: 'auto' });
+    if (!res.ok) sellers.failed.push(sellerId);
+    else if (res.outcome === 'settled') sellers.settled += 1;
+    else if (res.outcome === 'already_settled') sellers.alreadySettled += 1;
+    else sellers.nothing += 1;
+  }
+
   return NextResponse.json({
     ok: true,
     ran: true,
     month: cycle.settling.month,
     teachersConsidered: ids.length,
     ...results,
+    sellersConsidered: sellerIds.length,
+    sellers,
   });
 }

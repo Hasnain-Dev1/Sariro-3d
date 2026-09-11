@@ -4,6 +4,7 @@ import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked, recordHoneypo
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import { isHoneypotTripped } from '@/lib/security/honeypot';
 import { acceptPhone } from '@/lib/phone/accept';
+import { isValidTimeZone, canonicalTimeZone } from '@/lib/time/timezones';
 import { smsConfigured } from '@/lib/phone/otp';
 import { localWeekdayMinutes, slotIsFree } from '@/lib/scheduling/availability';
 import { slotState, blockingIntervals, canSeat, TRIAL_MINUTES, type SlotBooking } from '@/lib/scheduling/trial-capacity';
@@ -108,6 +109,12 @@ export async function POST(req: NextRequest) {
   const name = (body.name ?? '').trim();
   const email = (body.email ?? '').trim().toLowerCase();
   const children = Math.max(1, Math.min(4, Math.round(body.children ?? 1)));
+  /* The zone they confirmed on the first step of the form. Checked against
+     Intl rather than trusted: it is written to a profile, and every class time
+     that student ever sees is rendered through it. Anything unrecognised is
+     dropped rather than stored — no zone falls back to India, but a wrong one
+     silently shifts every class they will ever be shown. */
+  const timezone = isValidTimeZone(body.timezone) ? canonicalTimeZone(body.timezone) : null;
 
   if (name.length < 2) return bad('missing_name', 'We need a name so the teacher knows who to expect.');
 
@@ -397,8 +404,26 @@ export async function POST(req: NextRequest) {
       role: 'student',
       is_student: true,
       grade,
-      timezone: body.timezone || null,
+      /* From the booking, so an account created here never starts life on the
+         wrong clock. */
+      timezone,
     }, { onConflict: 'id' });
+  }
+
+  /* ── An account that already existed takes the zone they just confirmed ──
+     Otherwise a family who moved from Delhi to Dubai books a class at 5pm
+     their time and their dashboard keeps showing it at 6:30, because the
+     profile still says India.
+
+     Only when this request PROVED the identity — the same condition that
+     decides whether they are signed straight in. Changing the zone on an
+     account matched by something merely typed would let anybody shift a
+     stranger's class times. */
+  if (timezone && mayAutoSignIn && (byPhone.data || byEmail.data)) {
+    await bestEffort(
+      'self-book: remember the confirmed time zone',
+      admin.from('profiles').update({ timezone }).eq('id', studentId)
+    );
   }
 
   // ── Book it ───────────────────────────────────────────────────────────────
@@ -480,7 +505,7 @@ export async function POST(req: NextRequest) {
     grade,
     subject,
     source: 'self_book',
-    timezone: body.timezone || null,
+    timezone,
     /* Was hardcoded 'IN'. Every lead from outside India was therefore recorded
        as Indian, which is wrong on the lead, wrong in any country breakdown,
        and wrong for the seller deciding when it is reasonable to ring. */

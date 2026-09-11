@@ -3,27 +3,28 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   Loader2, RefreshCw, FileText, BadgeCheck, IndianRupee, Check, X,
-  TrendingUp, AlertCircle, Pencil,
+  TrendingUp, AlertCircle, Pencil, Wallet, Database,
 } from 'lucide-react';
 import { inr, type IncentiveBreakdown } from '@/lib/seller/incentives';
 import { pct, type MetricWindows } from '@/lib/seller/metrics';
+import { PAYMENT_STATUS_LABELS, monthLabel } from '@/lib/seller/payout';
 
 /**
  * SARIRO — HR's half of the sales pipeline
  * ============================================================================
- * Three things that had no screen at all:
+ * Four things that had no screen at all:
  *
  *   · sales a seller has closed and nobody has invoiced
- *   · incentives that have been earned and not approved
- *   · what each seller is actually paid
+ *   · incentives earned or asked for, waiting on a decision
+ *   · seller settlements, waiting to be approved and paid
+ *   · what each seller is actually paid, and who they report to
  *
  * ── Punching is one button, and it is the last word ─────────────────────────
- * The confirm dialog is not politeness. `punch_sale()` locks who is credited,
- * counts the sale towards their month, and moves the family to enrolled — all
- * in one transaction, and after it neither a seller nor an ordinary HR user
- * can move the attribution. Correcting the seller is possible in the same
- * click and nowhere afterwards, so the seller is a field on the form rather
- * than something to fix later.
+ * `punch_sale()` locks who is credited, counts the sale towards their month,
+ * and moves the family to enrolled — all in one transaction, and after it
+ * neither a seller nor an ordinary HR user can move the attribution.
+ * Correcting the seller is possible in the same click and nowhere afterwards,
+ * so the seller is a field on the form rather than something to fix later.
  */
 
 interface WaitingLead {
@@ -45,15 +46,34 @@ interface WaitingLead {
 interface IncentiveRequest {
   id: string;
   seller_id: string;
+  kind: string | null;
   month_key: string;
   sales_count: number;
   tier_sales: number;
   amount: number;
   status: 'pending' | 'approved' | 'rejected';
+  reason: string | null;
   breakdown: IncentiveBreakdown | null;
   decided_at: string | null;
   notes: string | null;
+  settlement_id: string | null;
   seller?: { full_name?: string | null; email?: string | null } | null;
+}
+
+interface SettlementRow {
+  id: string;
+  seller_id: string;
+  period_month: string;
+  base_amount: number | string;
+  incentive_amount: number | string;
+  incentive_count: number;
+  total_amount: number | string;
+  settlement_type: 'manual' | 'auto';
+  auto_reason: string | null;
+  payment_status: string;
+  settled_at: string | null;
+  paid_at: string | null;
+  seller?: { full_name?: string | null } | null;
 }
 
 interface SellerRow {
@@ -62,16 +82,30 @@ interface SellerRow {
   email: string | null;
   baseSalary: number;
   ownSalarySet: boolean;
+  adminName: string | null;
+  hrName: string | null;
   metrics: MetricWindows;
 }
 
 interface Payload {
   ok: boolean;
+  setupMissing?: boolean;
+  setupMessage?: string | null;
   waitingForInvoice: WaitingLead[];
   incentives: IncentiveRequest[];
+  settlements: SettlementRow[];
   sellers: SellerRow[];
   tiersDescription: string;
 }
+
+const STATUS_TONE: Record<string, string> = {
+  paid: 'bg-green-100 text-green-800',
+  processing: 'bg-amber-100 text-amber-800',
+  admin_settled: 'bg-blue-100 text-blue-800',
+  seller_settled: 'bg-slate-100 text-slate-700',
+};
+
+const n = (v: number | string | null | undefined) => Number(v) || 0;
 
 export default function HrSalesPanel() {
   const [data, setData] = useState<Payload | null>(null);
@@ -120,9 +154,18 @@ export default function HrSalesPanel() {
   if (!data) return null;
 
   const pending = data.incentives.filter((i) => i.status === 'pending');
+  const toPay = data.settlements.filter((s) => s.payment_status !== 'paid');
+  const done = (m: string) => { setMsg(m); void load(); };
 
   return (
     <div className="space-y-5">
+      {data.setupMissing && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex items-start gap-2">
+          <Database className="w-4 h-4 mt-0.5 shrink-0" />
+          <span><strong>Part of this screen is waiting on a database update.</strong> {data.setupMessage}</span>
+        </div>
+      )}
+
       {msg && (
         <p className="text-sm rounded-xl border border-blue-200 bg-blue-50 text-blue-900 px-3 py-2">{msg}</p>
       )}
@@ -149,13 +192,13 @@ export default function HrSalesPanel() {
         ) : (
           <ul className="divide-y divide-slate-100">
             {data.waitingForInvoice.map((lead) => (
-              <PunchRow key={lead.id} lead={lead} onDone={(m) => { setMsg(m); void load(); }} />
+              <PunchRow key={lead.id} lead={lead} onDone={done} />
             ))}
           </ul>
         )}
       </section>
 
-      {/* ── Incentives to approve ─────────────────────────────────────────── */}
+      {/* ── Incentives to decide ──────────────────────────────────────────── */}
       <section className="card card-md">
         <h2 className="text-sm font-extrabold uppercase tracking-wider text-slate-700 flex items-center gap-2 mb-1" style={{ fontFamily: 'var(--font-grotesk)' }}>
           <TrendingUp className="w-4 h-4 text-slate-400" />
@@ -170,14 +213,56 @@ export default function HrSalesPanel() {
 
         {data.incentives.length === 0 ? (
           <p className="text-sm text-slate-500 py-5 text-center">
-            Nothing earned yet. A request appears here the moment a seller crosses a tier.
+            Nothing yet. A request appears the moment a seller crosses a tier, or asks for one.
           </p>
         ) : (
           <ul className="divide-y divide-slate-100">
             {data.incentives.map((req) => (
-              <IncentiveRow key={req.id} req={req} onDone={(m) => { setMsg(m); void load(); }} />
+              <IncentiveRow key={req.id} req={req} onDone={done} />
             ))}
           </ul>
+        )}
+      </section>
+
+      {/* ── Seller settlements to approve and pay ─────────────────────────── */}
+      <section className="card card-md">
+        <h2 className="text-sm font-extrabold uppercase tracking-wider text-slate-700 flex items-center gap-2 mb-1" style={{ fontFamily: 'var(--font-grotesk)' }}>
+          <Wallet className="w-4 h-4 text-slate-400" />
+          Seller payouts
+          {toPay.length > 0 && (
+            <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800">
+              {toPay.length} not paid
+            </span>
+          )}
+        </h2>
+        <p className="text-[11px] text-slate-500 mb-3">
+          A seller settles a closed month from the 1st; anything not settled by the 5th at 10:00 IST settles itself.
+          Each one is base pay plus the incentives you approved.
+        </p>
+
+        {data.settlements.length === 0 ? (
+          <p className="text-sm text-slate-500 py-5 text-center">No seller has settled a month yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[720px]">
+              <thead>
+                <tr className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                  <th className="text-left py-2">Seller</th>
+                  <th className="text-left py-2">Month</th>
+                  <th className="text-right py-2">Base</th>
+                  <th className="text-right py-2">Incentive</th>
+                  <th className="text-right py-2">Total</th>
+                  <th className="text-left py-2 pl-4">Status</th>
+                  <th className="text-right py-2" />
+                </tr>
+              </thead>
+              <tbody className="tabular-nums">
+                {data.settlements.map((s) => (
+                  <SettlementRowView key={s.id} s={s} onDone={done} />
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 
@@ -191,10 +276,11 @@ export default function HrSalesPanel() {
           <p className="text-sm text-slate-500 py-5 text-center">Nobody is set up as a seller.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[640px]">
+            <table className="w-full text-sm min-w-[760px]">
               <thead>
                 <tr className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 border-b border-slate-200">
                   <th className="text-left py-2">Seller</th>
+                  <th className="text-left py-2">Reports to</th>
                   <th className="text-right py-2">Leads</th>
                   <th className="text-right py-2">Trials</th>
                   <th className="text-right py-2">Sales</th>
@@ -204,7 +290,7 @@ export default function HrSalesPanel() {
               </thead>
               <tbody>
                 {data.sellers.map((s) => (
-                  <SellerRowView key={s.id} seller={s} onDone={(m) => { setMsg(m); void load(); }} />
+                  <SellerRowView key={s.id} seller={s} onDone={done} />
                 ))}
               </tbody>
             </table>
@@ -313,7 +399,7 @@ function PunchRow({ lead, onDone }: { lead: WaitingLead; onDone: (msg: string) =
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   One month's entitlement, decided
+   One incentive, decided
    ══════════════════════════════════════════════════════════════════════════ */
 
 function IncentiveRow({ req, onDone }: { req: IncentiveRequest; onDone: (msg: string) => void }) {
@@ -334,8 +420,8 @@ function IncentiveRow({ req, onDone }: { req: IncentiveRequest; onDone: (msg: st
       if (!json?.ok) { setErr(json?.message ?? 'That did not go through.'); return; }
       onDone(
         decision === 'approved'
-          ? `Approved ${inr(Number(req.amount))} for ${req.month_key}.`
-          : `Rejected the ${req.month_key} incentive.`
+          ? `Approved ${inr(Number(req.amount))} for ${monthLabel(req.month_key)}. It joins the seller’s next settlement.`
+          : `Rejected the ${monthLabel(req.month_key)} request.`
       );
     } catch {
       setErr('Could not reach the server.');
@@ -345,32 +431,43 @@ function IncentiveRow({ req, onDone }: { req: IncentiveRequest; onDone: (msg: st
   };
 
   const b = req.breakdown;
+  const manual = req.kind === 'manual';
 
   return (
     <li className="py-3">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
-          <p className="text-sm font-bold text-slate-900">
+          <p className="text-sm font-bold text-slate-900 flex items-center gap-2 flex-wrap">
             {req.seller?.full_name ?? 'Unknown seller'}
-            <span className="ml-2 text-[11px] font-semibold text-slate-500">{req.month_key}</span>
+            <span className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded ${manual ? 'bg-violet-100 text-violet-700' : 'bg-slate-100 text-slate-600'}`}>
+              {manual ? 'Asked for' : 'Earned · tier'}
+            </span>
+            <span className="text-[11px] font-semibold text-slate-500">{monthLabel(req.month_key)}</span>
           </p>
-          <p className="text-[11px] text-slate-500 mt-0.5">
-            {req.sales_count} {req.sales_count === 1 ? 'sale' : 'sales'}
-            {req.tier_sales > 0 && <> · tier {req.tier_sales}</>}
-            {b && b.extraSales > 0 && <> · {b.extraSales} above tier</>}
-            {b && (b.bonus20kCount + b.bonus50kCount) > 0 && (
-              <> · {b.bonus50kCount + b.bonus20kCount} value {b.bonus50kCount + b.bonus20kCount === 1 ? 'bonus' : 'bonuses'}</>
-            )}
-          </p>
-          {b && (
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              {inr(b.tierAmount)} tier + {inr(b.extraAmount)} per-sale + {inr(b.bonusAmount)} value
-            </p>
+          {manual ? (
+            <p className="text-[12px] text-slate-700 mt-0.5">“{req.reason}”</p>
+          ) : (
+            <>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                {req.sales_count} {req.sales_count === 1 ? 'sale' : 'sales'}
+                {req.tier_sales > 0 && <> · tier {req.tier_sales}</>}
+                {b && b.extraSales > 0 && <> · {b.extraSales} above tier</>}
+                {b && (b.bonus20kCount + b.bonus50kCount) > 0 && (
+                  <> · {b.bonus50kCount + b.bonus20kCount} value {b.bonus50kCount + b.bonus20kCount === 1 ? 'bonus' : 'bonuses'}</>
+                )}
+              </p>
+              {b && (
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  {inr(b.tierAmount)} tier + {inr(b.extraAmount)} per-sale + {inr(b.bonusAmount)} value
+                </p>
+              )}
+            </>
           )}
+          {req.settlement_id && <p className="text-[10px] font-bold text-green-700 mt-0.5">Paid out in a settlement</p>}
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-base font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
+          <span className="text-base font-extrabold text-slate-900 tabular-nums" style={{ fontFamily: 'var(--font-jakarta)' }}>
             {inr(Number(req.amount))}
           </span>
           {req.status === 'pending' ? (
@@ -414,7 +511,74 @@ function IncentiveRow({ req, onDone }: { req: IncentiveRequest; onDone: (msg: st
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   One seller's numbers, and their base pay
+   One seller month, approved and paid
+   ══════════════════════════════════════════════════════════════════════════ */
+
+function SettlementRowView({ s, onDone }: { s: SettlementRow; onDone: (msg: string) => void }) {
+  const [busy, setBusy] = useState(false);
+  const month = monthLabel(s.period_month);
+  const who = s.seller?.full_name ?? 'Seller';
+
+  const move = async (paymentStatus: 'admin_settled' | 'paid') => {
+    setBusy(true);
+    try {
+      const res = await fetch('/api/hr/pipeline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'mark_settlement', settlementId: s.id, paymentStatus }),
+      });
+      const json = await res.json();
+      onDone(json?.ok
+        ? (paymentStatus === 'paid' ? `${who}’s ${month} pay is marked paid.` : `${who}’s ${month} settlement is approved.`)
+        : (json?.message ?? 'That did not go through.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <tr className="border-b border-slate-100 last:border-0">
+      <td className="py-2.5 font-bold text-slate-900">{who}</td>
+      <td className="py-2.5 text-slate-700">
+        {month}
+        <span className="block text-[10px] text-slate-400" title={s.auto_reason ?? undefined}>
+          {s.settlement_type === 'auto' ? 'Settled automatically' : 'Settled by the seller'}
+        </span>
+      </td>
+      <td className="py-2.5 text-right text-slate-700">{inr(n(s.base_amount))}</td>
+      <td className="py-2.5 text-right text-slate-700">{inr(n(s.incentive_amount))}</td>
+      <td className="py-2.5 text-right font-bold text-slate-900">{inr(n(s.total_amount))}</td>
+      <td className="py-2.5 pl-4">
+        <span className={`text-[10px] font-extrabold uppercase px-2 py-1 rounded-full ${STATUS_TONE[s.payment_status] ?? 'bg-slate-100 text-slate-600'}`}>
+          {PAYMENT_STATUS_LABELS[s.payment_status] ?? s.payment_status}
+        </span>
+      </td>
+      <td className="py-2.5 text-right whitespace-nowrap">
+        {s.payment_status === 'seller_settled' && (
+          <button
+            onClick={() => void move('admin_settled')}
+            disabled={busy}
+            className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-blue-300 bg-blue-50 text-blue-800 hover:bg-blue-100 disabled:opacity-50"
+          >
+            Approve
+          </button>
+        )}
+        {(s.payment_status === 'admin_settled' || s.payment_status === 'processing') && (
+          <button
+            onClick={() => void move('paid')}
+            disabled={busy}
+            className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-green-300 bg-green-50 text-green-800 hover:bg-green-100 disabled:opacity-50"
+          >
+            Mark paid
+          </button>
+        )}
+      </td>
+    </tr>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   One seller's numbers, their managers, and their base pay
    ══════════════════════════════════════════════════════════════════════════ */
 
 function SellerRowView({ seller, onDone }: { seller: SellerRow; onDone: (msg: string) => void }) {
@@ -440,6 +604,8 @@ function SellerRowView({ seller, onDone }: { seller: SellerRow; onDone: (msg: st
       if (json?.ok) {
         setEditing(false);
         onDone(clear ? `${seller.name} is back on the company default.` : `${seller.name}'s base pay is now ${inr(Number(value))}.`);
+      } else {
+        onDone(json?.message ?? 'That did not save.');
       }
     } finally {
       setBusy(false);
@@ -452,10 +618,15 @@ function SellerRowView({ seller, onDone }: { seller: SellerRow; onDone: (msg: st
         <p className="text-sm font-bold text-slate-900">{seller.name}</p>
         <p className="text-[10px] text-slate-400">this month</p>
       </td>
-      <td className="py-2.5 text-right text-sm text-slate-700">{m.leadsReceived}</td>
-      <td className="py-2.5 text-right text-sm text-slate-700">{m.trialsCompleted}/{m.trialsBooked}</td>
-      <td className="py-2.5 text-right text-sm font-bold text-slate-900">{m.sales}</td>
-      <td className="py-2.5 text-right text-sm text-blue-700 font-semibold">{pct(m.conversionRate)}</td>
+      <td className="py-2.5 text-[11px] text-slate-600 leading-tight">
+        Admin: {seller.adminName ?? <span className="text-slate-400">not assigned</span>}
+        <br />
+        HR: {seller.hrName ?? <span className="text-slate-400">not assigned</span>}
+      </td>
+      <td className="py-2.5 text-right text-sm text-slate-700 tabular-nums">{m.leadsReceived}</td>
+      <td className="py-2.5 text-right text-sm text-slate-700 tabular-nums">{m.trialsCompleted}/{m.trialsBooked}</td>
+      <td className="py-2.5 text-right text-sm font-bold text-slate-900 tabular-nums">{m.sales}</td>
+      <td className="py-2.5 text-right text-sm text-blue-700 font-semibold tabular-nums">{pct(m.conversionRate)}</td>
       <td className="py-2.5 text-right">
         {editing ? (
           <div className="flex items-center gap-1 justify-end">
@@ -470,7 +641,7 @@ function SellerRowView({ seller, onDone }: { seller: SellerRow; onDone: (msg: st
             )}
           </div>
         ) : (
-          <button onClick={() => setEditing(true)} className="text-sm text-slate-700 hover:text-slate-900 inline-flex items-center gap-1">
+          <button onClick={() => setEditing(true)} className="text-sm text-slate-700 hover:text-slate-900 inline-flex items-center gap-1 tabular-nums">
             {inr(seller.baseSalary)}
             {!seller.ownSalarySet && <span className="text-[9px] text-slate-400 uppercase font-bold">default</span>}
             <Pencil className="w-3 h-3 text-slate-300" />

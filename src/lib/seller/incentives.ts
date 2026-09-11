@@ -178,17 +178,10 @@ export function computeIncentive(
   let bonus20kCount = 0;
   let bonus50kCount = 0;
   for (const s of sales) {
-    const amount = Number(s?.amount ?? 0);
-    if (!Number.isFinite(amount) || amount <= 0) continue;
-
-    if (amount >= config.bonus50kThreshold) {
-      bonus50kCount += 1;
-      continue; // cancels the 20k band — never both
-    }
-    const qualifies = BONUS_20K_IS_EXCLUSIVE
-      ? amount > config.bonus20kThreshold
-      : amount >= config.bonus20kThreshold;
-    if (qualifies) bonus20kCount += 1;
+    /* One band per sale, decided in exactly one place — see saleBonus(). */
+    const band = saleBonus(Number(s?.amount ?? 0), config).band;
+    if (band === '50k') bonus50kCount += 1;
+    else if (band === '20k') bonus20kCount += 1;
   }
   const bonusAmount = bonus20kCount * config.bonus20kAmount + bonus50kCount * config.bonus50kAmount;
 
@@ -211,6 +204,29 @@ export function computeIncentive(
     total: round2(tierAmount + extraAmount + bonusAmount),
     nextTier,
   };
+}
+
+/**
+ * The value bonus one sale carries, and which band it fell in.
+ *
+ * The single place the two bands are decided. computeIncentive() counts with
+ * it and the payout screen labels each sale with it, so a row can never show a
+ * bonus the total did not count — two copies of "is this over 20k" is exactly
+ * how a payslip and the screen explaining it drift apart.
+ *
+ * ₹50,000 or more → the 50k band, and ONLY that one: it cancels the 20k band
+ * rather than adding to it. More than ₹20,000 → the 20k band. The header
+ * explains why those two comparisons are deliberately different.
+ */
+export function saleBonus(
+  amount: number,
+  config: IncentiveConfig = DEFAULT_INCENTIVES
+): { band: '50k' | '20k' | null; amount: number } {
+  const a = Number(amount);
+  if (!Number.isFinite(a) || a <= 0) return { band: null, amount: 0 };
+  if (a >= config.bonus50kThreshold) return { band: '50k', amount: config.bonus50kAmount };
+  const qualifies = BONUS_20K_IS_EXCLUSIVE ? a > config.bonus20kThreshold : a >= config.bonus20kThreshold;
+  return qualifies ? { band: '20k', amount: config.bonus20kAmount } : { band: null, amount: 0 };
 }
 
 /**

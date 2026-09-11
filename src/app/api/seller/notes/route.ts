@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireActor, readJson, type Actor } from '@/lib/auth/actor';
 import { parseRelative, parseExact } from '@/lib/seller/reminders';
 import { bestEffort } from '@/lib/supabase/best-effort';
+import { isMissingRelation, SELLER_SETUP_MESSAGE } from '@/lib/supabase/schema-gaps';
 
 /**
  * SARIRO — the seller's logbook
@@ -20,10 +21,17 @@ import { bestEffort } from '@/lib/supabase/best-effort';
  * others — including a well-meaning `.update()` written at 2am.
  *
  * ── The reminder rides along with the note ─────────────────────────────────
- * "Ring back Thursday" is one thought, and making the seller type it twice —
+ * "Ring back on the 15th" is one thought, and making the seller type it twice —
  * once as a note, once as a reminder — means half of them will only do one.
  * The half that skip the note lose the reason; the half that skip the reminder
- * lose the call.
+ * lose the call. The reminder carries the note's own words, so when it fires
+ * it says which child and why, not merely "follow up".
+ *
+ * ── When the tables are not there yet ───────────────────────────────────────
+ * Said as such. For the first days of this feature every save failed because
+ * the migration had not been run, and the seller saw either a raw database
+ * sentence or an empty logbook indistinguishable from a lead nobody had
+ * written about. Both routes now name the missing update instead.
  */
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -57,7 +65,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
   }
 
-  const [{ data: notes }, { data: reminders }, { data: transfers }] = await Promise.all([
+  const [notesRes, remindersRes, transfersRes] = await Promise.all([
     actor.admin
       .from('lead_notes')
       .select('id, note, priority, category, author_id, author_role, created_at, author:author_id(full_name)')
@@ -78,12 +86,16 @@ export async function GET(req: NextRequest) {
       .limit(50),
   ]);
 
+  const setupMissing = [notesRes.error, remindersRes.error, transfersRes.error].some(isMissingRelation);
+
   return NextResponse.json({
     ok: true,
+    setupMissing,
+    setupMessage: setupMissing ? SELLER_SETUP_MESSAGE : null,
     lead: { id: lead.id, student_name: lead.student_name },
-    notes: notes ?? [],
-    reminders: reminders ?? [],
-    transfers: transfers ?? [],
+    notes: notesRes.data ?? [],
+    reminders: remindersRes.data ?? [],
+    transfers: transfersRes.data ?? [],
   });
 }
 
@@ -94,7 +106,7 @@ interface NoteBody {
   category?: string;
   /** "3 hours" / "1 day" / "4 days" — or omit and send `remindAtExact`. */
   remindIn?: string;
-  /** "2026-09-14T16:00" from a datetime-local field, read as Indian time. */
+  /** "2026-09-15T16:00" from a datetime-local field, read as Indian time. */
   remindAtExact?: string;
   website?: string;
 }
@@ -157,6 +169,14 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+    /* A reminder in the past fires the moment it is saved, which reads as a
+       glitch. Refused so the seller can correct the date they meant. */
+    if (Date.parse(dueAt) < Date.now() - 60_000) {
+      return NextResponse.json(
+        { ok: false, error: 'reminder_in_past', message: 'That time has already passed. Pick a time still to come.' },
+        { status: 400 }
+      );
+    }
   } else if (body.remindIn) {
     dueAt = parseRelative(body.remindIn);
     if (!dueAt) {
@@ -182,6 +202,9 @@ export async function POST(req: NextRequest) {
 
   if (noteErr || !inserted) {
     console.warn('[seller-notes] insert failed:', noteErr?.code, noteErr?.message);
+    if (isMissingRelation(noteErr)) {
+      return NextResponse.json({ ok: false, error: 'setup_missing', message: SELLER_SETUP_MESSAGE }, { status: 503 });
+    }
     return NextResponse.json(
       { ok: false, error: 'save_failed', message: noteErr?.message ?? 'The note was not saved.' },
       { status: 500 }
@@ -200,7 +223,9 @@ export async function POST(req: NextRequest) {
            SELLER'S alarm. Falls back to the author when nobody owns the lead. */
         seller_id: (lead.assigned_seller as string | null) ?? actor.id,
         due_at: dueAt,
-        body: note.slice(0, 300),
+        /* Which child, and the note itself, so the notification that fires on
+           the 15th says what the call is about without opening anything. */
+        body: `${(lead.student_name as string | null) ?? 'Lead'}: ${note}`.slice(0, 300),
         created_by: actor.id,
       })
       .select('id')

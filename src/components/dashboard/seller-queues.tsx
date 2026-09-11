@@ -3,16 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Loader2, RefreshCw, PhoneCall, Star, Clock, AlertTriangle, CheckCircle2,
-  CalendarClock, MessageSquarePlus, X, Send, BadgeCheck, ChevronRight,
+  CalendarClock, MessageSquarePlus, Send, BadgeCheck, ChevronRight, Search, Users, Database,
 } from 'lucide-react';
-import {
-  QUEUES, visibleQueues, type QueueKey, type QueueBuckets,
-} from '@/lib/seller/queues';
-import {
-  reminderStatus, describeDue, QUICK_REMINDERS, type ReminderRow,
-} from '@/lib/seller/reminders';
+import { QUEUES, visibleQueues, type QueueKey, type QueueBuckets } from '@/lib/seller/queues';
+import { reminderStatus, describeDue, QUICK_REMINDERS, type ReminderRow } from '@/lib/seller/reminders';
 import { pct, type MetricWindows } from '@/lib/seller/metrics';
 import { inr, type IncentiveBreakdown } from '@/lib/seller/incentives';
+import { STAGE_LABELS, STAGE_COLORS, isLeadStage } from '@/lib/dashboard/leads-data';
 
 /**
  * SARIRO — the seller's morning, on one screen
@@ -25,16 +22,17 @@ import { inr, type IncentiveBreakdown } from '@/lib/seller/incentives';
  * Six queues, each with a verb. Every one of these answers was already in the
  * database and none of them was on a screen.
  *
+ * ── And every lead, not only the ones in a queue ────────────────────────────
+ * The queues are the day's work, which means a family with nothing overdue and
+ * no finished trial is in none of them — and until "All leads" existed, there
+ * was no way to open that family at all. A seller who had just rung a parent
+ * who said "call us on the 15th" had nowhere to write it down. Every lead can
+ * now be found by name or number and given a note and a reminder.
+ *
  * ── Why the whole thing is one fetch ────────────────────────────────────────
  * The counts and the lists come from the same bucketing on the server, so a
  * badge can never say 3 above a list showing 2. That mismatch is the specific
  * thing that teaches people to stop trusting a number.
- *
- * ── The logbook is here, not a page away ────────────────────────────────────
- * A seller on a call has one window. Making them navigate to write down what
- * was said means it gets written down after the call, or not at all — and
- * "not at all" is where `student_leads.notes` came from: one column, silently
- * overwritten by whoever typed last.
  */
 
 interface Trial {
@@ -72,6 +70,8 @@ interface Lead {
 
 interface Payload {
   ok: boolean;
+  setupMissing?: boolean;
+  setupMessage?: string | null;
   sellerName: string | null;
   queues: QueueBuckets;
   counts: Record<QueueKey, number>;
@@ -91,15 +91,17 @@ const ICONS: Record<QueueKey, typeof PhoneCall> = {
   converted: CheckCircle2,
 };
 
-type Window = 'month' | 'last30' | 'lifetime';
+type View = QueueKey | 'all';
+type MetricWindow = 'month' | 'last30' | 'lifetime';
 
 export default function SellerQueues({ sellerId }: { sellerId?: string }) {
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [active, setActive] = useState<QueueKey | null>(null);
+  const [view, setView] = useState<View | null>(null);
   const [openLead, setOpenLead] = useState<string | null>(null);
-  const [window_, setWindow] = useState<Window>('month');
+  const [search, setSearch] = useState('');
+  const [metricWindow, setMetricWindow] = useState<MetricWindow>('month');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -112,12 +114,12 @@ export default function SellerQueues({ sellerId }: { sellerId?: string }) {
       setData(json as Payload);
       /* Land on the queue with work in it rather than an empty default. The
          first thing a seller should see is the thing that is late. */
-      setActive((current) => {
+      setView((current) => {
         if (current) return current;
         const counts = json.counts as Record<QueueKey, number>;
         return (
           (['overdue_followup', 'missed_trial', 'slot_assistance', 'final_conversation', 'today_followup'] as QueueKey[])
-            .find((k) => counts[k] > 0) ?? 'today_followup'
+            .find((k) => counts[k] > 0) ?? 'all'
         );
       });
     } catch (err) {
@@ -129,11 +131,14 @@ export default function SellerQueues({ sellerId }: { sellerId?: string }) {
 
   useEffect(() => { void load(); }, [load]);
 
-  /* A reminder deep-link from a notification: /dashboard/seller?lead=… */
+  /* A reminder's deep link: /dashboard/seller?lead=…  The family may be in no
+     queue at all, so it opens in "All leads", where every family is. */
   useEffect(() => {
-    if (typeof globalThis === 'undefined' || !('location' in globalThis)) return;
-    const wanted = new URLSearchParams(globalThis.location.search).get('lead');
-    if (wanted) setOpenLead(wanted);
+    const wanted = new URLSearchParams(globalThis.location?.search ?? '').get('lead');
+    if (wanted) {
+      setView('all');
+      setOpenLead(wanted);
+    }
   }, []);
 
   const remindersByLead = useMemo(() => {
@@ -145,6 +150,19 @@ export default function SellerQueues({ sellerId }: { sellerId?: string }) {
     }
     return map;
   }, [data]);
+
+  const everyLead = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const rows = [...(data?.leads ?? [])].sort(
+      (a, b) => (Date.parse(b.last_updated ?? '') || 0) - (Date.parse(a.last_updated ?? '') || 0)
+    );
+    if (!q) return rows;
+    const digits = q.replace(/\D/g, '');
+    return rows.filter((l) =>
+      [l.student_name, l.parent_name, l.email].some((v) => (v ?? '').toLowerCase().includes(q)) ||
+      (digits.length >= 3 && (l.phone ?? '').replace(/\D/g, '').includes(digits))
+    );
+  }, [data, search]);
 
   if (loading && !data) {
     return (
@@ -168,13 +186,27 @@ export default function SellerQueues({ sellerId }: { sellerId?: string }) {
   if (!data) return null;
 
   const shown = visibleQueues(data.counts);
-  const list = active ? data.queues[active] : [];
   const leadById = new Map(data.leads.map((l) => [l.id, l]));
-  const detail = openLead ? leadById.get(openLead) ?? null : null;
-  const m = data.metrics[window_];
+  const list: Lead[] = view === 'all'
+    ? everyLead
+    : view
+      ? data.queues[view].map((row) => leadById.get(row.id)).filter((l): l is Lead => !!l)
+      : [];
+  const m = data.metrics[metricWindow];
+  const title = view === 'all' ? 'All leads' : QUEUES.find((q) => q.key === view)?.label;
 
   return (
     <div className="space-y-5">
+      {data.setupMissing && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex items-start gap-2">
+          <Database className="w-4 h-4 mt-0.5 shrink-0" />
+          <span>
+            <strong>Notes and reminders can’t be saved yet.</strong>{' '}
+            {data.setupMessage ?? 'A database update has not been run.'} Everything else on this page works.
+          </span>
+        </div>
+      )}
+
       {/* ── How the month is going ───────────────────────────────────────── */}
       <section className="card card-md">
         <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
@@ -182,12 +214,12 @@ export default function SellerQueues({ sellerId }: { sellerId?: string }) {
             Your numbers
           </h2>
           <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-0.5">
-            {([['month', 'This month'], ['last30', 'Last 30 days'], ['lifetime', 'All time']] as [Window, string][]).map(([key, label]) => (
+            {([['month', 'This month'], ['last30', 'Last 30 days'], ['lifetime', 'All time']] as [MetricWindow, string][]).map(([key, label]) => (
               <button
                 key={key}
-                onClick={() => setWindow(key)}
+                onClick={() => setMetricWindow(key)}
                 className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition ${
-                  window_ === key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  metricWindow === key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
                 {label}
@@ -205,7 +237,6 @@ export default function SellerQueues({ sellerId }: { sellerId?: string }) {
           <Stat label="Conversion" value={pct(m.conversionRate)} tone="text-blue-700" />
         </div>
 
-        {/* ── What that is worth ─────────────────────────────────────────── */}
         <div className="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs">
           <span className="text-slate-500">
             Base <strong className="text-slate-800">{inr(data.pay.base)}</strong>
@@ -220,12 +251,12 @@ export default function SellerQueues({ sellerId }: { sellerId?: string }) {
             </span>
           )}
           <span className="ml-auto text-[11px] text-slate-400">
-            Incentives count sales HR has punched, and need HR approval before payroll.
+            The full breakdown is on the Payout tab.
           </span>
         </div>
       </section>
 
-      {/* ── The six queues ───────────────────────────────────────────────── */}
+      {/* ── The six queues, and every lead ───────────────────────────────── */}
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-extrabold uppercase tracking-wider text-slate-700" style={{ fontFamily: 'var(--font-grotesk)' }}>
@@ -239,15 +270,14 @@ export default function SellerQueues({ sellerId }: { sellerId?: string }) {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5">
+        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-2.5">
           {shown.map((q) => {
             const Icon = ICONS[q.key];
-            const count = data.counts[q.key];
-            const on = active === q.key;
+            const on = view === q.key;
             return (
               <button
                 key={q.key}
-                onClick={() => { setActive(q.key); setOpenLead(null); }}
+                onClick={() => { setView(q.key); setOpenLead(null); }}
                 className={`text-left rounded-xl border p-3 transition ${
                   on ? `bg-white border-slate-300 ring-2 ${q.tone.ring} shadow-sm` : 'bg-white border-slate-200 hover:border-slate-300'
                 }`}
@@ -255,7 +285,7 @@ export default function SellerQueues({ sellerId }: { sellerId?: string }) {
                 <div className="flex items-start justify-between gap-2">
                   <Icon className="w-4 h-4 text-slate-400 shrink-0" />
                   <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-full ${q.tone.chip}`}>
-                    {count}
+                    {data.counts[q.key]}
                   </span>
                 </div>
                 <p className="mt-2 text-[12px] font-bold text-slate-800 leading-tight">{q.label}</p>
@@ -263,32 +293,62 @@ export default function SellerQueues({ sellerId }: { sellerId?: string }) {
               </button>
             );
           })}
+
+          <button
+            onClick={() => { setView('all'); setOpenLead(null); }}
+            className={`text-left rounded-xl border p-3 transition ${
+              view === 'all' ? 'bg-white border-slate-300 ring-2 ring-slate-200 shadow-sm' : 'bg-white border-slate-200 hover:border-slate-300'
+            }`}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <Users className="w-4 h-4 text-slate-400 shrink-0" />
+              <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                {data.leads.length}
+              </span>
+            </div>
+            <p className="mt-2 text-[12px] font-bold text-slate-800 leading-tight">All leads</p>
+            <p className="text-[10px] text-slate-500 mt-0.5">Find anyone · add a note</p>
+          </button>
         </div>
       </section>
 
       {/* ── The list ─────────────────────────────────────────────────────── */}
-      {active && (
+      {view && (
         <section className="card card-md">
-          <h3 className="text-sm font-extrabold text-slate-800 mb-3">
-            {QUEUES.find((q) => q.key === active)?.label}
-            <span className="ml-2 text-xs font-normal text-slate-400">{list.length}</span>
-          </h3>
+          <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+            <h3 className="text-sm font-extrabold text-slate-800">
+              {title}
+              <span className="ml-2 text-xs font-normal text-slate-400">{list.length}</span>
+            </h3>
+            {view === 'all' && (
+              <label className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Name, phone or email"
+                  className="h-9 w-64 max-w-full pl-8 pr-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                />
+              </label>
+            )}
+          </div>
 
           {list.length === 0 ? (
             <p className="text-sm text-slate-500 py-6 text-center">
-              {active === 'today_followup'
-                ? 'Nothing planned for today. Set a reminder on a lead and it will show up here.'
-                : 'Nothing here — which is the good version.'}
+              {view === 'all'
+                ? (search ? 'Nobody matches that.' : 'No leads on your desk yet.')
+                : view === 'today_followup'
+                  ? 'Nothing planned for today. Set a reminder on a lead and it will show up here.'
+                  : 'Nothing here — which is the good version.'}
             </p>
           ) : (
             <ul className="divide-y divide-slate-100">
-              {list.map((row) => {
-                const lead = leadById.get(row.id);
-                if (!lead) return null;
+              {list.map((lead) => {
                 const reminders = remindersByLead.get(lead.id) ?? [];
                 const next = reminders
                   .filter((r) => r.status === 'pending')
                   .sort((a, b) => Date.parse(a.due_at) - Date.parse(b.due_at))[0];
+                const stageTone = isLeadStage(lead.stage) ? STAGE_COLORS[lead.stage].chip : 'bg-slate-100 text-slate-600';
                 return (
                   <li key={lead.id}>
                     <button
@@ -296,13 +356,18 @@ export default function SellerQueues({ sellerId }: { sellerId?: string }) {
                       className="w-full text-left py-3 flex items-start gap-3 hover:bg-slate-50/60 -mx-2 px-2 rounded-lg transition"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-bold text-slate-900 truncate">
+                        <p className="text-sm font-bold text-slate-900 truncate flex items-center gap-1.5 flex-wrap">
                           {lead.student_name || 'Unnamed'}
-                          {lead.grade != null && <span className="ml-1.5 text-[11px] font-semibold text-slate-500">G{lead.grade}</span>}
+                          {lead.grade != null && <span className="text-[11px] font-semibold text-slate-500">G{lead.grade}</span>}
+                          {view === 'all' && (
+                            <span className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded ${stageTone}`}>
+                              {isLeadStage(lead.stage) ? STAGE_LABELS[lead.stage] : lead.stage}
+                            </span>
+                          )}
                         </p>
                         <p className="text-[11px] text-slate-500 mt-0.5 truncate">
                           {lead.subject || lead.trial?.subject || 'No subject recorded'}
-                          {lead.phone && <> · {lead.phone_country_code === 'IN' || !lead.phone_country_code ? '' : '+'}{lead.phone}</>}
+                          {lead.phone && <> · {lead.phone}</>}
                         </p>
                         {next && (
                           <p className="text-[11px] mt-1 font-semibold text-blue-700">
@@ -320,8 +385,8 @@ export default function SellerQueues({ sellerId }: { sellerId?: string }) {
                       </div>
                     </button>
 
-                    {openLead === lead.id && detail && (
-                      <LeadDetail lead={detail} reminders={reminders} onChanged={() => void load()} />
+                    {openLead === lead.id && (
+                      <LeadDetail lead={lead} reminders={reminders} onChanged={() => void load()} />
                     )}
                   </li>
                 );
@@ -364,18 +429,20 @@ function LeadDetail({
   onChanged: () => void;
 }) {
   const [notes, setNotes] = useState<NoteRow[] | null>(null);
+  const [setupMessage, setSetupMessage] = useState<string | null>(null);
   const [text, setText] = useState('');
   const [priority, setPriority] = useState<'high' | 'medium' | 'normal'>('normal');
   const [remindIn, setRemindIn] = useState('');
   const [exact, setExact] = useState('');
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
   const loadNotes = useCallback(async () => {
     try {
       const res = await fetch(`/api/seller/notes?leadId=${lead.id}`);
       const json = await res.json();
       setNotes(json?.ok ? (json.notes as NoteRow[]) : []);
+      setSetupMessage(json?.setupMissing ? (json.setupMessage as string) : null);
     } catch { setNotes([]); }
   }, [lead.id]);
 
@@ -397,16 +464,24 @@ function LeadDetail({
         }),
       });
       const json = await res.json();
-      if (!json?.ok) { setMsg(json?.message ?? 'That did not save.'); return; }
+      if (!json?.ok) { setMsg({ text: json?.message ?? 'That did not save.', ok: false }); return; }
       setText('');
       setRemindIn('');
       setExact('');
       setPriority('normal');
-      setMsg(json.warning ?? 'Saved.');
+      /* Say when, in words, so a reminder set for the wrong day is caught now
+         rather than on the day it fails to fire. */
+      const when = json.dueAt
+        ? new Date(json.dueAt).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
+        : null;
+      setMsg({
+        text: json.warning ?? (when ? `Saved — we’ll remind you ${when}.` : 'Saved.'),
+        ok: !json.warning,
+      });
       await loadNotes();
       onChanged();
     } catch {
-      setMsg('That did not save.');
+      setMsg({ text: 'That did not save.', ok: false });
     } finally {
       setBusy(false);
     }
@@ -430,7 +505,7 @@ function LeadDetail({
         body: JSON.stringify({ leadId: lead.id }),
       });
       const json = await res.json();
-      setMsg(json?.ok ? 'Sent to HR to invoice.' : (json?.message ?? 'That did not work.'));
+      setMsg({ text: json?.ok ? 'Sent to HR to invoice.' : (json?.message ?? 'That did not work.'), ok: !!json?.ok });
       if (json?.ok) onChanged();
     } finally {
       setBusy(false);
@@ -441,6 +516,19 @@ function LeadDetail({
 
   return (
     <div className="mb-3 rounded-xl bg-slate-50 border border-slate-200 p-4 space-y-4">
+      {setupMessage && (
+        <p className="text-[12px] rounded-lg border border-amber-300 bg-amber-50 text-amber-900 px-3 py-2">
+          {setupMessage}
+        </p>
+      )}
+
+      {/* How to reach them, above everything — it is what the seller opened this for */}
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-slate-600">
+        {lead.parent_name && lead.parent_name !== lead.student_name && <span>Parent: <strong className="text-slate-800">{lead.parent_name}</strong></span>}
+        {lead.phone && <span>Phone: <strong className="text-slate-800">{lead.phone}</strong></span>}
+        {lead.email && <span>Email: <strong className="text-slate-800">{lead.email}</strong></span>}
+      </div>
+
       {/* What the trial said — both opinions, side by side, never averaged */}
       {lead.trial && (
         <div className="grid sm:grid-cols-2 gap-3">
@@ -506,20 +594,21 @@ function LeadDetail({
         </div>
       )}
 
-      {/* Write it down */}
+      {/* Write it down, and say when to ring */}
       <div className="rounded-lg bg-white border border-slate-200 p-3">
         <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">
-          What happened on the call
+          Add a note about {lead.student_name || 'this family'}
         </label>
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={2}
-          placeholder="Father asked us to ring after 7pm…"
+          placeholder="Mother wants to connect on the 15th after 6pm — interested in Python for her son…"
           className="w-full text-sm rounded-lg border border-slate-200 px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/40 resize-y"
         />
 
         <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Priority</span>
           <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-0.5">
             {(['normal', 'medium', 'high'] as const).map((p) => (
               <button
@@ -533,35 +622,44 @@ function LeadDetail({
               </button>
             ))}
           </div>
-
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Remind me</span>
-          {QUICK_REMINDERS.map((q) => (
-            <button
-              key={q.value}
-              onClick={() => { setRemindIn(remindIn === q.value ? '' : q.value); setExact(''); }}
-              className={`px-2 py-1 text-[10px] font-bold rounded-md border transition ${
-                remindIn === q.value ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-              }`}
-            >
-              {q.label}
-            </button>
-          ))}
-          <input
-            type="datetime-local"
-            value={exact}
-            onChange={(e) => { setExact(e.target.value); setRemindIn(''); }}
-            className="text-[11px] rounded-md border border-slate-200 px-1.5 py-1"
-          />
         </div>
 
-        <div className="mt-2.5 flex items-center gap-2">
+        <div className="mt-2.5 rounded-lg border border-dashed border-slate-200 p-2.5">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Remind me (optional)</p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {QUICK_REMINDERS.map((q) => (
+              <button
+                key={q.value}
+                onClick={() => { setRemindIn(remindIn === q.value ? '' : q.value); setExact(''); }}
+                className={`px-2 py-1 text-[10px] font-bold rounded-md border transition ${
+                  remindIn === q.value ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                {q.label}
+              </button>
+            ))}
+            <span className="text-[10px] text-slate-400 mx-1">or on</span>
+            <input
+              type="datetime-local"
+              value={exact}
+              onChange={(e) => { setExact(e.target.value); setRemindIn(''); }}
+              aria-label="Remind me on a specific date and time"
+              className="text-[11px] rounded-md border border-slate-200 px-1.5 py-1"
+            />
+          </div>
+          <p className="text-[10px] text-slate-400 mt-1.5">
+            The reminder carries this note and opens this family when it fires. Dates are India time.
+          </p>
+        </div>
+
+        <div className="mt-2.5 flex items-center gap-2 flex-wrap">
           <button
             onClick={() => void addNote()}
             disabled={busy || !text.trim()}
             className="btn-tactile btn-tactile-primary px-3 py-1.5 text-xs flex items-center gap-1.5 disabled:opacity-50"
           >
             {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <MessageSquarePlus className="w-3 h-3" />}
-            Save note
+            {remindIn || exact ? 'Save note & reminder' : 'Save note'}
           </button>
 
           {lead.stage !== 'enrolled' && lead.sale_stage !== 'ready_for_hr' && lead.sale_stage !== 'punched' && (
@@ -579,7 +677,7 @@ function LeadDetail({
             </span>
           )}
 
-          {msg && <span className="text-[11px] text-slate-600">{msg}</span>}
+          {msg && <span className={`text-[11px] ${msg.ok ? 'text-green-700' : 'text-rose-700'}`}>{msg.text}</span>}
         </div>
       </div>
 
@@ -589,7 +687,7 @@ function LeadDetail({
         {notes === null ? (
           <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
         ) : notes.length === 0 ? (
-          <p className="text-[12px] text-slate-500">Nothing written down yet.</p>
+          <p className="text-[12px] text-slate-500">{setupMessage ? 'The logbook opens once the update is run.' : 'Nothing written down yet.'}</p>
         ) : (
           <ul className="space-y-2">
             {notes.map((n) => (

@@ -10,11 +10,17 @@
  * pays twice the first time anything is retried, and thresholds get crossed by
  * several routes: a punch, a refund reversing one, an HR correction.
  *
- * So nothing is ever inserted twice: one row per seller per month, enforced by
- * a unique index in the database rather than by a check-then-insert here — the
- * check-then-insert is exactly the race it is trying to prevent. The row is
- * UPSERTED with the current entitlement, and the entitlement is recomputed
- * from scratch every time rather than adjusted.
+ * So the computed entitlement is one row per seller per month, enforced by a
+ * PARTIAL unique index — `where kind = 'tier'` — because the same table also
+ * holds the seller's own manual requests, of which there may be several.
+ * PostgREST cannot aim an upsert at a partial index, so this inserts or
+ * updates explicitly, and when two punches race to create the month's row the
+ * index refuses the second insert and the loser updates the winner's row
+ * instead. The index is the guarantee; this code only has to be polite about
+ * it.
+ *
+ * The entitlement is recomputed from scratch every time rather than adjusted,
+ * so a missed run is corrected by the next one instead of compounding.
  *
  * ── What happens after HR has already decided ───────────────────────────────
  * An approved row is frozen. If a later sale would raise the entitlement, the
@@ -27,6 +33,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { monthWindow } from '@/lib/leads/seller-assignment';
 import { computeIncentive, readIncentiveConfig, needsApproval } from '@/lib/seller/incentives';
+import { hrRecipientsFor } from '@/lib/seller/settle';
 import { recordEvent } from '@/lib/events/log';
 import { bestEffort } from '@/lib/supabase/best-effort';
 
@@ -78,11 +85,15 @@ export async function syncSellerIncentive(
      approved by the same reflex as the empty ones. */
   if (!needsApproval(breakdown)) return base;
 
+  /* Only the computed kind. A seller's own ask for a bonus lives in the same
+     table and must never be mistaken for — or overwritten as — the month's
+     tier entitlement. */
   const { data: existing } = await admin
     .from('seller_incentive_requests')
     .select('id, status, amount, sales_count')
     .eq('seller_id', sellerId)
     .eq('month_key', key)
+    .eq('kind', 'tier')
     .maybeSingle();
 
   /* ── HR has already decided. The number stays. ─────────────────────────── */
@@ -104,32 +115,56 @@ export async function syncSellerIncentive(
     return { ...base, outcome: 'unchanged' };
   }
 
-  /* ── Still pending, or does not exist yet ─────────────────────────────────
-     Upserted on the unique (seller_id, month_key). The database decides which
-     of two concurrent calls wins; neither can produce a second row. */
-  const wrote = await bestEffort(
-    'incentive-sync: upsert request',
-    admin.from('seller_incentive_requests').upsert(
-      {
-        seller_id: sellerId,
-        month_key: key,
-        sales_count: breakdown.salesCount,
-        tier_sales: breakdown.tierSales,
-        amount: breakdown.total,
-        breakdown: breakdown as unknown as Record<string, unknown>,
-        status: 'pending',
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'seller_id,month_key' }
-    )
-  );
+  const fields = {
+    sales_count: breakdown.salesCount,
+    tier_sales: breakdown.tierSales,
+    amount: breakdown.total,
+    breakdown: breakdown as unknown as Record<string, unknown>,
+    updated_at: new Date().toISOString(),
+  };
+
+  let wrote = false;
+  if (existing) {
+    /* Guarded on still being pending, so an approval landing between the read
+       above and this write is not overwritten by the recomputation. */
+    wrote = await bestEffort(
+      'incentive-sync: update the month’s tier request',
+      admin.from('seller_incentive_requests').update(fields).eq('id', existing.id).eq('status', 'pending')
+    );
+  } else {
+    const { error } = await admin.from('seller_incentive_requests').insert({
+      ...fields,
+      seller_id: sellerId,
+      month_key: key,
+      kind: 'tier',
+      status: 'pending',
+    });
+    if (!error) {
+      wrote = true;
+    } else if (error.code === '23505') {
+      /* Another punch for the same seller created the row a moment ago. The
+         index refused the duplicate — which is the whole point — and the right
+         move is to bring the winner's row up to date, not to fail. */
+      wrote = await bestEffort(
+        'incentive-sync: update after losing the insert race',
+        admin
+          .from('seller_incentive_requests')
+          .update(fields)
+          .eq('seller_id', sellerId)
+          .eq('month_key', key)
+          .eq('kind', 'tier')
+          .eq('status', 'pending')
+      );
+    } else {
+      console.warn('[incentive-sync] insert failed:', error.code, error.message);
+    }
+  }
 
   if (!wrote) return { ...base, outcome: 'failed' };
 
   /* Only announce a genuinely new entitlement, or a tier step up. A
      notification every time a sale nudges the total by ₹200 is noise. */
-  const crossedATier =
-    !existing || Number(existing.sales_count ?? 0) < breakdown.tierSales;
+  const crossedATier = !existing || Number(existing.sales_count ?? 0) < breakdown.tierSales;
 
   if (crossedATier && breakdown.tierSales > 0) {
     await recordEvent(admin, {
@@ -139,13 +174,11 @@ export async function syncSellerIncentive(
       payload: { monthKey: key, tierSales: breakdown.tierSales, amount: breakdown.total },
     });
 
-    const { data: hrPeople } = await admin
-      .from('profiles').select('id').or('role.eq.hr,is_hr.eq.true').limit(20);
-    for (const hr of hrPeople ?? []) {
+    for (const hr of await hrRecipientsFor(admin, sellerId)) {
       await bestEffort(
         'incentive-sync: notify HR',
         admin.from('notifications').insert({
-          user_id: hr.id,
+          user_id: hr,
           type: 'incentive_approval',
           title: 'A seller has reached an incentive tier',
           message: `${breakdown.salesCount} sales this month — ₹${breakdown.total.toLocaleString('en-IN')} awaiting your approval.`,

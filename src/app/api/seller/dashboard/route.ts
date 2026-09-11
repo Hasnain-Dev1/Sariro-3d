@@ -5,6 +5,7 @@ import { sellerMetrics, type MetricLead, type MetricSale } from '@/lib/seller/me
 import { computeIncentive, readIncentiveConfig, baseSalary } from '@/lib/seller/incentives';
 import { monthWindow } from '@/lib/leads/seller-assignment';
 import type { ReminderRow } from '@/lib/seller/reminders';
+import { isMissingRelation, SELLER_SETUP_MESSAGE } from '@/lib/supabase/schema-gaps';
 
 /**
  * SARIRO — everything a seller needs before their first call of the day
@@ -26,6 +27,12 @@ import type { ReminderRow } from '@/lib/seller/reminders';
  * teacher's remark and the family's own rating in front of them. Today that is
  * three screens away, so the call gets made without it — which is the whole
  * reason the trial produced the feedback in the first place.
+ *
+ * ── It says when the database is not ready ──────────────────────────────────
+ * The queues and leads come from tables that have always existed, so the page
+ * works before the migration is run — but notes, reminders and sale punching
+ * do not, and a seller whose notes silently vanish stops trusting all of it.
+ * `setupMissing` says so, once, at the top of their screen.
  */
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -69,13 +76,19 @@ export async function GET(req: NextRequest) {
   const bookingIds = leads.map((l) => l.booking_id).filter((b): b is string => typeof b === 'string');
 
   const [
+    notesProbe,
     { data: reminderRows },
     { data: saleRows },
     { data: settingRows },
     { data: me },
+    { data: salary },
+    { data: saleStages },
     { data: feedbackRows },
     { data: bookingRows },
   ] = await Promise.all([
+    /* Is the logbook there at all? Asked on its own, so the answer does not
+       depend on whether this seller happens to have any leads. */
+    actor.admin.from('lead_notes').select('id', { head: true, count: 'exact' }).limit(1),
     leadIds.length
       ? actor.admin
           .from('lead_reminders')
@@ -89,7 +102,12 @@ export async function GET(req: NextRequest) {
       .eq('seller_id', sellerId)
       .limit(2000),
     actor.admin.from('app_settings').select('key, value').like('key', 'seller_%'),
-    actor.admin.from('profiles').select('id, full_name, seller_base_salary').eq('id', sellerId).maybeSingle(),
+    actor.admin.from('profiles').select('id, full_name').eq('id', sellerId).maybeSingle(),
+    /* Separate from the name, so a missing column cannot blank the whole row. */
+    actor.admin.from('profiles').select('seller_base_salary').eq('id', sellerId).maybeSingle(),
+    leadIds.length
+      ? actor.admin.from('student_leads').select('id, sale_stage').in('id', leadIds)
+      : Promise.resolve({ data: [] as { id: string; sale_stage: string | null }[] }),
     bookingIds.length
       ? actor.admin
           .from('class_feedback')
@@ -106,8 +124,12 @@ export async function GET(req: NextRequest) {
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
   ]);
 
+  const setupMissing = isMissingRelation(notesProbe.error);
   const reminders = (reminderRows ?? []) as unknown as ReminderRow[];
   const sales = (saleRows ?? []) as unknown as MetricSale[];
+  const saleStageById = new Map(
+    ((saleStages ?? []) as { id: string; sale_stage: string | null }[]).map((r) => [r.id, r.sale_stage])
+  );
 
   /* ── Stitch the trial and its two opinions onto each lead ───────────────── */
   const bookingById = new Map(
@@ -140,6 +162,7 @@ export async function GET(req: NextRequest) {
 
     return {
       ...lead,
+      sale_stage: saleStageById.get(lead.id) ?? null,
       trial: booking
         ? {
             id: booking.id,
@@ -167,14 +190,11 @@ export async function GET(req: NextRequest) {
 
   const metrics = sellerMetrics(enriched as MetricLead[], sales);
 
-  /* Incentives are earned on PUNCHED sales in the current month. An unpunched
-     row is a draft — paying commission on it would pay for a transaction that
-     can still be withdrawn. */
+  /* Incentives are earned on PUNCHED sales in the current month, windowed by
+     the same function the metrics used — a sale punched at 00:30 IST on the
+     1st belongs to the new month, and a second implementation of that
+     boundary is a second chance to put somebody's commission in the wrong one. */
   const config = readIncentiveConfig(settingRows ?? []);
-  /* The same window the metrics used, from the same function — not rebuilt
-     from the month key. A sale punched at 00:30 IST on the 1st belongs to the
-     new month, and any second implementation of that boundary is a second
-     chance to put somebody's commission in the wrong month. */
   const { start, end } = monthWindow();
   const monthStart = Date.parse(start);
   const monthEnd = Date.parse(end);
@@ -188,19 +208,20 @@ export async function GET(req: NextRequest) {
     config
   );
 
+  const own = (salary as { seller_base_salary?: number | string | null } | null)?.seller_base_salary ?? null;
+  const base = baseSalary(own == null ? null : Number(own), settingRows ?? []);
+
   return NextResponse.json({
     ok: true,
+    setupMissing,
+    setupMessage: setupMissing ? SELLER_SETUP_MESSAGE : null,
     sellerId,
-    sellerName: me?.full_name ?? null,
+    sellerName: (me as { full_name?: string | null } | null)?.full_name ?? null,
     queues: buckets,
     counts,
     metrics,
     incentive,
-    pay: {
-      base: baseSalary(me?.seller_base_salary as number | null, settingRows ?? []),
-      incentive: incentive.total,
-      total: baseSalary(me?.seller_base_salary as number | null, settingRows ?? []) + incentive.total,
-    },
+    pay: { base, incentive: incentive.total, total: base + incentive.total },
     reminders,
     leads: enriched,
   });

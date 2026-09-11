@@ -603,6 +603,10 @@ function SuperAdminDashboardInner() {
   const [showUserManagement, setShowUserManagement] = useState(false);
   const [showEarningsReport, setShowEarningsReport] = useState(false);
   const [showAssignTeacher, setShowAssignTeacher] = useState(false);
+  /* Sellers get a reporting Admin and HR the same way teachers do. The HR
+     chosen here is the one told when their seller settles a month or asks for
+     an incentive — see hrRecipientsFor() in lib/seller/settle.ts. */
+  const [showAssignSeller, setShowAssignSeller] = useState(false);
   // "See all" full-screen overlays (dashboard shows a preview of 5 per section).
   const [showAllEnrollments, setShowAllEnrollments] = useState(false);
   const [showAllCohorts, setShowAllCohorts] = useState(false);
@@ -755,6 +759,12 @@ function SuperAdminDashboardInner() {
                 className="btn-tactile btn-tactile-light px-4 py-2.5 text-sm flex items-center gap-2"
               >
                 <UserCheck className="w-4 h-4" /> Assign Teacher
+              </button>
+              <button
+                onClick={() => setShowAssignSeller(true)}
+                className="btn-tactile btn-tactile-light px-4 py-2.5 text-sm flex items-center gap-2"
+              >
+                <UserCheck className="w-4 h-4" /> Assign Seller
               </button>
               {/* §11, extended. Creating and scheduling courses is Admin's job;
                   Super Admin watches the resulting numbers. A super-admin who
@@ -1160,6 +1170,13 @@ function SuperAdminDashboardInner() {
       <AssignTeacherModal
         open={showAssignTeacher}
         onClose={() => setShowAssignTeacher(false)}
+        onToast={(msg, kind) => setToast({ type: kind || 'success', message: msg })}
+      />
+
+      <AssignTeacherModal
+        kind="seller"
+        open={showAssignSeller}
+        onClose={() => setShowAssignSeller(false)}
         onToast={(msg, kind) => setToast({ type: kind || 'success', message: msg })}
       />
 

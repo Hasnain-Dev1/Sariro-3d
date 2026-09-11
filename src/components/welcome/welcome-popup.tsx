@@ -123,7 +123,9 @@ export default function WelcomePopup() {
     }
     setDismissed(true);
     setOpen(false);
-    router.push('/welcome');
+    /* Straight to the booking form. '/welcome' opened on a hero and made the
+       visitor who had just said yes scroll to find the thing they said yes to. */
+    router.push('/free-class');
   };
 
   /** Gone for the rest of this visit; asks again next time they come back. */

@@ -3,20 +3,24 @@ import { requireActor, readJson } from '@/lib/auth/actor';
 import { sellerMetrics, type MetricLead, type MetricSale } from '@/lib/seller/metrics';
 import { readIncentiveConfig, baseSalary, describeTiers } from '@/lib/seller/incentives';
 import { syncSellerIncentive } from '@/lib/seller/incentive-sync';
+import { SELLER_PAYMENT_STATUSES, monthLabel } from '@/lib/seller/payout';
 import { recordEvent } from '@/lib/events/log';
 import { bestEffort } from '@/lib/supabase/best-effort';
+import { isMissingRelation, SELLER_SETUP_MESSAGE } from '@/lib/supabase/schema-gaps';
 
 /**
  * SARIRO — HR's half of the sales pipeline
  * ============================================================================
  * GET  /api/hr/pipeline    what is waiting: invoices to raise, incentives to
- *                          approve, and how every seller is doing
- * POST /api/hr/pipeline    { action: 'set_base_salary' | 'decide_incentive' }
+ *                          decide, seller settlements to approve and pay, and
+ *                          how every seller is doing
+ * POST /api/hr/pipeline    { action: 'set_base_salary' | 'decide_incentive'
+ *                                    | 'resync_incentive' | 'mark_settlement' }
  *
  * ── One request, because it is one screen ───────────────────────────────────
  * HR's question in the morning is "what needs me today", and the answer spans
- * three tables. Three endpoints would render the page in three stages and let
- * a badge disagree with the list under it.
+ * four tables. Four endpoints would render the page in four stages and let a
+ * badge disagree with the list under it.
  *
  * ── Everything HR needs to invoice, without opening the lead ────────────────
  * The seller has already had the conversation. What HR needs is the family's
@@ -26,6 +30,12 @@ import { bestEffort } from '@/lib/supabase/best-effort';
  */
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+type Row = Record<string, unknown>;
+
+const SELLER_COLS =
+  'id, full_name, email, role, is_seller, reporting_admin_id, reporting_hr_id, ' +
+  'admin:reporting_admin_id(full_name), hr:reporting_hr_id(full_name)';
 
 export async function GET(req: NextRequest) {
   const gate = await requireActor(req, {
@@ -37,12 +47,7 @@ export async function GET(req: NextRequest) {
   if (!gate.ok) return gate.response;
   const { actor } = gate;
 
-  const [
-    { data: waiting },
-    { data: incentives },
-    { data: sellers },
-    { data: settings },
-  ] = await Promise.all([
+  const [waitingRes, incentivesRes, sellersRes, settingsRes, settlementsRes] = await Promise.all([
     /* Sales the seller has closed and HR has not yet invoiced. */
     actor.admin
       .from('student_leads')
@@ -56,18 +61,42 @@ export async function GET(req: NextRequest) {
       .limit(200),
     actor.admin
       .from('seller_incentive_requests')
-      .select('id, seller_id, month_key, sales_count, tier_sales, amount, status, breakdown, decided_at, notes, created_at, seller:seller_id(full_name, email)')
+      .select(
+        'id, seller_id, kind, month_key, sales_count, tier_sales, amount, status, reason, breakdown, ' +
+        'decided_at, notes, created_at, settlement_id, seller:seller_id(full_name, email)'
+      )
       .order('created_at', { ascending: false })
       .limit(200),
     actor.admin
       .from('profiles')
-      .select('id, full_name, email, seller_base_salary, role, is_seller')
+      .select(`${SELLER_COLS}, seller_base_salary`)
       .or('role.eq.seller,is_seller.eq.true')
       .limit(100),
     actor.admin.from('app_settings').select('key, value').like('key', 'seller_%'),
+    actor.admin
+      .from('seller_settlements')
+      .select(
+        'id, seller_id, period_month, base_amount, incentive_amount, incentive_count, total_amount, ' +
+        'settlement_type, auto_reason, payment_status, settled_at, approved_at, paid_at, seller:seller_id(full_name)'
+      )
+      .order('period_month', { ascending: false })
+      .order('settled_at', { ascending: false })
+      .limit(100),
   ]);
 
-  const sellerIds = (sellers ?? []).map((s) => s.id as string);
+  /* The base-salary column arrives with the migration. Until then the seller
+     list is still worth showing — without the column rather than without the
+     sellers. */
+  let sellers = (sellersRes.data ?? []) as unknown as Row[];
+  if (sellersRes.error && isMissingRelation(sellersRes.error)) {
+    const fallback = await actor.admin
+      .from('profiles').select(SELLER_COLS).or('role.eq.seller,is_seller.eq.true').limit(100);
+    sellers = (fallback.data ?? []) as unknown as Row[];
+  }
+
+  const setupMissing = [waitingRes.error, incentivesRes.error, settlementsRes.error].some(isMissingRelation);
+  const settings = (settingsRes.data ?? []) as { key: string; value: string | null }[];
+  const sellerIds = sellers.map((s) => s.id as string);
 
   /* Metrics for every seller in one pair of reads rather than one pair each.
      With one seller today that is a nicety; with ten it is the difference
@@ -103,30 +132,35 @@ export async function GET(req: NextRequest) {
 
   const leadsBySeller = groupBy((allLeads ?? []) as MetricLead[], (l) => l.assigned_seller);
   const salesBySeller = groupBy((allSales ?? []) as MetricSale[], (s) => s.seller_id);
+  const config = readIncentiveConfig(settings);
 
-  const config = readIncentiveConfig(settings ?? []);
-
-  const sellerRows = (sellers ?? []).map((s) => {
+  const sellerRows = sellers.map((s) => {
     const id = s.id as string;
-    const metrics = sellerMetrics(leadsBySeller.get(id) ?? [], salesBySeller.get(id) ?? []);
-    const base = baseSalary(s.seller_base_salary as number | null, settings ?? []);
+    const own = s.seller_base_salary;
     return {
       id,
       name: (s.full_name as string | null) ?? (s.email as string | null) ?? 'Unnamed',
-      email: s.email as string | null,
-      baseSalary: base,
+      email: (s.email as string | null) ?? null,
+      baseSalary: baseSalary(own == null ? null : Number(own), settings),
       /* Null means "on the company default". Shown differently from a seller
          who has been deliberately set to the same figure, because raising the
          default should move the first and not the second. */
-      ownSalarySet: s.seller_base_salary != null,
-      metrics,
+      ownSalarySet: own != null,
+      /* Who this seller reports to — the HR named here is the one their payout
+         and incentive notifications go to. */
+      adminName: (s.admin as { full_name?: string | null } | null)?.full_name ?? null,
+      hrName: (s.hr as { full_name?: string | null } | null)?.full_name ?? null,
+      metrics: sellerMetrics(leadsBySeller.get(id) ?? [], salesBySeller.get(id) ?? []),
     };
   });
 
   return NextResponse.json({
     ok: true,
-    waitingForInvoice: waiting ?? [],
-    incentives: incentives ?? [],
+    setupMissing,
+    setupMessage: setupMissing ? SELLER_SETUP_MESSAGE : null,
+    waitingForInvoice: waitingRes.data ?? [],
+    incentives: incentivesRes.data ?? [],
+    settlements: settlementsRes.data ?? [],
     sellers: sellerRows,
     config,
     tiersDescription: describeTiers(config),
@@ -134,13 +168,15 @@ export async function GET(req: NextRequest) {
 }
 
 interface Body {
-  action?: 'set_base_salary' | 'decide_incentive' | 'resync_incentive';
+  action?: 'set_base_salary' | 'decide_incentive' | 'resync_incentive' | 'mark_settlement';
   sellerId?: string;
-  amount?: number;
+  amount?: number | null;
   requestId?: string;
   decision?: 'approved' | 'rejected';
   notes?: string;
   monthKey?: string;
+  settlementId?: string;
+  paymentStatus?: string;
   website?: string;
 }
 
@@ -184,14 +220,8 @@ export async function POST(req: NextRequest) {
     if (error) {
       console.warn('[hr-pipeline] base salary update failed:', error.code, error.message);
       return NextResponse.json(
-        {
-          ok: false,
-          error: 'save_failed',
-          message: /column|schema cache/i.test(error.message)
-            ? 'Seller pay is not set up on the database yet — run scripts/seller-pipeline-and-sale.sql.'
-            : error.message,
-        },
-        { status: 500 }
+        { ok: false, error: 'save_failed', message: isMissingRelation(error) ? SELLER_SETUP_MESSAGE : error.message },
+        { status: isMissingRelation(error) ? 503 : 500 }
       );
     }
 
@@ -205,9 +235,9 @@ export async function POST(req: NextRequest) {
         target_type: 'profile',
         target_id: sellerId,
         metadata: {
-          from: before?.seller_base_salary ?? null,
+          from: (before as { seller_base_salary?: number | null } | null)?.seller_base_salary ?? null,
           to: clearing ? null : amount,
-          seller: before?.full_name ?? null,
+          seller: (before as { full_name?: string | null } | null)?.full_name ?? null,
         },
       })
     );
@@ -215,7 +245,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, sellerId, baseSalary: clearing ? null : amount });
   }
 
-  /* ── Approve or reject an incentive ─────────────────────────────────────── */
+  /* ── Approve or reject an incentive — earned or asked for ───────────────── */
   if (body.action === 'decide_incentive') {
     const requestId = (body.requestId ?? '').trim();
     const decision = body.decision;
@@ -225,15 +255,13 @@ export async function POST(req: NextRequest) {
 
     const { data: request } = await actor.admin
       .from('seller_incentive_requests')
-      .select('id, seller_id, month_key, amount, status')
+      .select('id, seller_id, month_key, amount, status, kind')
       .eq('id', requestId)
       .maybeSingle();
     if (!request) return NextResponse.json({ ok: false, error: 'request_not_found' }, { status: 404 });
 
     if (request.status !== 'pending') {
-      return NextResponse.json(
-        { ok: true, already: request.status, message: `That was already ${request.status}.` }
-      );
+      return NextResponse.json({ ok: true, already: request.status, message: `That was already ${request.status}.` });
     }
 
     /* Guarded on still being pending, so two HR users cannot both decide it
@@ -263,9 +291,10 @@ export async function POST(req: NextRequest) {
       subjectType: 'seller_month',
       subjectId: decided.seller_id as string,
       actorId: actor.id,
-      payload: { monthKey: decided.month_key, amount: Number(decided.amount), decision },
+      payload: { monthKey: decided.month_key, amount: Number(decided.amount), decision, kind: request.kind ?? 'tier' },
     });
 
+    const note = (body.notes ?? '').trim();
     await bestEffort(
       'hr-pipeline: tell the seller',
       actor.admin.from('notifications').insert({
@@ -274,9 +303,9 @@ export async function POST(req: NextRequest) {
         title: decision === 'approved' ? 'Your incentive is approved' : 'Your incentive was not approved',
         message:
           decision === 'approved'
-            ? `₹${Number(decided.amount).toLocaleString('en-IN')} for ${decided.month_key} will be in your payroll.`
-            : `HR did not approve the ${decided.month_key} incentive.${(body.notes ?? '').trim() ? ` Reason: ${(body.notes ?? '').trim()}` : ''}`,
-        link: '/dashboard/seller',
+            ? `₹${Number(decided.amount).toLocaleString('en-IN')} for ${monthLabel(decided.month_key as string)} joins your next settlement.`
+            : `HR did not approve the ${monthLabel(decided.month_key as string)} incentive.${note ? ` Reason: ${note}` : ''}`,
+        link: '/dashboard/seller?tab=payout',
       })
     );
 
@@ -296,6 +325,82 @@ export async function POST(req: NextRequest) {
 
     const result = await syncSellerIncentive(actor.admin, sellerId, at);
     return NextResponse.json({ ok: true, ...result });
+  }
+
+  /* ── Move a seller's settlement towards paid ─────────────────────────────
+     Forward only. A settlement marked paid that then drifts back to
+     "approved" is a payment that happened in the bank and un-happened on the
+     screen, and the seller is the one who notices. */
+  if (body.action === 'mark_settlement') {
+    const settlementId = (body.settlementId ?? '').trim();
+    const next = body.paymentStatus ?? '';
+    const order = SELLER_PAYMENT_STATUSES as readonly string[];
+    if (!settlementId || !order.includes(next) || next === 'seller_settled') {
+      return NextResponse.json({ ok: false, error: 'invalid_status' }, { status: 400 });
+    }
+
+    const { data: current, error: readErr } = await actor.admin
+      .from('seller_settlements')
+      .select('id, seller_id, period_month, total_amount, payment_status')
+      .eq('id', settlementId)
+      .maybeSingle();
+    if (readErr) {
+      return NextResponse.json(
+        { ok: false, error: 'read_failed', message: isMissingRelation(readErr) ? SELLER_SETUP_MESSAGE : readErr.message },
+        { status: isMissingRelation(readErr) ? 503 : 500 }
+      );
+    }
+    if (!current) return NextResponse.json({ ok: false, error: 'settlement_not_found' }, { status: 404 });
+
+    if (order.indexOf(next) <= order.indexOf(current.payment_status as string)) {
+      return NextResponse.json({ ok: true, already: current.payment_status });
+    }
+
+    const now = new Date().toISOString();
+    const patch: Record<string, unknown> = { payment_status: next, updated_at: now };
+    if (next === 'admin_settled' || next === 'processing' || next === 'paid') {
+      patch.approved_by = actor.id;
+      patch.approved_at = now;
+    }
+    if (next === 'paid') patch.paid_at = now;
+
+    const { error } = await actor.admin
+      .from('seller_settlements')
+      .update(patch)
+      .eq('id', settlementId)
+      .eq('payment_status', current.payment_status as string);
+    if (error) {
+      console.warn('[hr-pipeline] settlement update failed:', error.code, error.message);
+      return NextResponse.json({ ok: false, error: 'save_failed', message: error.message }, { status: 500 });
+    }
+
+    await bestEffort(
+      'hr-pipeline: audit settlement',
+      actor.admin.from('admin_audit_logs').insert({
+        admin_id: actor.id,
+        action: `seller_settlement_${next}`,
+        target_type: 'seller_settlement',
+        target_id: settlementId,
+        metadata: { from: current.payment_status, to: next, month: current.period_month, total: Number(current.total_amount) },
+      })
+    );
+
+    const month = monthLabel(current.period_month as string);
+    const total = `₹${Number(current.total_amount).toLocaleString('en-IN')}`;
+    await bestEffort(
+      'hr-pipeline: tell the seller about their settlement',
+      actor.admin.from('notifications').insert({
+        user_id: current.seller_id as string,
+        type: 'seller_settlement',
+        title: next === 'paid' ? `Your ${month} pay has been sent` : `HR approved your ${month} settlement`,
+        message: next === 'paid'
+          ? `${total} for ${month} is marked paid.`
+          : `${total} for ${month} is approved${next === 'processing' ? ' and the payment is on its way' : ''}.`,
+        link: '/dashboard/seller?tab=payout',
+      })
+    );
+
+    return NextResponse.json({ ok: true, settlementId, paymentStatus: next });
   }
 
   return NextResponse.json({ ok: false, error: 'invalid_action' }, { status: 400 });

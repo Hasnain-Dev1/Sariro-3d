@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Loader2, AlertCircle, CheckCircle2, ArrowRight, ArrowLeft, Phone, CalendarCheck,
-  Mail, User, BookOpen, GraduationCap, Clock, ShieldCheck,
+  Mail, User, BookOpen, GraduationCap, Clock, ShieldCheck, Globe,
 } from 'lucide-react';
 import { HoneypotField } from '@/components/security/honeypot';
 import { groupByDay, slotLabel, type PublicSlot } from '@/lib/trial/public-slots';
@@ -11,38 +11,39 @@ import type { TrialSubject } from '@/lib/trial/subjects';
 import { COUNTRY_LIST, guessCountry, smsReachable } from '@/lib/phone/countries';
 import { acceptPhone } from '@/lib/phone/accept';
 import { MIN_GRADE, MAX_GRADE } from '@/lib/trial/grade-band';
+import {
+  DEFAULT_TIME_ZONE, detectTimeZone, timeZoneOptions, timeZoneLabel,
+  cityOf, utcOffsetLabel, localTimeLabel,
+} from '@/lib/time/timezones';
 
 /**
- * SARIRO — booking your own free class, from an advert
+ * SARIRO — booking a free class, from anywhere on the site
  * ============================================================================
  * The whole trial used to need a seller: the parent left their details, a
  * human rang them, agreed a time, and typed it into a picker. That is a person
  * per booking, and it caps how many trials a day the company can run at
- * however many calls somebody can make.
+ * however many calls somebody can make. This is the same booking without the
+ * call — and it is now the ONLY booking form: /free-class and /welcome#book
+ * both render it, so every "book a free class" link on the site lands here.
  *
- * This is the same booking without the call.
+ * ── The time zone comes first ───────────────────────────────────────────────
+ * The page used to guess a family's zone from the browser and never show the
+ * guess. A parent in Dubai on a laptop still set to India time saw every slot
+ * ninety minutes out and had no way to know which clock the page was reading.
+ * So the first thing it does is say what it detected and let them correct it
+ * — every time on the later steps is shown in that zone, and the booking
+ * writes it to their profile so their dashboard reads the same clock.
  *
  * ── One question at a time ──────────────────────────────────────────────────
  * Everything used to be on a single card: name, grade, subject, a phone with
- * its code box, an email with its own code box. Eight controls, two of which
- * only appear after you have used another one, and no indication of how much
- * was left. A parent on a phone saw a wall and half of them left.
- *
- * Now each step asks one thing and shows how far along they are. Nothing is
- * removed — the same facts are collected — but a person is never looking at
- * more than one decision.
- *
- * ── Why the phone comes second, before anything else is invested ────────────
- * A trial costs a teacher half an hour, and an account nobody can ring is an
- * account nobody can chase when the child does not appear. Asking early means
- * nobody picks a subject, a grade and a time and is only then told no.
+ * its code box, an email with its own code box. Each step now asks one thing
+ * and shows how far along they are. Nothing is removed; a person is never
+ * looking at more than one decision.
  *
  * ── India proves its number; the rest of the world does not have to ─────────
  * apitxt.com delivers SMS to India and nowhere else, so demanding a code
- * abroad demands the impossible — and the old form did exactly that, refusing
- * every non-Indian number with "We need an Indian mobile number we can reach
- * you on." Seven of the sixteen numbers on the live database are outside
- * India. They are now accepted, unverified and recorded as such.
+ * abroad demands the impossible. Numbers outside India are accepted
+ * unverified and recorded as such.
  *
  * ── What it never shows ─────────────────────────────────────────────────────
  * No teacher names, no "3 of our 4 teachers are free", no empty evenings. A
@@ -50,12 +51,13 @@ import { MIN_GRADE, MAX_GRADE } from '@/lib/trial/grade-band';
  * competitor's research done for them. Times and seats, nothing else.
  */
 
-type Step = 'name' | 'phone' | 'email' | 'subject' | 'grade' | 'time' | 'done';
+type Step = 'timezone' | 'name' | 'phone' | 'email' | 'subject' | 'grade' | 'time' | 'done';
 
 /** The order, and what the progress bar counts. `done` is not a step. */
-const FLOW: Step[] = ['name', 'phone', 'email', 'subject', 'grade', 'time'];
+const FLOW: Step[] = ['timezone', 'name', 'phone', 'email', 'subject', 'grade', 'time'];
 
 const STEP_TITLE: Record<Step, string> = {
+  timezone: 'Where are you joining from?',
   name: 'Who is the class for?',
   phone: 'How do we reach you?',
   email: 'And an email address',
@@ -72,11 +74,6 @@ interface Booked {
   existingAccount: boolean;
 }
 
-const localZone = () => {
-  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata'; }
-  catch { return 'Asia/Kolkata'; }
-};
-
 /** Group for the <optgroup> headings, once per fetch rather than per keystroke. */
 const groupSubjects = (list: TrialSubject[]): [string, TrialSubject[]][] =>
   Object.entries(
@@ -87,19 +84,38 @@ const groupSubjects = (list: TrialSubject[]): [string, TrialSubject[]][] =>
   );
 
 export default function SelfServeBooking() {
-  const [step, setStep] = useState<Step>('name');
-  const [tz, setTz] = useState('Asia/Kolkata');
+  const [step, setStep] = useState<Step>('timezone');
+
+  /* ── The time zone ───────────────────────────────────────────────────────
+     `detectedTz` is null until the browser has answered, and everything that
+     depends on it — the label, the local time, the list of zones — renders
+     only after that. The server's list of zones and the browser's can differ,
+     and rendering them on both sides would be a hydration mismatch on the
+     very first thing a visitor sees. */
+  const [detectedTz, setDetectedTz] = useState<string | null>(null);
+  const [tz, setTz] = useState(DEFAULT_TIME_ZONE);
   const [country, setCountry] = useState('IN');
+  /* Once somebody has touched the country picker, a later change of time zone
+     must not overwrite their choice. Before that, the zone is the best guess
+     at their country — a family in Dubai should not have to find +971. */
+  const [countryTouched, setCountryTouched] = useState(false);
 
   useEffect(() => {
-    const zone = localZone();
+    const zone = detectTimeZone();
+    setDetectedTz(zone);
     setTz(zone);
-    /* A guess, for the picker's initial value only. Whatever this returns is
-       overwritten the moment they touch it, and nothing is stored until they
-       submit — deriving a STORED country from a timezone is a bug this
-       codebase has already had. */
     setCountry(guessCountry(zone));
   }, []);
+
+  const tzOptions = useMemo(
+    () => (detectedTz ? timeZoneOptions(detectedTz) : { common: [] as string[], all: [] as string[] }),
+    [detectedTz]
+  );
+
+  const changeTz = (next: string) => {
+    setTz(next);
+    if (!countryTouched) setCountry(guessCountry(next));
+  };
 
   const [name, setName] = useState('');
   const [grade, setGrade] = useState<number | null>(null);
@@ -231,7 +247,8 @@ export default function SelfServeBooking() {
     setSlots(null); setChosen(null); setError(null);
     try {
       // The subject goes with the grade: together they decide which teachers
-      // can appear at all. §13.
+      // can appear at all. §13. Slots come back as real instants; the zone
+      // only decides how they are written, which is why it is not sent here.
       const r = await fetch(
         `/api/trial/slots?seats=1&grade=${grade ?? ''}&subject=${encodeURIComponent(subject)}`
       );
@@ -282,7 +299,7 @@ export default function SelfServeBooking() {
     } finally { setBusy(false); }
   };
 
-  /* ── "None of these times work for me" ──────────────────────────────────
+  /* ── "None of these slots work for me" ──────────────────────────────────
      Deliberately does NOT create a booking. Inventing a class to represent
      one that will not happen puts a ghost in a teacher's calendar and in
      every trial count, and fires a reminder the night before for a time the
@@ -326,7 +343,7 @@ export default function SelfServeBooking() {
           {booked.teacherName ? <> · with {booked.teacherName}</> : null}
         </p>
         <p className="mt-1 text-sm text-slate-600">
-          Thirty minutes, nothing to pay, and no card anywhere.
+          {cityOf(tz)} time. Thirty minutes, nothing to pay, and no card anywhere.
         </p>
 
         {booked.signInUrl ? (
@@ -409,7 +426,55 @@ export default function SelfServeBooking() {
 
       <HoneypotField />
 
-      {/* ══ 1. The name ════════════════════════════════════════════════════ */}
+      {/* ══ 1. The time zone ═══════════════════════════════════════════════ */}
+      {step === 'timezone' && (
+        <Field icon={Globe} hint="Every time on the next pages is shown in this zone, so a slot means the same hour on your own clock.">
+          {detectedTz === null ? (
+            <div className="h-24 flex items-center justify-center gap-2 text-sm text-slate-400">
+              <Loader2 className="w-4 h-4 animate-spin" /> Working out your time zone…
+            </div>
+          ) : (
+            <>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                  {tz === detectedTz ? 'We detected' : 'You picked'}
+                </p>
+                <p className="mt-0.5 text-lg font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
+                  {cityOf(tz)}{' '}
+                  <span className="text-sm font-semibold text-slate-500">· {utcOffsetLabel(tz)}</span>
+                </p>
+                <p className="text-xs text-slate-600 mt-0.5">It’s {localTimeLabel(tz)} there right now.</p>
+              </div>
+
+              <label className="block mt-4">
+                <span className="text-xs font-semibold text-slate-600">
+                  Not your time zone? Please pick yours, so we can find slots around your day.
+                </span>
+                <select
+                  value={tz}
+                  onChange={(e) => changeTz(e.target.value)}
+                  className="mt-1.5 w-full h-12 px-3 rounded-xl border border-slate-200 text-[15px] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  style={{ fontFamily: 'var(--font-inter)' }}
+                  aria-label="Time zone"
+                >
+                  <optgroup label="Where most families are">
+                    {tzOptions.common.map((z) => <option key={z} value={z}>{timeZoneLabel(z)}</option>)}
+                  </optgroup>
+                  <optgroup label="Every time zone">
+                    {tzOptions.all.map((z) => <option key={z} value={z}>{timeZoneLabel(z)}</option>)}
+                  </optgroup>
+                </select>
+              </label>
+
+              <Next onClick={() => setStep('name')}>
+                {tz === detectedTz ? 'Yes, that’s right' : `Use ${cityOf(tz)} time`}
+              </Next>
+            </>
+          )}
+        </Field>
+      )}
+
+      {/* ══ 2. The name ════════════════════════════════════════════════════ */}
       {step === 'name' && (
         <Field icon={User} hint="Whoever is filling this in decides whose name it is — the child's or your own.">
           <input
@@ -427,7 +492,7 @@ export default function SelfServeBooking() {
         </Field>
       )}
 
-      {/* ══ 2. Country + phone, and a code if we can send one ══════════════ */}
+      {/* ══ 3. Country + phone, and a code if we can send one ══════════════ */}
       {step === 'phone' && (
         <Field
           icon={Phone}
@@ -442,6 +507,7 @@ export default function SelfServeBooking() {
               value={country}
               onChange={(e) => {
                 setCountry(e.target.value);
+                setCountryTouched(true);
                 /* A code sent to the old number proves nothing about the new
                    one. Changing the country restarts the proof. */
                 setCodeSent(false); setPhoneVerified(false); setCode(''); setError(null);
@@ -484,9 +550,12 @@ export default function SelfServeBooking() {
           {/* India: prove it. Everywhere else: straight on. */}
           {canVerifyPhone ? (
             phoneVerified ? (
-              <p className="mt-3 text-sm text-green-800 bg-green-50 border border-green-200 rounded-xl px-3 py-2 flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4" /> Number confirmed.
-              </p>
+              <>
+                <p className="mt-3 text-sm text-green-800 bg-green-50 border border-green-200 rounded-xl px-3 py-2 flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4" /> Number confirmed.
+                </p>
+                <Next onClick={() => setStep('email')}>Continue</Next>
+              </>
             ) : codeSent ? (
               <div className="mt-3 flex gap-2">
                 <input
@@ -525,7 +594,7 @@ export default function SelfServeBooking() {
         </Field>
       )}
 
-      {/* ══ 3. Email ═══════════════════════════════════════════════════════ */}
+      {/* ══ 4. Email ═══════════════════════════════════════════════════════ */}
       {step === 'email' && (
         <Field icon={Mail} hint="This is how they sign in to their class page afterwards.">
           <input
@@ -541,9 +610,12 @@ export default function SelfServeBooking() {
           />
 
           {emailVerified ? (
-            <p className="mt-3 text-sm text-green-800 bg-green-50 border border-green-200 rounded-xl px-3 py-2 flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4" /> Address confirmed.
-            </p>
+            <>
+              <p className="mt-3 text-sm text-green-800 bg-green-50 border border-green-200 rounded-xl px-3 py-2 flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4" /> Address confirmed.
+              </p>
+              <Next onClick={() => setStep('subject')}>Continue</Next>
+            </>
           ) : emailCodeSent ? (
             <div className="mt-3 flex gap-2">
               <input
@@ -582,7 +654,7 @@ export default function SelfServeBooking() {
         </Field>
       )}
 
-      {/* ══ 4. Subject ═════════════════════════════════════════════════════ */}
+      {/* ══ 5. Subject ═════════════════════════════════════════════════════ */}
       {step === 'subject' && (
         <Field
           icon={BookOpen}
@@ -613,7 +685,7 @@ export default function SelfServeBooking() {
         </Field>
       )}
 
-      {/* ══ 5. Grade ═══════════════════════════════════════════════════════ */}
+      {/* ══ 6. Grade ═══════════════════════════════════════════════════════ */}
       {step === 'grade' && (
         <Field
           icon={GraduationCap}
@@ -639,11 +711,18 @@ export default function SelfServeBooking() {
         </Field>
       )}
 
-      {/* ══ 6. Time ════════════════════════════════════════════════════════ */}
+      {/* ══ 7. Time ════════════════════════════════════════════════════════ */}
       {step === 'time' && (
         <div>
           <p className="mt-1 text-sm text-slate-600 mb-3">
-            Thirty minutes. Times are shown in your own timezone.
+            Thirty minutes. Shown in <strong className="text-slate-800">{cityOf(tz)}</strong> time
+            ({utcOffsetLabel(tz)}).{' '}
+            <button
+              onClick={() => { setStep('timezone'); setError(null); }}
+              className="font-bold text-blue-700 hover:underline"
+            >
+              Change
+            </button>
           </p>
 
           {slots === null ? (
@@ -724,7 +803,7 @@ export default function SelfServeBooking() {
             {assistOpen ? (
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                  When would suit you?
+                  When would suit you? ({cityOf(tz)} time)
                 </label>
                 <textarea
                   value={preference}
