@@ -42,6 +42,7 @@ import {
 import { useRealtime } from '@/lib/dashboard/use-realtime';
 import { type TrialClass } from '@/components/dashboard/trial-journey';
 import TrialCard from '@/components/dashboard/trial-card';
+import TrialClassesSection from '@/components/dashboard/trial-classes-section';
 import PracticeProgress from '@/components/speaking/practice-progress';
 import ParentReportCard from '@/components/dashboard/parent-report-card';
 import { canPractise } from '@/lib/speaking/access';
@@ -1314,6 +1315,13 @@ function StudentDashboardInner() {
                 </div>
               )}
             </div>
+
+            {/* Their free classes, kept apart from the ones above. A trial
+                consumes no credit, belongs to no cohort and may be for a
+                course they have never bought — listing it with their real
+                schedule would make a free half hour look like a paid lesson.
+                Renders nothing at all for somebody who has never had one. */}
+            <TrialClassesSection timezone={userTimezone} />
 
             {/* Class Notes & Projects (Capstone system — links to submission page) */}
             <ClassNotesSection pastBookings={pastBookings} cohorts={cohorts} timezone={userTimezone} />

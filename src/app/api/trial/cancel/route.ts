@@ -5,16 +5,17 @@ import { assertSameOrigin } from '@/lib/security/origin-check';
 import { notifyUsers } from '@/lib/notify';
 import { recordEvent } from '@/lib/events/log';
 import { bestEffort } from '@/lib/supabase/best-effort';
+import { releaseTrialSeat } from '@/lib/trial/cancel';
 
 /**
  * SARIRO — POST /api/trial/cancel  { bookingId }
  *
  * A family calls off their own free class.
  *
- * It exists because the booking form now refuses a SECOND free class in the
- * same course, and telling somebody to cancel the one they have is only fair
- * if they can actually do it. Without this the advice was a dead end and the
- * only way out was a phone call.
+ * It exists because a child may hold only one live trial per course AND grade.
+ * The booking form offers to replace the one they have; cancelling outright,
+ * without booking anything in its place, has to be possible too — and before
+ * this it was not, short of a phone call.
  *
  * ── What it does, and what it deliberately does not ─────────────────────────
  * A trial seats up to four children, so cancelling is per CHILD: their seat
@@ -83,35 +84,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 1. Their seat goes.
-  await bestEffort(
-    'trial-cancel: release the seat',
-    admin.from('trial_participants').delete().eq('booking_id', bookingId).eq('student_id', userId)
-  );
-  const others = roster.filter((r) => r.student_id !== userId);
-
-  /* 2. The class itself, but only when nobody is left in it. A named child who
-        was booked in by somebody else still counts as somebody in the room. */
-  const ownerElsewhere = booking.trial_student_id !== null && booking.trial_student_id !== userId;
-  const classEmpty = others.length === 0 && !ownerElsewhere;
-
-  if (classEmpty) {
-    await admin.from('bookings').update({
-      status: 'cancelled',
-      cancelled_by: userId,
-      cancelled_at: new Date().toISOString(),
-      cancel_reason: 'Cancelled by the family',
-      cancel_actor_role: 'student',
-      cancel_type: 'trial_cancelled',
-    }).eq('id', bookingId).eq('status', 'scheduled');
-  } else if (booking.trial_student_id === userId && others.length > 0) {
-    /* The named child left a room that still has children in it. Somebody has
-       to own the booking, or it reads as nobody's class. */
-    await bestEffort(
-      'trial-cancel: hand the booking to a child who stayed',
-      admin.from('bookings').update({ trial_student_id: others[0].student_id }).eq('id', bookingId)
-    );
-  }
+  /* 1 and 2. The seat, and the class if it empties — shared with the booking
+     form's supersede path, so both behave identically. */
+  const { classCancelled: classEmpty } = await releaseTrialSeat(admin, {
+    bookingId,
+    studentId: userId,
+    actorId: userId,
+    reason: 'Cancelled by the family',
+    cancelType: 'trial_cancelled',
+  });
 
   /* 3. Back to a counsellor. Not closed: a family who cancels has a reason,
         and that reason is the most useful thing anybody could learn today. */

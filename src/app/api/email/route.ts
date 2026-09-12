@@ -191,7 +191,36 @@ export async function POST(req: NextRequest) {
 
     if (verdict?.verified) {
       await stampVerifiedProfile(admin, email);
-      return NextResponse.json({ ok: true, verified: true });
+
+      /* ── What the booking form needs next ────────────────────────────────
+         Every account is keyed on the email, so once the email is proved we
+         can say two useful things: whether this person already has an account,
+         and whether the number on it was ever checked.
+
+         If it was, the form skips the SMS step entirely. Every skipped code is
+         a message we do not pay for, and a step a returning family does not
+         repeat for a number we already trust.
+
+         Deliberately AFTER verification. Answering "does this address have an
+         account?" before the code is confirmed would let anybody type an
+         address and learn whether it is one of our customers. */
+      const { data: account } = await admin
+        .from('profiles')
+        .select('phone, phone_verified, phone_country_code')
+        .eq('email', email)
+        .limit(1)
+        .maybeSingle();
+
+      return NextResponse.json({
+        ok: true,
+        verified: true,
+        account: {
+          exists: !!account,
+          phone: (account?.phone as string | null) ?? null,
+          phoneVerified: account?.phone_verified === true,
+          phoneCountryCode: (account?.phone_country_code as string | null) ?? null,
+        },
+      });
     }
 
     const message =

@@ -166,6 +166,13 @@ export default function SelfServeBooking() {
   /* The one-time sign-in link for a family who carried on without a slot. */
   const [assistedUrl, setAssistedUrl] = useState<string | null>(null);
   const [assistedSignedIn, setAssistedSignedIn] = useState(false);
+  /* What proving the email told us: whether this address already has an
+     account, and whether the number on it was ever checked. Decides both what
+     they are told and whether an SMS is sent at all. */
+  const [account, setAccount] = useState<{ exists: boolean; phoneVerified: boolean } | null>(null);
+  const [phoneFromAccount, setPhoneFromAccount] = useState(false);
+  /* They already hold this course at this grade. A question, not an error. */
+  const [conflict, setConflict] = useState<{ kind: 'active' | 'completed'; message: string } | null>(null);
   const [assistedNewAccount, setAssistedNewAccount] = useState(false);
 
   const [busy, setBusy] = useState(false);
@@ -237,7 +244,23 @@ export default function SelfServeBooking() {
       const j = await r.json().catch(() => null);
       if (!r.ok || !j?.ok) { setError(j?.message ?? 'That code did not match.'); return; }
       setEmailVerified(true);
-      setStep('phone');
+
+      /* Deliberately NOT advancing. A new family is told an account is coming;
+         a returning one is told we already have their number and will not be
+         texting them. Both press Continue themselves. */
+      const acct = j.account as
+        | { exists: boolean; phone: string | null; phoneVerified: boolean; phoneCountryCode: string | null }
+        | undefined;
+      setAccount(acct ? { exists: !!acct.exists, phoneVerified: !!acct.phoneVerified } : null);
+
+      /* A number this account already proved is not proved again. Every code
+         skipped is an SMS nobody pays for and a step nobody repeats. */
+      if (acct?.exists && acct.phoneVerified && acct.phone) {
+        setPhone(acct.phone);
+        if (acct.phoneCountryCode) { setCountry(acct.phoneCountryCode); setCountryTouched(true); }
+        setPhoneVerified(true);
+        setPhoneFromAccount(true);
+      }
     } catch {
       setError('Could not reach us just now. Try again in a moment.');
     } finally { setEmailBusy(false); }
@@ -293,7 +316,7 @@ export default function SelfServeBooking() {
   }, [booked, assistedUrl, assistedSignedIn]);
 
   /* ── Book it ───────────────────────────────────────────────────────────── */
-  const confirm = async () => {
+  const confirm = async (replaceExisting = false) => {
     if (!chosen || !parsedPhone.ok) return;
     setBusy(true); setError(null);
     try {
@@ -303,16 +326,28 @@ export default function SelfServeBooking() {
           name, grade, phone: parsedPhone.e164, country, timezone: tz,
           email: email.trim(), subject,
           teacherId: chosen.teacherId, slotStart: chosen.iso,
+          // They have seen the clash and said carry on.
+          confirm: replaceExisting,
         }),
       });
       const j = await r.json().catch(() => null);
       if (!r.ok || !j?.ok) {
+        /* Not a failure: they already hold this course at this grade, and the
+           only question is whether this booking replaces it. */
+        if (j?.error === 'trial_conflict') {
+          setConflict({
+            kind: j.conflict?.kind === 'completed' ? 'completed' : 'active',
+            message: j.message ?? 'You already have a trial for this course and grade.',
+          });
+          return;
+        }
         setError(j?.message ?? 'We could not complete that booking. Please try again.');
         // Somebody took the seat while they were deciding. Refresh rather than
         // leave them staring at a time that no longer exists.
         if (j?.error === 'slot_full' || j?.error === 'slot_gone') await loadSlots();
         return;
       }
+      setConflict(null);
       setBooked({
         slotStart: j.slotStart, teacherName: j.teacherName,
         signInUrl: j.signInUrl ?? null, signedIn: !!j.signedIn,
@@ -602,8 +637,21 @@ export default function SelfServeBooking() {
             phoneVerified ? (
               <>
                 <p className="mt-3 text-sm text-green-800 bg-green-50 border border-green-200 rounded-xl px-3 py-2 flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4" /> Number confirmed.
+                  <ShieldCheck className="w-4 h-4" />
+                  {phoneFromAccount ? 'Already confirmed on your account.' : 'Number confirmed.'}
                 </p>
+                {phoneFromAccount && (
+                  <button
+                    onClick={() => {
+                      setPhoneFromAccount(false); setPhoneVerified(false);
+                      setPhone(''); setCodeSent(false); setError(null);
+                    }}
+                    className="mt-2 text-[11px] font-bold text-slate-500 hover:text-slate-800"
+                    style={{ fontFamily: 'var(--font-grotesk)' }}
+                  >
+                    Use a different number
+                  </button>
+                )}
                 <Next onClick={() => setStep('subject')}>Continue</Next>
               </>
             ) : codeSent ? (
@@ -664,6 +712,14 @@ export default function SelfServeBooking() {
               <p className="mt-3 text-sm text-green-800 bg-green-50 border border-green-200 rounded-xl px-3 py-2 flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4" /> Address confirmed.
               </p>
+              {account && (
+                <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+                  {account.exists
+                    ? 'Welcome back — this address already has a Sariro account, and the class goes on it.'
+                    : 'You’re new here. We’ll create your Sariro account when you finish booking, and email you the password.'}
+                  {phoneFromAccount && ' We already have a confirmed number on it, so there is no code to wait for.'}
+                </p>
+              )}
               <Next onClick={() => setStep('phone')}>Continue</Next>
             </>
           ) : emailCodeSent ? (
@@ -734,6 +790,11 @@ export default function SelfServeBooking() {
           icon={GraduationCap}
           hint="A trial holds learners at the same level, so the class is pitched right."
         >
+          {/* Said out loud, because "G7" on its own is our shorthand, not
+              anybody else's. */}
+          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500 mb-2" style={{ fontFamily: 'var(--font-grotesk)' }}>
+            Grade
+          </p>
           <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
             {GRADE_CHOICES.filter((c) => c.value <= 12).map((c) => (
               <button
@@ -873,9 +934,36 @@ export default function SelfServeBooking() {
             </p>
           )}
 
+          {/* ── One live trial per course AND grade ─────────────────────────
+              Never a refusal. They are told what they already have and what
+              carrying on would do, and they decide. */}
+          {conflict && (
+            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-4">
+              <p className="text-sm text-amber-900 leading-relaxed">{conflict.message}</p>
+              <div className="mt-3 flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={() => { setConflict(null); confirm(true); }}
+                  disabled={busy}
+                  className="btn-tactile btn-tactile-primary flex-1 px-4 py-3 text-sm flex items-center justify-center gap-2 disabled:opacity-40"
+                >
+                  {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CalendarCheck className="w-4 h-4" />}
+                  {conflict.kind === 'active' ? 'Yes, replace it' : 'Yes, book the retry'}
+                </button>
+                <button
+                  onClick={() => setConflict(null)}
+                  disabled={busy}
+                  className="min-h-[44px] px-4 rounded-xl bg-white border border-amber-200 text-amber-900 text-sm font-bold disabled:opacity-40"
+                  style={{ fontFamily: 'var(--font-grotesk)' }}
+                >
+                  {conflict.kind === 'active' ? 'Keep my existing class' : 'Not now'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {days.length > 0 && (
             <button
-              onClick={confirm}
+              onClick={() => confirm()}
               disabled={!chosen || busy}
               className="btn-tactile btn-tactile-primary mt-5 w-full px-6 py-4 text-base flex items-center justify-center gap-2 disabled:opacity-40"
             >

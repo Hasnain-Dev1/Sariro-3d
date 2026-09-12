@@ -8,7 +8,9 @@ import { isValidTimeZone, canonicalTimeZone, cityOf } from '@/lib/time/timezones
 import { resolveTrialAccount, trialSignInLink, sendTrialWelcomeEmail } from '@/lib/trial/account';
 import { signInTrialUser } from '@/lib/trial/sign-in';
 import { siteOrigin } from '@/lib/http/site-origin';
-import { upcomingTrialFor } from '@/lib/trial/duplicate';
+import { findTrialConflict, markPrimaryTrial } from '@/lib/trial/conflict';
+import { gradeTag } from '@/lib/grade/tag';
+import { releaseTrialSeat } from '@/lib/trial/cancel';
 import { smsConfigured } from '@/lib/phone/otp';
 import { localWeekdayMinutes, slotIsFree } from '@/lib/scheduling/availability';
 import { slotState, blockingIntervals, canSeat, TRIAL_MINUTES, type SlotBooking } from '@/lib/scheduling/trial-capacity';
@@ -66,6 +68,11 @@ interface Body {
   /** 1-12. Required: a class cannot be banded without it. */
   grade?: number;
   phone?: string;
+  /**
+   * They have seen "you already have a trial for this course and grade" and
+   * said carry on. Without it, a clash is a question rather than a booking.
+   */
+  confirm?: boolean;
   /**
    * ISO-2 of the country the number belongs to, as PICKED by the person.
    *
@@ -358,15 +365,27 @@ export async function POST(req: NextRequest) {
   const studentId = account.studentId;
   const mayAutoSignIn = account.mayAutoSignIn;
 
-  /* ── One free class per course ───────────────────────────────────────────
+  /* ── One live trial per course AND grade ─────────────────────────────────
      Checked only once we know WHO they are, because the answer depends on it.
-     A different course is welcome — see lib/trial/duplicate.ts. */
-  const held = await upcomingTrialFor(admin, studentId, subject, timezone);
-  if (held) {
-    return bad(
-      'duplicate_trial',
-      `You already have a free ${subjectLabel(subject)} class booked for ${held.when}. Cancel that one on your class page first, or pick a different course.`,
-      409
+     The same course at another grade, or another course at this grade, is a
+     different thing entirely and never clashes — see lib/trial/conflict.ts.
+
+     A clash is a QUESTION, not a refusal. They are told what they already
+     have and what carrying on would do; `confirm` is them answering. */
+  const conflict = await findTrialConflict(admin, studentId, subject, grade, timezone);
+  if (conflict && body.confirm !== true) {
+    const course = subjectLabel(subject);
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'trial_conflict',
+        conflict: { kind: conflict.kind, when: conflict.when, course, grade },
+        message:
+          conflict.kind === 'active'
+            ? `You already have a trial booked for ${course} at ${gradeTag(grade)}, on ${conflict.when}. If you continue, that booking is cancelled automatically and this new one becomes your trial for ${course} · ${gradeTag(grade)}.`
+            : `You have already taken a ${course} trial at ${gradeTag(grade)}, on ${conflict.when}. Continuing books a retry, and it becomes your current trial for this course and grade.`,
+      },
+      { status: 409 }
     );
   }
 
@@ -445,6 +464,26 @@ export async function POST(req: NextRequest) {
     if (!signedIn) signInUrl = await trialSignInLink(admin, account.signInEmail, origin);
   }
 
+
+  /* ── The one it replaces, and the one that now counts ────────────────────
+     Only ever after the new class exists. Cancelling first and failing second
+     would leave a family with nothing at all, which is the one outcome worse
+     than two bookings. The cancelled row stays in their history. */
+  if (conflict?.kind === 'active' && conflict.bookingId !== bookingId) {
+    const released = await releaseTrialSeat(admin, {
+      bookingId: conflict.bookingId,
+      studentId,
+      actorId: studentId,
+      reason: `Replaced by a newer ${subjectLabel(subject)} trial at ${gradeTag(grade)}`,
+      cancelType: 'trial_superseded',
+    });
+    if (released.skipped) {
+      console.warn(`[self-book] could not supersede ${conflict.bookingId}: ${released.skipped}`);
+    }
+  }
+  if (bookingId) {
+    await markPrimaryTrial(admin, { studentId, subject, grade, bookingId });
+  }
 
   /* ── Everything the family does not have to wait for ────────────────────
      A booked class and a session are the only two things this request must
@@ -525,5 +564,8 @@ export async function POST(req: NextRequest) {
     signInUrl,
     existingAccount: !mayAutoSignIn,
     newAccount: account.created,
+    /* What happened to the trial they already had, so the page can say so. */
+    replaced: conflict?.kind === 'active' ? conflict.when : null,
+    retryOf: conflict?.kind === 'completed' ? conflict.when : null,
   });
 }
