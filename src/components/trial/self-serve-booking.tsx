@@ -11,6 +11,7 @@ import { trialSubjects, type TrialSubject } from '@/lib/trial/subjects';
 import { COUNTRY_LIST, guessCountry, smsReachable } from '@/lib/phone/countries';
 import { acceptPhone } from '@/lib/phone/accept';
 import { GRADE_CHOICES } from '@/lib/grade/tag';
+
 import {
   DEFAULT_TIME_ZONE, detectTimeZone, timeZoneOptions, timeZoneLabel,
   cityOf, utcOffsetLabel, localTimeLabel,
@@ -275,8 +276,17 @@ export default function SelfServeBooking() {
      "Sign in" button instead. /my-class sends anybody who already has a
      course on to the full student dashboard. */
   useEffect(() => {
-    const alreadyIn = booked?.signedIn || assistedSignedIn;
-    const url = alreadyIn ? TRIAL_PAGE : (booked?.signInUrl ?? assistedUrl);
+    /* Already signed in: go NOW. This used to hold them on a receipt for 2.2
+       seconds — a summary of a page that says the same thing better and has
+       the countdown on it. The one thing worth reading here, that the password
+       is in their inbox, travels with them and is said there. */
+    if (booked?.signedIn || assistedSignedIn) {
+      window.location.assign(`${TRIAL_PAGE}?welcome=1`);
+      return;
+    }
+    /* No session — an identity we could not prove. They get the link instead,
+       and a moment to read why. */
+    const url = booked?.signInUrl ?? assistedUrl;
     if (!url) return;
     const timer = setTimeout(() => window.location.assign(url), 2200);
     return () => clearTimeout(timer);

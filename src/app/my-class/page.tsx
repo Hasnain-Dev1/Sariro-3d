@@ -1,13 +1,7 @@
-'use client';
-
-import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import Image from 'next/image';
-import { Loader2, LogOut, Sparkles, CalendarX } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
-import { useAuth } from '@/components/auth/auth-provider';
-import TrialJourney, { type TrialClass } from '@/components/dashboard/trial-journey';
+import { redirect } from 'next/navigation';
+import { createServerClientHelper, createServiceClient } from '@/lib/supabase/server';
+import { loadTrialPageState } from '@/lib/trial/page-state';
+import MyClassView from './my-class-view';
 
 /**
  * SARIRO — /my-class
@@ -24,273 +18,55 @@ import TrialJourney, { type TrialClass } from '@/components/dashboard/trial-jour
  * So this route is outside /dashboard entirely, has no navigation into it, and
  * renders one thing: when their class starts and how to join it.
  *
- * ── What it deliberately does not have ──────────────────────────────────────
- * No sidebar. No links to courses, lessons, the leaderboard or the practice
- * room. No "explore tracks". The only two ways out are the marketing site and
- * signing out — both of which are places they can already reach.
+ * ── Why the work happens here rather than in the browser ────────────────────
+ * It used to be a client page that found its own class: wait for the auth
+ * provider, ask for the child's seats, ask for the booking, then ask for the
+ * teacher's name. The countdown could not appear until the last of them came
+ * back — measured at 3.3 seconds, at the exact moment a family finishes
+ * booking and most wants to see it.
+ *
+ * Now the answer is found here, before a byte is sent, so the class is inside
+ * the HTML and the countdown is in the first paint. lib/trial/page-state.ts
+ * gets all of it in one query where the database supports it.
  *
  * ── Why it does not sell ────────────────────────────────────────────────────
  * The class has not happened yet. A page pushing them to buy before a teacher
  * has taught them anything is the behaviour of somebody who does not expect
  * the class to do the work. The class does the selling.
  */
+export const dynamic = 'force-dynamic';
 
-export default function MyClassPage() {
-  const router = useRouter();
-  const { user, profile, loading, signOut } = useAuth();
+export default async function MyClassPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ welcome?: string }>;
+}) {
+  const supa = await createServerClientHelper();
+  const { data: { user } } = await supa.auth.getUser();
+  if (!user) redirect('/auth/sign-in?next=/my-class');
 
-  const [trial, setTrial] = useState<TrialClass | null>(null);
-  const [ready, setReady] = useState(false);
-
-  const load = useCallback(async () => {
-    if (!user) return;
-    const sb = createClient();
-    try {
-      /* A trial can hold four children and only the first is named on
-         bookings.trial_student_id, so the join table has to be asked too —
-         otherwise the second and third child see "nothing booked" while their
-         class sits in the diary. */
-      let alsoIn: string[] = [];
-      try {
-        const { data: mine } = await sb
-          .from('trial_participants')
-          .select('booking_id')
-          .eq('student_id', user.id);
-        alsoIn = (mine ?? []).map((r) => r.booking_id as string);
-      } catch { /* the column below still works on its own */ }
-
-      let q = sb
-        .from('bookings')
-        /* No `teacher:profiles!teacher_id(...)` embed: bookings.teacher_id has
-           no foreign key the API can follow, so the embed failed this whole
-           query — returned as an error, not thrown, so the catch never saw it.
-           Every family who booked their own class landed here and was told
-           nothing was booked. The teacher is read separately below. */
-        .select('id, slot_start, slot_end, status, google_meet_url, teacher_id')
-        .eq('is_trial', true)
-        .not('status', 'in', '("cancelled")');
-      q = alsoIn.length
-        ? q.or(`trial_student_id.eq.${user.id},id.in.(${alsoIn.join(',')})`)
-        : q.eq('trial_student_id', user.id);
-
-      const { data } = await q.order('slot_start', { ascending: false }).limit(1);
-      const row = (data ?? [])[0] as unknown as {
-        id: string; slot_start: string; slot_end: string; status: string;
-        google_meet_url: string | null;
-        teacher_id: string | null;
-      } | undefined;
-
-      /* Best effort. A teacher profile that cannot be read leaves the name
-         blank; it must never again hide the class itself. */
-      let teacher: { full_name: string | null; meet_url: string | null } | null = null;
-      if (row?.teacher_id) {
-        const { data: t } = await sb
-          .from('profiles')
-          .select('full_name, meet_url')
-          .eq('id', row.teacher_id)
-          .maybeSingle();
-        teacher = (t as { full_name: string | null; meet_url: string | null } | null) ?? null;
-      }
-
-      setTrial(
-        row
-          ? {
-              id: row.id,
-              slot_start: row.slot_start,
-              slot_end: row.slot_end,
-              status: row.status,
-              // Trials booked before their teacher set a room have no link of
-              // their own; theirs works the moment the teacher fills it in.
-              google_meet_url: row.google_meet_url ?? teacher?.meet_url ?? null,
-              teacher_name: teacher?.full_name ?? null,
-            }
-          : null
-      );
-    } catch {
-      setTrial(null);
-    } finally {
-      setReady(true);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (loading) return;
-    if (!user) {
-      router.replace('/auth/sign-in?next=/my-class');
-      return;
-    }
-    load();
-  }, [user, loading, router, load]);
+  /* Read with the service role, always filtered by this user's own id. The
+     session above is what proves who they are; this is only how their rows are
+     fetched, and it cannot be tripped up by an RLS policy written later. */
+  const { profile, enrolled, trial } = await loadTrialPageState(createServiceClient(), user.id);
 
   /* A student who has since enrolled belongs on the real dashboard. Without
      this they would be stranded here after paying, which is the worst possible
      moment to look broken. */
-  useEffect(() => {
-    if (!user) return;
-    let live = true;
-    (async () => {
-      const { count } = await createClient()
-        .from('enrollments')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id);
-      if (live && (count ?? 0) > 0) router.replace('/dashboard/student');
-    })();
-    return () => { live = false; };
-  }, [user, router]);
+  if (enrolled > 0) redirect('/dashboard/student');
 
-  const firstName =
-    (profile?.full_name || user?.email?.split('@')[0] || 'there').split(' ')[0];
+  const firstName = (profile?.full_name || user.email?.split('@')[0] || 'there').split(' ')[0];
+
+  // ?welcome=1 is set by the booking form, and only by it.
+  const params = await searchParams;
+  const welcomeEmail = params?.welcome === '1' ? (profile?.email ?? user.email ?? null) : null;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      {/* A bar, not a nav. The logo goes to the public site; there is nothing
-          else on it to click into. */}
-      <header className="bg-white border-b border-slate-200">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <Image src="/logo.svg" alt="Sariro" width={28} height={28} priority />
-            <span className="text-lg font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
-              Sariro
-            </span>
-          </Link>
-          <button
-            onClick={() => signOut()}
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-900"
-            style={{ fontFamily: 'var(--font-grotesk)' }}
-          >
-            <LogOut className="w-3.5 h-3.5" /> Sign out
-          </button>
-        </div>
-      </header>
-
-      <main className="flex-1 px-4 sm:px-6 py-10">
-        {loading || !ready ? (
-          <div className="flex items-center justify-center py-24">
-            <Loader2 className="w-6 h-6 text-slate-300 animate-spin" aria-label="Loading" />
-          </div>
-        ) : trial ? (
-          <>
-            <TrialJourney trial={trial} firstName={firstName} timezone={profile?.timezone ?? null} />
-            {/* Only while the class is still ahead of them. The booking form
-                refuses a second free class in the same course until this one is
-                gone, so the way out has to be somewhere they can find it. */}
-            {trial.status === 'scheduled' && new Date(trial.slot_start).getTime() > Date.now() && (
-              <CancelTrial bookingId={trial.id} onCancelled={load} />
-            )}
-          </>
-        ) : (
-          /* Signed in, no trial. Either it was cancelled or they arrived
-             before a seller booked one. Say which is true rather than showing
-             an empty countdown. */
-          <div className="max-w-xl mx-auto text-center">
-            <div className="w-14 h-14 rounded-2xl bg-blue-100 flex items-center justify-center mx-auto mb-5">
-              <Sparkles className="w-6 h-6 text-blue-600" />
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-3" style={{ fontFamily: 'var(--font-jakarta)' }}>
-              We’re arranging your free class, {firstName}.
-            </h1>
-            {/* Most people who land here with no class carried on past "all
-                slots are filled" — the booking form lets them, and a seller
-                now has them in their Needs Slot Assistance queue. Say what is
-                actually happening, and what they will see when it has. */}
-            <p className="text-[15px] text-slate-600 leading-[1.75] mb-6">
-              Your account is ready. A Sariro counsellor will call you on your phone number to arrange
-              the class at a time that suits you — usually within a day. As soon as it is booked, it
-              appears right here with a countdown and a join button.
-            </p>
-            <Link
-              href="/free-class"
-              className="btn-tactile btn-tactile-primary px-6 py-3 text-sm inline-flex items-center justify-center gap-2"
-            >
-              <Sparkles className="w-4 h-4" /> Book a free class
-            </Link>
-            <p className="text-[13px] text-slate-400 mt-8 leading-[1.7]">
-              Expected something here?{' '}
-              <a href="mailto:support@sariro.com" className="font-semibold text-slate-600 hover:text-slate-900">
-                support@sariro.com
-              </a>{' '}
-              and we will sort it out.
-            </p>
-          </div>
-        )}
-      </main>
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════════════════════
-   Calling off a free class
-   ══════════════════════════════════════════════════════════════════════════
-   Deliberately quiet — a small line under the class, not a button competing
-   with "Join". It asks once before doing it, because the seat goes back to a
-   very small pool and a mis-tap costs them their place.
-   ══════════════════════════════════════════════════════════════════════════ */
-
-function CancelTrial({ bookingId, onCancelled }: { bookingId: string; onCancelled: () => void }) {
-  const [asking, setAsking] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  const cancel = async () => {
-    setBusy(true);
-    setErr(null);
-    try {
-      const r = await fetch('/api/trial/cancel', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId }),
-      });
-      const j = await r.json().catch(() => null);
-      if (!r.ok || !j?.ok) {
-        setErr(j?.message ?? 'We could not cancel that. Please try again.');
-        return;
-      }
-      onCancelled();
-    } catch {
-      setErr('Could not reach us just now. Please try again.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="max-w-xl mx-auto mt-8 text-center">
-      {asking ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5">
-          <p className="text-sm text-slate-700 leading-relaxed">
-            Cancel this free class? Your seat goes back, and a counsellor will call to arrange
-            another time. You can book a different course straight away.
-          </p>
-          <div className="mt-4 flex items-center justify-center gap-2">
-            <button
-              onClick={cancel}
-              disabled={busy}
-              className="min-h-[40px] px-4 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 text-sm font-bold disabled:opacity-40 inline-flex items-center gap-2"
-              style={{ fontFamily: 'var(--font-grotesk)' }}
-            >
-              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CalendarX className="w-4 h-4" />}
-              Yes, cancel it
-            </button>
-            <button
-              onClick={() => { setAsking(false); setErr(null); }}
-              disabled={busy}
-              className="min-h-[40px] px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold disabled:opacity-40"
-              style={{ fontFamily: 'var(--font-grotesk)' }}
-            >
-              Keep my class
-            </button>
-          </div>
-          {err && <p className="mt-3 text-sm text-red-600">{err}</p>}
-        </div>
-      ) : (
-        <button
-          onClick={() => setAsking(true)}
-          className="text-[13px] font-semibold text-slate-400 hover:text-slate-700 inline-flex items-center gap-1.5"
-          style={{ fontFamily: 'var(--font-grotesk)' }}
-        >
-          <CalendarX className="w-3.5 h-3.5" /> Cancel this class
-        </button>
-      )}
-    </div>
+    <MyClassView
+      trial={trial}
+      firstName={firstName}
+      timezone={profile?.timezone ?? null}
+      welcomeEmail={welcomeEmail}
+    />
   );
 }

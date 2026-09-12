@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked, recordHoneypotTrip } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
@@ -430,41 +430,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  /* ── A lead, on somebody's desk ─────────────────────────────────────────
-     This used to insert a bare row: a name, a number, no account, no booking
-     and no seller. Five of the thirteen leads in production had nobody
-     assigned, which is five families who booked a free class that nobody was
-     ever told to ring.
-
-     Now it finds the family if we have met them, links the account and the
-     booking, and gives it to whichever seller is carrying the least this
-     month. Best-effort still: the class is booked either way and a CRM write
-     must never be the thing that loses it. */
-  const lead = await linkTrialToLead(admin, {
-    studentId,
-    bookingId: bookingId ?? null,
-    name,
-    email: email || null,
-    phone,
-    grade,
-    subject,
-    source: 'self_book',
-    timezone,
-    /* Was hardcoded 'IN'. Every lead from outside India was therefore recorded
-       as Indian, which is wrong on the lead, wrong in any country breakdown,
-       and wrong for the seller deciding when it is reasonable to ring. */
-    country: accepted.countryCode,
-    actorId: null, // nobody on staff was involved; they booked it themselves
-  });
-  if (lead.error) console.warn('[self-book] lead link failed:', lead.error);
-
-  await admin.from('notifications').insert({
-    user_id: studentId,
-    type: 'trial_booked',
-    title: 'Your free class is booked',
-    message: `You have a trial class with ${teacher.full_name ?? 'a Sariro mentor'}.`,
-    link: TRIAL_HOME,
-  }).then(() => {}, () => {});
 
   /* ── Signed in, here, on our own domain ──────────────────────────────────
      The session is created in this request (lib/trial/sign-in.ts). A magic
@@ -480,25 +445,74 @@ export async function POST(req: NextRequest) {
     if (!signedIn) signInUrl = await trialSignInLink(admin, account.signInEmail, origin);
   }
 
-  /* The booking, and — for a new account — the password for next time. It
-     never blocks the booking: the class exists whether or not the mail
-     server answered, so a failure is logged, not returned. */
-  if (email) {
-    const zone = timezone ?? 'Asia/Kolkata';
-    const when = new Date(startMs).toLocaleString('en-GB', {
-      weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: zone,
-    }) + ` (${cityOf(zone)} time)`;
-    const sent = await sendTrialWelcomeEmail({
-      to: email,
+
+  /* ── Everything the family does not have to wait for ────────────────────
+     A booked class and a session are the only two things this request must
+     finish before it answers — they are what the next page is made of. The
+     lead, the bell and the email are all writes nobody is watching, and
+     awaiting them held the browser on a spinner while a mail server thought
+     about it.
+
+     after() runs them once the response has gone. They still happen, in this
+     same request, with the same admin client; they simply stop being the
+     reason a parent stares at a loading screen. */
+  after(async () => {
+    /* ── A lead, on somebody's desk ─────────────────────────────────────────
+       This used to insert a bare row: a name, a number, no account, no booking
+       and no seller. Five of the thirteen leads in production had nobody
+       assigned, which is five families who booked a free class that nobody was
+       ever told to ring.
+
+       Now it finds the family if we have met them, links the account and the
+       booking, and gives it to whichever seller is carrying the least this
+       month. Best-effort still: the class is booked either way and a CRM write
+       must never be the thing that loses it. */
+    const lead = await linkTrialToLead(admin, {
+      studentId,
+      bookingId: bookingId ?? null,
       name,
-      password: account.password,
-      trial: { when, subject: subjectLabel(subject), teacherName: teacher.full_name ?? null },
-      grade,
+      email: email || null,
       phone,
-      siteUrl: origin,
+      grade,
+      subject,
+      source: 'self_book',
+      timezone,
+      /* Was hardcoded 'IN'. Every lead from outside India was therefore recorded
+         as Indian, which is wrong on the lead, wrong in any country breakdown,
+         and wrong for the seller deciding when it is reasonable to ring. */
+      country: accepted.countryCode,
+      actorId: null, // nobody on staff was involved; they booked it themselves
     });
-    if (!sent.success) console.warn('[self-book] welcome email not sent:', sent.error);
-  }
+    if (lead.error) console.warn('[self-book] lead link failed:', lead.error);
+
+    await admin.from('notifications').insert({
+      user_id: studentId,
+      type: 'trial_booked',
+      title: 'Your free class is booked',
+      message: `You have a trial class with ${teacher.full_name ?? 'a Sariro mentor'}.`,
+      link: TRIAL_HOME,
+    }).then(() => {}, () => {});
+
+    /* The booking, and — for a new account — the password for next time. It
+       never blocks the booking: the class exists whether or not the mail
+       server answered, so a failure is logged, not returned. */
+    if (email) {
+      const zone = timezone ?? 'Asia/Kolkata';
+      const when = new Date(startMs).toLocaleString('en-GB', {
+        weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: zone,
+      }) + ` (${cityOf(zone)} time)`;
+      const sent = await sendTrialWelcomeEmail({
+        to: email,
+        name,
+        password: account.password,
+        trial: { when, subject: subjectLabel(subject), teacherName: teacher.full_name ?? null },
+        grade,
+        phone,
+        siteUrl: origin,
+      });
+      if (!sent.success) console.warn('[self-book] welcome email not sent:', sent.error);
+    }
+  });
 
   return NextResponse.json({
     ok: true,
