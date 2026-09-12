@@ -70,23 +70,29 @@ export async function releaseTrialSeat(
       cancel_reason: input.reason,
       cancel_actor_role: 'student',
     };
+    /* A cancelled trial is never the current one for its course and grade.
+       Said HERE rather than left to markPrimaryTrial, because by the time that
+       runs this booking has no seat row left to find it by — which is exactly
+       how a superseded booking kept reading as primary. */
     let { error } = await admin
       .from('bookings')
-      .update({ ...row, cancel_type: input.cancelType })
+      .update({ ...row, cancel_type: input.cancelType, is_primary_trial: false })
       .eq('id', input.bookingId).eq('status', 'scheduled');
 
     /* ── Why the second attempt ──────────────────────────────────────────
-       bookings.cancel_type has a CHECK listing the five reasons a paid class
-       is ever called off, and a trial is none of them. The whole UPDATE was
-       refused — silently, because nobody read the error — so the seat went
-       and the class stayed in the diary, on the teacher's calendar, with
-       nobody in it.
+       Two columns here are younger than the table. cancel_type has a CHECK
+       listing the five reasons a PAID class is called off, and a trial is none
+       of them; is_primary_trial arrives with scripts/trial-primary.sql. Either
+       one refuses the WHOLE update — silently, because nobody read the error —
+       and the seat went while the class stayed in the diary, on a teacher's
+       calendar, with nobody in it.
 
-       scripts/trial-cancel-reasons.sql adds the two trial reasons. Until it
-       is run, the cancellation still happens; it simply goes unlabelled,
-       which is far better than not happening at all. */
-    if (error?.code === '23514') {
-      console.warn('[trial-cancel] cancel_type refused, cancelling without it — run scripts/trial-cancel-reasons.sql');
+       So the cancellation is retried with only the columns that have always
+       existed. It then goes unlabelled, which is far better than not happening
+       at all. Run scripts/trial-cancel-reasons.sql and scripts/trial-primary.sql
+       and the labels come back. */
+    if (error) {
+      console.warn(`[trial-cancel] cancelling without the newer columns (${error.code}): ${error.message}`);
       ({ error } = await admin
         .from('bookings').update(row).eq('id', input.bookingId).eq('status', 'scheduled'));
     }
