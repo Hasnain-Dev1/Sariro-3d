@@ -6,6 +6,9 @@ import { isHoneypotTripped } from '@/lib/security/honeypot';
 import { acceptPhone } from '@/lib/phone/accept';
 import { isValidTimeZone, canonicalTimeZone, cityOf } from '@/lib/time/timezones';
 import { resolveTrialAccount, trialSignInLink, sendTrialWelcomeEmail } from '@/lib/trial/account';
+import { signInTrialUser } from '@/lib/trial/sign-in';
+import { siteOrigin } from '@/lib/http/site-origin';
+import { upcomingTrialFor } from '@/lib/trial/duplicate';
 import { smsConfigured } from '@/lib/phone/otp';
 import { localWeekdayMinutes, slotIsFree } from '@/lib/scheduling/availability';
 import { slotState, blockingIntervals, canSeat, TRIAL_MINUTES, type SlotBooking } from '@/lib/scheduling/trial-capacity';
@@ -355,6 +358,18 @@ export async function POST(req: NextRequest) {
   const studentId = account.studentId;
   const mayAutoSignIn = account.mayAutoSignIn;
 
+  /* ── One free class per course ───────────────────────────────────────────
+     Checked only once we know WHO they are, because the answer depends on it.
+     A different course is welcome — see lib/trial/duplicate.ts. */
+  const held = await upcomingTrialFor(admin, studentId, subject, timezone);
+  if (held) {
+    return bad(
+      'duplicate_trial',
+      `You already have a free ${subjectLabel(subject)} class booked for ${held.when}. Cancel that one on your class page first, or pick a different course.`,
+      409
+    );
+  }
+
   // ── Book it ───────────────────────────────────────────────────────────────
   const endIso = new Date(startMs + TRIAL_MINUTES * 60_000).toISOString();
   let bookingId = here.joinBookingId;
@@ -451,14 +466,18 @@ export async function POST(req: NextRequest) {
     link: TRIAL_HOME,
   }).then(() => {}, () => {});
 
-  /* Straight into their class page, no email round trip — the funnel is an
-     advert and every extra step loses people. Only ever when the phone proved
-     them; otherwise they are told to sign in, which is the safe answer. */
-  /* Straight into their account: the booking form opens this link the moment
-     the class is booked. Only for an identity this request proved. */
+  /* ── Signed in, here, on our own domain ──────────────────────────────────
+     The session is created in this request (lib/trial/sign-in.ts). A magic
+     link was bouncing through Supabase and coming back to whatever address
+     that project has configured — which was localhost, and stranded every
+     live family. The link survives only as a fallback. Only ever for an
+     identity this request proved. */
+  const origin = siteOrigin(req);
+  let signedIn = false;
   let signInUrl: string | null = null;
   if (mayAutoSignIn && account.signInEmail) {
-    signInUrl = await trialSignInLink(admin, account.signInEmail, new URL(req.url).origin);
+    signedIn = await signInTrialUser(admin, account.signInEmail, account.password);
+    if (!signedIn) signInUrl = await trialSignInLink(admin, account.signInEmail, origin);
   }
 
   /* The booking, and — for a new account — the password for next time. It
@@ -476,7 +495,7 @@ export async function POST(req: NextRequest) {
       trial: { when, subject: subjectLabel(subject), teacherName: teacher.full_name ?? null },
       grade,
       phone,
-      siteUrl: process.env.NEXT_PUBLIC_SITE_URL || new URL(req.url).origin,
+      siteUrl: origin,
     });
     if (!sent.success) console.warn('[self-book] welcome email not sent:', sent.error);
   }
@@ -488,6 +507,7 @@ export async function POST(req: NextRequest) {
     slotEnd: endIso,
     teacherName: teacher.full_name ?? null,
     joined: here.joinBookingId !== null,
+    signedIn,
     signInUrl,
     existingAccount: !mayAutoSignIn,
     newAccount: account.created,

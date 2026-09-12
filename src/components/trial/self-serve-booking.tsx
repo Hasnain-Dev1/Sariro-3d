@@ -53,8 +53,14 @@ import {
 
 type Step = 'timezone' | 'name' | 'phone' | 'email' | 'subject' | 'grade' | 'time' | 'done';
 
+/** Where a signed-in family lands. Mirrors TRIAL_HOME on the server. */
+const TRIAL_PAGE = '/my-class';
+
 /** The order, and what the progress bar counts. `done` is not a step. */
-const FLOW: Step[] = ['timezone', 'name', 'phone', 'email', 'subject', 'grade', 'time'];
+/* Email BEFORE phone: the email is the identity — it is what the account is
+   keyed on, what the password is sent to, and what signs them in. The phone is
+   how a counsellor reaches them, and two children in one family share one. */
+const FLOW: Step[] = ['timezone', 'name', 'email', 'phone', 'subject', 'grade', 'time'];
 
 const STEP_TITLE: Record<Step, string> = {
   timezone: 'Where are you joining from?',
@@ -71,6 +77,8 @@ interface Booked {
   slotStart: string;
   teacherName: string | null;
   signInUrl: string | null;
+  /** The session already exists — just open the class page. */
+  signedIn: boolean;
   existingAccount: boolean;
   /** A new account was made, and its password emailed. */
   newAccount: boolean;
@@ -156,6 +164,7 @@ export default function SelfServeBooking() {
   const [assisted, setAssisted] = useState(false);
   /* The one-time sign-in link for a family who carried on without a slot. */
   const [assistedUrl, setAssistedUrl] = useState<string | null>(null);
+  const [assistedSignedIn, setAssistedSignedIn] = useState(false);
   const [assistedNewAccount, setAssistedNewAccount] = useState(false);
 
   const [busy, setBusy] = useState(false);
@@ -195,7 +204,7 @@ export default function SelfServeBooking() {
       const j = await r.json().catch(() => null);
       if (!r.ok || !j?.ok) { setError(j?.message ?? 'That code did not match.'); return; }
       setPhoneVerified(true);
-      setStep('email');
+      setStep('subject');
     } catch {
       setError('Could not reach us just now. Try again in a moment.');
     } finally { setOtpBusy(false); }
@@ -227,7 +236,7 @@ export default function SelfServeBooking() {
       const j = await r.json().catch(() => null);
       if (!r.ok || !j?.ok) { setError(j?.message ?? 'That code did not match.'); return; }
       setEmailVerified(true);
-      setStep('subject');
+      setStep('phone');
     } catch {
       setError('Could not reach us just now. Try again in a moment.');
     } finally { setEmailBusy(false); }
@@ -266,11 +275,12 @@ export default function SelfServeBooking() {
      "Sign in" button instead. /my-class sends anybody who already has a
      course on to the full student dashboard. */
   useEffect(() => {
-    const url = booked?.signInUrl ?? assistedUrl;
+    const alreadyIn = booked?.signedIn || assistedSignedIn;
+    const url = alreadyIn ? TRIAL_PAGE : (booked?.signInUrl ?? assistedUrl);
     if (!url) return;
     const timer = setTimeout(() => window.location.assign(url), 2200);
     return () => clearTimeout(timer);
-  }, [booked, assistedUrl]);
+  }, [booked, assistedUrl, assistedSignedIn]);
 
   /* ── Book it ───────────────────────────────────────────────────────────── */
   const confirm = async () => {
@@ -295,7 +305,8 @@ export default function SelfServeBooking() {
       }
       setBooked({
         slotStart: j.slotStart, teacherName: j.teacherName,
-        signInUrl: j.signInUrl ?? null, existingAccount: !!j.existingAccount,
+        signInUrl: j.signInUrl ?? null, signedIn: !!j.signedIn,
+        existingAccount: !!j.existingAccount,
         newAccount: !!j.newAccount,
       });
       setStep('done');
@@ -324,6 +335,7 @@ export default function SelfServeBooking() {
       const j = await r.json().catch(() => null);
       if (!r.ok || !j?.ok) { setError(j?.message ?? 'We could not save that. Please ring us instead.'); return; }
       setAssistedUrl(j.signInUrl ?? null);
+      setAssistedSignedIn(!!j.signedIn);
       setAssistedNewAccount(!!j.newAccount);
       setAssisted(true);
     } catch {
@@ -358,12 +370,12 @@ export default function SelfServeBooking() {
             : <>We’ve emailed your booking to <strong>{email}</strong>.</>}
         </p>
 
-        {booked.signInUrl ? (
+        {booked.signedIn || booked.signInUrl ? (
           <>
             <p className="mt-5 text-sm text-slate-600 flex items-center justify-center gap-2">
               <Loader2 className="w-4 h-4 animate-spin" /> Signing you in and opening your class page…
             </p>
-            <a href={booked.signInUrl} className="btn-tactile btn-tactile-primary mt-3 px-6 py-3 text-sm inline-flex items-center justify-center gap-2">
+            <a href={booked.signInUrl ?? TRIAL_PAGE} className="btn-tactile btn-tactile-primary mt-3 px-6 py-3 text-sm inline-flex items-center justify-center gap-2">
               Go to your class page now <ArrowRight className="w-4 h-4" />
             </a>
           </>
@@ -403,7 +415,7 @@ export default function SelfServeBooking() {
             ? <>We’ve emailed the details and a password for next time to <strong>{email}</strong>.</>
             : <>We’ve emailed the details to <strong>{email}</strong>.</>}
         </p>
-        {assistedUrl ? (
+        {assistedSignedIn || assistedUrl ? (
           <p className="mt-5 text-sm text-slate-600 flex items-center justify-center gap-2">
             <Loader2 className="w-4 h-4 animate-spin" /> Signing you in to your account…
           </p>
@@ -509,14 +521,14 @@ export default function SelfServeBooking() {
             type="text"
             value={name}
             onChange={(e) => { setName(e.target.value); setError(null); }}
-            onKeyDown={(e) => { if (e.key === 'Enter' && name.trim().length > 1) setStep('phone'); }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && name.trim().length > 1) setStep('email'); }}
             placeholder="Student's name"
             autoComplete="name"
             autoFocus
             className="w-full h-12 px-3 rounded-xl border border-slate-200 text-[15px] focus:outline-none focus:ring-2 focus:ring-blue-500/40"
             style={{ fontFamily: 'var(--font-inter)' }}
           />
-          <Next onClick={() => setStep('phone')} disabled={name.trim().length < 2}>Continue</Next>
+          <Next onClick={() => setStep('email')} disabled={name.trim().length < 2}>Continue</Next>
         </Field>
       )}
 
@@ -582,7 +594,7 @@ export default function SelfServeBooking() {
                 <p className="mt-3 text-sm text-green-800 bg-green-50 border border-green-200 rounded-xl px-3 py-2 flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4" /> Number confirmed.
                 </p>
-                <Next onClick={() => setStep('email')}>Continue</Next>
+                <Next onClick={() => setStep('subject')}>Continue</Next>
               </>
             ) : codeSent ? (
               <div className="mt-3 flex gap-2">
@@ -611,7 +623,7 @@ export default function SelfServeBooking() {
               </Next>
             )
           ) : (
-            <Next onClick={() => setStep('email')} disabled={!parsedPhone.ok}>Continue</Next>
+            <Next onClick={() => setStep('subject')} disabled={!parsedPhone.ok}>Continue</Next>
           )}
 
           {canVerifyPhone && codeSent && !phoneVerified && (
@@ -624,7 +636,7 @@ export default function SelfServeBooking() {
 
       {/* ══ 4. Email ═══════════════════════════════════════════════════════ */}
       {step === 'email' && (
-        <Field icon={Mail} hint="This is how they sign in to their class page afterwards.">
+        <Field icon={Mail} hint="This is the account: it is how they sign in afterwards, and where we send the class details. One address per child — two children in a family each need their own.">
           <input
             type="email"
             value={email}
@@ -642,7 +654,7 @@ export default function SelfServeBooking() {
               <p className="mt-3 text-sm text-green-800 bg-green-50 border border-green-200 rounded-xl px-3 py-2 flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4" /> Address confirmed.
               </p>
-              <Next onClick={() => setStep('subject')}>Continue</Next>
+              <Next onClick={() => setStep('phone')}>Continue</Next>
             </>
           ) : emailCodeSent ? (
             <div className="mt-3 flex gap-2">
@@ -710,7 +722,7 @@ export default function SelfServeBooking() {
       {step === 'grade' && (
         <Field
           icon={GraduationCap}
-          hint="A trial holds learners at the same level, so the class is pitched right. U is an undergraduate; P is a graduate or working professional."
+          hint="A trial holds learners at the same level, so the class is pitched right."
         >
           <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
             {GRADE_CHOICES.filter((c) => c.value <= 12).map((c) => (
@@ -746,6 +758,13 @@ export default function SelfServeBooking() {
               </button>
             ))}
           </div>
+          {/* Nobody outside this office knows what "G7" means until they are
+              told once. Said here, where the choice is made. */}
+          <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
+            <strong className="text-slate-600">G is for grade</strong> — G1 is Grade 1, G7 is Grade 7, up to G12.
+            <strong className="text-slate-600"> U</strong> is an undergraduate, and
+            <strong className="text-slate-600"> P</strong> a graduate or working professional.
+          </p>
           <Next onClick={goToTimes} disabled={grade === null || !phoneUsable}>Find me a time</Next>
         </Field>
       )}

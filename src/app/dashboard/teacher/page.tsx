@@ -48,7 +48,7 @@ import { createClient } from '@/lib/supabase/client';
 import PayHeldPanel from '@/components/dashboard/pay-held-panel';
 import { fetchMyAssignments } from '@/lib/dashboard/teacher-assignments-data';
 import { subjectLabel } from '@/lib/trial/subjects';
-import { gradeTag } from '@/lib/grade/tag';
+import { gradeTag, gradeName } from '@/lib/grade/tag';
 
 /* ───── Helpers ───── */
 function levelDisplay(level: string): string {
@@ -271,7 +271,7 @@ function BookingCard({
               {booking.roster.map((s) => (
                 <span key={s.id} className="inline-flex items-center gap-1 text-xs font-bold text-slate-600">
                   {s.name}
-                  <span className="px-1 py-0.5 rounded text-[9px] font-black bg-slate-100 text-slate-600">
+                  <span className="px-1 py-0.5 rounded text-[9px] font-black bg-slate-100 text-slate-600" title={gradeName(s.grade)}>
                     {gradeTag(s.grade)}
                   </span>
                   {/* The teacher's half of the credit pause. Without it they

@@ -16,12 +16,17 @@ import { gradeTag } from '@/lib/grade/tag';
  * One implementation, because two copies of "who is this person" is two
  * chances to hand somebody the wrong account.
  *
- * ── Who they are, and when they are signed straight in ──────────────────────
- * Nothing but a PROVED identity signs anybody in:
+ * ── The email is the account, and the phone is not ──────────────────────────
+ * Identity is the EMAIL. Two children in one family share one number, and each
+ * of them needs their own class page, their own grade and their own history —
+ * so a phone match is a coincidence, not a person. The number is still written
+ * to the profile, because it is how a counsellor reaches them.
  *
- *   phone matches an account, and the phone was verified   → that account, signed in
  *   email matches an account, and the email was verified   → that account, signed in
- *   neither                                                  → a new account, signed in
+ *   no email at all (a staff caller), and the phone matches → that account
+ *   otherwise                                                → a new account, signed in
+ *
+ * Nothing but a PROVED identity signs anybody in.
  *
  * A match on something merely typed — a foreign number no SMS can reach, or an
  * email whose check could not run — still books against the account, but does
@@ -104,28 +109,34 @@ export async function resolveTrialAccount(
     return { ok: true, studentId: id, created: false, mayAutoSignIn: proved, password: null, signInEmail: accountEmail };
   };
 
-  const { data: byPhone } = await admin
-    .from('profiles').select('id, email').eq('phone', input.phone).limit(1).maybeSingle();
-  if (byPhone) return existing(byPhone.id as string, (byPhone.email as string | null) ?? null, input.phoneProved);
-
   if (input.email) {
     const { data: byEmail } = await admin
       .from('profiles').select('id').eq('email', input.email).limit(1).maybeSingle();
     if (byEmail) return existing(byEmail.id as string, input.email, input.emailProved);
+  } else {
+    /* No email was given at all — a staff caller booking on somebody's behalf.
+       Then the phone is the only identity there is, and matching it beats
+       opening a second account for a family that already has one. */
+    const { data: byPhone } = await admin
+      .from('profiles').select('id, email').eq('phone', input.phone).limit(1).maybeSingle();
+    if (byPhone) return existing(byPhone.id as string, (byPhone.email as string | null) ?? null, input.phoneProved);
   }
 
   /* ── Somebody new ────────────────────────────────────────────────────────── */
   const password = input.email ? generatePassword() : null;
+  /* The phone is deliberately NOT put on the auth record. Supabase keeps phone
+     numbers unique there and refuses the second account outright —
+     "phone_exists", verified against this project — so a brother booking after
+     his sister would be turned away at the door. It lives on the profile
+     instead, where two rows may share a number and where every screen reads it
+     from anyway. Only a family with no email at all still rests on the phone,
+     because then it is the one identity they have. */
   const { data: created, error: createErr } = await admin.auth.admin.createUser(
     input.email
       ? {
           email: input.email,
           password: password as string,
           email_confirm: true,
-          phone: input.phone,
-          /* Only what was proved. A foreign number no SMS reached is recorded,
-             not vouched for. */
-          phone_confirm: input.phoneProved,
           user_metadata: { full_name: input.name },
         }
       : { phone: input.phone, phone_confirm: input.phoneProved, user_metadata: { full_name: input.name } }

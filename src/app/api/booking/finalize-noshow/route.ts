@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClientHelper, createServiceClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
-import { generateOccurrences } from '@/lib/dashboard/schedule-generation';
+import { finaliseNoShow, NO_SHOW_COLUMNS, type NoShowBooking } from '@/lib/classes/finalise-no-show';
 
 /**
  * SARIRO — POST /api/booking/finalize-noshow  { bookingId }
@@ -22,8 +22,9 @@ import { generateOccurrences } from '@/lib/dashboard/schedule-generation';
  */
 export const runtime = 'nodejs';
 
-const NO_SHOW_THRESHOLD_MIN = 10;
-const NO_SHOW_PENALTY = 1000;
+/* The rule, the penalty and every write live in lib/classes/finalise-no-show.ts,
+   because the hourly sweep in /api/cron/finalise-no-shows has to reach exactly
+   the same verdict as a person clicking here. */
 
 export async function POST(req: NextRequest) {
   if (req.headers.get('origin')) {
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
 
   const { data: booking } = await admin
     .from('bookings')
-    .select('id, cohort_id, teacher_id, schedule_id, slot_start, slot_end, status, teacher_started_at, is_trial, trial_student_id')
+    .select(NO_SHOW_COLUMNS)
     .eq('id', bookingId)
     .maybeSingle();
   if (!booking) return NextResponse.json({ ok: false, error: 'not_found' }, { status: 404 });
@@ -89,81 +90,16 @@ export async function POST(req: NextRequest) {
   }
   if (!related) return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
 
-  // Server-side condition — the real gate.
-  const now = Date.now();
-  const lateMs = now - new Date(booking.slot_start).getTime();
-  if (booking.status !== 'scheduled' || booking.teacher_started_at || lateMs < NO_SHOW_THRESHOLD_MIN * 60_000) {
-    return NextResponse.json({ ok: false, error: 'not_yet', message: 'No-show conditions not met.' }, { status: 409 });
-  }
+  /* The verdict, and every write that follows it, belong to the library —
+     see lib/classes/finalise-no-show.ts. This route's own job is finished: it
+     worked out that the caller is allowed to ask. */
+  const outcome = await finaliseNoShow(admin, booking as unknown as NoShowBooking);
 
-  // 1. Mark no_show (guarded so a race can only win once).
-  const { data: updated, error: uErr } = await admin
-    .from('bookings').update({ status: 'no_show' }).eq('id', bookingId).eq('status', 'scheduled').select('id');
-  if (uErr) return NextResponse.json({ ok: false, error: 'update_failed', message: uErr.message }, { status: 500 });
-  if (!updated || updated.length === 0) return NextResponse.json({ ok: true, already: true }); // lost the race → someone else finalised
+  if (!outcome.ok) {
+    const status = outcome.reason === 'not_yet' ? 409 : 500;
+    return NextResponse.json({ ok: false, error: outcome.reason, message: outcome.message }, { status });
+  }
+  if (outcome.already) return NextResponse.json({ ok: true, already: true });
 
-  // 2. −₹1000 penalty earning (skip if one already exists for this booking).
-  const { data: existing } = await admin.from('teacher_earnings').select('id').eq('booking_id', bookingId).maybeSingle();
-  if (!existing) {
-    // Guarded: a trial has no cohort, and `id = null` is not a lookup.
-    const { data: cohort } = booking.cohort_id
-      ? await admin.from('cohorts').select('ratio, track, level').eq('id', booking.cohort_id).maybeSingle()
-      : { data: null };
-    await admin.from('teacher_earnings').insert({
-      teacher_id: booking.teacher_id, booking_id: bookingId, class_date: booking.slot_start,
-      ratio: cohort?.ratio ?? null, track: cohort?.track ?? null, level: cohort?.level ?? null,
-      student_count: 0, base_amount: 0, bonus_amount: 0,
-      penalty_amount: NO_SHOW_PENALTY, penalty_reason: 'No-show / >10 min late',
-      net_amount: -NO_SHOW_PENALTY, amount: -NO_SHOW_PENALTY, status: 'pending',
-    });
-  }
-
-  /* 3. Excuse everybody who was due in the room (no credit consumed).
-        Enrolments for an ordinary class, the trial roster for a trial — a
-        trial student is in neither enrolments nor a cohort, so reading only
-        enrolments left the child who turned up with no attendance record at
-        all against a class their teacher missed. */
-  const excusing = new Set<string>();
-  if (booking.cohort_id) {
-    const { data: enrs } = await admin.from('enrollments')
-      .select('user_id').eq('cohort_id', booking.cohort_id).eq('status', 'active');
-    for (const e of enrs ?? []) excusing.add(e.user_id as string);
-  }
-  if (booking.is_trial) {
-    if (booking.trial_student_id) excusing.add(booking.trial_student_id as string);
-    const { data: seats } = await admin.from('trial_participants')
-      .select('student_id').eq('booking_id', bookingId);
-    for (const s of seats ?? []) excusing.add(s.student_id as string);
-  }
-  for (const studentId of excusing) {
-    await admin.from('session_attendance').upsert(
-      { booking_id: bookingId, student_id: studentId, status: 'excused', marked_at: new Date().toISOString() },
-      { onConflict: 'booking_id,student_id' }
-    );
-  }
-
-  // 4. Append one make-up class at the end of the schedule (cascade forward).
-  let appended = false;
-  if (booking.schedule_id) {
-    const { data: sched } = await admin.from('cohort_schedules').select('*').eq('id', booking.schedule_id).maybeSingle();
-    if (sched && sched.status === 'active') {
-      const { data: last } = await admin.from('bookings').select('slot_start')
-        .eq('schedule_id', sched.id).in('status', ['scheduled', 'completed'])
-        .order('slot_start', { ascending: false }).limit(1).maybeSingle();
-      const after = last ? new Date(last.slot_start) : new Date(booking.slot_start);
-      const slots = generateOccurrences({
-        startDate: sched.start_date, daysOfWeek: sched.days_of_week, timeLocal: sched.time_local,
-        durationMin: sched.duration_min, timezone: sched.timezone,
-      }, 1, after);
-      if (slots[0]) {
-        await admin.from('bookings').insert({
-          cohort_id: booking.cohort_id, teacher_id: booking.teacher_id, schedule_id: sched.id,
-          slot_start: slots[0].slotStart, slot_end: slots[0].slotEnd, status: 'scheduled',
-        });
-        appended = true;
-      }
-    }
-  }
-
-  return NextResponse.json({ ok: true, finalized: true, makeup_appended: appended });
+  return NextResponse.json({ ok: true, finalized: true, makeup_appended: outcome.makeupAppended });
 }

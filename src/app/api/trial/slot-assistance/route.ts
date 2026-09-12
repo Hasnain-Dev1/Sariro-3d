@@ -11,6 +11,8 @@ import { MIN_GRADE, MAX_GRADE } from '@/lib/trial/grade-band';
 import { gradeTag } from '@/lib/grade/tag';
 import { isValidTimeZone, canonicalTimeZone } from '@/lib/time/timezones';
 import { resolveTrialAccount, trialSignInLink, sendTrialWelcomeEmail } from '@/lib/trial/account';
+import { signInTrialUser } from '@/lib/trial/sign-in';
+import { siteOrigin } from '@/lib/http/site-origin';
 import { recordEvent } from '@/lib/events/log';
 import { bestEffort } from '@/lib/supabase/best-effort';
 
@@ -227,9 +229,14 @@ export async function POST(req: NextRequest) {
   }
 
   /* ── Straight into their account, and the email that brings them back ─── */
-  const signInUrl = account.mayAutoSignIn && account.signInEmail
-    ? await trialSignInLink(admin, account.signInEmail, new URL(req.url).origin)
-    : null;
+  /* Signed in here rather than through a link — see lib/trial/sign-in.ts. */
+  const origin = siteOrigin(req);
+  let signedIn = false;
+  let signInUrl: string | null = null;
+  if (account.mayAutoSignIn && account.signInEmail) {
+    signedIn = await signInTrialUser(admin, account.signInEmail, account.password);
+    if (!signedIn) signInUrl = await trialSignInLink(admin, account.signInEmail, origin);
+  }
 
   const sent = await sendTrialWelcomeEmail({
     to: email,
@@ -246,6 +253,7 @@ export async function POST(req: NextRequest) {
     ok: true,
     leadId: result.leadId,
     assigned: Boolean(result.sellerId),
+    signedIn,
     signInUrl,
     existingAccount: !account.mayAutoSignIn,
     newAccount: account.created,

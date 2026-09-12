@@ -44,6 +44,7 @@ export type DomainEvent =
   | 'trial.booked'
   | 'trial.completed'
   | 'trial.no_show'
+  | 'trial.cancelled'
   | 'trial.slot_assistance'
   // Sales pipeline
   | 'lead.assigned'
@@ -128,6 +129,7 @@ export const EVENT_LABELS: Record<DomainEvent, string> = {
   'trial.booked': 'Trial booked',
   'trial.completed': 'Trial completed',
   'trial.no_show': 'Student did not attend',
+  'trial.cancelled': 'Family cancelled the trial',
   'trial.slot_assistance': 'No offered time worked',
   'lead.assigned': 'Assigned to a seller',
   'lead.transferred': 'Moved to another seller',

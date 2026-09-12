@@ -8,7 +8,7 @@ import {
 import { inr, type IncentiveBreakdown } from '@/lib/seller/incentives';
 import { pct, type MetricWindows } from '@/lib/seller/metrics';
 import { PAYMENT_STATUS_LABELS, monthLabel } from '@/lib/seller/payout';
-import { gradeTag } from '@/lib/grade/tag';
+import { gradeTag, gradeName } from '@/lib/grade/tag';
 
 /**
  * SARIRO — HR's half of the sales pipeline
@@ -345,7 +345,7 @@ function PunchRow({ lead, onDone }: { lead: WaitingLead; onDone: (msg: string) =
         <div className="min-w-0">
           <p className="text-sm font-bold text-slate-900">
             {lead.student_name || 'Unnamed'}
-            <span className="ml-1.5 text-[11px] font-semibold text-slate-500">{gradeTag(lead.grade)}</span>
+            <span className="ml-1.5 text-[11px] font-semibold text-slate-500" title={gradeName(lead.grade)}>{gradeTag(lead.grade)}</span>
           </p>
           <p className="text-[11px] text-slate-500 mt-0.5">
             {lead.subject || 'No subject'} · {lead.email || 'no email'} · {lead.phone || 'no phone'}

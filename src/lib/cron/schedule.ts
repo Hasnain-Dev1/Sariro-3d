@@ -62,6 +62,16 @@ const JOBS: Job[] = [
     offsetMs: 90_000,
   },
   {
+    /* The class the teacher never started. Every fifteen minutes, because the
+       family sitting in an empty room is owed an answer the same morning — not
+       tomorrow. The route only decides classes from the last two days, so a
+       restart cannot suddenly charge a teacher for a fortnight of history. */
+    name: 'finalise-no-shows',
+    path: '/api/cron/finalise-no-shows',
+    everyMs: 15 * MINUTE,
+    offsetMs: 120_000,
+  },
+  {
     /* Settlement is due on the 5th at 10:00 IST and the route settles only
        what is due. Twice an hour costs nothing and means a process that was
        restarted at 09:58 still pays people on time. */

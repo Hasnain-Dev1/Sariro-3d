@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Loader2, LogOut, Sparkles } from 'lucide-react';
+import { Loader2, LogOut, Sparkles, CalendarX } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/components/auth/auth-provider';
 import TrialJourney, { type TrialClass } from '@/components/dashboard/trial-journey';
@@ -169,7 +169,15 @@ export default function MyClassPage() {
             <Loader2 className="w-6 h-6 text-slate-300 animate-spin" aria-label="Loading" />
           </div>
         ) : trial ? (
-          <TrialJourney trial={trial} firstName={firstName} timezone={profile?.timezone ?? null} />
+          <>
+            <TrialJourney trial={trial} firstName={firstName} timezone={profile?.timezone ?? null} />
+            {/* Only while the class is still ahead of them. The booking form
+                refuses a second free class in the same course until this one is
+                gone, so the way out has to be somewhere they can find it. */}
+            {trial.status === 'scheduled' && new Date(trial.slot_start).getTime() > Date.now() && (
+              <CancelTrial bookingId={trial.id} onCancelled={load} />
+            )}
+          </>
         ) : (
           /* Signed in, no trial. Either it was cancelled or they arrived
              before a seller booked one. Say which is true rather than showing
@@ -206,6 +214,83 @@ export default function MyClassPage() {
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Calling off a free class
+   ══════════════════════════════════════════════════════════════════════════
+   Deliberately quiet — a small line under the class, not a button competing
+   with "Join". It asks once before doing it, because the seat goes back to a
+   very small pool and a mis-tap costs them their place.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+function CancelTrial({ bookingId, onCancelled }: { bookingId: string; onCancelled: () => void }) {
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const cancel = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      const r = await fetch('/api/trial/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId }),
+      });
+      const j = await r.json().catch(() => null);
+      if (!r.ok || !j?.ok) {
+        setErr(j?.message ?? 'We could not cancel that. Please try again.');
+        return;
+      }
+      onCancelled();
+    } catch {
+      setErr('Could not reach us just now. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="max-w-xl mx-auto mt-8 text-center">
+      {asking ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+          <p className="text-sm text-slate-700 leading-relaxed">
+            Cancel this free class? Your seat goes back, and a counsellor will call to arrange
+            another time. You can book a different course straight away.
+          </p>
+          <div className="mt-4 flex items-center justify-center gap-2">
+            <button
+              onClick={cancel}
+              disabled={busy}
+              className="min-h-[40px] px-4 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 text-sm font-bold disabled:opacity-40 inline-flex items-center gap-2"
+              style={{ fontFamily: 'var(--font-grotesk)' }}
+            >
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CalendarX className="w-4 h-4" />}
+              Yes, cancel it
+            </button>
+            <button
+              onClick={() => { setAsking(false); setErr(null); }}
+              disabled={busy}
+              className="min-h-[40px] px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold disabled:opacity-40"
+              style={{ fontFamily: 'var(--font-grotesk)' }}
+            >
+              Keep my class
+            </button>
+          </div>
+          {err && <p className="mt-3 text-sm text-red-600">{err}</p>}
+        </div>
+      ) : (
+        <button
+          onClick={() => setAsking(true)}
+          className="text-[13px] font-semibold text-slate-400 hover:text-slate-700 inline-flex items-center gap-1.5"
+          style={{ fontFamily: 'var(--font-grotesk)' }}
+        >
+          <CalendarX className="w-3.5 h-3.5" /> Cancel this class
+        </button>
+      )}
     </div>
   );
 }
