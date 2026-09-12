@@ -24,8 +24,9 @@ describe('bandFor', () => {
     assert.deepEqual(bandFor(1), { anchor: 1, min: 1, max: 2 });
   });
 
-  test('the band never runs above grade 12', () => {
-    assert.deepEqual(bandFor(12), { anchor: 12, min: 11, max: 12 });
+  test('a G12 band reaches up to U, and the scale stops at P', () => {
+    assert.deepEqual(bandFor(12), { anchor: 12, min: 11, max: 13 });
+    assert.deepEqual(bandFor(14), { anchor: 14, min: 13, max: 14 });
   });
 
   test('a grade outside the school is pulled back into it', () => {
@@ -83,14 +84,14 @@ describe('fits', () => {
     const senior = bandFor(10);
     const r = fits(1, senior);
     assert.equal(r.ok, false);
-    assert.match(r.message, /grades 9–11/);
+    assert.match(r.message, /G9–G11/);
   });
 
   test('the refusal says which grades the class IS for', () => {
     // A seller reading "not allowed" has to guess. This tells them what to
     // look for instead.
-    assert.match(fits(9, band).message, /grades 5–7/);
-    assert.match(fits(9, band).message, /grade 9/);
+    assert.match(fits(9, band).message, /G5–G7/);
+    assert.match(fits(9, band).message, /G9 student/);
   });
 
   test('an unknown grade is refused, not waved through', () => {
@@ -117,15 +118,16 @@ describe('fits', () => {
 
 describe('bandLabel', () => {
   test('reads as a range', () => {
-    assert.equal(bandLabel(bandFor(6)), 'Grades 5–7');
+    assert.equal(bandLabel(bandFor(6)), 'G5–G7');
   });
 
   test('a clamped band at the edge reads sensibly', () => {
-    assert.equal(bandLabel(bandFor(1)), 'Grades 1–2');
+    assert.equal(bandLabel(bandFor(1)), 'G1–G2');
   });
 
   test('no band yet says so rather than pretending', () => {
     assert.equal(bandLabel(null), 'Any grade');
+    assert.equal(bandLabel(bandFor(13)), 'G12 · U · P');
   });
 });
 

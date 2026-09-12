@@ -14,6 +14,7 @@ import {
 } from '@/lib/dashboard/leads-data';
 import { previewInvoice, recordSale, type InvoicePreview } from '@/lib/dashboard/sales-ledger';
 import { useRealtime } from '@/lib/dashboard/use-realtime';
+import { gradeTag } from '@/lib/grade/tag';
 import { TRACKS } from '@/lib/sariro-data';
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -236,6 +237,8 @@ function SellerLeadRow({
       {/* Student name + email */}
       <td className="py-2 px-2">
         <p className="font-bold text-slate-900 truncate max-w-[150px]" style={{ fontFamily: 'var(--font-jakarta)' }}>
+          {/* The tag leads, so a long name truncates and the tag survives. */}
+          <span className="mr-1 text-[10px] font-black text-slate-500 bg-slate-100 rounded px-1 py-0.5 align-middle">{gradeTag(lead.grade)}</span>
           {lead.student_name}
         </p>
         {lead.email && <p className="text-[10px] text-slate-400 truncate max-w-[150px]">{lead.email}</p>}
@@ -334,7 +337,8 @@ function SellerHistoryModal({ lead, onClose }: { lead: StudentLead; onClose: () 
               </span>
             </div>
             <h3 className="font-extrabold text-slate-900 text-base" style={{ fontFamily: 'var(--font-jakarta)' }}>
-              {lead.student_name}
+              {lead.student_name}{' '}
+              <span className="text-[10px] font-black text-slate-500 bg-slate-100 rounded px-1.5 py-0.5 align-middle">{gradeTag(lead.grade)}</span>
             </h3>
             <p className="text-xs text-slate-500">
               {lead.phone} · {lead.email ?? 'No email'} · {lead.country ?? 'Unknown country'}

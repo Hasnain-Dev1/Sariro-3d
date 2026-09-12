@@ -7,10 +7,10 @@ import {
 } from 'lucide-react';
 import { HoneypotField } from '@/components/security/honeypot';
 import { groupByDay, slotLabel, type PublicSlot } from '@/lib/trial/public-slots';
-import type { TrialSubject } from '@/lib/trial/subjects';
+import { trialSubjects, type TrialSubject } from '@/lib/trial/subjects';
 import { COUNTRY_LIST, guessCountry, smsReachable } from '@/lib/phone/countries';
 import { acceptPhone } from '@/lib/phone/accept';
-import { MIN_GRADE, MAX_GRADE } from '@/lib/trial/grade-band';
+import { GRADE_CHOICES } from '@/lib/grade/tag';
 import {
   DEFAULT_TIME_ZONE, detectTimeZone, timeZoneOptions, timeZoneLabel,
   cityOf, utcOffsetLabel, localTimeLabel,
@@ -72,6 +72,8 @@ interface Booked {
   teacherName: string | null;
   signInUrl: string | null;
   existingAccount: boolean;
+  /** A new account was made, and its password emailed. */
+  newAccount: boolean;
 }
 
 /** Group for the <optgroup> headings, once per fetch rather than per keystroke. */
@@ -120,12 +122,12 @@ export default function SelfServeBooking() {
   const [name, setName] = useState('');
   const [grade, setGrade] = useState<number | null>(null);
   const [subject, setSubject] = useState('');
-  /* What can actually be taught today, asked of the server rather than taken
-     from the catalogue. The catalogue has 28 entries and only 5 of them have
-     an approved teacher with a room — offering the other 23 means a parent
-     picks Mathematics, which the page above promises, and is told there is
-     nobody. Null while loading; empty means nobody is available for anything. */
-  const [subjects, setSubjects] = useState<TrialSubject[] | null>(null);
+  /* Every course, whether or not a teacher is free for it today — the
+     founder's call. A family who picks one with nobody free is not turned
+     away: the time step says every slot is filled and lets them carry on, and
+     a counsellor arranges the class. Hiding the course would lose them before
+     they had even asked. */
+  const subjects: TrialSubject[] = trialSubjects();
 
   const [email, setEmail] = useState('');
   const [emailBusy, setEmailBusy] = useState(false);
@@ -152,6 +154,9 @@ export default function SelfServeBooking() {
   const [assistOpen, setAssistOpen] = useState(false);
   const [preference, setPreference] = useState('');
   const [assisted, setAssisted] = useState(false);
+  /* The one-time sign-in link for a family who carried on without a slot. */
+  const [assistedUrl, setAssistedUrl] = useState<string | null>(null);
+  const [assistedNewAccount, setAssistedNewAccount] = useState(false);
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -163,20 +168,6 @@ export default function SelfServeBooking() {
   const parsedPhone = useMemo(() => acceptPhone(phone, country), [phone, country]);
   const phoneUsable = parsedPhone.ok && (canVerifyPhone ? phoneVerified : true);
 
-  /* What we can actually teach, fetched once when the form mounts. */
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const r = await fetch('/api/trial/subjects');
-        const j = await r.json().catch(() => null);
-        if (!cancelled) setSubjects(j?.ok ? (j.subjects as TrialSubject[]) : []);
-      } catch {
-        if (!cancelled) setSubjects([]);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
 
   /* ── The phone, proved (India only) ─────────────────────────────────────── */
   const sendCode = async () => {
@@ -268,6 +259,19 @@ export default function SelfServeBooking() {
 
   const days = useMemo(() => (slots ? groupByDay(slots, tz) : []), [slots, tz]);
 
+  /* ── Straight into their account ────────────────────────────────────────
+     Finish the form, land signed in on the class page. The one-time link from
+     the booking route does that; the pause is only long enough to read
+     "booked". A family who could not be signed in automatically keeps the
+     "Sign in" button instead. /my-class sends anybody who already has a
+     course on to the full student dashboard. */
+  useEffect(() => {
+    const url = booked?.signInUrl ?? assistedUrl;
+    if (!url) return;
+    const timer = setTimeout(() => window.location.assign(url), 2200);
+    return () => clearTimeout(timer);
+  }, [booked, assistedUrl]);
+
   /* ── Book it ───────────────────────────────────────────────────────────── */
   const confirm = async () => {
     if (!chosen || !parsedPhone.ok) return;
@@ -292,6 +296,7 @@ export default function SelfServeBooking() {
       setBooked({
         slotStart: j.slotStart, teacherName: j.teacherName,
         signInUrl: j.signInUrl ?? null, existingAccount: !!j.existingAccount,
+        newAccount: !!j.newAccount,
       });
       setStep('done');
     } catch {
@@ -318,6 +323,8 @@ export default function SelfServeBooking() {
       });
       const j = await r.json().catch(() => null);
       if (!r.ok || !j?.ok) { setError(j?.message ?? 'We could not save that. Please ring us instead.'); return; }
+      setAssistedUrl(j.signInUrl ?? null);
+      setAssistedNewAccount(!!j.newAccount);
       setAssisted(true);
     } catch {
       setError('Could not reach us just now. Please try again.');
@@ -345,11 +352,21 @@ export default function SelfServeBooking() {
         <p className="mt-1 text-sm text-slate-600">
           {cityOf(tz)} time. Thirty minutes, nothing to pay, and no card anywhere.
         </p>
+        <p className="mt-3 text-sm text-slate-700">
+          {booked.newAccount
+            ? <>We’ve emailed your booking and a password for next time to <strong>{email}</strong>.</>
+            : <>We’ve emailed your booking to <strong>{email}</strong>.</>}
+        </p>
 
         {booked.signInUrl ? (
-          <a href={booked.signInUrl} className="btn-tactile btn-tactile-primary mt-6 px-6 py-3 text-sm inline-flex items-center justify-center gap-2">
-            Go to your class page <ArrowRight className="w-4 h-4" />
-          </a>
+          <>
+            <p className="mt-5 text-sm text-slate-600 flex items-center justify-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" /> Signing you in and opening your class page…
+            </p>
+            <a href={booked.signInUrl} className="btn-tactile btn-tactile-primary mt-3 px-6 py-3 text-sm inline-flex items-center justify-center gap-2">
+              Go to your class page now <ArrowRight className="w-4 h-4" />
+            </a>
+          </>
         ) : (
           /* They already have an account on that email. We will not hand out a
              session for an identity this request did not prove — they sign in
@@ -378,12 +395,23 @@ export default function SelfServeBooking() {
           We will ring you.
         </h2>
         <p className="mt-2 text-[15px] text-slate-700">
-          Somebody from Sariro will call {parsedPhone.ok ? parsedPhone.e164 : 'you'} and find a time
-          that suits — usually within a day.
+          A Sariro counsellor will call {parsedPhone.ok ? parsedPhone.e164 : 'you'} and arrange the class
+          at a time that suits you — usually within a day.
         </p>
         <p className="mt-1 text-sm text-slate-600">
-          Nothing is booked yet, so there is nothing for you to cancel.
+          {assistedNewAccount
+            ? <>We’ve emailed the details and a password for next time to <strong>{email}</strong>.</>
+            : <>We’ve emailed the details to <strong>{email}</strong>.</>}
         </p>
+        {assistedUrl ? (
+          <p className="mt-5 text-sm text-slate-600 flex items-center justify-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin" /> Signing you in to your account…
+          </p>
+        ) : (
+          <a href="/auth/sign-in?next=/my-class" className="btn-tactile btn-tactile-primary mt-6 px-6 py-3 text-sm inline-flex items-center justify-center gap-2">
+            Sign in to your account <ArrowRight className="w-4 h-4" />
+          </a>
+        )}
       </div>
     );
   }
@@ -658,24 +686,17 @@ export default function SelfServeBooking() {
       {step === 'subject' && (
         <Field
           icon={BookOpen}
-          hint={
-            subjects !== null && subjects.length === 0
-              ? 'Every teacher is fully booked at the moment. Leave your number and we will ring you.'
-              : 'Only what a teacher is free to take this fortnight.'
-          }
+          hint="Every course we teach. If every slot for it is taken, you can still book — a counsellor will arrange the time."
         >
           <select
             value={subject}
             onChange={(e) => { setSubject(e.target.value); setError(null); }}
-            disabled={subjects === null || subjects.length === 0}
             autoFocus
             className="w-full h-12 px-3 rounded-xl border border-slate-200 text-[15px] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/40 disabled:bg-slate-50"
             style={{ fontFamily: 'var(--font-inter)' }}
           >
-            <option value="">
-              {subjects === null ? 'Loading…' : subjects.length === 0 ? 'Nothing free right now' : 'Choose a subject…'}
-            </option>
-            {groupSubjects(subjects ?? []).map(([group, items]) => (
+            <option value="">Choose a course…</option>
+            {groupSubjects(subjects).map(([group, items]) => (
               <optgroup key={group} label={group}>
                 {items.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
               </optgroup>
@@ -689,21 +710,39 @@ export default function SelfServeBooking() {
       {step === 'grade' && (
         <Field
           icon={GraduationCap}
-          hint="A trial holds four children within a year of each other, so a class is always pitched right."
+          hint="A trial holds learners at the same level, so the class is pitched right. U is an undergraduate; P is a graduate or working professional."
         >
           <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-            {Array.from({ length: MAX_GRADE - MIN_GRADE + 1 }, (_, i) => MIN_GRADE + i).map((g) => (
+            {GRADE_CHOICES.filter((c) => c.value <= 12).map((c) => (
               <button
-                key={g}
-                onClick={() => { setGrade(g); setError(null); }}
+                key={c.value}
+                onClick={() => { setGrade(c.value); setError(null); }}
                 className={`h-12 rounded-xl border-2 text-sm font-bold transition-colors ${
-                  grade === g
+                  grade === c.value
+                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                    : 'border-slate-200 text-slate-700 hover:border-slate-300'
+                }`}
+                style={{ fontFamily: 'var(--font-grotesk)' }}
+                aria-label={c.name}
+              >
+                {c.tag}
+              </button>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            {GRADE_CHOICES.filter((c) => c.value > 12).map((c) => (
+              <button
+                key={c.value}
+                onClick={() => { setGrade(c.value); setError(null); }}
+                className={`min-h-12 px-3 py-2 rounded-xl border-2 text-left transition-colors ${
+                  grade === c.value
                     ? 'border-blue-500 bg-blue-50 text-blue-700'
                     : 'border-slate-200 text-slate-700 hover:border-slate-300'
                 }`}
                 style={{ fontFamily: 'var(--font-grotesk)' }}
               >
-                {g}
+                <span className="block text-sm font-bold">{c.tag}</span>
+                <span className="block text-[11px] opacity-70">{c.name}</span>
               </button>
             ))}
           </div>
@@ -734,12 +773,30 @@ export default function SelfServeBooking() {
                are full" is a scheduling problem the family can wait out; "nobody
                here teaches that yet" is not, and pretending otherwise wastes
                their week. Either way they are not lost — somebody rings them. */
-            <p className="mt-2 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-              {slotReason === 'no_teacher_for_subject'
-                ? 'No teacher is free for that subject at this grade just yet.'
-                : 'Nothing free in the next two weeks.'}
-              {' '}Leave it with us — we will ring you and find a time, usually within a day.
-            </p>
+            /* Not a dead end. Every course is offered whether or not a teacher
+               is free for it, so "no slots" is a normal ending: the family
+               carries on, gets their account, and a counsellor arranges the
+               class. Nothing is booked until then. */
+            <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-4">
+              <p className="text-sm font-bold text-amber-900">
+                {slotReason === 'no_teacher_for_subject'
+                  ? 'All slots for this course are filled up right now.'
+                  : 'All slots are filled up right now.'}
+              </p>
+              <p className="mt-1 text-sm text-amber-900/90 leading-relaxed">
+                You can still go ahead with your booking. Our counsellor will call you on{' '}
+                <strong>{parsedPhone.ok ? parsedPhone.e164 : 'your number'}</strong> and arrange the
+                class at a time that suits you.
+              </p>
+              <button
+                onClick={askForHelp}
+                disabled={busy}
+                className="btn-tactile btn-tactile-primary mt-4 w-full px-6 py-4 text-base flex items-center justify-center gap-2 disabled:opacity-40"
+              >
+                {busy ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
+                Continue with my booking
+              </button>
+            </div>
           ) : (
             <div className="space-y-4 max-h-[22rem] overflow-y-auto pr-1">
               {days.map((day) => (
@@ -830,7 +887,8 @@ export default function SelfServeBooking() {
                 className="w-full text-sm font-bold text-blue-700 hover:text-blue-900 flex items-center justify-center gap-1.5"
                 style={{ fontFamily: 'var(--font-grotesk)' }}
               >
-                <Clock className="w-4 h-4" /> None of these slots work for me
+                <Clock className="w-4 h-4" />
+                {days.length > 0 ? 'None of these slots work for me' : 'Add the times that suit you (optional)'}
               </button>
             )}
           </div>

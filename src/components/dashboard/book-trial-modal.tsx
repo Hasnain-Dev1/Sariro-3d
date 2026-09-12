@@ -8,7 +8,7 @@ import {
   fetchBookableTeachers, fetchTrialStudents, fetchTeacherSlots, bookTrial, TRIAL_MINUTES,
   type BookableTeacher, type TrialStudent, type DaySlots,
 } from '@/lib/dashboard/trial-booking-data';
-import { MIN_GRADE, MAX_GRADE } from '@/lib/trial/grade-band';
+import { GRADE_CHOICES, gradeTag } from '@/lib/grade/tag';
 
 /**
  * SARIRO — booking a free trial, from any staff dashboard
@@ -39,7 +39,7 @@ const DURATION_MINUTES = TRIAL_MINUTES;
 /* The years a child can be in. Same bounds the booking route enforces, taken
    from the band rules rather than written out again — the picker offering a
    grade the API would refuse is a dead end a seller cannot get out of. */
-const GRADES = Array.from({ length: MAX_GRADE - MIN_GRADE + 1 }, (_, i) => MIN_GRADE + i);
+const GRADES = GRADE_CHOICES;
 
 export default function BookTrialModal({
   open,
@@ -260,11 +260,9 @@ export default function BookTrialModal({
                               {/* The year they are in, where anybody has ever
                                   recorded it. Shown on the row because it is
                                   what decides which classes they can join. */}
-                              {gradeFor(s) != null && (
-                                <span className="shrink-0 text-[10px] font-bold text-slate-500 bg-slate-100 rounded px-1.5 py-0.5">
-                                  G{gradeFor(s)}
-                                </span>
-                              )}
+                              <span className="shrink-0 text-[10px] font-bold text-slate-500 bg-slate-100 rounded px-1.5 py-0.5">
+                                {gradeTag(gradeFor(s))}
+                              </span>
                             </span>
                             {s.blocker && (
                               <span className="block text-[11px] text-amber-700 flex items-center gap-1">
@@ -315,8 +313,8 @@ export default function BookTrialModal({
                               className="shrink-0 h-8 rounded-lg border border-amber-300 bg-white px-2 text-xs text-slate-800"
                             >
                               <option value="">Grade…</option>
-                              {GRADES.map((g) => (
-                                <option key={g} value={g}>Grade {g}</option>
+                              {GRADES.map((c) => (
+                                <option key={c.value} value={c.value}>{c.label}</option>
                               ))}
                             </select>
                           </div>

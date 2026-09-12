@@ -4,7 +4,8 @@ import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked, recordHoneypo
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import { isHoneypotTripped } from '@/lib/security/honeypot';
 import { acceptPhone } from '@/lib/phone/accept';
-import { isValidTimeZone, canonicalTimeZone } from '@/lib/time/timezones';
+import { isValidTimeZone, canonicalTimeZone, cityOf } from '@/lib/time/timezones';
+import { resolveTrialAccount, trialSignInLink, sendTrialWelcomeEmail } from '@/lib/trial/account';
 import { smsConfigured } from '@/lib/phone/otp';
 import { localWeekdayMinutes, slotIsFree } from '@/lib/scheduling/availability';
 import { slotState, blockingIntervals, canSeat, TRIAL_MINUTES, type SlotBooking } from '@/lib/scheduling/trial-capacity';
@@ -122,7 +123,7 @@ export async function POST(req: NextRequest) {
      is exactly how the grade 1 and the grade 10 end up in the same room. */
   const grade = Math.round(Number(body.grade));
   if (!Number.isFinite(grade) || grade < MIN_GRADE || grade > MAX_GRADE) {
-    return bad('missing_grade', 'Please choose which grade they are in.');
+    return bad('missing_grade', 'Choose a grade: G1–G12, U or P.');
   }
   // Email is optional on purpose — see the note above about the form. When it
   // IS given it still has to be an email.
@@ -334,97 +335,25 @@ export async function POST(req: NextRequest) {
   });
   if (!free) return bad('slot_gone', 'Somebody just took that time. Please pick another.', 409);
 
-  // ── Who is this? See the identity rules at the top. ───────────────────────
-  const byPhone = await admin
-    .from('profiles').select('id, email').eq('phone', phone).limit(1).maybeSingle();
-  const byEmail = byPhone.data || !email
-    ? { data: null }
-    : await admin.from('profiles').select('id').eq('email', email).limit(1).maybeSingle();
-
-  let studentId: string;
-  /* Only ever true when the identity that MATCHED was proved in this request.
-     Handing back a session for something merely typed is a takeover machine.
-
-     ── Why this is no longer "phone match ⇒ signed in" ──────────────────────
-     It was, and that was right while every number had to be an Indian mobile
-     with a code read back. Now that numbers outside India are accepted
-     UNVERIFIED — there is no SMS route to them, so demanding a code would
-     demand the impossible — a phone match on its own proves nothing at all:
-     type a stranger's foreign number and receive their account.
-
-     So each identity carries its own proof:
-       · phone matched AND the phone was verifiable (India, checked above)
-       · email matched AND email_is_verified actually returned true
-
-     An international family therefore signs in on the strength of the email
-     they proved, and one whose email check could not run signs in normally
-     instead. Their class is booked either way — this only decides whether
-     they walk straight into it. */
-  let mayAutoSignIn = false;
-
-  if (byPhone.data) {
-    studentId = byPhone.data.id as string;
-    mayAutoSignIn = accepted.canVerify;
-  } else if (byEmail.data) {
-    studentId = (byEmail.data as { id: string }).id;
-    mayAutoSignIn = emailProved;
-  } else {
-    /* A phone-only account when no email was given.
-       ──────────────────────────────────────────────────────────────────────
-       The form asks for a name and a number and nothing else, so most people
-       arriving here have no email on file. Supabase takes a phone as the
-       identity on its own, and the phone is the better identity anyway: it is
-       the one they proved, and the one anybody would use to chase a child who
-       does not appear. */
-    const { data: created, error: createErr } = await admin.auth.admin.createUser(
-      email
-        ? { email, email_confirm: true, phone, phone_confirm: true, user_metadata: { full_name: name } }
-        : { phone, phone_confirm: true, user_metadata: { full_name: name } }
-    );
-    if (createErr || !created?.user) {
-      console.warn('[self-book] createUser failed:', createErr?.message);
-      return bad('account_failed', 'We could not set up your account. Please try again.', 500);
-    }
-    studentId = created.user.id;
-    mayAutoSignIn = true;
-
-    /* The profile row. A trigger may have made one already, so this is an
-       upsert — and the phone matters more than the name: it is the only way
-       anybody can chase a child who does not appear. */
-    await admin.from('profiles').upsert({
-      id: studentId,
-      email: email || null,
-      full_name: name,
-      phone,
-      /* The truth, not a constant. Writing `true` for a number no code ever
-         reached would put a verified badge on an unproved number and let every
-         later screen trust it. */
-      phone_verified: accepted.canVerify,
-      phone_country_code: accepted.countryCode,
-      role: 'student',
-      is_student: true,
-      grade,
-      /* From the booking, so an account created here never starts life on the
-         wrong clock. */
-      timezone,
-    }, { onConflict: 'id' });
-  }
-
-  /* ── An account that already existed takes the zone they just confirmed ──
-     Otherwise a family who moved from Delhi to Dubai books a class at 5pm
-     their time and their dashboard keeps showing it at 6:30, because the
-     profile still says India.
-
-     Only when this request PROVED the identity — the same condition that
-     decides whether they are signed straight in. Changing the zone on an
-     account matched by something merely typed would let anybody shift a
-     stranger's class times. */
-  if (timezone && mayAutoSignIn && (byPhone.data || byEmail.data)) {
-    await bestEffort(
-      'self-book: remember the confirmed time zone',
-      admin.from('profiles').update({ timezone }).eq('id', studentId)
-    );
-  }
+  /* ── Who is this, and are they signed straight in ────────────────────────
+     Shared with /api/trial/slot-assistance — lib/trial/account.ts holds the
+     rules. A new account is given a generated password, emailed below; an
+     existing account's password is never touched. The phone counts as proved
+     only when SMS is actually switched on: with it off, the check above is
+     skipped, and an unchecked number must not open an account. */
+  const account = await resolveTrialAccount(admin, {
+    name,
+    email: email || null,
+    phone,
+    countryCode: accepted.countryCode,
+    phoneProved: accepted.canVerify && smsConfigured(),
+    emailProved,
+    grade,
+    timezone,
+  });
+  if (!account.ok) return bad('account_failed', account.message, 500);
+  const studentId = account.studentId;
+  const mayAutoSignIn = account.mayAutoSignIn;
 
   // ── Book it ───────────────────────────────────────────────────────────────
   const endIso = new Date(startMs + TRIAL_MINUTES * 60_000).toISOString();
@@ -525,20 +454,31 @@ export async function POST(req: NextRequest) {
   /* Straight into their class page, no email round trip — the funnel is an
      advert and every extra step loses people. Only ever when the phone proved
      them; otherwise they are told to sign in, which is the safe answer. */
+  /* Straight into their account: the booking form opens this link the moment
+     the class is booked. Only for an identity this request proved. */
   let signInUrl: string | null = null;
-  if (mayAutoSignIn && email) {
-    try {
-      const origin = new URL(req.url).origin;
-      const { data: link } = await admin.auth.admin.generateLink({
-        type: 'magiclink',
-        email,
-        options: { redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(TRIAL_HOME)}` },
-      });
-      signInUrl = link?.properties?.action_link ?? null;
-    } catch (err) {
-      // They can still sign in the normal way; the class exists regardless.
-      console.warn('[self-book] generateLink failed:', err instanceof Error ? err.message : err);
-    }
+  if (mayAutoSignIn && account.signInEmail) {
+    signInUrl = await trialSignInLink(admin, account.signInEmail, new URL(req.url).origin);
+  }
+
+  /* The booking, and — for a new account — the password for next time. It
+     never blocks the booking: the class exists whether or not the mail
+     server answered, so a failure is logged, not returned. */
+  if (email) {
+    const zone = timezone ?? 'Asia/Kolkata';
+    const when = new Date(startMs).toLocaleString('en-GB', {
+      weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: zone,
+    }) + ` (${cityOf(zone)} time)`;
+    const sent = await sendTrialWelcomeEmail({
+      to: email,
+      name,
+      password: account.password,
+      trial: { when, subject: subjectLabel(subject), teacherName: teacher.full_name ?? null },
+      grade,
+      phone,
+      siteUrl: process.env.NEXT_PUBLIC_SITE_URL || new URL(req.url).origin,
+    });
+    if (!sent.success) console.warn('[self-book] welcome email not sent:', sent.error);
   }
 
   return NextResponse.json({
@@ -550,5 +490,6 @@ export async function POST(req: NextRequest) {
     joined: here.joinBookingId !== null,
     signInUrl,
     existingAccount: !mayAutoSignIn,
+    newAccount: account.created,
   });
 }

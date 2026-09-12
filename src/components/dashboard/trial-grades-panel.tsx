@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Loader2, CheckCircle2, GraduationCap, AlertTriangle } from 'lucide-react';
-import { MIN_GRADE, MAX_GRADE } from '@/lib/trial/grade-band';
+import { bandFor, bandLabel } from '@/lib/trial/grade-band';
+import { GRADE_CHOICES, gradeTag } from '@/lib/grade/tag';
 
 /**
  * SARIRO — the trial seats nobody recorded a grade for
@@ -30,7 +31,7 @@ interface Seat {
   nextTrial: string | null;
 }
 
-const GRADES = Array.from({ length: MAX_GRADE - MIN_GRADE + 1 }, (_, i) => MIN_GRADE + i);
+const GRADES = GRADE_CHOICES;
 
 const when = (iso: string | null) =>
   iso ? new Date(iso).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
@@ -72,9 +73,9 @@ export default function TrialGradesPanel() {
       const json = await res.json();
       if (!res.ok || !json.ok) { setNote(json.message || json.error || 'That did not save.'); return; }
       setNote(
-        `${s.name} is grade ${json.grade}. ` +
-        `${json.seatsFixed} ${json.seatsFixed === 1 ? 'class is' : 'classes are'} now open to grades ` +
-        `${Math.max(MIN_GRADE, json.grade - 1)}–${Math.min(MAX_GRADE, json.grade + 1)}.`
+        `${s.name} is ${gradeTag(json.grade)}. ` +
+        `${json.seatsFixed} ${json.seatsFixed === 1 ? 'class is' : 'classes are'} now open to ` +
+        `${bandLabel(bandFor(json.grade))}.`
       );
       await load();
     } catch {
@@ -144,7 +145,7 @@ export default function TrialGradesPanel() {
                   className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-[13px] text-slate-800"
                 >
                   <option value="">Grade…</option>
-                  {GRADES.map((g) => <option key={g} value={g}>Grade {g}</option>)}
+                  {GRADES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
                 </select>
                 <button
                   onClick={() => void save(s)}

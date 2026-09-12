@@ -5,6 +5,7 @@ import {
   Loader2, RefreshCw, Star, AlertTriangle, Video, Users, CheckCircle2, XCircle, Clock,
 } from 'lucide-react';
 import { subjectLabel } from '@/lib/trial/subjects';
+import { gradeTag } from '@/lib/grade/tag';
 
 /**
  * SARIRO — every trial, and everything hanging off it
@@ -207,7 +208,7 @@ function TrialCardRow({ trial }: { trial: TrialRow }) {
             <li key={s.id} className="rounded-lg bg-slate-50 px-2.5 py-2 text-[11px]">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-bold text-slate-800">{s.name}</span>
-                {s.grade != null && <span className="px-1 py-0.5 rounded text-[9px] font-black bg-slate-200 text-slate-600">G{s.grade}</span>}
+                <span className="px-1 py-0.5 rounded text-[9px] font-black bg-slate-200 text-slate-600">{gradeTag(s.grade)}</span>
                 {s.paused && <span className="px-1 py-0.5 rounded text-[9px] font-black bg-red-100 text-red-700">PAUSED</span>}
 
                 {s.attendance === 'present' && <span className="inline-flex items-center gap-0.5 text-green-700 font-bold"><CheckCircle2 className="w-3 h-3" /> attended</span>}

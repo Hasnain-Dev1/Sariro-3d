@@ -5,6 +5,7 @@ import { Sparkles, Video, Clock } from 'lucide-react';
 import { Countdown } from '@/components/dashboard/trial-journey';
 import type { TrialClass } from '@/components/dashboard/trial-journey';
 import { subjectLabel } from '@/lib/trial/subjects';
+import { gradeTag } from '@/lib/grade/tag';
 
 /**
  * SARIRO — the trial, for a student who already has a dashboard
@@ -74,9 +75,7 @@ export default function TrialCard({
               subjects could not tell these apart from the date alone. */}
           {(trial.subject || trial.grade != null) && (
             <p className="text-xs font-bold text-slate-700 mt-0.5">
-              {trial.subject ? subjectLabel(trial.subject) : ''}
-              {trial.subject && trial.grade != null ? ' · ' : ''}
-              {trial.grade != null ? `Grade ${trial.grade}` : ''}
+              {[trial.subject ? subjectLabel(trial.subject) : null, gradeTag(trial.grade)].filter(Boolean).join(' · ')}
             </p>
           )}
 

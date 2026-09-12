@@ -179,11 +179,16 @@ export default function MyClassPage() {
               <Sparkles className="w-6 h-6 text-blue-600" />
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-3" style={{ fontFamily: 'var(--font-jakarta)' }}>
-              Nothing booked yet, {firstName}.
+              We’re arranging your free class, {firstName}.
             </h1>
+            {/* Most people who land here with no class carried on past "all
+                slots are filled" — the booking form lets them, and a seller
+                now has them in their Needs Slot Assistance queue. Say what is
+                actually happening, and what they will see when it has. */}
             <p className="text-[15px] text-slate-600 leading-[1.75] mb-6">
-              Your account is ready and there is no class on it. If you asked for a free class, somebody is
-              arranging a time and it will appear here — usually within a day.
+              Your account is ready. A Sariro counsellor will call you on your phone number to arrange
+              the class at a time that suits you — usually within a day. As soon as it is booked, it
+              appears right here with a countdown and a join button.
             </p>
             <Link
               href="/free-class"

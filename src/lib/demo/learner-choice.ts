@@ -40,6 +40,8 @@ import { TRACKS } from '@/lib/sariro-data';
  * subject — see the note there.
  */
 
+import { gradeTag, gradeFromStage } from '@/lib/grade/tag';
+
 export type LearnerStage = 'school' | 'undergraduate' | 'postgraduate' | 'professional';
 
 export interface Choice {
@@ -217,16 +219,11 @@ export function describeChoice(
     );
   })();
 
-  const who =
-    stage === 'school' && grade !== null
-      ? `Grade ${grade}`
-      : stage === 'undergraduate'
-        ? 'Undergraduate'
-        : stage === 'postgraduate'
-          ? 'Postgraduate'
-          : stage === 'professional'
-            ? 'Working professional'
-            : null;
+  /* Who the learner is, as the same tag every other screen shows: G1–G12, U,
+     or P (postgraduate counts as P — finished school and college). A school
+     stage with no grade says nothing rather than guessing. */
+  const learner = gradeFromStage(stage, grade);
+  const who = learner !== null ? gradeTag(learner) : null;
 
   const what = [subjectLabel, focusLabel].filter(Boolean).join(' · ');
   if (!what && !who) return 'No preference';

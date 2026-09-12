@@ -56,6 +56,8 @@ export interface StudentLead {
   assigned_seller: string | null;
   stage: LeadStage;
   timezone: string | null;
+  /** 1–12 school grade, 13 undergraduate, 14 past college; null shows as U. See lib/grade/tag.ts. */
+  grade?: number | null;
   notes: string | null;
   last_updated: string;
   created_at: string;

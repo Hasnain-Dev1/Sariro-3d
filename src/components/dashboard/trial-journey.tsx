@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Clock, Video, Sparkles, Users, ShieldCheck, CalendarCheck } from 'lucide-react';
 import ClassFeedbackForm from '@/components/dashboard/class-feedback-form';
 import { subjectLabel } from '@/lib/trial/subjects';
+import { gradeTag } from '@/lib/grade/tag';
 
 /**
  * SARIRO — what a child sees before their first class, and after it
@@ -191,9 +192,8 @@ export default function TrialJourney({
             these apart. */}
         {(trial.subject || trial.grade != null) && (
           <p className="mt-1 text-sm text-slate-600">
-            {trial.subject && <span className="font-bold text-slate-800">{subjectLabel(trial.subject)}</span>}
-            {trial.subject && trial.grade != null && ' · '}
-            {trial.grade != null && <>Grade {trial.grade}</>}
+            {trial.subject && <><span className="font-bold text-slate-800">{subjectLabel(trial.subject)}</span>{' · '}</>}
+            {gradeTag(trial.grade)}
           </p>
         )}
 

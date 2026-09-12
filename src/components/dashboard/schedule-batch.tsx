@@ -5,6 +5,7 @@ import { X, CalendarClock, Loader2, Check, Globe } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { generateOccurrences } from '@/lib/dashboard/schedule-generation';
 import { lessonsOf } from '@/lib/dashboard/lesson-plan';
+import { gradeTag } from '@/lib/grade/tag';
 
 /* ════════════════════════════════════════════════════════════════════════
    ScheduleBatchModal — admin/super-admin recurring class scheduler.
@@ -15,7 +16,7 @@ import { lessonsOf } from '@/lib/dashboard/lesson-plan';
 
 interface Teacher { id: string; full_name: string | null; timezone: string | null }
 interface Cohort { id: string; track: string; level: string; ratio: string; status: string; batch_code: string | null }
-interface Kid { id: string; full_name: string | null; timezone: string | null }
+interface Kid { id: string; full_name: string | null; timezone: string | null; grade: number | null }
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const COMMON_TZ = [
@@ -85,7 +86,7 @@ export default function ScheduleBatchModal({
     const { data: enr } = await sb.from('enrollments').select('user_id').eq('cohort_id', cid).eq('status', 'active');
     const ids = (enr ?? []).map((e: { user_id: string }) => e.user_id);
     if (ids.length === 0) { setKids([]); return; }
-    const { data: profs } = await sb.from('profiles').select('id, full_name, timezone').in('id', ids);
+    const { data: profs } = await sb.from('profiles').select('id, full_name, timezone, grade').in('id', ids);
     setKids((profs ?? []) as Kid[]);
   }, []);
 
@@ -398,7 +399,7 @@ export default function ScheduleBatchModal({
                   </div>
                   <TzRow label={`Teacher${teacher?.full_name ? ` (${teacher.full_name.split(' ')[0]})` : ''}`} tz={teacher?.timezone || anchorTz} iso={iso} />
                   {kids.length === 0 && <p className="text-xs text-slate-400">No enrolled kids yet — they&apos;ll join future classes.</p>}
-                  {kids.map((k) => <TzRow key={k.id} label={k.full_name?.split(' ')[0] || 'Kid'} tz={k.timezone || anchorTz} iso={iso} muted={!k.timezone} />)}
+                  {kids.map((k) => <TzRow key={k.id} label={`${k.full_name?.split(' ')[0] || 'Kid'} · ${gradeTag(k.grade)}`} tz={k.timezone || anchorTz} iso={iso} muted={!k.timezone} />)}
                 </div>
               ))}
             </div>

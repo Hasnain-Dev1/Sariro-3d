@@ -10,6 +10,7 @@ import { reminderStatus, describeDue, QUICK_REMINDERS, type ReminderRow } from '
 import { pct, type MetricWindows } from '@/lib/seller/metrics';
 import { inr, type IncentiveBreakdown } from '@/lib/seller/incentives';
 import { STAGE_LABELS, STAGE_COLORS, isLeadStage } from '@/lib/dashboard/leads-data';
+import { gradeTag } from '@/lib/grade/tag';
 
 /**
  * SARIRO — the seller's morning, on one screen
@@ -358,7 +359,7 @@ export default function SellerQueues({ sellerId }: { sellerId?: string }) {
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-bold text-slate-900 truncate flex items-center gap-1.5 flex-wrap">
                           {lead.student_name || 'Unnamed'}
-                          {lead.grade != null && <span className="text-[11px] font-semibold text-slate-500">G{lead.grade}</span>}
+                          <span className="text-[11px] font-semibold text-slate-500">{gradeTag(lead.grade)}</span>
                           {view === 'all' && (
                             <span className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded ${stageTone}`}>
                               {isLeadStage(lead.stage) ? STAGE_LABELS[lead.stage] : lead.stage}

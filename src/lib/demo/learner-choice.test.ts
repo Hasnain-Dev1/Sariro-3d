@@ -151,11 +151,11 @@ describe('describeChoice', () => {
   test('reads as a sentence an admin can act on', () => {
     assert.equal(
       describeChoice('chemistry', 'organic-chemistry', 'professional', null),
-      'Chemistry · Organic Chemistry — Working professional'
+      'Chemistry · Organic Chemistry — P'
     );
     assert.equal(
       describeChoice('coding', 'web', 'undergraduate', null),
-      'Coding & AI · Web Builder Pro — Undergraduate'
+      'Coding & AI · Web Builder Pro — U'
     );
   });
 
@@ -165,7 +165,7 @@ describe('describeChoice', () => {
     // But an adult on Grade 8 material is exactly the distinction worth keeping.
     assert.equal(
       describeChoice('mathematics', 'grade-8', 'professional', null),
-      'Mathematics · Grade 8 — Working professional'
+      'Mathematics · Grade 8 — P'
     );
   });
 

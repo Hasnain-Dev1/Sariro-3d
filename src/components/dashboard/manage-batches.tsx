@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { X, Users, UserPlus, UserMinus, PauseCircle, Loader2, RefreshCw, CalendarClock } from 'lucide-react';
 import { contactIdentity } from '@/lib/contact/reachability';
+import { gradeTag } from '@/lib/grade/tag';
 import { createClient } from '@/lib/supabase/client';
 import { BatchRescheduleModal } from '@/components/dashboard/batch-reschedule-modal';
 
@@ -19,7 +20,7 @@ interface Sched {
   cohorts: { track: string; level: string; ratio: string; batch_code: string | null } | null;
   teacher: { full_name: string | null } | null;
 }
-interface Person { id: string; full_name: string | null; email?: string | null; phone?: string | null }
+interface Person { id: string; full_name: string | null; email?: string | null; phone?: string | null; grade?: number | null }
 
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -52,7 +53,7 @@ export default function ManageBatchesModal({
 
     const [sRes, stRes] = await Promise.all([
       sq.order('created_at', { ascending: false }),
-      sb.from('profiles').select('id, full_name, email, phone').or('role.eq.student,is_student.eq.true').order('full_name').limit(500),
+      sb.from('profiles').select('id, full_name, email, phone, grade').or('role.eq.student,is_student.eq.true').order('full_name').limit(500),
     ]);
     const scheds = (sRes.data ?? []) as unknown as Sched[];
     setSchedules(scheds);
@@ -66,7 +67,7 @@ export default function ManageBatchesModal({
       const uids = [...new Set((enr ?? []).map((e: { user_id: string }) => e.user_id))];
       let profs: Person[] = [];
       if (uids.length) {
-        const { data } = await sb.from('profiles').select('id, full_name, email').in('id', uids);
+        const { data } = await sb.from('profiles').select('id, full_name, email, grade').in('id', uids);
         profs = (data ?? []) as Person[];
       }
       const byId = new Map(profs.map((p) => [p.id, p]));
@@ -90,7 +91,7 @@ export default function ManageBatchesModal({
     const { data: enr } = await sb.from('enrollments').select('user_id').eq('cohort_id', cohortId).eq('status', 'active');
     const ids = (enr ?? []).map((e: { user_id: string }) => e.user_id);
     if (ids.length === 0) { setKids((k) => ({ ...k, [cohortId]: [] })); return; }
-    const { data: profs } = await sb.from('profiles').select('id, full_name, email').in('id', ids);
+    const { data: profs } = await sb.from('profiles').select('id, full_name, email, grade').in('id', ids);
     setKids((k) => ({ ...k, [cohortId]: (profs ?? []) as Person[] }));
   }, []);
 
@@ -147,7 +148,7 @@ export default function ManageBatchesModal({
                       <span className="font-bold text-slate-600">Kids ({(rosters[s.cohort_id] ?? []).length}):</span>{' '}
                       {(rosters[s.cohort_id] ?? []).length === 0
                         ? <span className="text-slate-400">none enrolled yet</span>
-                        : (rosters[s.cohort_id] ?? []).map((k) => k.email || k.full_name || 'unknown').join(', ')}
+                        : (rosters[s.cohort_id] ?? []).map((k) => `${k.email || k.full_name || 'unknown'} (${gradeTag(k.grade)})`).join(', ')}
                     </p>
                   </div>
                   <span className={`text-[10px] font-bold px-2 py-1 rounded uppercase ${s.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>{s.status}</span>
@@ -195,7 +196,7 @@ export default function ManageBatchesModal({
                       {(kids[s.cohort_id] ?? []).length === 0 && <p className="text-xs text-slate-400">No active kids.</p>}
                       {(kids[s.cohort_id] ?? []).map((k) => (
                         <div key={k.id} className="flex items-center justify-between gap-2 text-sm">
-                          <span className="text-slate-700 truncate min-w-0">{k.full_name || 'Unnamed'} <span className="text-slate-400">· {k.email || 'no email'}</span></span>
+                          <span className="text-slate-700 truncate min-w-0"><span className="mr-1 text-[10px] font-black text-slate-500 bg-slate-200 rounded px-1 py-0.5">{gradeTag(k.grade)}</span>{k.full_name || 'Unnamed'} <span className="text-slate-400">· {k.email || 'no email'}</span></span>
                           <button disabled={busy}
                             onClick={() => { if (confirm(`Remove ${k.full_name || 'this kid'} from the batch?`)) call({ action: 'remove_kid', cohortId: s.cohort_id, studentId: k.id }, 'Kid removed').then(() => loadKids(s.cohort_id)); }}
                             className="inline-flex items-center gap-1 text-red-600 hover:text-red-700 text-xs font-bold">
@@ -217,7 +218,7 @@ export default function ManageBatchesModal({
                           const id = contactIdentity(st);
                           return (
                             <option key={st.id} value={st.id} disabled={id.unknown}>
-                              {id.unknown ? `Unknown — no phone${id.detail ? ` · ${id.detail}` : ''}` : (st.full_name || st.email || 'Unnamed')}
+                              {id.unknown ? `Unknown — no phone${id.detail ? ` · ${id.detail}` : ''}` : `${st.full_name || st.email || 'Unnamed'} · ${gradeTag(st.grade)}`}
                             </option>
                           );
                         })}

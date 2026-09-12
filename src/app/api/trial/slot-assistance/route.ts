@@ -4,46 +4,46 @@ import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked, recordHoneypo
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import { isHoneypotTripped } from '@/lib/security/honeypot';
 import { acceptPhone } from '@/lib/phone/accept';
+import { smsConfigured } from '@/lib/phone/otp';
 import { linkTrialToLead } from '@/lib/leads/link-trial';
 import { isTrialSubject, subjectLabel } from '@/lib/trial/subjects';
 import { MIN_GRADE, MAX_GRADE } from '@/lib/trial/grade-band';
+import { gradeTag } from '@/lib/grade/tag';
+import { isValidTimeZone, canonicalTimeZone } from '@/lib/time/timezones';
+import { resolveTrialAccount, trialSignInLink, sendTrialWelcomeEmail } from '@/lib/trial/account';
 import { recordEvent } from '@/lib/events/log';
 import { bestEffort } from '@/lib/supabase/best-effort';
 
 /**
  * SARIRO — POST /api/trial/slot-assistance
  *
- * "None of these times work for me."
+ * "All slots are filled — go ahead anyway, and a counsellor will arrange it."
  *
  * ── The family this exists for ──────────────────────────────────────────────
- * They wanted a class. They picked a subject, gave a grade, proved a phone
- * number and an email — everything a booking needs — and then found that the
- * only times on offer were during school, or at 2am where they live.
+ * They wanted a class. They chose a course, gave a grade, proved a phone and
+ * an email — everything a booking needs — and then there was no time: every
+ * slot was taken, no teacher was free for that course yet, or none of the
+ * offered times worked. Every course is now shown whether or not a teacher is
+ * free for it (the founder's call), so this is a normal ending, not an edge.
  *
- * Until now that family simply left. The form's only exit was a slot, so the
- * most motivated visitor on the page, the one who got all the way to the last
- * step, produced nothing at all: no lead, no record, nobody to ring.
+ * ── It ends the same way a booked class does ───────────────────────────────
+ * The family gets an account, is signed straight into it, and is emailed
+ * their request with the password for next time. Their class page says a
+ * counsellor is arranging the time. The only thing missing is a slot, and
+ * that is a seller's job now, not theirs.
  *
  * ── Why no booking is created ───────────────────────────────────────────────
- * The obvious shortcut is to book them into something and let a seller move
- * it. That would be worse than losing them:
- *
- *   · a teacher's calendar gains a class nobody intends to teach
- *   · the trial counts, and therefore every conversion rate, include a class
- *     that will not happen
- *   · a reminder fires at them the night before for a time they already said
- *     does not work
- *
- * So this writes a LEAD and no booking. `stage = seller_assigned` because a
- * person now has to arrange it; `trial_status = slot_assistance` because that
- * is where the class stands — which is not the same question as the stage, and
- * is what puts them in the seller's Needs Slot Assistance queue.
+ * A class nobody intends to teach would put a ghost in a teacher's calendar,
+ * in every trial count, and fire a reminder the night before for a time that
+ * was never agreed. So this writes the account and a LEAD: `stage =
+ * seller_assigned`, `trial_status = slot_assistance`, on the desk of the
+ * seller carrying the fewest leads this month (random between equals) — which
+ * puts the family in that seller's Needs Slot Assistance queue.
  *
  * ── The same identity gate as booking ───────────────────────────────────────
- * A phone and an email both verified against the DATABASE, not against a flag
- * in the request body. This endpoint writes a contactable record with a
- * person's name on it; an unverified one is a way to put somebody else's
- * number on somebody else's desk.
+ * Phone and email are verified against the DATABASE, never a flag in the
+ * body, and only a proved identity is signed straight in — see
+ * lib/trial/account.ts, which both routes share.
  */
 export const runtime = 'nodejs';
 
@@ -55,7 +55,7 @@ interface Body {
   grade?: number;
   timezone?: string;
   country?: string;
-  /** What they would prefer, in their own words. The most useful field here. */
+  /** When would suit them, in their own words. Optional. */
   preference?: string;
   website?: string;
 }
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
 
   const grade = Number(body.grade);
   if (!Number.isInteger(grade) || grade < MIN_GRADE || grade > MAX_GRADE) {
-    return bad('missing_grade', `Please choose a grade between ${MIN_GRADE} and ${MAX_GRADE}.`);
+    return bad('missing_grade', 'Choose a grade: G1–G12, U or P.');
   }
 
   /* A number from anywhere. Only India can be sent a code, so only India has
@@ -106,16 +106,18 @@ export async function POST(req: NextRequest) {
     return bad('missing_email', 'Please give us an email address.');
   }
 
+  const timezone = isValidTimeZone(body.timezone) ? canonicalTimeZone(body.timezone) : null;
+
   let admin;
   try { admin = createServiceClient(); } catch {
     return NextResponse.json({ ok: false, error: 'service_unavailable' }, { status: 503 });
   }
 
   /* ── Proved, in the database, not in the body ─────────────────────────────
-     A flag in a POST body has verified nothing. Only asked where a code can
-     actually arrive: demanding verification of a number no SMS reaches is
-     demanding the impossible, and the family simply leaves. */
-  if (accepted.canVerify) {
+     Only asked where a code can actually arrive: demanding verification of a
+     number no SMS reaches is demanding the impossible. */
+  const phoneCheckable = accepted.canVerify && smsConfigured();
+  if (phoneCheckable) {
     let verified = false;
     try {
       const { data, error } = await admin.rpc('phone_is_verified', { p_phone: accepted.e164 });
@@ -128,22 +130,41 @@ export async function POST(req: NextRequest) {
     if (!verified) return bad('phone_not_verified', 'Please verify your mobile number first.');
   }
 
+  /* Whether the address was PROVED here, not merely not disproved — an email
+     that could not be checked is still booked against, but is not enough to
+     sign anybody in with. */
+  let emailProved = false;
   try {
     const { data, error } = await admin.rpc('email_is_verified', { p_email: email });
     if (error) {
       console.warn('[slot-assistance] email_is_verified unavailable:', error.message);
     } else if (data !== true) {
       return bad('email_not_verified', 'Please verify your email address first.');
+    } else {
+      emailProved = true;
     }
   } catch (err) {
     console.warn('[slot-assistance] email check threw:', err instanceof Error ? err.message : err);
   }
 
+  /* ── The account ──────────────────────────────────────────────────────── */
+  const account = await resolveTrialAccount(admin, {
+    name,
+    email,
+    phone: accepted.e164,
+    countryCode: accepted.countryCode,
+    phoneProved: phoneCheckable,
+    emailProved,
+    grade,
+    timezone,
+  });
+  if (!account.ok) return bad('account_failed', account.message, 500);
+
   /* ── The lead, and only the lead ─────────────────────────────────────────
-     No booking. No trial seat. Nothing that would make a teacher's calendar or
-     a conversion rate believe a class exists. */
+     No booking, no seat — nothing a teacher's calendar or a conversion rate
+     could mistake for a class. */
   const result = await linkTrialToLead(admin, {
-    studentId: null,
+    studentId: account.studentId,
     bookingId: null,
     name,
     email,
@@ -151,7 +172,7 @@ export async function POST(req: NextRequest) {
     grade,
     subject,
     source: 'self_book',
-    timezone: (body.timezone ?? '').trim() || null,
+    timezone,
     country: accepted.countryCode,
     stage: 'seller_assigned',
     trialStatus: 'slot_assistance',
@@ -165,42 +186,29 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  /* What they actually want, in their own words. Goes into the logbook rather
-     than onto the lead, because `student_leads.notes` is a single column that
-     the next write replaces — and this is the one sentence the seller needs
-     before ringing. */
+  /* What they want, in the logbook rather than on the lead — the single notes
+     column is replaced by the next write, and this is the one sentence the
+     seller needs before ringing. */
   const preference = (body.preference ?? '').trim().slice(0, 1000);
-  if (preference) {
-    await bestEffort(
-      'slot-assistance: preference note',
-      admin.from('lead_notes').insert({
-        lead_id: result.leadId,
-        author_id: null,
-        author_role: 'system',
-        priority: 'high',
-        category: 'slot_assistance',
-        note: `No offered time worked. In their words: “${preference}”`,
-      })
-    );
-  } else {
-    await bestEffort(
-      'slot-assistance: note',
-      admin.from('lead_notes').insert({
-        lead_id: result.leadId,
-        author_id: null,
-        author_role: 'system',
-        priority: 'high',
-        category: 'slot_assistance',
-        note: `Asked for ${subjectLabel(subject)}, grade ${grade}. None of the offered times worked — needs a time arranged by hand.`,
-      })
-    );
-  }
+  await bestEffort(
+    'slot-assistance: note',
+    admin.from('lead_notes').insert({
+      lead_id: result.leadId,
+      author_id: null,
+      author_role: 'system',
+      priority: 'high',
+      category: 'slot_assistance',
+      note: preference
+        ? `Wants ${subjectLabel(subject)} (${gradeTag(grade)}). No offered time worked. In their words: “${preference}”`
+        : `Wants ${subjectLabel(subject)} (${gradeTag(grade)}). All slots were filled — needs a time arranged by hand.`,
+    })
+  );
 
   await recordEvent(admin, {
     event: 'trial.slot_assistance',
     subjectType: 'lead',
     subjectId: result.leadId,
-    payload: { subject, grade, timezone: body.timezone ?? null, hasPreference: Boolean(preference) },
+    payload: { subject, grade, timezone, hasPreference: Boolean(preference), newAccount: account.created },
   });
 
   /* Tell the seller now rather than at the next dashboard refresh. A family
@@ -212,16 +220,35 @@ export async function POST(req: NextRequest) {
         user_id: result.sellerId,
         type: 'lead_slot_assistance',
         title: 'A family needs a time arranging',
-        message: `${name} wants ${subjectLabel(subject)} (grade ${grade}) but none of the offered slots worked.`,
-        link: '/dashboard/seller',
+        message: `${name} wants ${subjectLabel(subject)} (${gradeTag(grade)}). All slots were filled — ring them to arrange the class.`,
+        link: `/dashboard/seller?lead=${result.leadId}`,
       })
     );
   }
+
+  /* ── Straight into their account, and the email that brings them back ─── */
+  const signInUrl = account.mayAutoSignIn && account.signInEmail
+    ? await trialSignInLink(admin, account.signInEmail, new URL(req.url).origin)
+    : null;
+
+  const sent = await sendTrialWelcomeEmail({
+    to: email,
+    name,
+    password: account.password,
+    trial: null,
+    grade,
+    phone: accepted.e164,
+    siteUrl: process.env.NEXT_PUBLIC_SITE_URL || new URL(req.url).origin,
+  });
+  if (!sent.success) console.warn('[slot-assistance] welcome email not sent:', sent.error);
 
   return NextResponse.json({
     ok: true,
     leadId: result.leadId,
     assigned: Boolean(result.sellerId),
-    message: 'Thank you — we will ring you and find a time that works.',
+    signInUrl,
+    existingAccount: !account.mayAutoSignIn,
+    newAccount: account.created,
+    message: 'Thank you — a Sariro counsellor will call you and arrange the class.',
   });
 }

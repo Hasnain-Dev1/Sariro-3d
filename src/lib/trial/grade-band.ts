@@ -7,8 +7,8 @@
  * is the half hour that decides whether a family buys anything.
  *
  * ── The first child sets the band ───────────────────────────────────────────
- * Whoever books a slot first fixes it at their grade ± 1. A grade 6 opens a
- * 5–7 class; after that only 5, 6 and 7 may join, however many seats are left.
+ * Whoever books a slot first fixes it at their grade ± 1. A G6 opens a G5–G7
+ * class; after that only G5, G6 and G7 may join, however many seats are left.
  *
  * The first booking deciding is not arbitrary — it is the only rule that can be
  * applied at the moment somebody books, without knowing who will come later.
@@ -20,14 +20,25 @@
  * and cannot share a class, while a 1 and a 3 can. A moving window is a
  * promise about the actual gap between the children in the room, which is the
  * thing that decides whether a lesson works.
+ *
+ * ── Undergraduates and professionals are on the same line ───────────────────
+ * The scale runs G1–G12, then U (13) and P (14) — see lib/grade/tag.ts, the
+ * only place those numbers are written. ±1 then does the sensible thing with
+ * no special case: a G12 may share a trial with an undergraduate, an
+ * undergraduate with a professional, and a G5 with neither.
  */
 
-/** How far apart two children in one trial may be. */
+import { FIRST_GRADE, LAST_GRADE, LAST_SCHOOL_GRADE, gradeTag } from '@/lib/grade/tag';
+
+/** How far apart two learners in one trial may be. */
 export const GRADE_SPREAD = 1;
 
-/** Sariro teaches grades 1 to 12. */
-export const MIN_GRADE = 1;
-export const MAX_GRADE = 12;
+/**
+ * The whole learner scale, G1 to P. Kept under these names because every
+ * route and picker that validates a grade already imports them.
+ */
+export const MIN_GRADE = FIRST_GRADE;
+export const MAX_GRADE = LAST_GRADE;
 
 export interface GradeBand {
   /** The grade that opened the class. */
@@ -96,7 +107,7 @@ export interface Fit {
 }
 
 /**
- * May a child of this grade join a class whose band is already set?
+ * May a learner of this grade join a class whose band is already set?
  *
  * A slot with no band yet takes anybody — they become the anchor. An unknown
  * grade is refused rather than waved through: seating a child whose level
@@ -119,14 +130,21 @@ export function fits(grade: number | null | undefined, band: GradeBand | null): 
 
   return {
     ok: false,
-    message: `That class is for grades ${band.min}–${band.max}. Pick another time for a grade ${g} student.`,
+    message: `That class is for ${bandLabel(band)}. Pick another time for a ${gradeTag(g)} student.`,
   };
 }
 
-/** "Grades 5–7" / "Grade 1–2" for a picker. */
+/**
+ * "G5–G7" for a school band; "G12 · U · P" once it reaches past school, where
+ * a range between two letters would not say who is in it.
+ */
 export function bandLabel(band: GradeBand | null): string {
   if (!band) return 'Any grade';
-  return band.min === band.max ? `Grade ${band.min}` : `Grades ${band.min}–${band.max}`;
+  if (band.min === band.max) return gradeTag(band.min);
+  if (band.max <= LAST_SCHOOL_GRADE) return `${gradeTag(band.min)}–${gradeTag(band.max)}`;
+  const tags: string[] = [];
+  for (let g = band.min; g <= band.max; g++) tags.push(gradeTag(g));
+  return tags.join(' · ');
 }
 
 function clamp(g: number): number {

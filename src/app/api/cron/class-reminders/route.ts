@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { TRIAL_HOME } from '@/lib/dashboard/trial-only';
 import { notifyUsers } from '@/lib/notify';
+import { dueForReminder, lookaheadMinutes } from '@/lib/notify/reminder-window';
 
 /**
  * SARIRO — GET/POST /api/cron/class-reminders
@@ -112,7 +113,9 @@ async function run(req: NextRequest) {
 
   const admin = createServiceClient();
   const now = new Date();
-  const until = new Date(now.getTime() + windowMin * 60_000);
+  /* Far enough ahead to see trials, which are reminded an hour before; each
+     booking is then held to its own window below. */
+  const until = new Date(now.getTime() + lookaheadMinutes(windowMin) * 60_000);
 
   const { data: due, error: dueErr } = await admin
     .from('bookings')
@@ -128,7 +131,17 @@ async function run(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'query_failed', message: dueErr.message }, { status: 500 });
   }
 
-  const bookings = (due ?? []) as DueBooking[];
+  /* A free trial is reminded about an hour ahead, an ordinary class about half
+     an hour — see lib/notify/reminder-window.ts. Filtered BEFORE claiming, so
+     a class that is not due yet keeps its one reminder for the right run. */
+  const bookings = ((due ?? []) as DueBooking[]).filter((b) =>
+    dueForReminder({
+      slotStartMs: Date.parse(b.slot_start),
+      nowMs: now.getTime(),
+      isTrial: !!b.is_trial,
+      classWindowMin: windowMin,
+    })
+  );
   if (bookings.length === 0) {
     return NextResponse.json({ ok: true, windowMin, due: 0, reminded: 0, notified: 0 });
   }
@@ -208,13 +221,18 @@ async function run(req: NextRequest) {
         userId,
         type: 'session_reminder' as const,
         title: booking.is_trial ? `Your free class starts ${when}` : `Your class starts ${when}`,
-        message: detail,
+        message: booking.is_trial
+          ? 'Open your class page — the join button appears ten minutes before the start.'
+          : detail,
         /* A trial student has no enrolment, so /next-class has nothing to show
            them. Their countdown and join button are on the dashboard itself —
            sending them anywhere else is sending them to an empty page ten
            minutes before their first ever class. */
         link: booking.is_trial ? TRIAL_HOME : '/dashboard/student/next-class',
-        email: sendEmail,
+        /* Always emailed for a trial. A family who has never joined a class
+           is the least likely to have the page open to see the bell, and the
+           most likely to need the hour. Ordinary classes keep ?email=1. */
+        email: booking.is_trial ? true : sendEmail,
       })),
       // The teacher too. A teacher who forgets costs more than a student who
       // does — the whole batch sits in an empty room.

@@ -178,7 +178,7 @@ export async function POST(req: NextRequest) {
     if (!Number.isFinite(g) || g < MIN_GRADE || g > MAX_GRADE) {
       return NextResponse.json(
         { ok: false, error: 'bad_grade',
-          message: `A grade must be between ${MIN_GRADE} and ${MAX_GRADE}.` },
+          message: 'Choose a grade: G1–G12, U or P.' },
         { status: 400 }
       );
     }
