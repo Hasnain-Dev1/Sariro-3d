@@ -110,3 +110,32 @@ describe('plain date columns', () => {
     assert.equal(dateInRange('not-a-date', sep), false);
   });
 });
+
+describe('the longer view: last 7 days and last 12 months', () => {
+  // 13 Sep 2026, 15:00 in India.
+  const now = new Date('2026-09-13T09:30:00.000Z');
+
+  test('last 7 days is today and the six India days before it', () => {
+    const r = resolveRange('last7', undefined, now);
+    assert.equal(r.label, 'Last 7 days');
+    // 7 Sep 00:00 IST = 6 Sep 18:30 UTC; ends at 14 Sep 00:00 IST.
+    assert.equal(r.from, '2026-09-06T18:30:00.000Z');
+    assert.equal(r.to, '2026-09-13T18:30:00.000Z');
+    assert.equal(dateInRange('2026-09-07', r), true, 'the oldest of the seven days');
+    assert.equal(dateInRange('2026-09-06', r), false, 'the day before is out');
+    assert.equal(dateInRange('2026-09-13', r), true, 'today is in');
+  });
+
+  test('last 12 months runs from this date last year to the end of today', () => {
+    const r = resolveRange('year', undefined, now);
+    assert.equal(r.label, 'Last 12 months');
+    assert.equal(dateInRange('2025-09-13', r), true);
+    assert.equal(dateInRange('2025-09-12', r), false);
+    assert.equal(dateInRange('2026-09-13', r), true);
+  });
+
+  test('lifetime takes in everything', () => {
+    const r = resolveRange('all', undefined, now);
+    assert.equal(dateInRange('2019-01-01', r), true);
+  });
+});

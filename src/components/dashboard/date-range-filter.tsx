@@ -7,8 +7,9 @@ import { PRESET_LABEL, type RangePreset, type DateRange } from '@/lib/dashboard/
 /**
  * SARIRO — the date filter
  * =========================================================
- * V2 §73. Today, this week, this month, previous month, all time, or a range
- * somebody picks.
+ * V2 §73. Today, the last 7 days, this month, last month, the last 12 months,
+ * lifetime, or a range somebody picks. The rolling windows are there for the
+ * longer view the founder asked for — a month is too short to see a trend in.
  *
  * ── The presets are buttons, not a dropdown ─────────────────────────────────
  * Five options that get used constantly. A select would hide the current choice
@@ -20,7 +21,7 @@ import { PRESET_LABEL, type RangePreset, type DateRange } from '@/lib/dashboard/
  * used least.
  */
 
-const PRESETS: Exclude<RangePreset, 'custom'>[] = ['today', 'week', 'month', 'prev_month', 'all'];
+const PRESETS: Exclude<RangePreset, 'custom'>[] = ['today', 'last7', 'month', 'prev_month', 'year', 'all'];
 
 export default function DateRangeFilter({
   value, onChange,

@@ -22,7 +22,17 @@
 
 export const IST_OFFSET_MINUTES = 330;
 
-export type RangePreset = 'today' | 'week' | 'month' | 'prev_month' | 'all' | 'custom';
+export type RangePreset =
+  | 'today'
+  | 'week'
+  /** The last seven days, today included — a rolling window, not a calendar week. */
+  | 'last7'
+  | 'month'
+  | 'prev_month'
+  /** The last twelve months, today included — for the longer view. */
+  | 'year'
+  | 'all'
+  | 'custom';
 
 export interface DateRange {
   /** Inclusive. UTC ISO. */
@@ -57,9 +67,11 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
 export const PRESET_LABEL: Record<Exclude<RangePreset, 'custom'>, string> = {
   today: 'Today',
   week: 'This week',
+  last7: 'Last 7 days',
   month: 'This month',
-  prev_month: 'Previous month',
-  all: 'All time',
+  prev_month: 'Last month',
+  year: 'Last 12 months',
+  all: 'Lifetime',
 };
 
 /**
@@ -95,6 +107,29 @@ export function resolveRange(
         from: start.toISOString(),
         to: new Date(start.getTime() + 7 * MS_PER_DAY).toISOString(),
         label: 'This week',
+        preset,
+      };
+    }
+
+    case 'last7': {
+      // Today and the six India days before it. Rolling, so "last 7 days" on a
+      // Monday still means a whole week of data rather than a single morning.
+      const tomorrow = new Date(istToUtc(year, month, day).getTime() + MS_PER_DAY);
+      return {
+        from: new Date(tomorrow.getTime() - 7 * MS_PER_DAY).toISOString(),
+        to: tomorrow.toISOString(),
+        label: 'Last 7 days',
+        preset,
+      };
+    }
+
+    case 'year': {
+      // From this date last year to the end of today. Calendar-aware, so a leap
+      // day does not quietly shift the window by one.
+      return {
+        from: istToUtc(year - 1, month, day).toISOString(),
+        to: new Date(istToUtc(year, month, day).getTime() + MS_PER_DAY).toISOString(),
+        label: 'Last 12 months',
         preset,
       };
     }
@@ -153,7 +188,8 @@ export function resolveRange(
         // Far enough ahead to include anything scheduled, without pretending
         // to be infinity.
         to: istToUtc(year + 50, 1, 1).toISOString(),
-        label: 'All time',
+        // Matches the button the person pressed, so the heading and the chip agree.
+        label: 'Lifetime',
         preset: 'all',
       };
   }

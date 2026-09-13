@@ -8,6 +8,9 @@ import {
 } from '@/lib/dashboard/sales-ledger';
 import DateRangeFilter from '@/components/dashboard/date-range-filter';
 import { resolveRange, dateInRange, type RangePreset, type DateRange } from '@/lib/dashboard/date-ranges';
+import {
+  applyFilters, summarise, describeFilters, NO_FILTERS, type SalesFilters,
+} from '@/lib/finance/sales-report';
 
 /**
  * SARIRO — sales and refunds
@@ -37,6 +40,7 @@ export default function SalesLedgerPanel({ canRefund = true }: { canRefund?: boo
   const [sellers, setSellers] = useState<{ id: string; name: string }[]>([]);
   const [failed, setFailed] = useState<string | null>(null);
   const [range, setRange] = useState<DateRange>(() => resolveRange('month'));
+  const [filters, setFilters] = useState<SalesFilters>(NO_FILTERS);
   const [mode, setMode] = useState<Mode>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
@@ -61,26 +65,19 @@ export default function SalesLedgerPanel({ canRefund = true }: { canRefund?: boo
     void fetchSellers().then(setSellers);
   }, [load]);
 
+  /* The date range, then the filters — new or renewal, refunded or not, GST
+     opted or not, full or installment. Everything below (the totals, the
+     table, the report) is this list, so they can never disagree. */
   const visible = useMemo(
-    () => (rows ?? []).filter((r) => dateInRange(r.sold_on, range)),
-    [rows, range]
+    () => applyFilters((rows ?? []).filter((r) => dateInRange(r.sold_on, range)), filters),
+    [rows, range, filters]
   );
 
-  /* Totals are per currency. Adding dollars to rupees would produce a number
-     that looks like revenue and is not — the same defect the pricing guard
-     exists to prevent elsewhere. */
-  const totals = useMemo(() => {
-    const map = new Map<string, { symbol: string; gross: number; refunded: number; net: number; count: number }>();
-    for (const r of visible) {
-      const cur = map.get(r.currency_code) ?? { symbol: r.currency_symbol, gross: 0, refunded: 0, net: 0, count: 0 };
-      cur.gross += Number(r.amount);
-      cur.refunded += Number(r.refund_amount ?? 0);
-      cur.net += netOf(r);
-      cur.count += 1;
-      map.set(r.currency_code, cur);
-    }
-    return [...map.entries()];
-  }, [visible]);
+  /* Per currency, from the shared calculation the Earnings & Sales report
+     uses too. Adding dollars to rupees would produce a number that looks like
+     revenue and is not. The whole ledger goes in as well, so an installment
+     plan's earlier payments still count towards what it owes. */
+  const summaries = useMemo(() => summarise(visible, rows ?? []), [visible, rows]);
 
   const submit = async () => {
     setBusy(true);
@@ -102,9 +99,16 @@ export default function SalesLedgerPanel({ canRefund = true }: { canRefund?: boo
     void load();
   };
 
+  const slug = (s: string) => s.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
+
+  /** Exactly what is on screen: this range, these filters. The name says which. */
   const exportCsv = () => {
-    const name = `sariro-sales_${range.label.replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase()}.csv`;
-    downloadCsv(name, salesToCsv(visible));
+    downloadCsv(`sariro-sales_${slug(range.label)}_${slug(describeFilters(filters))}.csv`, salesToCsv(visible));
+  };
+
+  /** Every sale ever recorded, every column, no filter — the one with all the details. */
+  const exportAll = () => {
+    downloadCsv('sariro-sales_all-details_lifetime.csv', salesToCsv(rows ?? []));
   };
 
   if (failed) {
@@ -149,10 +153,21 @@ export default function SalesLedgerPanel({ canRefund = true }: { canRefund?: boo
           type="button"
           onClick={exportCsv}
           disabled={visible.length === 0}
+          title="This range and these filters, exactly as on screen"
           className="inline-flex items-center gap-2 px-4 min-h-[42px] rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold disabled:bg-slate-300"
           style={{ fontFamily: 'var(--font-grotesk)' }}
         >
           <Download className="w-4 h-4" /> Download report
+        </button>
+        <button
+          type="button"
+          onClick={exportAll}
+          disabled={(rows ?? []).length === 0}
+          title="Every sale ever recorded, every column, no filter"
+          className="inline-flex items-center gap-2 px-4 min-h-[42px] rounded-lg bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 text-sm font-bold disabled:opacity-40"
+          style={{ fontFamily: 'var(--font-grotesk)' }}
+        >
+          <Download className="w-4 h-4" /> All details
         </button>
       </div>
 
@@ -160,6 +175,44 @@ export default function SalesLedgerPanel({ canRefund = true }: { canRefund?: boo
         value={range}
         onChange={(preset: RangePreset, custom) => setRange(resolveRange(preset, custom))}
       />
+
+      {/* ── What kind of payment ─────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <Segment
+          label="Business"
+          value={filters.saleType}
+          options={[['all', 'All'], ['new', 'New sale'], ['renewal', 'Renewal']]}
+          onChange={(saleType) => setFilters((f) => ({ ...f, saleType }))}
+        />
+        <Segment
+          label="Refunds"
+          value={filters.refund}
+          options={[['all', 'All'], ['refunded', 'Refunded'], ['not_refunded', 'Not refunded']]}
+          onChange={(refund) => setFilters((f) => ({ ...f, refund }))}
+        />
+        <Segment
+          label="GST"
+          value={filters.gst}
+          options={[['all', 'All'], ['opted', 'Opted'], ['not_opted', 'Not opted']]}
+          onChange={(gst) => setFilters((f) => ({ ...f, gst }))}
+        />
+        <Segment
+          label="Payment"
+          value={filters.payment}
+          options={[['all', 'All'], ['full', 'Full'], ['installment', 'Installment']]}
+          onChange={(payment) => setFilters((f) => ({ ...f, payment }))}
+        />
+        {JSON.stringify(filters) !== JSON.stringify(NO_FILTERS) && (
+          <button
+            type="button"
+            onClick={() => setFilters(NO_FILTERS)}
+            className="text-[12px] font-bold text-blue-700 hover:text-blue-900"
+            style={{ fontFamily: 'var(--font-grotesk)' }}
+          >
+            Clear filters
+          </button>
+        )}
+      </div>
 
       {msg && (
         <div
@@ -275,31 +328,50 @@ export default function SalesLedgerPanel({ canRefund = true }: { canRefund?: boo
       )}
 
       {/* ── Totals, per currency ─────────────────────────────────────────── */}
-      {totals.length > 0 && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {totals.map(([code, t]) => (
-            <div key={code} className="card card--compact">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                {range.label} · {code}
-              </p>
-              <p className="text-2xl font-extrabold tabular-nums mt-1 leading-none text-slate-900">
-                {t.symbol}{t.net.toLocaleString(code === 'INR' ? 'en-IN' : 'en-US', { maximumFractionDigits: 0 })}
-              </p>
-              <p className="text-[12px] text-slate-500 mt-1">
-                {t.count} {t.count === 1 ? 'sale' : 'sales'}
-                {t.refunded > 0 && ` · ${t.symbol}${t.refunded.toLocaleString()} refunded`}
-              </p>
+      {summaries.map((c) => {
+        const fmt = (v: number) =>
+          `${c.symbol}${v.toLocaleString(c.currency === 'INR' ? 'en-IN' : 'en-US', { maximumFractionDigits: 0 })}`;
+        return (
+          <div key={c.currency} className="card card--compact">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              {range.label} · {c.currency} · {describeFilters(filters)}
+            </p>
+            <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div>
+                <p className="text-[11px] text-slate-500">Collected</p>
+                <p className="text-xl font-extrabold tabular-nums text-slate-900">{fmt(c.collected)}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-slate-500">Refunded</p>
+                <p className="text-xl font-extrabold tabular-nums text-red-600">{fmt(c.refunded)}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-slate-500">Net</p>
+                <p className="text-xl font-extrabold tabular-nums text-blue-700">{fmt(c.net)}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-slate-500">Due on plans</p>
+                <p className="text-xl font-extrabold tabular-nums text-amber-700">{fmt(c.due)}</p>
+              </div>
             </div>
-          ))}
-        </div>
-      )}
+            {/* The number of payments of each kind — what the report is for. */}
+            <p className="text-[12px] text-slate-500 mt-2">
+              {c.sales} {c.sales === 1 ? 'payment' : 'payments'} · {c.newSales} new · {c.renewals}{' '}
+              {c.renewals === 1 ? 'renewal' : 'renewals'} · {c.refunds} refunded · GST opted {c.gstOpted} · GST not opted{' '}
+              {c.gstNotOpted}
+            </p>
+          </div>
+        );
+      })}
 
       {/* ── The ledger ───────────────────────────────────────────────────── */}
       {visible.length === 0 ? (
         <div className="card card--feature text-center py-10">
           <Receipt className="w-8 h-8 mx-auto text-slate-300 mb-3" />
           <p className="text-[14px] text-slate-600">
-            {rows.length === 0 ? 'No sales recorded yet.' : `Nothing in ${range.label.toLowerCase()}.`}
+            {rows.length === 0
+              ? 'No sales recorded yet.'
+              : `Nothing in ${range.label.toLowerCase()}${filters === NO_FILTERS ? '' : ` matching ${describeFilters(filters)}`}.`}
           </p>
         </div>
       ) : (
@@ -401,6 +473,40 @@ export default function SalesLedgerPanel({ canRefund = true }: { canRefund?: boo
         refunded. Totals are kept per currency — adding dollars to rupees would
         produce a number that looks like revenue and is not.
       </p>
+    </div>
+  );
+}
+
+/** One filter: a label, and the choices as buttons so the current one is always visible. */
+function Segment<T extends string>({
+  label, value, options, onChange,
+}: {
+  label: string;
+  value: T;
+  options: readonly (readonly [T, string])[];
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400" style={{ fontFamily: 'var(--font-grotesk)' }}>
+        {label}
+      </span>
+      <div className="inline-flex rounded-lg bg-slate-100 p-0.5">
+        {options.map(([v, text]) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => onChange(v)}
+            aria-pressed={value === v}
+            className={`px-2.5 min-h-[30px] rounded-md text-[12px] font-bold transition-colors ${
+              value === v ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+            }`}
+            style={{ fontFamily: 'var(--font-grotesk)' }}
+          >
+            {text}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

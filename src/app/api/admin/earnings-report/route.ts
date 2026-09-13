@@ -4,11 +4,26 @@ import { createServerClientHelper, createServiceClient } from '@/lib/supabase/se
 /**
  * SARIRO — GET /api/admin/earnings-report  (admin / super_admin / hr)
  *
- * Company-wide finance snapshot:
- *   - every teacher's earnings totals (pending / settled / net)
- *   - total sale value / paid / due across enrolled leads (+ the lead list)
+ * Every teacher earning, one row each, with the date of the class it was for.
+ *
+ * ── What moved out of here ──────────────────────────────────────────────────
+ * This route used to total the SALES too, from sale_value and amount_paid on
+ * enrolled leads. Nothing has written those fields since sales moved to the
+ * invoice-backed ledger, so every total it returned was ₹0 and the list of
+ * enrolled sales was empty. The report now reads the ledger itself, through the
+ * same fetchSales() the Sales panel uses — one source for the same numbers —
+ * and adds it up with lib/finance/sales-report.ts.
+ *
+ * ── Why rows, not totals ────────────────────────────────────────────────────
+ * The report filters by date (today, last 7 days … lifetime). Totals computed
+ * here cannot be re-cut by a range chosen on the screen; dated rows can, and
+ * switching range is then instant rather than a round trip per click.
  */
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+/** One run should never return an unbounded number of rows. */
+const MAX_ROWS = 10_000;
 
 const num = (v: unknown) => Number(v ?? 0);
 
@@ -26,41 +41,23 @@ export async function GET() {
   const ok = p?.role === 'admin' || p?.role === 'super_admin' || p?.role === 'hr' || p?.is_admin === true || p?.is_super_admin === true;
   if (!ok) return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
 
-  const [earnRes, leadRes] = await Promise.all([
-    admin.from('teacher_earnings').select('teacher_id, net_amount, amount, status, teacher:profiles!teacher_id(full_name)'),
-    admin.from('student_leads').select('id, student_name, sale_value, amount_paid, assigned_seller, seller:profiles!assigned_seller(full_name)').eq('stage', 'enrolled'),
-  ]);
+  const { data, error } = await admin
+    .from('teacher_earnings')
+    .select('teacher_id, net_amount, amount, status, class_date, teacher:profiles!teacher_id(full_name)')
+    .order('class_date', { ascending: false })
+    .limit(MAX_ROWS);
 
-  // Aggregate earnings per teacher.
-  const byTeacher = new Map<string, { teacher_id: string; name: string; pending: number; settled: number; net: number }>();
-  for (const e of (earnRes.data ?? []) as Array<Record<string, unknown>>) {
-    const id = String(e.teacher_id);
-    const net = num(e.net_amount ?? e.amount);
-    const t = e.teacher as { full_name?: string } | null;
-    const row = byTeacher.get(id) ?? { teacher_id: id, name: t?.full_name ?? 'Unknown', pending: 0, settled: 0, net: 0 };
-    if (e.status === 'pending') row.pending += net;
-    if (e.status === 'settled') row.settled += net;
-    row.net += net;
-    byTeacher.set(id, row);
+  if (error) {
+    return NextResponse.json({ ok: false, error: 'query_failed', message: error.message }, { status: 500 });
   }
-  const teachers = [...byTeacher.values()].sort((a, b) => b.net - a.net);
 
-  // Sales totals + list.
-  const leads = ((leadRes.data ?? []) as Array<Record<string, unknown>>).map((l) => ({
-    id: String(l.id),
-    student_name: (l.student_name as string) ?? '—',
-    seller_name: (l.seller as { full_name?: string } | null)?.full_name ?? '—',
-    sale_value: num(l.sale_value),
-    amount_paid: num(l.amount_paid),
-    due: num(l.sale_value) - num(l.amount_paid),
+  const earnings = ((data ?? []) as Array<Record<string, unknown>>).map((e) => ({
+    teacher_id: String(e.teacher_id),
+    name: (e.teacher as { full_name?: string } | null)?.full_name ?? 'Unknown',
+    net: num(e.net_amount ?? e.amount),
+    status: String(e.status ?? ''),
+    class_date: (e.class_date as string | null) ?? null,
   }));
-  const salesTotal = leads.reduce((s, l) => s + l.sale_value, 0);
-  const paidTotal = leads.reduce((s, l) => s + l.amount_paid, 0);
 
-  return NextResponse.json({
-    ok: true,
-    teachers,
-    earnings_total: teachers.reduce((s, t) => s + t.net, 0),
-    sales: { total: salesTotal, paid: paidTotal, due: salesTotal - paidTotal, leads },
-  });
+  return NextResponse.json({ ok: true, earnings });
 }
