@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import { Award, Download, Loader2, AlertTriangle, ArrowLeft, Sparkles } from 'lucide-react';
 import BrandLayout from '@/components/brand/brand-layout';
 import { useAuth } from '@/components/auth/auth-provider';
-import { fetchCertificateData, type CertificateData } from '@/lib/dashboard/student-data';
+import type { CertificateData } from '@/lib/dashboard/student-data';
 
 /* ─────────────────────── Print CSS ───────────────────────
    Hides everything except the certificate card so window.print()
@@ -49,6 +49,9 @@ function CertificatePageInner() {
   const [data, setData] = useState<CertificateData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /* Staff opening a student's certificate: the back link goes to their own
+     dashboard, not to a student dashboard they cannot use. */
+  const [viewerIsOwner, setViewerIsOwner] = useState(true);
 
   useEffect(() => {
     if (authLoading) return;
@@ -65,13 +68,17 @@ function CertificatePageInner() {
     let cancelled = false;
     (async () => {
       try {
-        const cert = await fetchCertificateData(enrollmentId);
+        /* Through the server, not the student's own session, so admin and HR
+           can open a certificate they issued. The server decides who may. */
+        const res = await fetch(`/api/certificates/course?id=${encodeURIComponent(enrollmentId)}`, { cache: 'no-store' });
+        const json = await res.json().catch(() => null);
         if (cancelled) return;
-        if (!cert) {
-          setError('This certificate is not available. The course may not be marked as completed yet.');
+        if (!res.ok || !json?.ok) {
+          setError(json?.message ?? 'This certificate is not available. The course may not be marked as completed yet.');
           setData(null);
         } else {
-          setData(cert);
+          setData(json.certificate as CertificateData);
+          setViewerIsOwner(json.viewerIsOwner !== false);
           setError(null);
         }
       } catch (err) {
@@ -99,7 +106,7 @@ function CertificatePageInner() {
           {/* Back link + actions */}
           <div className="no-print flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
             <Link
-              href="/dashboard/student"
+              href={viewerIsOwner ? '/dashboard/student' : '/dashboard'}
               className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors min-h-[44px]"
               style={{ fontFamily: 'var(--font-grotesk)' }}
             >

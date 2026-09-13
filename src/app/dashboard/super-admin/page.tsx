@@ -27,6 +27,7 @@ import UnresolvedClassesPanel from '@/components/dashboard/unresolved-classes-pa
 import CatchUpOverduePanel from '@/components/dashboard/catchup-overdue-panel';
 import TrialGradesPanel from '@/components/dashboard/trial-grades-panel';
 import TrialManagementPanel from '@/components/dashboard/trial-management-panel';
+import CertificatesPanel from '@/components/dashboard/certificates-panel';
 import { useAuth } from '@/components/auth/auth-provider';
 import { TRACKS, COURSES, RAZORPAY_LINKS, RAZORPAY_LINKS_PREMIUM } from '@/lib/sariro-data';
 import { createClient } from '@/lib/supabase/client';
@@ -863,6 +864,12 @@ function SuperAdminDashboardInner() {
             was not visible on any of them. */}
         <section className="mb-10">
           <TrialManagementPanel />
+        </section>
+
+        {/* Course certificates: issued when a course is finished, withdrawn
+            if pressed on the wrong child. Same panel as admin and HR. */}
+        <section className="mb-10">
+          <CertificatesPanel />
         </section>
 
         <section className="mb-10">

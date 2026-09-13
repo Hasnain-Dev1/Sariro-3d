@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation';
 import { Award, ArrowLeft } from 'lucide-react';
 import { createServerClientHelper, createServiceClient } from '@/lib/supabase/server';
 import { trialCertificateFor, REASON_COPY } from '@/lib/trial/certificate';
+import { isCertificateStaff } from '@/lib/certificates/course';
+import type { ActorRole } from '@/lib/auth/actor';
 import { BRAND } from '@/lib/sariro-data';
 import PrintButton from './print-button';
 
@@ -28,18 +30,46 @@ const PRINT_CSS = `
   @page { size: landscape; margin: 0.4in; }
 }`;
 
+/** The viewer's role, read through their own session — never from the URL. */
+async function viewerRole(supa: Awaited<ReturnType<typeof createServerClientHelper>>, userId: string): Promise<ActorRole> {
+  const { data: p } = await supa
+    .from('profiles')
+    .select('role, is_admin, is_super_admin, is_hr')
+    .eq('id', userId)
+    .maybeSingle();
+  if (p?.role === 'super_admin' || p?.is_super_admin) return 'super_admin';
+  if (p?.role === 'admin' || p?.is_admin) return 'admin';
+  if (p?.role === 'hr' || p?.is_hr) return 'hr';
+  return 'student';
+}
+
 export default async function TrialCertificatePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ bookingId: string }>;
+  searchParams: Promise<{ student?: string }>;
 }) {
   const { bookingId } = await params;
+  const { student } = await searchParams;
 
   const supa = await createServerClientHelper();
   const { data: { user } } = await supa.auth.getUser();
-  if (!user) redirect(`/auth/sign-in?next=${encodeURIComponent(`/certificate/trial/${bookingId}`)}`);
+  if (!user) {
+    const next = `/certificate/trial/${bookingId}${student ? `?student=${encodeURIComponent(student)}` : ''}`;
+    redirect(`/auth/sign-in?next=${encodeURIComponent(next)}`);
+  }
 
-  const result = await trialCertificateFor(createServiceClient(), bookingId, user.id);
+  /* Admin and HR open a child's certificate by naming the child. Anybody else
+     naming a child is ignored and sees their own — the same "not found" a
+     stranger's booking has always given. */
+  const forStudent = student && student !== user.id && isCertificateStaff(await viewerRole(supa, user.id))
+    ? student
+    : user.id;
+
+  const result = await trialCertificateFor(createServiceClient(), bookingId, forStudent);
+  // Staff came from their dashboard; the child came from their class page.
+  const backHref = forStudent === user.id ? '/my-class' : '/dashboard';
 
   if (!result.ok) {
     return (
@@ -52,8 +82,8 @@ export default async function TrialCertificatePage({
             No certificate for this class
           </h1>
           <p className="mt-2 text-sm text-slate-600 leading-relaxed">{REASON_COPY[result.reason]}</p>
-          <Link href="/my-class" className="mt-6 inline-flex items-center gap-1.5 text-sm font-bold text-blue-700 hover:text-blue-900">
-            <ArrowLeft className="w-4 h-4" /> Back to your class
+          <Link href={backHref} className="mt-6 inline-flex items-center gap-1.5 text-sm font-bold text-blue-700 hover:text-blue-900">
+            <ArrowLeft className="w-4 h-4" /> {forStudent === user.id ? 'Back to your class' : 'Back to dashboard'}
           </Link>
         </div>
       </main>
@@ -68,8 +98,8 @@ export default async function TrialCertificatePage({
       <style dangerouslySetInnerHTML={{ __html: PRINT_CSS }} />
 
       <div className="no-print max-w-4xl mx-auto mb-5 flex items-center justify-between gap-3">
-        <Link href="/my-class" className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-600 hover:text-slate-900">
-          <ArrowLeft className="w-4 h-4" /> Back to your class
+        <Link href={backHref} className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-600 hover:text-slate-900">
+          <ArrowLeft className="w-4 h-4" /> {forStudent === user.id ? 'Back to your class' : 'Back to dashboard'}
         </Link>
         <PrintButton />
       </div>

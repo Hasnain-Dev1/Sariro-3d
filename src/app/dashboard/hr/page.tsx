@@ -24,6 +24,7 @@ import InvoiceWorkspace from '@/components/dashboard/invoice-workspace';
 import SalesLedgerPanel from '@/components/dashboard/sales-ledger-panel';
 import UnrecordedInvoicesPanel from '@/components/dashboard/unrecorded-invoices-panel';
 import HrSalesPanel from '@/components/dashboard/hr-sales-panel';
+import CertificatesPanel from '@/components/dashboard/certificates-panel';
 
 export default function HRDashboard() {
   const { user, loading } = useAuth();
@@ -39,7 +40,7 @@ export default function HRDashboard() {
   const [assignments, setAssignments] = useState<Map<string, TeacherAssignmentRow[]>>(new Map());
   const [students, setStudents] = useState<StudentProfile[]>([]);
   const [loadingData, setLoadingData] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'my_teachers' | 'incentives' | 'payments' | 'credits' | 'tiers' | 'enquiries' | 'expenses' | 'policy' | 'credit_requests' | 'invoices' | 'sales'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'my_teachers' | 'incentives' | 'payments' | 'credits' | 'tiers' | 'enquiries' | 'expenses' | 'policy' | 'credit_requests' | 'invoices' | 'sales' | 'certificates'>('overview');
   const { toast, showToast } = useDashboardToast();
   const [showSales, setShowSales] = useState(false);
   /* Invoices issued more than a day ago with no sale against them. Carried on
@@ -226,6 +227,7 @@ export default function HRDashboard() {
               { key: 'credit_requests', label: 'Credit Requests', badge: 0 },
               { key: 'invoices', label: 'Generate Invoice', badge: 0 },
               { key: 'sales', label: 'Sales & Refunds', badge: unrecorded },
+              { key: 'certificates', label: 'Certificates', badge: 0 },
               { key: 'expenses', label: 'Expenses', badge: 0 },
               { key: 'policy', label: 'Chat Policy', badge: 0 },
             ].map((tab) => (
@@ -316,6 +318,10 @@ export default function HRDashboard() {
               {/* Attempts to move a learner's conversation off the platform.
                   HR owns the conversation that follows a repeat. */}
               {activeTab === 'policy' && <PolicyFlagsPanel />}
+
+              {/* Issue a course certificate when a course is finished, and
+                  open any certificate to print for a family who asks. */}
+              {activeTab === 'certificates' && <CertificatesPanel />}
 
               {/* ─── OVERVIEW TAB ─── */}
               {activeTab === 'overview' && (

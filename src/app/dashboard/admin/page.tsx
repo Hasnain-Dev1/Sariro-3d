@@ -40,6 +40,7 @@ import { BatchRescheduleModal } from '@/components/dashboard/batch-reschedule-mo
 import MyTeachers from '@/components/dashboard/my-teachers';
 import { describeChoice } from '@/lib/demo/learner-choice';
 import PolicyFlagsPanel from '@/components/dashboard/policy-flags-panel';
+import CertificatesPanel from '@/components/dashboard/certificates-panel';
 import CreateCourseModal from '@/components/dashboard/create-course-modal';
 import {
   COURSE_FAMILIES, CODING_LEVELS, optionsFor, gradesFor, type CourseFamily,
@@ -2022,6 +2023,12 @@ function AdminDashboardInner() {
 
       {/* Demo Class Requests — from the welcome popup + /welcome form */}
       <DemoRequestsSection onToast={(msg, kind) => handleToast(kind ?? 'success', msg)} />
+
+      {/* Course certificates are issued here when a course is finished — the
+          same panel HR has, so whoever finishes the paperwork can do it. */}
+      <div className="max-w-7xl mx-auto mb-10">
+        <CertificatesPanel />
+      </div>
 
       {/* Attempts to move a learner's conversation off Sariro. Admins see the
           same queue as HR — whoever gets there first should be able to act. */}
