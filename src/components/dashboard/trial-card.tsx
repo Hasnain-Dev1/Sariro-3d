@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Sparkles, Video, Clock } from 'lucide-react';
-import { Countdown } from '@/components/dashboard/trial-journey';
+import FlipCountdown from '@/components/dashboard/flip-countdown';
 import type { TrialClass } from '@/components/dashboard/trial-journey';
 import { subjectLabel } from '@/lib/trial/subjects';
 import { gradeTag } from '@/lib/grade/tag';
@@ -87,10 +87,7 @@ export default function TrialCard({
               was. Same component, same maths, so the two cannot disagree. */}
           {!joinable && now !== null && (
             <div className="mt-3">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                Starts in
-              </p>
-              <Countdown iso={trial.slot_start} now={now} />
+              <FlipCountdown iso={trial.slot_start} now={now} size="sm" />
             </div>
           )}
         </div>

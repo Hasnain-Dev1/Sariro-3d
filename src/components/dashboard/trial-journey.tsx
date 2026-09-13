@@ -10,6 +10,8 @@ import { BRAND } from '@/lib/sariro-data';
 import ClassFeedbackForm from '@/components/dashboard/class-feedback-form';
 import { subjectLabel } from '@/lib/trial/subjects';
 import { gradeTag } from '@/lib/grade/tag';
+import FlipCountdown from '@/components/dashboard/flip-countdown';
+import AddToCalendar from '@/components/dashboard/add-to-calendar';
 
 /**
  * SARIRO — what a child sees before their first class, and after it
@@ -69,45 +71,6 @@ function useNow(): number | null {
   return now;
 }
 
-/** Exported so the dashboard card counts down with exactly the same maths.
-    Two countdowns disagreeing by a minute is the sort of thing a parent
-    notices and nobody can explain. */
-export function Countdown({ iso, now }: { iso: string; now: number }) {
-  const ms = Date.parse(iso) - now;
-  if (ms <= 0) return null;
-
-  const total = Math.floor(ms / 1000);
-  const d = Math.floor(total / 86400);
-  const h = Math.floor((total % 86400) / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-
-  /* Every unit that is not leading zero, down to the second. It used to stop
-     at two — "2 days 11 hours" — which is a fact rather than a countdown, and
-     a page that is not visibly moving looks like a page that is not working.
-     The ticking second is the part that makes it feel alive. */
-  const parts = [
-    ...(d > 0 ? [{ v: d, l: d === 1 ? 'day' : 'days' }] : []),
-    ...(d > 0 || h > 0 ? [{ v: h, l: h === 1 ? 'hour' : 'hours' }] : []),
-    { v: m, l: 'min' },
-    { v: s, l: 'sec' },
-  ];
-
-  return (
-    <div className="flex items-end gap-4">
-      {parts.map((p) => (
-        <div key={p.l}>
-          <div className="text-4xl sm:text-5xl font-extrabold text-slate-900 tabular-nums" style={{ fontFamily: 'var(--font-jakarta)' }}>
-            {p.v}
-          </div>
-          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400" style={{ fontFamily: 'var(--font-grotesk)' }}>
-            {p.l}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 /** A titled block on the trial page. */
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -250,12 +213,20 @@ export default function TrialJourney({
 
         {!joinable && (
           <div className="mt-6 pt-6 border-t border-slate-100">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2" style={{ fontFamily: 'var(--font-grotesk)' }}>
-              Starts in
-            </p>
             {now === null
-              ? <div className="h-14" aria-hidden="true" />
-              : <Countdown iso={trial.slot_start} now={now} />}
+              ? <div className="h-24" aria-hidden="true" />
+              : <FlipCountdown iso={trial.slot_start} now={now} />}
+            {/* The class in the calendar they already use, with its own alarm —
+                a stronger guard against a no-show than any message from us. */}
+            <AddToCalendar
+              event={{
+                uid: `${trial.id}@sariro.com`,
+                title: `Free Sariro class${trial.subject ? `: ${subjectLabel(trial.subject)}` : ''}`,
+                description: `Your free ${trial.subject ? subjectLabel(trial.subject) + ' ' : ''}class${trial.teacher_name ? ` with ${trial.teacher_name}` : ''}. The join button appears on your class page ten minutes before the start.`,
+                startIso: trial.slot_start,
+                endIso: trial.slot_end,
+              }}
+            />
           </div>
         )}
 
