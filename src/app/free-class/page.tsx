@@ -91,6 +91,19 @@ export default function FreeClassPage() {
             Book a free class: thirty minutes with a real teacher, in a class of four or fewer.
             Maths, science, English, coding or public speaking — grades 1 to 12, and adults too.
           </p>
+
+          {/* Something to DO before deciding anything. A parent who has just
+              heard their child's speaking score has a reason to book that no
+              headline can give them. */}
+          <Link
+            href="/voice-check"
+            className="mt-4 flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 hover:bg-blue-100 transition-colors"
+          >
+            <span className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0 text-base">🎙️</span>
+            <span className="text-[13px] text-blue-900 leading-snug">
+              <strong>New: free Voice Check.</strong> How does your child sound? Get a speaking score in 45 seconds.
+            </span>
+          </Link>
         </section>
 
         {/* The booking, above the fold on a phone. This is the whole page.

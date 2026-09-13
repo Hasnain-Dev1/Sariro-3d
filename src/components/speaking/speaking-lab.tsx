@@ -1,8 +1,16 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Mic, Square, RotateCcw, AlertCircle, Loader2, CheckCircle2, Info } from 'lucide-react';
-import { analyseSpeech, type SpeechReport, type SpeechSample } from '@/lib/speaking/analyse';
+import { analyseSpeech, type SpeechReport } from '@/lib/speaking/analyse';
+import { micMessage } from '@/lib/speaking/mic';
+import PronunciationPanel from '@/components/speaking/pronunciation-panel';
+import { analysePronunciation } from '@/lib/speaking/pronunciation';
+import { analyseModulation } from '@/lib/speaking/modulation';
+import ModulationPanel from '@/components/speaking/modulation-panel';
+import { logAttempt } from '@/lib/speaking/practice-log';
+import { speakingMetrics } from '@/lib/speaking/progress';
+import { useSpeechRecorder, FRAME_MS, type Recording } from '@/components/speaking/use-speech-recorder';
 
 /**
  * SARIRO — the Speaking Lab
@@ -10,60 +18,17 @@ import { analyseSpeech, type SpeechReport, type SpeechSample } from '@/lib/speak
  * A student presses record, talks, and gets told what actually happened to
  * their voice. Between classes, as many times as they like.
  *
- * ── Everything runs on their own device ─────────────────────────────────────
- * The transcript comes from the browser's own speech recognition and the
- * loudness from the Web Audio analyser. No audio is uploaded, no API is called,
- * and no credit is spent — which is what makes "practise it again" a real
- * instruction rather than a rationed one. It also means a child's voice never
- * leaves their laptop, which is the answer to the question a parent will ask.
- *
- * ── Two independent streams, deliberately ───────────────────────────────────
- * Speech recognition gives words and no reliable timing. The analyser gives
- * timing and no words. Pace needs both; pauses need only the second. Reading
- * pauses off the audio rather than off word timings is what makes the pause
- * measurements trustworthy — see lib/speaking/analyse.ts.
+ * The recording itself — words, loudness and pitch, all on the device — lives
+ * in components/speaking/use-speech-recorder.ts, shared with the public Voice
+ * Check. This component decides what an ENROLLED student gets from it: the
+ * full report, pronunciation against a passage, modulation, and a row in their
+ * practice log so it becomes a curve rather than a one-off reading.
  *
  * ── When the browser cannot do it ───────────────────────────────────────────
  * Speech recognition is Chrome, Edge and Safari; Firefox has none. Rather than
  * hide the lesson, the drill stays readable and the panel says plainly what is
- * missing and where it does work. A student on the wrong browser can still read
- * the passage aloud — they just do not get the report.
+ * missing and where it does work.
  */
-
-/* The Web Speech API is not in TypeScript's DOM library. */
-interface SpeechRecognitionAlternativeLike { transcript: string }
-interface SpeechRecognitionResultLike {
-  isFinal: boolean;
-  0: SpeechRecognitionAlternativeLike;
-  length: number;
-}
-interface SpeechRecognitionEventLike {
-  resultIndex: number;
-  results: { length: number; [i: number]: SpeechRecognitionResultLike };
-}
-interface SpeechRecognitionLike {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  start(): void;
-  stop(): void;
-  onresult: ((e: SpeechRecognitionEventLike) => void) | null;
-  onerror: ((e: { error: string }) => void) | null;
-  onend: (() => void) | null;
-}
-type RecognitionCtor = new () => SpeechRecognitionLike;
-
-function recognitionCtor(): RecognitionCtor | null {
-  if (typeof window === 'undefined') return null;
-  const w = window as unknown as {
-    SpeechRecognition?: RecognitionCtor;
-    webkitSpeechRecognition?: RecognitionCtor;
-  };
-  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
-}
-
-/** Loudness is sampled this often. 50ms is finer than any pause worth naming. */
-const FRAME_MS = 50;
 
 export interface Drill {
   id: string;
@@ -79,16 +44,6 @@ export interface Drill {
   targetSeconds?: number;
 }
 
-import { diagnoseMic, micMessage, micErrorMessage, type MicBlocker } from '@/lib/speaking/mic';
-import { assembleTranscript } from '@/lib/speaking/transcript';
-import PronunciationPanel from '@/components/speaking/pronunciation-panel';
-import { analysePronunciation } from '@/lib/speaking/pronunciation';
-import { detectPitch } from '@/lib/speaking/pitch';
-import { analyseModulation } from '@/lib/speaking/modulation';
-import ModulationPanel from '@/components/speaking/modulation-panel';
-import { logAttempt } from '@/lib/speaking/practice-log';
-import { speakingMetrics } from '@/lib/speaking/progress';
-
 export default function SpeakingLab({
   drill,
   onLogged,
@@ -97,224 +52,60 @@ export default function SpeakingLab({
   /** Fired once a row is actually written, so a progress panel can refresh. */
   onLogged?: () => void;
 }) {
-  /* null while unknown, '' when everything is present, otherwise the reason.
-     A boolean here was the bug: "this browser cannot listen" was shown for
-     three completely different causes, and the commonest one — an http:// page,
-     where the browser silently removes navigator.mediaDevices entirely — is
-     the one the message did not fit at all. Nobody could tell why the
-     microphone prompt never appeared, because it never had a chance to. */
-  const [blocker, setBlocker] = useState<MicBlocker | null>(null);
-  const [state, setState] = useState<'idle' | 'recording' | 'done'>('idle');
-  const [elapsed, setElapsed] = useState(0);
-  const [transcript, setTranscript] = useState('');
   const [report, setReport] = useState<SpeechReport | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [level, setLevel] = useState(0);
+  /** The recording the report on screen was measured from. */
+  const [last, setLast] = useState<Recording | null>(null);
 
-  const recognition = useRef<SpeechRecognitionLike | null>(null);
-  const stream = useRef<MediaStream | null>(null);
-  const audioCtx = useRef<AudioContext | null>(null);
-  const levels = useRef<number[]>([]);
-  /* Pitch per frame, aligned to `levels`. null on unvoiced frames — roughly
-     half of ordinary speech, since s, f, sh and silence have no pitch at all.
-     The buffer was already being read for loudness and then discarded; this is
-     the same buffer, asked a second question. */
-  const pitches = useRef<(number | null)[]>([]);
-  const finalText = useRef('');
-  /* Everything heard in recognition sessions that have already ended. Chrome
-     stops on its own after a few seconds of silence and we restart it; each
-     restart gets an empty results list, so what came before has to live here
-     or it is lost. */
-  const priorSessions = useRef('');
-  const startedAt = useRef(0);
-  const sampler = useRef<number | null>(null);
-  const ticker = useRef<number | null>(null);
-  /** Whether a recording is live, readable from inside long-lived callbacks. */
-  const recording = useRef(false);
-
-  useEffect(() => {
-    setBlocker(diagnoseMic());
-  }, []);
-
-  /** Everything the recording holds open, released in one place. */
-  const teardown = useCallback(() => {
-    recording.current = false;
-    if (sampler.current) { clearInterval(sampler.current); sampler.current = null; }
-    if (ticker.current) { clearInterval(ticker.current); ticker.current = null; }
-    try { recognition.current?.stop(); } catch { /* already stopped */ }
-    recognition.current = null;
-    stream.current?.getTracks().forEach((t) => t.stop());
-    stream.current = null;
-    void audioCtx.current?.close().catch(() => {});
-    audioCtx.current = null;
-  }, []);
-
-  // A recording left running because the student navigated away is a
-  // microphone light that stays on. That is the kind of thing a parent
-  // uninstalls over.
-  useEffect(() => teardown, [teardown]);
-
-  const stop = useCallback(() => {
-    const durationMs = Date.now() - startedAt.current;
-    teardown();
-    setState('done');
-
-    const sample: SpeechSample = {
-      transcript: finalText.current.trim(),
-      durationMs,
-      levels: levels.current,
-      frameMs: FRAME_MS,
+  const onStop = useCallback((rec: Recording) => {
+    setLast(rec);
+    const result = analyseSpeech({
+      transcript: rec.transcript,
+      durationMs: rec.durationMs,
+      levels: rec.levels,
+      frameMs: rec.frameMs,
       reference: drill.passage,
-    };
-    const result = analyseSpeech(sample);
+    });
     setReport(result);
-
-    /* Audio came through and no words did. That is not a slow speaker, it is
-       a recogniser that gave us nothing — and it must not be recorded as a
-       pace of zero. */
-    const heardWords = sample.transcript.trim().length > 0;
-    if (!heardWords) {
-      setError(
-        levels.current.some((l) => l > 0.02)
-          ? 'We heard you, but the browser turned none of it into words. Chrome or Edge are the most reliable — and check the passage is being read aloud rather than under your breath.'
-          : 'We did not pick up any sound. Check the right microphone is selected and try once more.'
-      );
-    }
 
     /* Pronunciation only exists for a drill with a passage — free speech has
        no target to compare against. Logged alongside the rest so it becomes a
-       CURVE rather than a one-off reading: "words heard right, 71% to 88%" is
-       the sentence a parent renews on. */
+       CURVE: "words heard right, 71% to 88%" is the sentence a parent renews on. */
     const said = drill.passage
-      ? analysePronunciation({ reference: drill.passage, transcript: finalText.current })
+      ? analysePronunciation({ reference: drill.passage, transcript: rec.transcript })
       : null;
-    const moved = analyseModulation({
-      levels: levels.current, pitches: pitches.current, frameMs: FRAME_MS,
-    });
+    const moved = analyseModulation({ levels: rec.levels, pitches: rec.pitches, frameMs: rec.frameMs });
 
     /* Logged after the report is on screen, and deliberately not awaited. The
        child has finished speaking and wants their result; a slow network must
-       not sit between them and it. A failed write loses one row, which is the
-       right thing to lose. */
+       not sit between them and it. */
     void logAttempt({
       kind: 'speaking',
       drillId: drill.id,
       score: result.score,
-      durationMs,
+      durationMs: rec.durationMs,
       metrics: speakingMetrics({
         ...result,
-        hadWords: heardWords,
+        hadWords: rec.heardWords,
         pronunciationAccuracy: said?.scored ? said.accuracy : undefined,
         pitchRange: moved.scored && moved.rangeSemitones > 0 ? moved.rangeSemitones : undefined,
         energyDrift: moved.scored ? moved.energyDrift : undefined,
       }),
     }).then((ok) => { if (ok) onLogged?.(); });
-  }, [teardown, drill.passage, drill.id, onLogged]);
+  }, [drill.passage, drill.id, onLogged]);
 
-  const start = useCallback(async () => {
-    const Ctor = recognitionCtor();
-    if (!Ctor) return;
+  const { blocker, state, elapsed, transcript, error, level, start, stop, reset } = useSpeechRecorder({ onStop });
 
-    setError(null);
-    setReport(null);
-    setTranscript('');
-    finalText.current = '';
-    priorSessions.current = '';
-    levels.current = [];
-    pitches.current = [];
-    setElapsed(0);
-
-    try {
-      stream.current = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (err) {
-      /* Three different refusals, and the fix is different for each. "Check
-         the permission" is unhelpful to somebody whose laptop simply has no
-         microphone, and actively wrong for somebody who has blocked us once
-         and now gets no prompt at all — the browser denies instantly and
-         silently from then on, which reads exactly like nothing happened. */
-      setError(micErrorMessage(err));
-      return;
-    }
-
-    // ── Loudness ──
-    const ctx = new AudioContext();
-    audioCtx.current = ctx;
-    const source = ctx.createMediaStreamSource(stream.current);
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 1024;
-    source.connect(analyser);
-    const buf = new Float32Array(analyser.fftSize);
-
-    sampler.current = window.setInterval(() => {
-      analyser.getFloatTimeDomainData(buf);
-      // RMS, which tracks perceived loudness far better than a peak does.
-      let sum = 0;
-      for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
-      const rms = Math.sqrt(sum / buf.length);
-      levels.current.push(rms);
-      /* The same frame, asked how HIGH it was. Loudness says whether somebody
-         is audible; pitch is what separates reciting from presenting, and it
-         was already in this buffer being thrown away. */
-      pitches.current.push(detectPitch(buf, ctx.sampleRate));
-      setLevel(rms);
-    }, FRAME_MS);
-
-    // ── Words ──
-    const rec = new Ctor();
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.lang = 'en-IN';
-    /* Rebuilt from scratch on every event, not appended to.
-       ────────────────────────────────────────────────────────────────────
-       This used to loop from e.resultIndex and do `finalText += ...`, which
-       duplicates words. resultIndex is the first result that CHANGED, not the
-       first UNSEEN one, and Chrome re-fires it at an index that is already
-       final often enough to matter. The transcript came back with phrases
-       doubled — and because every number in the report is derived from it,
-       the word count, the pace and the filler count were all inflated with
-       the child's own words counted twice.
-
-       Rebuilding is O(results) on a list of a few dozen, and it cannot
-       double-count because nothing is remembered between events. Text from
-       earlier sessions is banked separately in onend, since Chrome hands each
-       restarted session a fresh, empty results list. */
-    rec.onresult = (e) => {
-      const out = assembleTranscript(e.results, priorSessions.current);
-      finalText.current = out.final;
-      setTranscript(out.display);
-    };
-    rec.onerror = (e) => {
-      // 'no-speech' fires on a quiet moment and is not worth alarming anybody
-      // about; the report will say the recording was too short.
-      if (e.error !== 'no-speech' && e.error !== 'aborted') {
-        setError('Speech recognition stopped unexpectedly. Your recording is still being measured.');
-      }
-    };
-    rec.onend = () => {
-      // Chrome ends the session on its own after a few seconds of silence.
-      // While the student is still recording, start it again rather than
-      // silently losing the rest of what they say.
-      //
-      // Read from a ref, not from `state`: this closure is created once when
-      // recording starts, so the state variable it captured is whatever it was
-      // THEN — 'idle' — and the session would never restart.
-      /* Bank what this session heard before the next one wipes e.results.
-         Without this, restarting after a silence loses everything said so far
-         — which on a 60-second drill is most of it, because Chrome gives up
-         after a few seconds of quiet and a child pauses to think. */
-      priorSessions.current = finalText.current;
-      if (recording.current) { try { rec.start(); } catch { /* racing a stop */ } }
-    };
-    recognition.current = rec;
-    try { rec.start(); } catch { /* already started */ }
-
-    startedAt.current = Date.now();
-    ticker.current = window.setInterval(() => {
-      setElapsed(Math.round((Date.now() - startedAt.current) / 1000));
-    }, 250);
-    recording.current = true;
-    setState('recording');
-  }, []);
+  /* Audio came through and no words did. That is not a slow speaker, it is a
+     recogniser that gave us nothing — said plainly, rather than reported as a
+     pace of zero. Derived from the last recording, so it clears itself the
+     moment a new one starts. */
+  const noWords =
+    state === 'done' && last && !last.heardWords
+      ? last.heardSound
+        ? 'We heard you, but the browser turned none of it into words. Chrome or Edge are the most reliable — and check the passage is being read aloud rather than under your breath.'
+        : 'We did not pick up any sound. Check the right microphone is selected and try once more.'
+      : null;
+  const shownError = error ?? noWords;
 
   /* ── Something is in the way, and it is worth naming which ── */
   if (blocker) {
@@ -397,7 +188,7 @@ export default function SpeakingLab({
           {state === 'done' && report && (
             <button
               type="button"
-              onClick={() => { setState('idle'); setReport(null); setTranscript(''); }}
+              onClick={() => { reset(); setReport(null); setLast(null); }}
               className="inline-flex items-center gap-1.5 min-h-[46px] px-3 rounded-xl text-slate-500 hover:bg-slate-100 text-[13px] font-bold"
             >
               <RotateCcw className="w-4 h-4" /> Clear
@@ -411,9 +202,9 @@ export default function SpeakingLab({
           </p>
         )}
 
-        {error && (
+        {shownError && (
           <p className="flex items-start gap-1.5 text-[12.5px] text-red-600 mt-2.5 leading-[1.5]">
-            <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-px" /> {error}
+            <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-px" /> {shownError}
           </p>
         )}
 
@@ -424,21 +215,21 @@ export default function SpeakingLab({
         )}
       </div>
 
-      {report && <SpeechReportCard report={report} />}
+      {report && state === 'done' && <SpeechReportCard report={report} />}
 
       {/* Only for a drill with a passage. Pronunciation needs a target: with
           free speech there is nothing to compare against, and inventing one
           would mean guessing what a child meant to say. */}
       {report && drill.passage && state === 'done' && (
-        <PronunciationPanel reference={drill.passage} transcript={finalText.current} />
+        <PronunciationPanel reference={drill.passage} transcript={last?.transcript ?? ''} />
       )}
 
       {/* Every drill, not just read-aloud: how a voice moves needs no target
           text, only the voice. */}
       {report && state === 'done' && (
         <ModulationPanel
-          levels={levels.current}
-          pitches={pitches.current}
+          levels={last?.levels ?? []}
+          pitches={last?.pitches ?? []}
           frameMs={FRAME_MS}
         />
       )}

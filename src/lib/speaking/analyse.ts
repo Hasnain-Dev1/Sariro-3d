@@ -255,7 +255,22 @@ function expectedPauses(reference: string): number {
  * the belief the whole course exists to undo. It should move when they improve
  * and it should not punish nerves.
  */
-function scoreOf(r: Omit<SpeechReport, 'score' | 'notes'>): number {
+export interface ScoreBreakdown {
+  pace: number;
+  phrasing: number;
+  fillers: number;
+  pausing: number;
+  delivery: number;
+}
+
+/**
+ * The five twenty-point parts of the score, separately.
+ *
+ * Exported so a screen can show WHERE the number came from. A child told
+ * "62" learns nothing; a child shown that pausing earned 6 of its 20 knows
+ * exactly what the next attempt is for.
+ */
+export function scoreBreakdown(r: Omit<SpeechReport, 'score' | 'notes'>): ScoreBreakdown {
   const band = (v: number, min: number, max: number) => {
     if (v >= min && v <= max) return 20;
     const distance = v < min ? (min - v) / min : (v - max) / max;
@@ -276,7 +291,12 @@ function scoreOf(r: Omit<SpeechReport, 'score' | 'notes'>): number {
 
   const delivery = r.delivery.tooQuiet ? 6 : r.delivery.monotone ? 12 : 20;
 
-  return Math.max(0, Math.min(100, pace + phrasing + fillers + pausing + delivery));
+  return { pace, phrasing, fillers, pausing, delivery };
+}
+
+function scoreOf(r: Omit<SpeechReport, 'score' | 'notes'>): number {
+  const b = scoreBreakdown(r);
+  return Math.max(0, Math.min(100, b.pace + b.phrasing + b.fillers + b.pausing + b.delivery));
 }
 
 /* ─────────────────────────── The notes ─────────────────────────── */
