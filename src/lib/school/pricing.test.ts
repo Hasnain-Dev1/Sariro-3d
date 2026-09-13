@@ -39,6 +39,8 @@ describe('roundDownTo9', () => {
     assert.equal(roundDownTo9(335.52), 329);
     assert.equal(roundDownTo9(1006.56), 999);
     assert.equal(roundDownTo9(479.52), 479);
+    assert.equal(roundDownTo9(1438.56), 1429);
+    assert.equal(roundDownTo9(407.898), 399);
   });
 
   test('an exact 9 is already correct and must not drop a further ten', () => {
@@ -63,12 +65,17 @@ describe('per-class and per-month rates', () => {
   test('match the published rates', () => {
     assert.equal(perClassFor('1:4'), PRICE_PER_CLASS_GROUP);
     assert.equal(perClassFor('1:1'), PRICE_PER_CLASS_ONE_TO_ONE);
-    assert.equal(perClassFor('1:4'), 6.99);
-    assert.equal(perClassFor('1:1'), 9.99);
+    assert.equal(perClassFor('1:4'), 9.99);
+    assert.equal(perClassFor('1:1'), 14.99);
+  });
+
+  test('the monthly prices the founder set on 13 Sep 2026', () => {
+    assert.equal(perMonthFor('1:4'), 39.99);
+    assert.equal(perMonthFor('1:1'), 59.99);
   });
 
   test('monthly is the .99-rounded multiple, and the ONLY upward rounding', () => {
-    // 4 x $6.99 = $27.96, advertised as $27.99. Deliberate, and documented in
+    // 4 x $9.99 = $39.96, advertised as $39.99. Deliberate, and documented in
     // pricing.ts: "a price ending in .96 looks like a mistake, which costs more
     // than three cents." This test pins the size of that exception — three
     // cents, on the monthly rate only — so it cannot quietly grow into a
@@ -94,16 +101,16 @@ describe('priceBundle', () => {
   test('a school year at 1:4 matches the published figures', () => {
     const b = priceBundle(LESSONS_PER_GRADE, '1:4');
     assert.equal(b.classes, 48);
-    assert.equal(b.rawTotal, 335.52);
-    assert.equal(b.total, 329);
+    assert.equal(b.rawTotal, 479.52);
+    assert.equal(b.total, 479);
     assert.equal(b.months, 12);
-    assert.equal(b.monthlyEquivalent, 335.88);
+    assert.equal(b.monthlyEquivalent, 479.88);
   });
 
   test('a full grade group at 1:4 matches the published figures', () => {
     const b = priceBundle(LESSONS_PER_GROUP, '1:4');
     assert.equal(b.classes, 144);
-    assert.equal(b.total, 999);
+    assert.equal(b.total, 1429);
     assert.equal(b.months, 36);
   });
 
@@ -158,19 +165,28 @@ describe('cadencePlans', () => {
 
   test('the monthly plan is the baseline and claims no saving', () => {
     const m = by('monthly');
-    assert.equal(m.perPayment, 27.99);
+    assert.equal(m.perPayment, 39.99);
     assert.equal(m.payments, 12);
-    assert.equal(m.lifetimeTotal, 335.88);
+    assert.equal(m.lifetimeTotal, 479.88);
     assert.equal(m.saving, 0);
     assert.equal(m.savingLabel, null);
   });
 
   test('quarterly and full match the published figures', () => {
-    assert.equal(by('quarterly').perPayment, 79);
+    assert.equal(by('quarterly').perPayment, 109);
     assert.equal(by('quarterly').payments, 4);
-    assert.equal(by('quarterly').lifetimeTotal, 316);
-    assert.equal(by('full').perPayment, 279);
+    assert.equal(by('quarterly').lifetimeTotal, 436);
+    assert.equal(by('full').perPayment, 399);
     assert.equal(by('full').payments, 1);
+    assert.equal(by('full').savingLabel, 'Save $80.88');
+  });
+
+  test('one to one for a school year', () => {
+    const [m, q, f] = cadencePlans(LESSONS_PER_GRADE, '1:1');
+    assert.equal(m.perPayment, 59.99);
+    assert.equal(m.lifetimeTotal, 719.88);
+    assert.equal(q.perPayment, 169);
+    assert.equal(f.perPayment, 609);
   });
 
   test('more commitment never costs more', () => {

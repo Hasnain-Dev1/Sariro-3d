@@ -110,7 +110,7 @@ export default async function SpecialisationPage({ params }: Params) {
 
       {/* ── what the course actually covers ──────────────────────────────
           This page used to jump from the price straight to the capability
-          strands, so a visitor deciding whether to spend $279 on Organic
+          strands, so a visitor deciding whether to spend $399 on Organic
           Chemistry could not see a single thing they would be taught. The
           titles existed nowhere to be read. */}
       <section className="py-14 sm:py-20 bg-slate-50 border-t border-slate-100">

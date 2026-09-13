@@ -1534,7 +1534,7 @@ export function discountActive(now: Date = new Date()): boolean {
  * =========================================================
  * The pricing cards showed "$699 per cohort" and stopped there. lib/school/pricing.ts
  * already states the reason that is a bad idea, about the other half of the
- * catalogue: "A parent shown $999 leaves. A parent shown '$27.99 a month'
+ * catalogue: "A parent shown $399 leaves. A parent shown '$39.99 a month'
  * listens. Both are true; only one gets read."
  *
  * The doctrine was written for school and never applied to coding, so the two
@@ -1549,8 +1549,9 @@ export function discountActive(now: Date = new Date()): boolean {
  *     Intermediate  $299 over 42 classes  = $7.12 a class
  *     Expert        $699 over 96 classes  = $7.28 a class
  *
- * against school at $6.99 a class. They were always the same product shape at
- * the same rate; only the framing hid it.
+ * against school at $6.99 a class, as it was when this was written. (School
+ * rose to $9.99 on 13 Sep 2026; coding tiers were not changed with it.) The
+ * point stands: the same product shape, and only the framing hid it.
  *
  * The lump sum stays on the card, because it is what actually gets charged and
  * a coding cohort is genuinely one payment. The per-class figure sits beside it

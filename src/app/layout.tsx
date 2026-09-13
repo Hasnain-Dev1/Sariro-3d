@@ -69,7 +69,7 @@ export const metadata: Metadata = {
   // front, and put the differentiator (four to a class) in the description.
   title: "Sariro — live classes in maths, science, English and coding",
   description:
-    "Live, mentored classes for grades 1–12: maths, science, physics, chemistry, biology, English and coding. Never more than four learners to a class. Worldwide, from $6.99 a class.",
+    "Live, mentored classes for grades 1–12: maths, science, physics, chemistry, biology, English and coding. Never more than four learners to a class. Worldwide, from $9.99 a class.",
   keywords: [
     "Sariro",
     "online maths tuition",

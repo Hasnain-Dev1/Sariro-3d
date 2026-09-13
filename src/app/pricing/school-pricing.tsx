@@ -10,7 +10,7 @@ import { cadencePlans, formatPrice, perClassFor, perMonthFor } from '@/lib/schoo
  * =========================================================
  * `/pricing` rendered `PRICING_TIERS` and nothing else — the four CODING tiers.
  * So a parent who clicked "Pricing" in the nav to find out what grade 8 maths
- * costs saw a bootcamp price list and left. The number they wanted ($27.99 a
+ * costs saw a bootcamp price list and left. The number they wanted ($39.99 a
  * month) existed, was correct, and was reachable only by first picking a
  * subject, then a grade, on a different page.
  *

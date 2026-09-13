@@ -7,23 +7,32 @@
  * currency bug — the kind that once had a $199 course charging INR 199.
  *
  * ── The two numbers everything derives from ────────────────────────────────
- *   $6.99 per class   1:4 group
- *   $9.99 per class   1:1
+ *   $9.99 per class   1:4 group
+ *  $14.99 per class   1:1
+ *
+ * ── Raised on 13 Sep 2026, from $6.99 and $9.99 ────────────────────────────
+ * The founder's call. The nearest competitor (98thPercentile) charges $119 a
+ * month for eight classes — about $60 for four. At $27.99 for four we were not
+ * winning on value, we were signalling a cheaper product: "we can't play the
+ * money game". The group month is now $39.99, still a third under them, and
+ * one to one keeps its premium at $59.99. Every other figure on the site — the
+ * quarterly and full-year plans, what checkout charges — is derived from these
+ * constants, so this is the one place a price changes.
  *
  * ── How totals are formed ──────────────────────────────────────────────────
  * Bundle totals are the per-class rate x the class count, then rounded **DOWN**
  * to the nearest figure ending in 9.
  *
- *    30 x $9.99 = $299.70  ->  $299
- *    48 x $6.99 = $335.52  ->  $329
- *   144 x $6.99 = $1006.56 ->  $999
+ *    30 x $14.99 = $449.70  ->  $449
+ *    48 x  $9.99 = $479.52  ->  $479
+ *   144 x  $9.99 = $1438.56 -> $1429
  *
  * Always down, never up. A customer cannot object to a number smaller than the
- * arithmetic, and the giveaway is under 1% — the $999 case, the largest, gives
- * up $7.56. Worth paying for a number that reads like a price and not a receipt.
+ * arithmetic, and the giveaway is under 1% — the $1429 case, the largest, gives
+ * up $9.56. Worth paying for a number that reads like a price and not a receipt.
  *
  * ── Pitch the month, not the total ─────────────────────────────────────────
- * A parent shown $999 leaves. A parent shown "$27.99 a month" listens. Both are
+ * A parent shown $399 leaves. A parent shown "$39.99 a month" listens. Both are
  * true; only one gets read. `startingAtLine()` is what belongs on a card, and
  * the total belongs further down, next to what paying it saves.
  */
@@ -31,20 +40,20 @@
 export const CURRENCY = '$';
 
 /** The two rates everything else derives from. */
-export const PRICE_PER_CLASS_GROUP = 6.99;
-export const PRICE_PER_CLASS_ONE_TO_ONE = 9.99;
+export const PRICE_PER_CLASS_GROUP = 9.99;
+export const PRICE_PER_CLASS_ONE_TO_ONE = 14.99;
 
 /** 4 classes a month, one a week. */
 export const CLASSES_PER_MONTH = 4;
 
 /**
  * Monthly is quoted at a clean .99 rather than the exact multiple:
- * 4 x $6.99 = $27.96 -> $27.99, and 4 x $9.99 = $39.96 -> $39.99.
+ * 4 x $9.99 = $39.96 -> $39.99, and 4 x $14.99 = $59.96 -> $59.99.
  * Three cents, and the only upward rounding in this file — a price ending in
  * .96 looks like a mistake, which costs more than three cents.
  */
-export const PRICE_PER_MONTH_GROUP = 27.99;
-export const PRICE_PER_MONTH_ONE_TO_ONE = 39.99;
+export const PRICE_PER_MONTH_GROUP = 39.99;
+export const PRICE_PER_MONTH_ONE_TO_ONE = 59.99;
 
 export type Ratio = '1:4' | '1:1';
 
@@ -87,8 +96,8 @@ export interface Bundle {
  * Price a bundle of classes.
  *
  * `upfrontSaving` is the number that makes bulk real. Without it, "pay in full
- * and save" is a claim that dies to a calculator — and a parent weighing a $999
- * cheque against $27.99 a month will absolutely do that arithmetic.
+ * and save" is a claim that dies to a calculator — and a parent weighing a $399
+ * cheque against $39.99 a month will absolutely do that arithmetic.
  */
 export function priceBundle(classes: number, ratio: Ratio = '1:4'): Bundle {
   const perClass = perClassFor(ratio);
@@ -110,7 +119,7 @@ export function priceBundle(classes: number, ratio: Ratio = '1:4'): Bundle {
   };
 }
 
-/** `$999` whole, `$27.99` when there are cents. Never `$27.00`. */
+/** `$399` whole, `$39.99` when there are cents. Never `$39.00`. */
 export function formatPrice(amount: number): string {
   const whole = Number.isInteger(amount);
   return `${CURRENCY}${amount.toLocaleString('en-US', {
@@ -135,7 +144,8 @@ export type Cadence = 'monthly' | 'quarterly' | 'full';
  *
  * 15% for paying in full is deliberately large. The earlier 2% (rounding alone)
  * was not a reason to write a cheque, and a discount nobody takes is just a line
- * of copy. At 15% the saving is a real sentence: "save $56".
+ * of copy. At 15% the saving is a real sentence: a school year at $39.99 a
+ * month is $479.88, or $399 paid in full — "save $80".
  */
 export const CADENCE_DISCOUNT: Record<Cadence, number> = {
   monthly: 0,

@@ -111,7 +111,7 @@ export default function PricingPage() {
       {/* ====== School subjects, first ======
                This page opened with three coding tiers at $199-$699 and put
                school pricing underneath them. The volume product is school
-               classes from $27.99 a month, and the person who clicks "Pricing"
+               classes from $39.99 a month, and the person who clicks "Pricing"
                is usually a parent pricing one subject for one child — they met
                the most expensive, least relevant number first and drew the
                obvious conclusion about what Sariro costs. */}

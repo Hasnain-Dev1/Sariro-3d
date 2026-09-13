@@ -24,7 +24,7 @@
  * The currency every displayed price on the site is expressed in.
  *
  * All of them: the course tiers in `sariro-data.ts` ($199/$299/$699), the school
- * pricing in `lib/school/pricing.ts` ($9/class, $35/month), and anything stored
+ * pricing in `lib/school/pricing.ts` ($9.99/class, $39.99/month), and anything stored
  * in `app_settings`. If this ever changes, every one of those must change with
  * it — which is precisely why it is one constant and not a guess per call site.
  */

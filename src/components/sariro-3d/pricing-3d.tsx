@@ -127,7 +127,7 @@ export default function Pricing3D() {
         {/* ── What most families actually buy ──────────────────────────────
             The three cards below this are coding tiers at $199-$699. They were
             the whole of the pricing section, on the homepage of a school whose
-            volume product is live school classes from $27.99 a month.
+            volume product is live school classes from $39.99 a month.
 
             A parent scrolling here saw the most expensive, least relevant thing
             we sell and concluded Sariro was a pricey AI bootcamp. The cheapest
@@ -276,7 +276,7 @@ export default function Pricing3D() {
                           {/* The number that makes the lump sum mean something.
                               $699 reads as expensive; "$7.28 a class, 96 of them"
                               reads as what it is - and puts coding beside school's
-                              $6.99 rather than in another price class entirely.
+                              $9.99 rather than in another price class entirely.
                               Derived from the catalogue, never typed here. */}
                           {perClass !== null && (
                             <p className="text-[13px] text-slate-600 mt-1.5 tabular-nums">
