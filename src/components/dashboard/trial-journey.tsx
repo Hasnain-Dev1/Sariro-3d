@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Clock, Video, Sparkles, Users, ShieldCheck, CalendarCheck } from 'lucide-react';
+import {
+  Clock, Video, Sparkles, Users, ShieldCheck, CalendarCheck,
+  Award, MessageCircle, Phone, Route, GraduationCap,
+} from 'lucide-react';
+import { BRAND } from '@/lib/sariro-data';
 import ClassFeedbackForm from '@/components/dashboard/class-feedback-form';
 import { subjectLabel } from '@/lib/trial/subjects';
 import { gradeTag } from '@/lib/grade/tag';
@@ -78,13 +82,16 @@ export function Countdown({ iso, now }: { iso: string; now: number }) {
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
 
-  /* Days and hours when it is far off, minutes and seconds when it is close.
-     A seconds counter three days out is agitating rather than useful. */
-  const parts = d > 0
-    ? [{ v: d, l: d === 1 ? 'day' : 'days' }, { v: h, l: h === 1 ? 'hour' : 'hours' }]
-    : h > 0
-      ? [{ v: h, l: h === 1 ? 'hour' : 'hours' }, { v: m, l: 'min' }]
-      : [{ v: m, l: 'min' }, { v: s, l: 'sec' }];
+  /* Every unit that is not leading zero, down to the second. It used to stop
+     at two — "2 days 11 hours" — which is a fact rather than a countdown, and
+     a page that is not visibly moving looks like a page that is not working.
+     The ticking second is the part that makes it feel alive. */
+  const parts = [
+    ...(d > 0 ? [{ v: d, l: d === 1 ? 'day' : 'days' }] : []),
+    ...(d > 0 || h > 0 ? [{ v: h, l: h === 1 ? 'hour' : 'hours' }] : []),
+    { v: m, l: 'min' },
+    { v: s, l: 'sec' },
+  ];
 
   return (
     <div className="flex items-end gap-4">
@@ -98,6 +105,33 @@ export function Countdown({ iso, now }: { iso: string; now: number }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+/** A titled block on the trial page. */
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="mt-8 pt-6 border-t border-slate-100">
+      <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-3" style={{ fontFamily: 'var(--font-grotesk)' }}>
+        {title}
+      </p>
+      {children}
+    </div>
+  );
+}
+
+/** An icon, a heading and a sentence. */
+function Row({ icon: Icon, title, body }: { icon: typeof Users; title: string; body: string }) {
+  return (
+    <div className="flex gap-3">
+      <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+        <Icon className="w-4 h-4 text-slate-600" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-sm font-bold text-slate-900" style={{ fontFamily: 'var(--font-grotesk)' }}>{title}</p>
+        <p className="text-xs text-slate-600 leading-relaxed mt-0.5">{body}</p>
+      </div>
     </div>
   );
 }
@@ -232,29 +266,65 @@ export default function TrialJourney({
           )}
         </div>
 
-        {/* Something to read while they wait. This is the first thing many
-            parents ever read about Sariro, so it is the honest version rather
-            than the marketing one. */}
-        <div className="mt-8 pt-6 border-t border-slate-100 space-y-4">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400" style={{ fontFamily: 'var(--font-grotesk)' }}>
-            While you wait
+        {/* The reason to be on time, said where they are looking. */}
+        <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex gap-3">
+          <Award className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <p className="text-sm text-amber-900 leading-relaxed">
+            <span className="font-bold">Join on time to receive your trial completion certificate.</span>{' '}
+            It is issued to learners who attend the class from the start.
           </p>
-          {[
-            { icon: Users, title: 'Never more than four', body: 'Every class is capped at four students, so nobody sits at the back.' },
-            { icon: Sparkles, title: 'Understanding, not memorising', body: 'A grade is a receipt for remembering. We teach for the other thing.' },
-            { icon: ShieldCheck, title: 'Nothing to pay today', body: 'This class is free and there is no card on file. Decide afterwards.' },
-          ].map((f) => (
-            <div key={f.title} className="flex gap-3">
-              <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
-                <f.icon className="w-4 h-4 text-slate-600" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-slate-900" style={{ fontFamily: 'var(--font-grotesk)' }}>{f.title}</p>
-                <p className="text-xs text-slate-600 leading-relaxed mt-0.5">{f.body}</p>
-              </div>
-            </div>
-          ))}
         </div>
+
+        {/* ── Getting ready ────────────────────────────────────────────────
+            Practical, and in the order they would do it. Every item is
+            something that has actually cost a trial its first ten minutes. */}
+        <Section title="Before the class">
+          <ol className="space-y-2.5">
+            {[
+              'Join five minutes early — the button opens ten minutes before the start.',
+              'A laptop or tablet works best. Check the microphone and camera beforehand.',
+              'Find a quiet spot, with a notebook and pen within reach.',
+              'Younger learners: a parent nearby for the first few minutes helps them settle.',
+              'Come with one question you would love answered.',
+            ].map((step, i) => (
+              <li key={step} className="flex gap-3">
+                <span className="w-6 h-6 rounded-full bg-blue-50 text-blue-700 text-[11px] font-black flex items-center justify-center shrink-0" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                  {i + 1}
+                </span>
+                <p className="text-sm text-slate-700 leading-relaxed">{step}</p>
+              </li>
+            ))}
+          </ol>
+        </Section>
+
+        {/* ── What happens after ───────────────────────────────────────────
+            Every step here is one the system actually takes: the teacher's
+            feedback, a seller's call, a course recommendation. Nothing is
+            promised that nobody does. */}
+        <Section title="After the class">
+          <div className="space-y-3">
+            {[
+              { icon: MessageCircle, title: 'An honest read', body: 'The teacher tells you where your child really is — including what they are not yet ready for.' },
+              { icon: Phone, title: 'A short call', body: 'A Sariro counsellor rings to talk it through. No pressure, and no card on file.' },
+              { icon: Route, title: 'The right next step', body: 'If it clicked, we suggest the course and batch that fits. If it did not, we say so.' },
+            ].map((f) => <Row key={f.title} {...f} />)}
+          </div>
+        </Section>
+
+        {/* ── Why families choose Sariro ───────────────────────────────────
+            The honest version. The 5,000+ figure is the founder's teaching
+            record from BEFORE Sariro existed, and it is attributed as such —
+            never presented as Sariro's own student count. */}
+        <Section title="Why families choose Sariro">
+          <div className="space-y-3">
+            {[
+              { icon: Users, title: 'Never more than four', body: 'Every class is capped at four learners, so a teacher notices the moment a child goes quiet.' },
+              { icon: GraduationCap, title: 'A decade of teaching', body: `${BRAND.founder}’s record before Sariro: 5,000+ students across 65 nationalities, 36 research papers and 7 patents filed.` },
+              { icon: Sparkles, title: 'Understanding, not memorising', body: 'A grade is a receipt for remembering. We teach for the other thing.' },
+              { icon: ShieldCheck, title: 'Nothing to pay today', body: 'This class is free, with no card on file. Decide afterwards, or do not.' },
+            ].map((f) => <Row key={f.title} {...f} />)}
+          </div>
+        </Section>
       </motion.div>
     </div>
   );

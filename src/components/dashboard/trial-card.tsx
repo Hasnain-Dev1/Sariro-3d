@@ -36,7 +36,9 @@ export default function TrialCard({
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
     setNow(Date.now());
-    const id = setInterval(() => setNow(Date.now()), 30_000);
+    /* Every second, because the card shows one. Half a minute between ticks
+       left the seconds frozen on a counter that claims to be counting. */
+    const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
 

@@ -25,10 +25,10 @@
 export type MatchStrength =
   /** The same account id. Not a guess. */
   | 'account'
-  /** The same mobile number. They proved it with a code. */
-  | 'phone'
-  /** The same email. Typed into a form, and nothing has verified it. */
-  | 'email';
+  /** The same email. Every account is keyed on it, and it is proved by a code. */
+  | 'email'
+  /** The same phone — a HOUSEHOLD, not a person. See the note on matchLead. */
+  | 'phone';
 
 export interface LeadIdentity {
   id: string;
@@ -82,10 +82,21 @@ export function normaliseEmail(raw: string | null | undefined): string | null {
  * The existing lead this booking belongs to, if any.
  *
  * Tried in order of how much each identifier is worth: the account id is a
- * fact, the phone was proved with a code, the email is something somebody
- * typed. The first rule that matches wins, so a weak signal can never overturn
- * a strong one — an email typo that happens to collide with another family
- * cannot steal a lead that the account id already settled.
+ * fact, the email is what every account is keyed on and is proved by a code
+ * before a booking is accepted, and the phone identifies a HOUSEHOLD rather
+ * than a person. The first rule that matches wins, so a weak signal can never
+ * overturn a strong one.
+ *
+ * ── Why the phone lost its place ────────────────────────────────────────────
+ * It used to come second, and it merged families. Booking a trial for Tanisha
+ * Rakhecha on 11 Sep did not create her lead: it updated her relative Mehul's,
+ * because they share a number. The seller saw one lead, one name, and one of
+ * the two children simply did not exist as far as the pipeline was concerned.
+ *
+ * Two children in one family share a phone and always will. So a phone match
+ * is only believed when nothing contradicts it — when one side has no email at
+ * all. Two DIFFERENT proved emails on the same number are two different people,
+ * and that is now the end of the matter.
  *
  * Where several leads match equally, the OLDEST wins: it is the one a seller
  * has been working, has notes against, and has history on. Attaching to the
@@ -110,21 +121,31 @@ export function matchLead(
     if (hit) return hit;
   }
 
-  if (phone) {
-    const byPhone = candidates.filter((c) => normalisePhone(c.phone) === phone);
-    const hit = pick(byPhone, 'phone');
+  if (email) {
+    /* A lead already tied to somebody else's account is theirs, whatever
+       address is written on it — an old lead may carry a parent's email while
+       belonging to one particular child. So an email match is believed when
+       the lead has no account, or when it has the very account this booking
+       resolved to. */
+    const byEmail = candidates.filter((c) => {
+      if (normaliseEmail(c.email) !== email) return false;
+      const theirAccount = (c.studentId ?? null) || null;
+      return !theirAccount || theirAccount === studentId;
+    });
+    const hit = pick(byEmail, 'email');
     if (hit) return hit;
   }
 
-  if (email) {
-    /* Only ever against a lead that has NO account attached. Once a lead is
-       tied to a real account, a typed email is not enough to move a second
-       family onto it — and a family that already has an account will match on
-       the account or the phone anyway. */
-    const byEmail = candidates.filter(
-      (c) => !c.studentId && normaliseEmail(c.email) === email
-    );
-    const hit = pick(byEmail, 'email');
+  if (phone) {
+    /* The household rule. A number matches only where it is not contradicted:
+       if this booking carries an email AND the lead carries a different one,
+       they are two people who live together, not one person twice. */
+    const byPhone = candidates.filter((c) => {
+      if (normalisePhone(c.phone) !== phone) return false;
+      const theirs = normaliseEmail(c.email);
+      return !email || !theirs || theirs === email;
+    });
+    const hit = pick(byPhone, 'phone');
     if (hit) return hit;
   }
 

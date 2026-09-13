@@ -79,14 +79,17 @@ export default function FreeClassPage() {
             className="mt-3 text-[30px] leading-[1.15] sm:text-4xl font-extrabold text-[#1A1611] tracking-tight"
             style={{ fontFamily: 'var(--font-jakarta)' }}
           >
-            Book a free class.
+            Try Sariro once.
             <br />
-            See if it clicks.
+            <span className="text-blue-700">Discover what your child’s regular class is missing.</span>
           </h1>
 
+          {/* The founder's line. It makes the free class a comparison the
+              parent runs themselves, against the class their child already
+              sits in every week — which is the only comparison that matters. */}
           <p className="mt-3 text-[15px] leading-relaxed text-slate-600">
-            Thirty minutes with a real teacher, in a class of four or fewer. Maths, science, English,
-            coding or public speaking — grades 1 to 12, and adults too.
+            Book a free class: thirty minutes with a real teacher, in a class of four or fewer.
+            Maths, science, English, coding or public speaking — grades 1 to 12, and adults too.
           </p>
         </section>
 

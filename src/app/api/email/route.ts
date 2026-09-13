@@ -4,6 +4,7 @@ import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import { generateOtp, isOtpShaped } from '@/lib/phone/otp';
 import { sendEmail } from '@/lib/email/hostinger';
+import { isBlockedEmail, BLOCKED_EMAIL_MESSAGE } from '@/lib/email/disposable';
 
 /**
  * SARIRO — POST /api/email   { action: 'send' | 'verify', email, code? }
@@ -108,6 +109,14 @@ export async function POST(req: NextRequest) {
   if (!looksLikeEmail(email)) {
     return NextResponse.json(
       { ok: false, error: 'bad_email', message: 'That does not look like an email address.' },
+      { status: 400 }
+    );
+  }
+  /* Stopped at the door rather than at the booking: there is no point sending
+     a code to an inbox we will refuse to open an account for. */
+  if (isBlockedEmail(email)) {
+    return NextResponse.json(
+      { ok: false, error: 'blocked_email', message: BLOCKED_EMAIL_MESSAGE },
       { status: 400 }
     );
   }

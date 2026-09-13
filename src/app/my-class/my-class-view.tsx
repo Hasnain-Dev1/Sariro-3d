@@ -53,7 +53,14 @@ export default function MyClassView({
             </span>
           </Link>
           <button
-            onClick={() => signOut()}
+            onClick={async () => {
+              await signOut();
+              /* Back to the site they came from. Clearing the session in the
+                 browser left them looking at a signed-in page that no longer
+                 had a session behind it, with nothing to click. A full load
+                 also throws away this page's server-rendered class. */
+              window.location.assign('/');
+            }}
             className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-900"
             style={{ fontFamily: 'var(--font-grotesk)' }}
           >

@@ -39,6 +39,21 @@ export interface TrialSubject extends CourseOption {
 }
 
 /**
+ * The one trial subject that stands for a whole family of courses.
+ *
+ * A coding trial is a coding trial. The catalogue holds a dozen coding tracks —
+ * Web Builder Pro, AI Explorer, and so on — and offering all of them on the
+ * booking page asks a parent to choose a syllabus before they have met a
+ * teacher. They cannot answer it, and the answer does not change the half hour
+ * that follows: somebody sits with the child and finds out what they can do.
+ *
+ * School subjects are NOT collapsed this way. Mathematics and Chemistry are
+ * different classes with different teachers, and a parent asking for one knows
+ * which they want.
+ */
+export const CODING_TRIAL = 'coding';
+
+/**
  * Everything a family can ask for a trial in.
  *
  * Grouped the way a parent thinks: school subjects by name, coding by what
@@ -48,15 +63,45 @@ export function trialSubjects(): TrialSubject[] {
   const g = (group: string, list: CourseOption[]) => list.map((o) => ({ ...o, group }));
   return [
     ...g('School subjects', optionsFor('school')),
-    ...g('Coding & AI', optionsFor('coding')),
+    // One entry, not twelve — see CODING_TRIAL.
+    { value: CODING_TRIAL, label: 'Coding & AI', group: 'Coding & AI' },
     ...g('Focus courses', optionsFor('focus')),
   ];
 }
 
-/** The label for a slug, or the slug itself when it is not in the catalogue. */
+/**
+ * Every catalogue track a trial subject stands for.
+ *
+ * 'coding' stands for all of them; everything else stands for itself. This is
+ * what makes a teacher approved for a SINGLE coding module eligible for the
+ * coding trial — which is the point: somebody who teaches Web Builder Pro to
+ * grade 6 can perfectly well take a grade 6 coding taster.
+ */
+export function tracksFor(subject: string | null | undefined): string[] {
+  const wanted = (subject ?? '').trim();
+  if (!wanted) return [];
+  if (wanted.toLowerCase() === CODING_TRIAL) return optionsFor('coding').map((o) => o.value);
+  return [wanted];
+}
+
+/** Every course in the catalogue, for reading a slug back as a name. */
+function everyCourse(): CourseOption[] {
+  return [...optionsFor('school'), ...optionsFor('coding'), ...optionsFor('focus')];
+}
+
+/**
+ * The label for a slug, or the slug itself when it is not in the catalogue.
+ *
+ * Reads the WHOLE catalogue, not just what the booking page offers. Trials
+ * booked before coding was collapsed carry a specific track on them, and a
+ * card that suddenly renders "web-builder-pro" instead of "Web Builder Pro"
+ * would make every one of those look broken.
+ */
 export function subjectLabel(slug: string | null | undefined): string {
   if (!slug) return '';
-  return trialSubjects().find((s) => s.value === slug)?.label ?? slug;
+  const offered = trialSubjects().find((s) => s.value === slug);
+  if (offered) return offered.label;
+  return everyCourse().find((c) => c.value === slug)?.label ?? slug;
 }
 
 /** Whether a slug is something we actually offer. */
@@ -91,9 +136,13 @@ export function teachersFor(
   const wanted = (subject ?? '').trim();
   if (!wanted) return new Set(allTeacherIds);
 
+  /* One subject can stand for many tracks: approval to teach ANY coding module
+     is approval to take the coding trial. */
+  const tracks = new Set(tracksFor(wanted).map((t) => t.toLowerCase()));
+
   const eligible = new Set<string>();
   for (const r of rows) {
-    if ((r.track ?? '').trim().toLowerCase() === wanted.toLowerCase()) {
+    if (tracks.has((r.track ?? '').trim().toLowerCase())) {
       eligible.add(r.teacher_id);
     }
   }

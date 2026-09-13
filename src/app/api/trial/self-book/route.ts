@@ -10,6 +10,7 @@ import { signInTrialUser } from '@/lib/trial/sign-in';
 import { siteOrigin } from '@/lib/http/site-origin';
 import { findTrialConflict, markPrimaryTrial } from '@/lib/trial/conflict';
 import { gradeTag } from '@/lib/grade/tag';
+import { isBlockedEmail, BLOCKED_EMAIL_MESSAGE } from '@/lib/email/disposable';
 import { releaseTrialSeat } from '@/lib/trial/cancel';
 import { smsConfigured } from '@/lib/phone/otp';
 import { localWeekdayMinutes, slotIsFree } from '@/lib/scheduling/availability';
@@ -144,6 +145,8 @@ export async function POST(req: NextRequest) {
      stranger, who then receives a child's class links. */
   if (!email) return bad('missing_email', 'We need an email address to set up their account.');
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)) return bad('bad_email', 'That email does not look right.');
+  // Checked again here: the form is not the only way to reach this route.
+  if (isBlockedEmail(email)) return bad('blocked_email', BLOCKED_EMAIL_MESSAGE);
 
   /* ── The subject ─────────────────────────────────────────────────────────
      §6. Without it a Mathematics enquiry and a Public Speaking enquiry are the

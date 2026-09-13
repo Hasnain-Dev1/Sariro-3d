@@ -12,6 +12,7 @@ import {
 } from '@/lib/auth/send-cooldown';
 import { MIN_LENGTH, checkPassword } from '@/lib/auth/password';
 import EmailCodeSignIn from './email-code-sign-in';
+import { isBlockedEmail, BLOCKED_EMAIL_MESSAGE } from '@/lib/email/disposable';
 
 /* ===============================================================
    SignInButtons — three sign-in options:
@@ -118,6 +119,15 @@ export default function SignInButtons({
         const pwCheck = checkPassword(password, email);
         if (!pwCheck.ok) {
           setError(pwCheck.problem);
+          setSubmitting(false);
+          return;
+        }
+
+        /* Said here so the person gets a reason. The refusal that actually
+           holds is the trigger in scripts/block-email-domains.sql — this form
+           is only one of several ways to make an account. */
+        if (isBlockedEmail(email)) {
+          setError(BLOCKED_EMAIL_MESSAGE);
           setSubmitting(false);
           return;
         }

@@ -115,6 +115,21 @@ export default function EmailCodeSignIn({
     }
   };
 
+  /* Whether a session exists right now, whatever the last call claimed. */
+  const signedInAnyway = useMemo(
+    () => async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!data.session) return false;
+        onSuccess?.();
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [supabase, onSuccess]
+  );
+
   const verify = useMemo(
     () => async (value: string) => {
       lastAttempted.current = value;
@@ -127,8 +142,23 @@ export default function EmailCodeSignIn({
           type: 'email',
         });
         if (err) throw err;
-        if (data.session) onSuccess?.();
+        if (data.session) { onSuccess?.(); return; }
+        /* Verified, but no session came back with it. Rare, and the person is
+           signed in regardless — ask the client rather than telling them it
+           failed. */
+        if (await signedInAnyway()) return;
       } catch (err) {
+        /* ── "That code is not right", and then they refresh and they are in ──
+           A code can only be spent once. If the same one is submitted twice —
+           two effects, a double tap, a retried request — the first call creates
+           the session and the second is told the token is invalid. Believing
+           the second call is how somebody who IS signed in gets told they are
+           not, which is exactly what the founder hit.
+
+           So before showing any error: is there a session? If there is, they
+           are in, and nothing went wrong from their side. */
+        if (await signedInAnyway()) return;
+
         const m = err instanceof Error ? err.message : '';
         setError(
           /expired/i.test(m)
@@ -139,7 +169,7 @@ export default function EmailCodeSignIn({
         setBusy(false);
       }
     },
-    [supabase, email, onSuccess]
+    [supabase, email, onSuccess, signedInAnyway]
   );
 
   // The guard that stops the loop. See the header.

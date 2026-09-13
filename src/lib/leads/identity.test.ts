@@ -95,6 +95,43 @@ describe('matchLead', () => {
     assert.equal(hit, null);
   });
 
+  test('two children in one family do not share a lead', () => {
+    /* The real one, 11 Sep 2026: booking a trial for Tanisha Rakhecha updated
+       her relative Mehul's lead, because the family shares a number. Tanisha
+       never existed in the pipeline and no seller was ever given her. */
+    const hit = matchLead(
+      [lead('MEHUL', { phone: '9876500000', email: 'parent.mehul@x.com' })],
+      { phone: '+919876500000', email: 'tanisha@x.com' }
+    );
+    assert.equal(hit, null, 'a different proved email on the same number is a different child');
+  });
+
+  test('the same family on the same number still matches when nothing contradicts it', () => {
+    // No email on the lead: the number is all there is, and it is believed.
+    const hit = matchLead(
+      [lead('L1', { phone: '9876500000' })],
+      { phone: '+919876500000', email: 'aarav@x.com' }
+    );
+    assert.deepEqual(hit, { id: 'L1', on: 'phone' });
+  });
+
+  test('a booking with no email still matches on the number alone', () => {
+    // A staff caller taking a booking over the phone has nothing else to go on.
+    const hit = matchLead(
+      [lead('L1', { phone: '9876500000', email: 'parent@x.com' })],
+      { phone: '9876500000' }
+    );
+    assert.deepEqual(hit, { id: 'L1', on: 'phone' });
+  });
+
+  test('the same child booking twice matches on their own email, not the household', () => {
+    const hit = matchLead(
+      [lead('SIB', { phone: '9876500000', email: 'sibling@x.com' }), lead('MINE', { phone: '9876500000', email: 'aarav@x.com' })],
+      { phone: '9876500000', email: 'AARAV@X.COM' }
+    );
+    assert.deepEqual(hit, { id: 'MINE', on: 'email' });
+  });
+
   test('an email alone still matches a lead that has no account yet', () => {
     // The ordinary case: an enquiry came in by email, and the same family now
     // books a trial before any account exists.

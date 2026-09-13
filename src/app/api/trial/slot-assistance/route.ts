@@ -9,6 +9,7 @@ import { linkTrialToLead } from '@/lib/leads/link-trial';
 import { isTrialSubject, subjectLabel } from '@/lib/trial/subjects';
 import { MIN_GRADE, MAX_GRADE } from '@/lib/trial/grade-band';
 import { gradeTag } from '@/lib/grade/tag';
+import { isBlockedEmail, BLOCKED_EMAIL_MESSAGE } from '@/lib/email/disposable';
 import { isValidTimeZone, canonicalTimeZone } from '@/lib/time/timezones';
 import { resolveTrialAccount, trialSignInLink, sendTrialWelcomeEmail } from '@/lib/trial/account';
 import { signInTrialUser } from '@/lib/trial/sign-in';
@@ -106,6 +107,9 @@ export async function POST(req: NextRequest) {
   const email = (body.email ?? '').trim().toLowerCase();
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return bad('missing_email', 'Please give us an email address.');
+  }
+  if (isBlockedEmail(email)) {
+    return bad('blocked_email', BLOCKED_EMAIL_MESSAGE);
   }
 
   const timezone = isValidTimeZone(body.timezone) ? canonicalTimeZone(body.timezone) : null;

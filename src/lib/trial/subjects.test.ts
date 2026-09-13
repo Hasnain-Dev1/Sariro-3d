@@ -2,6 +2,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   trialSubjects, subjectLabel, isTrialSubject, teachersFor, teacherCanTake,
+  tracksFor, CODING_TRIAL,
 } from './subjects';
 
 /**
@@ -14,6 +15,41 @@ import {
  * The tests that matter most are the two opposite failures: offering a slot
  * nobody can teach, and offering nothing when somebody can.
  */
+
+describe('coding is one trial, not a syllabus', () => {
+  test('the booking page offers exactly one coding choice', () => {
+    const coding = trialSubjects().filter((s) => s.group === 'Coding & AI');
+    assert.equal(coding.length, 1, 'a parent chooses "coding", not a track');
+    assert.equal(coding[0].value, CODING_TRIAL);
+  });
+
+  test('it stands for every coding track in the catalogue', () => {
+    const tracks = tracksFor(CODING_TRIAL);
+    assert.ok(tracks.length > 1, 'the catalogue has several coding tracks');
+    // A school subject stands only for itself.
+    assert.deepEqual(tracksFor('mathematics'), ['mathematics']);
+    assert.deepEqual(tracksFor(''), []);
+  });
+
+  test('approval for a SINGLE coding module is approval for the coding trial', () => {
+    /* The founder's rule: somebody who teaches one coding module to a grade can
+       take that grade's coding taster. Requiring a track called "coding" — which
+       no teacher is ever assigned — made every coding trial unbookable. */
+    const oneTrack = tracksFor(CODING_TRIAL)[0];
+    const eligible = teachersFor(CODING_TRIAL, [{ teacher_id: 't1', track: oneTrack }], ['t1', 't2']);
+    assert.deepEqual([...eligible], ['t1']);
+  });
+
+  test('a school teacher is still not eligible for the coding trial', () => {
+    const eligible = teachersFor(CODING_TRIAL, [{ teacher_id: 't1', track: 'mathematics' }], ['t1']);
+    assert.equal(eligible.size, 0, 'the loosening stops at the family boundary');
+  });
+
+  test('a trial booked before the change still reads as a real course', () => {
+    const oneTrack = tracksFor(CODING_TRIAL)[0];
+    assert.notEqual(subjectLabel(oneTrack), oneTrack, 'old bookings must not show a raw slug');
+  });
+});
 
 describe('the catalogue', () => {
   test('offers school subjects, coding and focus courses', () => {
