@@ -6,6 +6,8 @@ import { checkFeedback, payGate, type ClassFeedback } from '@/lib/dashboard/clas
 import { latePenalty } from '@/lib/dashboard/late-penalty';
 import { bestEffort } from '@/lib/supabase/best-effort';
 import { recordEvent } from '@/lib/events/log';
+import { notifyUsers } from '@/lib/notify';
+import { trialCertificateFor } from '@/lib/trial/certificate';
 
 /**
  * SARIRO — POST /api/trial/feedback
@@ -192,6 +194,29 @@ export async function POST(req: NextRequest) {
        other class uses, so "did they attend" has one answer whatever kind of
        class it was. */
     if (subject) await markAttendance(admin, booking.id, subject, 'present', userId);
+
+    /* ── The certificate the class page promised ────────────────────────────
+       Now is when it becomes true: the teacher has said the child was there.
+       Sent by email as well as the bell, because by now the family has left
+       the page. Once only — editing the feedback must not send it again. */
+    if (subject) {
+      const cert = await trialCertificateFor(admin, booking.id, subject);
+      if (cert.ok) {
+        const link = `/certificate/trial/${booking.id}`;
+        const { data: sent } = await admin
+          .from('notifications').select('id').eq('user_id', subject).eq('link', link).limit(1);
+        if (!sent || sent.length === 0) {
+          await notifyUsers([{
+            userId: subject,
+            type: 'certificate_ready',
+            title: 'Your trial completion certificate is ready',
+            message: `${cert.certificate.course} · ${cert.certificate.grade} — view and download it any time.`,
+            link,
+            email: true,
+          }]);
+        }
+      }
+    }
 
     const roster = await trialRoster(admin, booking);
     const { data: rows } = await admin

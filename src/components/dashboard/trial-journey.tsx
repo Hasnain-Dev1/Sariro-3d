@@ -140,10 +140,13 @@ export default function TrialJourney({
   trial,
   firstName,
   timezone,
+  certificateUrl = null,
 }: {
   trial: TrialClass;
   firstName: string;
   timezone?: string | null;
+  /** Set by the server once this child has earned the certificate. */
+  certificateUrl?: string | null;
 }) {
   const start = Date.parse(trial.slot_start);
   const end = Date.parse(trial.slot_end);
@@ -185,6 +188,20 @@ export default function TrialJourney({
             A Sariro counsellor will contact you shortly to talk through how it went and
             what would suit your child next. There is nothing you need to do.
           </p>
+
+          {/* The promise the page made before the class, kept. Only shown when
+              it was actually earned — see lib/trial/certificate.ts. */}
+          {certificateUrl && (
+            <a
+              href={certificateUrl}
+              className="mt-5 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 hover:bg-amber-100 transition-colors"
+            >
+              <Award className="w-6 h-6 text-amber-600 shrink-0" />
+              <span className="text-sm text-amber-900 leading-relaxed">
+                <strong>Your trial completion certificate is ready.</strong> View and download it.
+              </span>
+            </a>
+          )}
 
           <div className="mt-6 pt-6 border-t border-slate-100">
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1" style={{ fontFamily: 'var(--font-grotesk)' }}>
@@ -249,6 +266,20 @@ export default function TrialJourney({
                 href={trial.google_meet_url}
                 target="_blank"
                 rel="noreferrer"
+                onClick={() => {
+                  /* Records WHEN they joined, which decides the certificate.
+                     Fired alongside the link and never awaited: the meeting
+                     opens whatever this request does. keepalive lets it finish
+                     even as the browser switches to the new tab. */
+                  try {
+                    void fetch('/api/trial/join', {
+                      method: 'POST',
+                      keepalive: true,
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ bookingId: trial.id }),
+                    });
+                  } catch { /* the class matters more than the record of it */ }
+                }}
                 className="btn-tactile btn-tactile-primary w-full px-6 py-4 text-base flex items-center justify-center gap-2"
               >
                 <Video className="w-5 h-5" /> Join the class

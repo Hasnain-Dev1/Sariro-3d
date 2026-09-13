@@ -27,12 +27,15 @@ export default function MyClassView({
   firstName,
   timezone,
   welcomeEmail,
+  certificateUrl,
 }: {
   trial: TrialClass | null;
   firstName: string;
   timezone: string | null;
   /** Set only on arrival from the booking form, to say where the email went. */
   welcomeEmail: string | null;
+  /** Set once the finished class has earned its certificate. */
+  certificateUrl: string | null;
 }) {
   const { signOut } = useAuth();
   const router = useRouter();
@@ -82,7 +85,7 @@ export default function MyClassView({
                 </p>
               </div>
             )}
-            <TrialJourney trial={trial} firstName={firstName} timezone={timezone} />
+            <TrialJourney trial={trial} firstName={firstName} timezone={timezone} certificateUrl={certificateUrl} />
             {/* Only while the class is still ahead of them. The booking form
                 refuses a second free class in the same course until this one is
                 gone, so the way out has to be somewhere they can find it. */}

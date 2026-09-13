@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createServerClientHelper, createServiceClient } from '@/lib/supabase/server';
 import { loadTrialPageState } from '@/lib/trial/page-state';
+import { trialCertificateFor } from '@/lib/trial/certificate';
 import MyClassView from './my-class-view';
 
 /**
@@ -48,7 +49,8 @@ export default async function MyClassPage({
   /* Read with the service role, always filtered by this user's own id. The
      session above is what proves who they are; this is only how their rows are
      fetched, and it cannot be tripped up by an RLS policy written later. */
-  const { profile, enrolled, trial } = await loadTrialPageState(createServiceClient(), user.id);
+  const admin = createServiceClient();
+  const { profile, enrolled, trial } = await loadTrialPageState(admin, user.id);
 
   /* A student who has since enrolled belongs on the real dashboard. Without
      this they would be stranded here after paying, which is the worst possible
@@ -61,12 +63,21 @@ export default async function MyClassPage({
   const params = await searchParams;
   const welcomeEmail = params?.welcome === '1' ? (profile?.email ?? user.email ?? null) : null;
 
+  /* Only asked once the class is over — before that the answer is always no,
+     and it would cost a round trip on the page that has to be fastest. */
+  let certificateUrl: string | null = null;
+  if (trial && (trial.status === 'completed' || Date.parse(trial.slot_end) < Date.now())) {
+    const cert = await trialCertificateFor(admin, trial.id, user.id);
+    if (cert.ok) certificateUrl = `/certificate/trial/${trial.id}`;
+  }
+
   return (
     <MyClassView
       trial={trial}
       firstName={firstName}
       timezone={profile?.timezone ?? null}
       welcomeEmail={welcomeEmail}
+      certificateUrl={certificateUrl}
     />
   );
 }
