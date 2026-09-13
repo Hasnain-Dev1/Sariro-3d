@@ -13,6 +13,7 @@ import { gradeTag } from '@/lib/grade/tag';
 import { isBlockedEmail, BLOCKED_EMAIL_MESSAGE } from '@/lib/email/disposable';
 import { releaseTrialSeat } from '@/lib/trial/cancel';
 import { smsConfigured } from '@/lib/phone/otp';
+import { loadPhoneTrust } from '@/lib/phone/trust';
 import { localWeekdayMinutes, slotIsFree } from '@/lib/scheduling/availability';
 import { slotState, blockingIntervals, canSeat, TRIAL_MINUTES, type SlotBooking } from '@/lib/scheduling/trial-capacity';
 import { TRIAL_HOME } from '@/lib/dashboard/trial-only';
@@ -184,22 +185,7 @@ export async function POST(req: NextRequest) {
 
   const admin = createServiceClient();
 
-  if (smsConfigured() && accepted.canVerify) {
-    let verified = false;
-    try {
-      const { data, error } = await admin.rpc('phone_is_verified', { p_phone: phone });
-      if (error) throw error;
-      verified = data === true;
-    } catch (err) {
-      // A verification system that is down must not quietly start letting
-      // everything through — that is the failure nobody notices.
-      console.warn('[self-book] phone_is_verified failed:', err instanceof Error ? err.message : err);
-      return bad('verification_unavailable', 'We could not check your number just now. Please try again in a moment.', 503);
-    }
-    if (!verified) return bad('phone_not_verified', 'Please verify your mobile number first.');
-  }
-
-  /* ── And the email, asked of the DATABASE ────────────────────────────────
+  /* ── The email, asked of the DATABASE ────────────────────────────────────
      Never read from the request body. A flag in a POST has proved nothing,
      and this route creates accounts — the same reasoning as the phone check
      above, for the same reason: this is the boundary between "somebody typed
@@ -222,6 +208,24 @@ export async function POST(req: NextRequest) {
     } else {
       emailProved = true;
     }
+  }
+
+  /* ── The phone: a fresh code, or a number the proved email vouches for ────
+     After the email, because the email is what lets a known number skip its
+     code: the number on this address's own account, or one verified with us
+     before, is not paid for twice. A new email with a new number still needs a
+     code. The same rule the form and /api/phone use — lib/phone/trust.ts. */
+  if (smsConfigured() && accepted.canVerify) {
+    let trusted = false;
+    try {
+      trusted = (await loadPhoneTrust(admin, { phone, email, emailProved })).trusted;
+    } catch (err) {
+      // A verification system that is down must not quietly start letting
+      // everything through — that is the failure nobody notices.
+      console.warn('[self-book] phone trust check failed:', err instanceof Error ? err.message : err);
+      return bad('verification_unavailable', 'We could not check your number just now. Please try again in a moment.', 503);
+    }
+    if (!trusted) return bad('phone_not_verified', 'Please verify your mobile number first.');
   }
 
   // ── The teacher, and whether they can take this ───────────────────────────

@@ -4,6 +4,7 @@ import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import { normalizeIndianMobile, maskIndianMobile } from '@/lib/phone/india';
 import { generateOtp, isOtpShaped, sendOtpSms } from '@/lib/phone/otp';
+import { loadPhoneTrust, TRUST_COPY } from '@/lib/phone/trust';
 
 /**
  * SARIRO — POST /api/phone   { action: 'send' | 'verify', phone, code? }
@@ -29,6 +30,12 @@ import { generateOtp, isOtpShaped, sendOtpSms } from '@/lib/phone/otp';
  * The per-number rules are in the database rather than here on purpose: they
  * are what protect the SMS balance, and a second code path added later gets
  * them without having to remember them.
+ *
+ * ── And a code is never spent on a number we already trust ──────────────────
+ * Every code is ₹1. `check` answers "does this number need one?" for free, and
+ * `send` asks the same question before spending — so even a form that forgot to
+ * check cannot pay to prove a number twice. Both need the email: see
+ * lib/phone/trust.ts for the rule and why it is behind a proved address.
  */
 export const runtime = 'nodejs';
 
@@ -61,9 +68,25 @@ async function stampVerifiedProfile(
 }
 
 interface Body {
-  action?: 'send' | 'verify';
+  action?: 'send' | 'verify' | 'check';
   phone?: string;
   code?: string;
+  /** The address proved earlier in the form. Lets a known number skip the code. */
+  email?: string;
+}
+
+/**
+ * Whether this number needs a code, for this proved email. A failed read is
+ * "needs one" — the worst a failure may cost is a code, never a skipped check.
+ */
+async function trustFor(admin: ReturnType<typeof createServiceClient>, phone: string, email: string | undefined) {
+  if (!email?.trim()) return { trusted: false as const };
+  try {
+    return await loadPhoneTrust(admin, { phone, email });
+  } catch (err) {
+    console.warn('[phone] trust check failed:', err instanceof Error ? err.message : err);
+    return { trusted: false as const };
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -98,12 +121,34 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'not_configured' }, { status: 503 });
   }
 
+  /* ── Check: does this number need a code at all? ─────────────────────── */
+  if (body.action === 'check') {
+    // Free to answer, so limited like a lookup: nobody types thirty numbers.
+    const rl = rateLimit({ key: `otp-check:${ip}`, limit: 30, windowMs: 10 * 60_000 });
+    if (!rl.ok) return rateLimitedResponse(rl.retryAfterMs, 'Too many requests. Please wait a moment.');
+
+    const trust = await trustFor(admin, parsed.e164, body.email);
+    return NextResponse.json(
+      trust.trusted
+        ? { ok: true, needsCode: false, why: trust.why, message: TRUST_COPY[trust.why] }
+        : { ok: true, needsCode: true }
+    );
+  }
+
   /* ── Send ────────────────────────────────────────────────────────────── */
   if (body.action === 'send') {
     // Ten sends a minute from one address is already far beyond any real
     // person; the per-number rules below are the ones that actually bite.
     const rl = rateLimit({ key: `otp-send:${ip}`, limit: 10, windowMs: 60_000 });
     if (!rl.ok) return rateLimitedResponse(rl.retryAfterMs, 'Too many requests. Please wait a moment.');
+
+    /* Asked before a single rupee is spent. A number this proved email already
+       vouches for — its own account's number, or one verified with us before —
+       is answered "no code needed", and nothing is sent. */
+    const trust = await trustFor(admin, parsed.e164, body.email);
+    if (trust.trusted) {
+      return NextResponse.json({ ok: true, needsCode: false, why: trust.why, message: TRUST_COPY[trust.why] });
+    }
 
     const code = generateOtp();
 
@@ -184,7 +229,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ ok: true, sentTo: maskIndianMobile(parsed.e164) });
+    return NextResponse.json({ ok: true, needsCode: true, sentTo: maskIndianMobile(parsed.e164) });
   }
 
   /* ── Verify ──────────────────────────────────────────────────────────── */

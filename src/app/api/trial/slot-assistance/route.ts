@@ -5,6 +5,7 @@ import { assertSameOrigin } from '@/lib/security/origin-check';
 import { isHoneypotTripped } from '@/lib/security/honeypot';
 import { acceptPhone } from '@/lib/phone/accept';
 import { smsConfigured } from '@/lib/phone/otp';
+import { loadPhoneTrust } from '@/lib/phone/trust';
 import { linkTrialToLead } from '@/lib/leads/link-trial';
 import { isTrialSubject, subjectLabel } from '@/lib/trial/subjects';
 import { MIN_GRADE, MAX_GRADE } from '@/lib/trial/grade-band';
@@ -119,22 +120,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'service_unavailable' }, { status: 503 });
   }
 
-  /* ── Proved, in the database, not in the body ─────────────────────────────
-     Only asked where a code can actually arrive: demanding verification of a
-     number no SMS reaches is demanding the impossible. */
   const phoneCheckable = accepted.canVerify && smsConfigured();
-  if (phoneCheckable) {
-    let verified = false;
-    try {
-      const { data, error } = await admin.rpc('phone_is_verified', { p_phone: accepted.e164 });
-      if (error) throw error;
-      verified = data === true;
-    } catch (err) {
-      console.warn('[slot-assistance] phone_is_verified failed:', err instanceof Error ? err.message : err);
-      return bad('verification_unavailable', 'We could not check your number just now. Try again shortly.', 503);
-    }
-    if (!verified) return bad('phone_not_verified', 'Please verify your mobile number first.');
-  }
 
   /* Whether the address was PROVED here, not merely not disproved — an email
      that could not be checked is still booked against, but is not enough to
@@ -151,6 +137,21 @@ export async function POST(req: NextRequest) {
     }
   } catch (err) {
     console.warn('[slot-assistance] email check threw:', err instanceof Error ? err.message : err);
+  }
+
+  /* ── The phone, proved in the database, not in the body ───────────────────
+     Only asked where a code can actually arrive. After the email, because a
+     proved email lets a number it already vouches for skip the code — the same
+     rule as the booking route and /api/phone (lib/phone/trust.ts). */
+  if (phoneCheckable) {
+    let trusted = false;
+    try {
+      trusted = (await loadPhoneTrust(admin, { phone: accepted.e164, email, emailProved })).trusted;
+    } catch (err) {
+      console.warn('[slot-assistance] phone trust check failed:', err instanceof Error ? err.message : err);
+      return bad('verification_unavailable', 'We could not check your number just now. Try again shortly.', 503);
+    }
+    if (!trusted) return bad('phone_not_verified', 'Please verify your mobile number first.');
   }
 
   /* ── The account ──────────────────────────────────────────────────────── */

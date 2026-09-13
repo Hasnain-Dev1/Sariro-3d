@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Loader2, AlertCircle, CheckCircle2, ArrowRight, ArrowLeft, Phone, CalendarCheck,
   Mail, User, BookOpen, GraduationCap, Clock, ShieldCheck, Globe,
@@ -45,6 +45,12 @@ import {
  * apitxt.com delivers SMS to India and nowhere else, so demanding a code
  * abroad demands the impossible. Numbers outside India are accepted
  * unverified and recorded as such.
+ *
+ * ── And a number is proved once, not every time ─────────────────────────────
+ * Every code is ₹1. The email is proved first, and after that: the number on
+ * its account is used as it is, and a number verified with us before is
+ * checked for free and needs no code. Only a new email with a new number is
+ * sent one. lib/phone/trust.ts holds the rule; the booking routes apply it too.
  *
  * ── What it never shows ─────────────────────────────────────────────────────
  * No teacher names, no "3 of our 4 teachers are free", no empty evenings. A
@@ -171,6 +177,10 @@ export default function SelfServeBooking() {
      they are told and whether an SMS is sent at all. */
   const [account, setAccount] = useState<{ exists: boolean; phoneVerified: boolean } | null>(null);
   const [phoneFromAccount, setPhoneFromAccount] = useState(false);
+  /* Why no code is needed for the number on screen, when none is — "already
+     confirmed with us". Null while a code is still the way through. */
+  const [phoneTrustNote, setPhoneTrustNote] = useState<string | null>(null);
+  const [checkingPhone, setCheckingPhone] = useState(false);
   /* They already hold this course at this grade. A question, not an error. */
   const [conflict, setConflict] = useState<{ kind: 'active' | 'completed'; message: string } | null>(null);
   const [assistedNewAccount, setAssistedNewAccount] = useState(false);
@@ -184,7 +194,36 @@ export default function SelfServeBooking() {
   const canVerifyPhone = smsReachable(country);
   const parsedPhone = useMemo(() => acceptPhone(phone, country), [phone, country]);
   const phoneUsable = parsedPhone.ok && (canVerifyPhone ? phoneVerified : true);
+  /* The number the latest answer is about. A slow reply for a number they have
+     since changed must not mark the new one as confirmed. */
+  const phoneAsked = useRef<string | null>(null);
 
+  /* ── Does this number need a code at all? Asked for free, before any is sent ── */
+  useEffect(() => {
+    if (step !== 'phone' || !emailVerified || !canVerifyPhone || !parsedPhone.ok || phoneVerified || codeSent) return;
+    const e164 = parsedPhone.e164;
+    const id = window.setTimeout(async () => {
+      phoneAsked.current = e164;
+      setCheckingPhone(true);
+      try {
+        const r = await fetch('/api/phone', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'check', phone: e164, email: email.trim() }),
+        });
+        const j = await r.json().catch(() => null);
+        if (phoneAsked.current !== e164) return;
+        if (r.ok && j?.ok && j.needsCode === false) {
+          setPhoneVerified(true);
+          setPhoneTrustNote(j.message ?? 'This number is already confirmed — no code needed.');
+        }
+      } catch {
+        /* Unanswered is "send a code as usual" — never a skipped check. */
+      } finally {
+        if (phoneAsked.current === e164) setCheckingPhone(false);
+      }
+    }, 450);
+    return () => window.clearTimeout(id);
+  }, [step, emailVerified, canVerifyPhone, parsedPhone, phoneVerified, codeSent, email]);
 
   /* ── The phone, proved (India only) ─────────────────────────────────────── */
   const sendCode = async () => {
@@ -192,10 +231,17 @@ export default function SelfServeBooking() {
     try {
       const r = await fetch('/api/phone', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'send', phone: parsedPhone.ok ? parsedPhone.e164 : phone }),
+        // The proved email goes too: the server will not spend a code on a
+        // number this address already vouches for, even if the check was missed.
+        body: JSON.stringify({ action: 'send', phone: parsedPhone.ok ? parsedPhone.e164 : phone, email: email.trim() }),
       });
       const j = await r.json().catch(() => null);
       if (!r.ok || !j?.ok) { setError(j?.message ?? 'We could not send a code to that number.'); return; }
+      if (j.needsCode === false) {
+        setPhoneVerified(true);
+        setPhoneTrustNote(j.message ?? 'This number is already confirmed — no code needed.');
+        return;
+      }
       setCodeSent(true);
     } catch {
       setError('Could not reach us just now. Check your connection and try again.');
@@ -253,13 +299,18 @@ export default function SelfServeBooking() {
         | undefined;
       setAccount(acct ? { exists: !!acct.exists, phoneVerified: !!acct.phoneVerified } : null);
 
-      /* A number this account already proved is not proved again. Every code
-         skipped is an SMS nobody pays for and a step nobody repeats. */
-      if (acct?.exists && acct.phoneVerified && acct.phone) {
+      /* The number on the account is used as it is — whether or not it was ever
+         flagged verified, which most older accounts never were. The address was
+         just proved, and it is the account; asking that family to pay for a code
+         for their own number again is the ₹1 this is here to save. The booking
+         route accepts it by the same rule (lib/phone/trust.ts). */
+      const accountCountry = acct?.phoneCountryCode || country;
+      if (acct?.exists && acct.phone && acceptPhone(acct.phone, accountCountry).ok) {
         setPhone(acct.phone);
         if (acct.phoneCountryCode) { setCountry(acct.phoneCountryCode); setCountryTouched(true); }
         setPhoneVerified(true);
         setPhoneFromAccount(true);
+        setPhoneTrustNote(null);
       }
     } catch {
       setError('Could not reach us just now. Try again in a moment.');
@@ -596,6 +647,7 @@ export default function SelfServeBooking() {
                 /* A code sent to the old number proves nothing about the new
                    one. Changing the country restarts the proof. */
                 setCodeSent(false); setPhoneVerified(false); setCode(''); setError(null);
+                setPhoneTrustNote(null); setPhoneFromAccount(false);
               }}
               className="h-12 px-2 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/40"
               style={{ fontFamily: 'var(--font-inter)' }}
@@ -611,6 +663,7 @@ export default function SelfServeBooking() {
               onChange={(e) => {
                 setPhone(e.target.value);
                 setCodeSent(false); setPhoneVerified(false); setError(null);
+                setPhoneTrustNote(null); setPhoneFromAccount(false);
               }}
               placeholder="Phone number"
               autoComplete="tel"
@@ -638,12 +691,12 @@ export default function SelfServeBooking() {
               <>
                 <p className="mt-3 text-sm text-green-800 bg-green-50 border border-green-200 rounded-xl px-3 py-2 flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4" />
-                  {phoneFromAccount ? 'Already confirmed on your account.' : 'Number confirmed.'}
+                  {phoneFromAccount ? 'This is the number on your account — no code needed.' : phoneTrustNote ?? 'Number confirmed.'}
                 </p>
-                {phoneFromAccount && (
+                {(phoneFromAccount || phoneTrustNote) && (
                   <button
                     onClick={() => {
-                      setPhoneFromAccount(false); setPhoneVerified(false);
+                      setPhoneFromAccount(false); setPhoneVerified(false); setPhoneTrustNote(null);
                       setPhone(''); setCodeSent(false); setError(null);
                     }}
                     className="mt-2 text-[11px] font-bold text-slate-500 hover:text-slate-800"
@@ -676,8 +729,8 @@ export default function SelfServeBooking() {
                 </button>
               </div>
             ) : (
-              <Next onClick={sendCode} disabled={!parsedPhone.ok || otpBusy}>
-                {otpBusy ? 'Sending…' : 'Send me a code'}
+              <Next onClick={sendCode} disabled={!parsedPhone.ok || otpBusy || checkingPhone}>
+                {otpBusy ? 'Sending…' : checkingPhone ? 'Checking…' : 'Send me a code'}
               </Next>
             )
           ) : (
@@ -717,7 +770,7 @@ export default function SelfServeBooking() {
                   {account.exists
                     ? 'Welcome back — this address already has a Sariro account, and the class goes on it.'
                     : 'You’re new here. We’ll create your Sariro account when you finish booking, and email you the password.'}
-                  {phoneFromAccount && ' We already have a confirmed number on it, so there is no code to wait for.'}
+                  {phoneFromAccount && ' We will use the number already on it, so there is no code to wait for.'}
                 </p>
               )}
               <Next onClick={() => setStep('phone')}>Continue</Next>

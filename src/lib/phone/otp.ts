@@ -45,6 +45,12 @@ export interface SendResult {
 /** Whether we are able to verify numbers at all right now. */
 export const smsConfigured = () => !!process.env.APITXT_AUTHKEY;
 
+/** `APITXT_CHANNEL`: 'sms' or 'whatsapp'. Anything else is ignored, so a typo cannot break sending. */
+export function otpChannel(raw: string | undefined = process.env.APITXT_CHANNEL): 'sms' | 'whatsapp' | null {
+  const v = (raw ?? '').trim().toLowerCase();
+  return v === 'sms' || v === 'whatsapp' ? v : null;
+}
+
 /**
  * Hand the code to apitxt.com.
  *
@@ -67,6 +73,12 @@ export async function sendOtpSms(wireNumber: string, otp: string): Promise<SendR
   url.searchParams.set('authkey', authkey);
   url.searchParams.set('mobile', wireNumber);
   url.searchParams.set('otp', otp);
+  /* apitxt can deliver the same code over WhatsApp (`channel=whatsapp`). Set by
+     environment rather than hard-coded: which channel is cheaper and which
+     actually reaches families is a business call that can change without a
+     deploy. Unset keeps the provider's default. */
+  const channel = otpChannel();
+  if (channel) url.searchParams.set('channel', channel);
 
   try {
     // A hung provider must not hold the request open: the person is staring at
