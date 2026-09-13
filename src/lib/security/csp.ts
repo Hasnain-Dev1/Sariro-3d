@@ -77,6 +77,13 @@ export const CSP_DIRECTIVES = [
   // Images: self + data: (SVGs) + https (Razorpay logos, avatars) + blob:
   "img-src 'self' data: https: blob:",
   "font-src 'self' data: https://fonts.gstatic.com",
+  // Audio and video: self + blob:. Voice Check plays a child's recording back
+  // from a blob: URL minted in the page itself — nothing is uploaded, so there
+  // is no other URL it could come from. Without this, media fell back to
+  // default-src 'self', which does not match blob:, and every replay failed
+  // with "Media load rejected by URL safety check". A blob: URL can only be
+  // created by this origin's own script, so allowing it opens nothing new.
+  "media-src 'self' blob:",
   // Connects: Supabase (REST + Realtime), Razorpay API, and the drei HDRI
   // assets the 3D scenes fetch — without the last one the homepage scenes
   // crash with a NetworkError.

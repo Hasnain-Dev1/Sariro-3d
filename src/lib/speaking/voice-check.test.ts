@@ -16,8 +16,10 @@ function recording(transcript: string, seconds = 30, pauseEveryFrames = 60) {
 const words = (n: number, extra = '') => Array.from({ length: n }, (_, i) => `word${i}`).join(' ') + extra;
 
 describe('prompts', () => {
-  test('there are enough to try again with a different one', () => {
-    assert.ok(PROMPTS.length >= 4);
+  test('a hundred of them, so a returning child keeps meeting new ones', () => {
+    assert.ok(PROMPTS.length >= 100, String(PROMPTS.length));
+    assert.equal(new Set(PROMPTS.map((p) => p.text)).size, PROMPTS.length, 'no prompt twice');
+    assert.ok(PROMPTS.every((p) => p.emoji && p.text.length > 20 && !/\d/.test(p.text)), 'each has an emoji, a real question, and no digits');
     assert.equal(new Set(PROMPTS.map((p) => p.id)).size, PROMPTS.length, 'ids are unique');
   });
 

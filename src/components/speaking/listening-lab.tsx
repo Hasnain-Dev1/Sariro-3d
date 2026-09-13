@@ -7,6 +7,8 @@ import { diagnoseMic, micMessage } from '@/lib/speaking/mic';
 import { assembleTranscript } from '@/lib/speaking/transcript';
 import { logAttempt } from '@/lib/speaking/practice-log';
 import { listeningMetrics } from '@/lib/speaking/progress';
+import { PASSAGES, passageById } from '@/lib/speaking/passages';
+import { dealFromStorage } from '@/lib/speaking/passages/deck';
 
 /**
  * SARIRO — a listening drill that runs on the device
@@ -47,12 +49,12 @@ interface RecognitionLike {
   onend: (() => void) | null;
 }
 
-const PASSAGES = [
-  'The committee reached a difficult decision about the new library building after three long meetings.',
-  'Every morning the fishermen leave before sunrise, and by the time the market opens their boats are already back.',
-  'She had practised the speech eleven times, but the moment she stood up every word left her completely.',
-  'The experiment failed twice before anybody thought to check whether the thermometer itself was working.',
-];
+/* The practice room's passages come from the shared library — a minute each,
+   dealt without repeats and remembered on this device. There used to be four
+   single sentences here, and every visit started on the first. A lesson can
+   still hand in its own passage, which always wins. */
+const LISTEN_DECK = 'sariro.practice.listening';
+const PASSAGE_IDS = PASSAGES.map((p) => p.id);
 
 export default function ListeningLab({
   passage,
@@ -61,8 +63,14 @@ export default function ListeningLab({
   passage?: string;
   onLogged?: () => void;
 }) {
-  const [index, setIndex] = useState(0);
-  const source = passage ?? PASSAGES[index];
+  /* Dealt after mount, because the deck lives in this device's storage and the
+     first render has to match the server's. */
+  const [passageId, setPassageId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!passage) setPassageId(dealFromStorage(LISTEN_DECK, PASSAGE_IDS));
+  }, [passage]);
+  const dealt = passageById(passageId);
+  const source = passage ?? dealt?.text ?? '';
 
   const [rate, setRate] = useState(1);
   const [playing, setPlaying] = useState(false);
@@ -96,7 +104,8 @@ export default function ListeningLab({
   const play = () => {
     try {
       window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(source);
+      if (!source) return;
+    const u = new SpeechSynthesisUtterance(source);
       u.rate = rate;
       u.onend = () => setPlaying(false);
       u.onerror = () => setPlaying(false);
@@ -149,7 +158,7 @@ export default function ListeningLab({
       // See speaking-lab: never awaited, never allowed to block the result.
       void logAttempt({
         kind: 'listening',
-        drillId: passage ? 'lesson' : `passage-${index}`,
+        drillId: passage ? 'lesson' : `passage-${passageId}`,
         score: result.score,
         metrics: listeningMetrics(result),
       }).then((ok) => { if (ok) onLogged?.(); });
@@ -164,7 +173,7 @@ export default function ListeningLab({
     logged.current = null;
   };
 
-  const next = () => { setIndex((i) => (i + 1) % PASSAGES.length); reset(); };
+  const next = () => { reset(); setPassageId(dealFromStorage(LISTEN_DECK, PASSAGE_IDS)); };
 
   const tone = (kind: 'good' | 'watch' | 'fix') =>
     kind === 'good' ? 'bg-green-50 border-green-200 text-green-900'
@@ -182,6 +191,11 @@ export default function ListeningLab({
           <p className="text-xs text-slate-600 mt-1">
             Listen, then say or type it back. The words stay hidden until you have tried.
           </p>
+          {!passage && dealt && (
+            <p className="text-[11px] text-slate-400 mt-1">
+              <span className="font-bold text-slate-600">{dealt.title}</span> · {dealt.topic} · about a minute · {PASSAGES.length} passages
+            </p>
+          )}
         </div>
         {!passage && (
           <button onClick={next}
@@ -195,7 +209,8 @@ export default function ListeningLab({
       <div className="flex flex-wrap items-center gap-2">
         <button
           onClick={playing ? stopPlaying : play}
-          className="h-10 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold flex items-center gap-2"
+          disabled={!source}
+          className="h-10 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold flex items-center gap-2 disabled:opacity-40"
           style={{ fontFamily: 'var(--font-grotesk)' }}
         >
           {playing ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4" />}
@@ -277,8 +292,8 @@ export default function ListeningLab({
         <textarea
           value={response}
           onChange={(e) => setResponse(e.target.value)}
-          rows={4}
-          placeholder="Type what you heard, as close as you can get it."
+          rows={6}
+          placeholder="Type what you heard, as close as you can get it. A minute is a lot — the ideas in order matter more than every word."
           className="mt-3 w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
           style={{ fontFamily: 'var(--font-inter)' }}
         />

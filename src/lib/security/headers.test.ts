@@ -1,6 +1,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { CSP_DIRECTIVES } from './csp';
 
 /**
  * SARIRO — the header that switched the microphone off
@@ -56,6 +57,28 @@ describe('Permissions-Policy', () => {
 
   test('payment stays scoped to this origin for Razorpay', () => {
     assert.match(policy!, /payment=\(self\)/);
+  });
+});
+
+/**
+ * The same shape of bug, one directive over. Voice Check plays a recording back
+ * from a blob: URL, and with no media-src the policy fell back to
+ * default-src 'self' — which does not match blob:. The replay button spun, and
+ * the only trace was "Media load rejected by URL safety check" in the console.
+ */
+describe('Content-Security-Policy: media', () => {
+  const media = CSP_DIRECTIVES.find((d) => d.startsWith('media-src'));
+
+  test('media-src is declared, so audio does not fall back to default-src', () => {
+    assert.ok(media, "no media-src — blob: playback falls back to default-src 'self' and is refused");
+  });
+
+  test('a recording made in the page can be played back', () => {
+    assert.match(media!, /(^|\s)blob:(\s|$)/);
+  });
+
+  test('media is not opened to any host', () => {
+    assert.doesNotMatch(media!, /\*|https:(\s|$)/);
   });
 });
 

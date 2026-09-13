@@ -203,6 +203,27 @@ export function silences(levels: number[], frameMs: number): { startMs: number; 
   return out;
 }
 
+/**
+ * Whether a filler starts at word `i`, and which one.
+ *
+ * The same two lists countFillers reads, so the replay timeline marks exactly
+ * the fillers the score counted — a timeline that pins an "um" the report never
+ * mentioned, or misses one it did, is two screens arguing about one sentence.
+ * Two-word hedges ("you know") are checked before single words.
+ */
+export function fillerAt(
+  words: readonly string[],
+  i: number
+): { word: string; certain: boolean; length: number } | null {
+  const w = words[i];
+  if (!w) return null;
+  const pair = words[i + 1] ? `${w} ${words[i + 1]}` : null;
+  if (pair && HEDGED_FILLERS.includes(pair)) return { word: pair, certain: false, length: 2 };
+  if (CERTAIN_FILLERS.includes(w)) return { word: w, certain: true, length: 1 };
+  if (HEDGED_FILLERS.includes(w)) return { word: w, certain: false, length: 1 };
+  return null;
+}
+
 /** Fillers found in a word list, most frequent first. */
 function countFillers(words: string[]) {
   const joined = ` ${words.join(' ')} `;

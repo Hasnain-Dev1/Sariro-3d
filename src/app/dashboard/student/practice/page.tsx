@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Mic, Ear, PenLine, ArrowLeft, Lock, Loader2, ArrowRight } from 'lucide-react';
+import { Mic, Ear, PenLine, ArrowLeft, Lock, Loader2, ArrowRight, Shuffle, BookOpen } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/components/auth/auth-provider';
@@ -12,6 +12,9 @@ import SpeakingLab, { type Drill } from '@/components/speaking/speaking-lab';
 import ListeningLab from '@/components/speaking/listening-lab';
 import WritingLab from '@/components/speaking/writing-lab';
 import PracticeProgress from '@/components/speaking/practice-progress';
+import { PASSAGES, passageById, readingSeconds } from '@/lib/speaking/passages';
+import { dealFromStorage } from '@/lib/speaking/passages/deck';
+import { PROMPTS } from '@/lib/speaking/voice-check';
 
 /**
  * SARIRO — the practice room
@@ -30,23 +33,28 @@ import PracticeProgress from '@/components/speaking/practice-progress';
  * improves a speaker is the practice they do when nobody set it.
  */
 
+/* Which passage and which topic each drill is on, remembered on this device so
+   the next visit carries on through the library rather than starting again. */
+const READ_DECK = 'sariro.practice.read-aloud';
+const TOPIC_DECK = 'sariro.practice.free-60';
+const PASSAGE_IDS = PASSAGES.map((p) => p.id);
+const PROMPT_IDS = PROMPTS.map((p) => p.id);
+
 const SPEAKING_DRILLS: Drill[] = [
   {
     id: 'free-60',
     title: 'Sixty seconds, no notes',
-    brief: 'Pick anything you know well and talk about it for a minute. Do not plan it. The point is to hear what your unplanned speech actually sounds like.',
+    brief: 'Talk about the topic below for a minute — or anything else you know well. Do not plan it. The point is to hear what your unplanned speech actually sounds like.',
     targetSeconds: 60,
   },
   {
+    /* The passage itself is dealt from the library when the drill is shown —
+       there were once exactly one of these, and a passage read five times
+       measures memory, not reading. */
     id: 'read-aloud',
     title: 'Read it as though you mean it',
     brief: 'Read the passage aloud. The full stops and commas are where you breathe — let them be pauses rather than pushing straight through.',
-    passage:
-      'The trouble with speaking well is that everybody assumes it is a gift. It is not. ' +
-      'It is a handful of habits, each of them dull on its own: breathing before you start, ' +
-      'stopping at the end of a thought, letting your voice fall rather than rise. ' +
-      'None of that is talent. All of it is practice.',
-    targetSeconds: 45,
+    targetSeconds: 60,
   },
   {
     id: 'explain-hard',
@@ -114,6 +122,34 @@ function Locked({ access }: { access: PracticeAccess }) {
   );
 }
 
+/** What was dealt, and a way to get another. */
+function DealtBar({
+  icon: Icon, label, detail, action, onNext,
+}: {
+  icon: typeof Mic;
+  label: string;
+  detail: string;
+  action: string;
+  onNext: () => void;
+}) {
+  return (
+    <div className="rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-3 flex items-center gap-3">
+      <Icon className="w-4 h-4 text-blue-600 shrink-0" />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-bold text-slate-900 leading-snug" style={{ fontFamily: 'var(--font-jakarta)' }}>{label}</p>
+        <p className="text-[11px] text-slate-500">{detail}</p>
+      </div>
+      <button
+        onClick={onNext}
+        className="shrink-0 h-9 px-3 rounded-lg border border-blue-200 bg-white text-[12px] font-bold text-blue-700 hover:bg-blue-50 inline-flex items-center gap-1.5"
+        style={{ fontFamily: 'var(--font-grotesk)' }}
+      >
+        <Shuffle className="w-3.5 h-3.5" /> {action}
+      </button>
+    </div>
+  );
+}
+
 export default function PracticePage() {
   const { user } = useAuth();
   /* null while the answer is unknown. Rendering the room and snatching it back
@@ -147,6 +183,17 @@ export default function PracticePage() {
      see your own last go is the sort of thing that stops people practising. */
   const [logged, setLogged] = useState(0);
   const noteLogged = useCallback(() => setLogged((n) => n + 1), []);
+
+  /* Dealt after mount: storage is only on the device, and the first render must
+     match the server's. */
+  const [passageId, setPassageId] = useState<string | null>(null);
+  const [topicId, setTopicId] = useState<string | null>(null);
+  useEffect(() => {
+    setPassageId(dealFromStorage(READ_DECK, PASSAGE_IDS));
+    setTopicId(dealFromStorage(TOPIC_DECK, PROMPT_IDS));
+  }, []);
+  const passage = passageById(passageId);
+  const topic = PROMPTS.find((p) => p.id === topicId) ?? null;
 
   const active = TABS.find((t) => t.key === tab)!;
 
@@ -224,9 +271,37 @@ export default function PracticePage() {
                   </button>
                 ))}
               </div>
-              {/* Keyed so switching drills starts a clean recording rather than
-                  carrying the last one's audio into the next. */}
-              <SpeakingLab key={SPEAKING_DRILLS[drill].id} drill={SPEAKING_DRILLS[drill]} onLogged={noteLogged} />
+              {SPEAKING_DRILLS[drill].id === 'read-aloud' && passage && (
+                <DealtBar
+                  icon={BookOpen}
+                  label={passage.title}
+                  detail={`${passage.topic} · about ${Math.round(readingSeconds(passage) / 5) * 5} seconds · ${PASSAGES.length} passages`}
+                  action="Another passage"
+                  onNext={() => setPassageId(dealFromStorage(READ_DECK, PASSAGE_IDS))}
+                />
+              )}
+              {SPEAKING_DRILLS[drill].id === 'free-60' && topic && (
+                <DealtBar
+                  icon={Mic}
+                  label={`${topic.emoji} ${topic.text}`}
+                  detail={`Your topic · ${PROMPTS.length} to choose from`}
+                  action="Another topic"
+                  onNext={() => setTopicId(dealFromStorage(TOPIC_DECK, PROMPT_IDS))}
+                />
+              )}
+              {/* Keyed so switching drills — or passages — starts a clean
+                  recording rather than carrying the last one's into the next. */}
+              {SPEAKING_DRILLS[drill].id === 'read-aloud' ? (
+                passage ? (
+                  <SpeakingLab
+                    key={`read-aloud-${passage.id}`}
+                    drill={{ ...SPEAKING_DRILLS[drill], passage: passage.text, targetSeconds: readingSeconds(passage) }}
+                    onLogged={noteLogged}
+                  />
+                ) : null
+              ) : (
+                <SpeakingLab key={`${SPEAKING_DRILLS[drill].id}-${topicId ?? ''}`} drill={SPEAKING_DRILLS[drill]} onLogged={noteLogged} />
+              )}
             </div>
           )}
 

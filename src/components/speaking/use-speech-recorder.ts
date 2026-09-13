@@ -1,9 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { diagnoseMic, micErrorMessage, type MicBlocker } from '@/lib/speaking/mic';
 import { assembleTranscript } from '@/lib/speaking/transcript';
 import { detectPitch } from '@/lib/speaking/pitch';
+import { observeWords, type WordObservation } from '@/lib/speaking/timeline';
+import { onGrid } from '@/lib/speaking/frames';
 
 /**
  * SARIRO — recording a voice, once, for everything that listens to one
@@ -30,6 +32,17 @@ import { detectPitch } from '@/lib/speaking/pitch';
  *
  * This hook only RECORDS. What to measure, what to keep and what to show is the
  * caller's business, handed over whole in `onStop`.
+ *
+ * ── A third stream, for replay: when each word first appeared ───────────────
+ * Every recognition event notes the moment each new word position showed up.
+ * That is what lib/speaking/timeline.ts turns into a time for every word, so a
+ * replay can pin an "um" where it was said. Cheap, so it is always on.
+ *
+ * ── And the audio itself, only when asked ───────────────────────────────────
+ * `captureAudio` keeps the recording as a blob URL in this tab so it can be
+ * played back. It is never uploaded, it is released on reset and on leaving the
+ * page, and a browser without MediaRecorder simply gets no replay audio — the
+ * rest works the same.
  */
 
 /* The Web Speech API is not in TypeScript's DOM library. */
@@ -81,17 +94,29 @@ export interface Recording {
   heardWords: boolean;
   /** The microphone picked up anything louder than silence. */
   heardSound: boolean;
+  /** When each word position first appeared, for timing words in a replay. */
+  observations: WordObservation[];
 }
 
 export type RecorderState = 'idle' | 'recording' | 'done';
 
+/** The streams as they grow, for live meters. Read in an interval or animation frame. */
+export interface RecorderLive {
+  levels: { readonly current: number[] };
+  pitches: { readonly current: (number | null)[] };
+  words: { readonly current: WordObservation[] };
+}
+
 export function useSpeechRecorder({
   onStop,
   lang = 'en-IN',
+  captureAudio = false,
 }: {
   /** Called once per recording, after the microphone is released. */
   onStop: (recording: Recording) => void;
   lang?: string;
+  /** Keep the audio in this tab for playback. See the note above. */
+  captureAudio?: boolean;
 }) {
   /* null while unknown, '' when everything is present, otherwise the reason.
      A boolean here was the bug: "this browser cannot listen" was shown for
@@ -103,6 +128,9 @@ export function useSpeechRecorder({
   const [transcript, setTranscript] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [level, setLevel] = useState(0);
+  /* The recording as a playable blob URL. Arrives a moment AFTER onStop — the
+     browser hands over the last chunk of audio asynchronously. */
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
 
   const recognition = useRef<SpeechRecognitionLike | null>(null);
   const stream = useRef<MediaStream | null>(null);
@@ -111,6 +139,17 @@ export function useSpeechRecorder({
   /* Pitch per frame, aligned to `levels`. null on unvoiced frames — roughly
      half of ordinary speech, since s, f, sh and silence have no pitch at all. */
   const pitches = useRef<(number | null)[]>([]);
+  /* When each frame was ACTUALLY taken. A 50ms timer on a busy phone fires at
+     90ms, and frames read as if punctual put every pause in the wrong place.
+     See lib/speaking/frames.ts. */
+  const stamps = useRef<number[]>([]);
+  const words = useRef<WordObservation[]>([]);
+  const recorder = useRef<MediaRecorder | null>(null);
+  const audioUrlRef = useRef<string | null>(null);
+  /* Which recording is current. A MediaRecorder finishes after it is told to
+     stop, so a reset — or a new recording — could otherwise be followed by the
+     OLD audio arriving and replacing nothing with the wrong thing. */
+  const take = useRef(0);
   const finalText = useRef('');
   /* Everything heard in recognition sessions that have already ended. Chrome
      stops on its own after a few seconds of silence and we restart it; each
@@ -129,9 +168,27 @@ export function useSpeechRecorder({
     setBlocker(diagnoseMic());
   }, []);
 
+  const releaseAudio = useCallback(() => {
+    if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
+    audioUrlRef.current = null;
+    setAudioUrl(null);
+  }, []);
+
+  // Leaving the page frees the audio held in memory.
+  useEffect(() => () => {
+    take.current += 1;
+    if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
+    audioUrlRef.current = null;
+  }, []);
+
   /** Everything the recording holds open, released in one place. */
   const teardown = useCallback(() => {
     recording.current = false;
+    // Before the tracks stop, so the last of the audio is kept.
+    if (recorder.current && recorder.current.state !== 'inactive') {
+      try { recorder.current.stop(); } catch { /* already stopped */ }
+    }
+    recorder.current = null;
     if (sampler.current) { clearInterval(sampler.current); sampler.current = null; }
     if (ticker.current) { clearInterval(ticker.current); ticker.current = null; }
     try { recognition.current?.stop(); } catch { /* already stopped */ }
@@ -156,11 +213,13 @@ export function useSpeechRecorder({
     onStopRef.current({
       transcript: text,
       durationMs,
-      levels: levels.current,
-      pitches: pitches.current,
+      // Onto an exact grid, so frame f really is f × FRAME_MS.
+      levels: onGrid(levels.current, stamps.current, durationMs, FRAME_MS),
+      pitches: onGrid(pitches.current, stamps.current, durationMs, FRAME_MS),
       frameMs: FRAME_MS,
       heardWords: text.length > 0,
       heardSound: levels.current.some((l) => l > 0.02),
+      observations: words.current,
     });
   }, [teardown]);
 
@@ -174,6 +233,11 @@ export function useSpeechRecorder({
     priorSessions.current = '';
     levels.current = [];
     pitches.current = [];
+    stamps.current = [];
+    words.current = [];
+    take.current += 1;
+    const thisTake = take.current;
+    releaseAudio();
     setElapsed(0);
 
     try {
@@ -195,6 +259,28 @@ export function useSpeechRecorder({
     source.connect(analyser);
     const buf = new Float32Array(analyser.fftSize);
 
+    // ── The audio, kept in this tab for replay ──
+    if (captureAudio && typeof MediaRecorder !== 'undefined') {
+      try {
+        const mr = new MediaRecorder(stream.current);
+        const chunks: Blob[] = [];
+        mr.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+        mr.onstop = () => {
+          if (thisTake !== take.current || chunks.length === 0) return;
+          const url = URL.createObjectURL(new Blob(chunks, { type: mr.mimeType || 'audio/webm' }));
+          audioUrlRef.current = url;
+          setAudioUrl(url);
+        };
+        mr.start();
+        recorder.current = mr;
+      } catch {
+        /* No replay audio on this browser. Everything else still works. */
+      }
+    }
+
+    /* The clock starts with the first loudness frame and the audio, so frame
+       f, second s of the replay and a word at s seconds are all the same moment. */
+    startedAt.current = Date.now();
     sampler.current = window.setInterval(() => {
       analyser.getFloatTimeDomainData(buf);
       // RMS, which tracks perceived loudness far better than a peak does.
@@ -203,6 +289,7 @@ export function useSpeechRecorder({
       const rms = Math.sqrt(sum / buf.length);
       levels.current.push(rms);
       pitches.current.push(detectPitch(buf, ctx.sampleRate));
+      stamps.current.push(Date.now() - startedAt.current);
       setLevel(rms);
     }, FRAME_MS);
 
@@ -217,6 +304,7 @@ export function useSpeechRecorder({
     rec.onresult = (e) => {
       const out = assembleTranscript(e.results, priorSessions.current);
       finalText.current = out.final;
+      words.current = observeWords(words.current, out.display, Date.now() - startedAt.current);
       setTranscript(out.display);
     };
     rec.onerror = (e) => {
@@ -236,23 +324,33 @@ export function useSpeechRecorder({
     recognition.current = rec;
     try { rec.start(); } catch { /* already started */ }
 
-    startedAt.current = Date.now();
     ticker.current = window.setInterval(() => {
       setElapsed(Math.round((Date.now() - startedAt.current) / 1000));
     }, 250);
     recording.current = true;
     setState('recording');
-  }, [lang]);
+  }, [lang, captureAudio, releaseAudio]);
 
   /** Back to a clean slate, as though nothing had been recorded. */
   const reset = useCallback(() => {
+    take.current += 1;
     teardown();
+    releaseAudio();
     setState('idle');
     setTranscript('');
     setError(null);
     setElapsed(0);
     setLevel(0);
-  }, [teardown]);
+  }, [teardown, releaseAudio]);
 
-  return { blocker, state, elapsed, transcript, error, setError, level, start, stop, reset };
+  /** Milliseconds since this recording started; 0 when not recording. */
+  const clock = useCallback(() => (recording.current ? Date.now() - startedAt.current : 0), []);
+
+  /* The raw streams as they grow, for meters that redraw faster than React
+     should re-render. Read them in an interval or animation frame, not in render. */
+  // Memoised: the refs never change, and a new object each render would restart
+  // every effect that depends on it twenty times a second.
+  const live = useMemo<RecorderLive>(() => ({ levels, pitches, words }), []);
+
+  return { blocker, state, elapsed, transcript, error, setError, level, start, stop, reset, audioUrl, clock, live };
 }
