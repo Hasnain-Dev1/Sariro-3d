@@ -13,6 +13,7 @@
  */
 
 import { createClient } from '@/lib/supabase/client';
+import { SELLER_OR_FILTER } from '@/lib/seller/who-sells';
 
 /* ════════════════════════════════════════════════════════════════════════
    Types
@@ -313,8 +314,12 @@ export async function fetchLeadHistory(leadId: string): Promise<LeadHistoryRow[]
 }
 
 /**
- * Fetch everyone who can own/progress a lead for the assignment dropdown:
- * sellers (role='seller') plus admins + super_admins (who also handle leads).
+ * The people a lead can be assigned to: sellers, and only sellers.
+ *
+ * It used to include admins and super-admins, and leads were handed to them —
+ * to the CEO's profile and the dev account — where no seller could see them.
+ * Thirteen of eighteen leads ended up owned by somebody who would never ring
+ * the family. See lib/seller/who-sells.ts.
  */
 export async function fetchSellers(): Promise<Array<{ id: string; full_name: string | null; email: string | null }>> {
   try {
@@ -322,7 +327,7 @@ export async function fetchSellers(): Promise<Array<{ id: string; full_name: str
     const { data, error } = await supabase
       .from('profiles')
       .select('id, full_name, email')
-      .or('role.eq.seller,is_seller.eq.true,role.eq.admin,role.eq.super_admin,is_admin.eq.true,is_super_admin.eq.true')
+      .or(SELLER_OR_FILTER)
       .order('full_name', { ascending: true });
 
     if (error) throw error;

@@ -1,6 +1,7 @@
 'use client';
 
 import { createClient } from '@/lib/supabase/client';
+import { SELLER_OR_FILTER } from '@/lib/seller/who-sells';
 
 /**
  * SARIRO — the sales ledger
@@ -137,13 +138,20 @@ export async function fetchSales(limit = 1000): Promise<SaleWithNames[]> {
   }));
 }
 
-/** Anyone who could be credited with a sale. */
+/**
+ * The people a sale can be credited to: sellers, and only sellers.
+ *
+ * It used to offer HR, admins and super-admins as well. A sale is made by a
+ * seller, and the credit is what their incentive is calculated from — crediting
+ * it to anybody else is money attributed to somebody who cannot earn it. See
+ * lib/seller/who-sells.ts.
+ */
 export async function fetchSellers(): Promise<{ id: string; name: string }[]> {
   const supabase = createClient();
   const { data } = await supabase
     .from('profiles')
     .select('id, full_name, email, role')
-    .or('role.eq.seller,role.eq.hr,role.eq.admin,role.eq.super_admin')
+    .or(SELLER_OR_FILTER)
     .order('full_name', { ascending: true, nullsFirst: false });
   return ((data ?? []) as { id: string; full_name: string | null; email: string | null }[])
     .map((p) => ({ id: p.id, name: (p.full_name || p.email || 'Someone').trim() }));

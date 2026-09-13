@@ -9,6 +9,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { matchLead, normalisePhone, normaliseEmail, type LeadIdentity } from './identity';
 import { chooseSeller, monthWindow, type SellerLoad } from './seller-assignment';
+import { SELLER_OR_FILTER } from '@/lib/seller/who-sells';
 
 /**
  * SARIRO — a booked trial becomes somebody's job
@@ -305,7 +306,7 @@ async function assignSeller(admin: SupabaseClient): Promise<string | null> {
   const { data: sellers } = await admin
     .from('profiles')
     .select('id')
-    .or('is_seller.eq.true,role.eq.seller');
+    .or(SELLER_OR_FILTER);
 
   const ids = (sellers ?? []).map((s) => s.id as string);
   /* Nobody in the seat. The lead is still created, unassigned, and shows up in
