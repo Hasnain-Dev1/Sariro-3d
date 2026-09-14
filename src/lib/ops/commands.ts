@@ -65,6 +65,7 @@ const ACTIONS: Record<StaffRole, Action[]> = {
     { label: 'Course eligibility', hint: 'Which tracks and levels each teacher may teach', href: actionHref(SA, 'classes', 'eligibility'), keywords: 'eligibility teacher track level training' },
     { label: 'Adjust a student’s credits', hint: 'Add or deduct, with a reason', href: sectionHref(SA, 'credit-adjust'), keywords: 'credits adjust add deduct balance' },
     { label: 'Earnings & sales report', hint: 'Teacher earnings and seller sales by month', href: actionHref(SA, 'finance', 'earnings'), keywords: 'earnings sales report month teacher seller' },
+    { label: 'Trial playbooks', hint: 'The plan teachers follow for every kind of trial', href: '/dashboard/teacher/trial-playbook', keywords: 'trial playbook lesson plan demo class activity' },
     { label: 'Parent access', hint: 'Link parents to children', href: '/dashboard/super-admin/parents', keywords: 'parent access link child' },
     { label: 'Teacher tiers & pay', hint: 'Rates and tier rules', href: '/dashboard/super-admin/teacher-pay', keywords: 'teacher pay tier rate salary' },
   ],
@@ -83,6 +84,7 @@ const ACTIONS: Record<StaffRole, Action[]> = {
     { label: 'Course eligibility', hint: 'Which tracks and levels each teacher may teach', href: actionHref(AD, 'people', 'eligibility'), keywords: 'eligibility teacher track level' },
     { label: 'Monitor a class', hint: 'Observe and score a teacher', href: sectionHref(AD, 'monitoring'), keywords: 'monitoring observe class quality score' },
     { label: 'Export data', hint: 'Users, enrolments and revenue as CSV', href: sectionHref(AD, 'revenue'), keywords: 'export csv download users enrolments revenue' },
+    { label: 'Trial playbooks', hint: 'The plan teachers follow for every kind of trial', href: '/dashboard/teacher/trial-playbook', keywords: 'trial playbook lesson plan demo class activity' },
     { label: 'Lesson pages', hint: 'Write and edit lesson content', href: '/dashboard/admin/lessons', keywords: 'lesson pages content edit' },
     { label: 'Support inbox', hint: 'Help requests from families', href: '/dashboard/admin/support', keywords: 'support inbox help ticket' },
   ],
@@ -97,6 +99,7 @@ const ACTIONS: Record<StaffRole, Action[]> = {
     { label: 'My teachers', hint: 'Roster and catch-up compliance', href: `${HR}?tab=my_teachers`, keywords: 'teachers roster catch up compliance' },
     { label: 'Expenses', hint: 'Record what was spent', href: `${HR}?tab=expenses`, keywords: 'expense spend record' },
     { label: 'Doubt sessions', hint: 'Extra help sessions', href: '/dashboard/hr/doubt-sessions', keywords: 'doubt session help' },
+    { label: 'Trial playbooks', hint: 'The plan teachers follow for every kind of trial', href: '/dashboard/teacher/trial-playbook', keywords: 'trial playbook lesson plan demo class activity' },
   ],
 };
 

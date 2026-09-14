@@ -7,7 +7,7 @@ import {
   Calendar, Clock, Users, Video, Loader2, AlertCircle, ClipboardCheck,
   CheckCircle2, XCircle, UserX, ChevronRight, GraduationCap, Sparkles,
   Plus, Edit3, Save, StickyNote, X, CalendarPlus,
-  Star, ExternalLink, FolderOpen, MessageCircle, CalendarClock,
+  Star, ExternalLink, FolderOpen, MessageCircle, CalendarClock, Compass,
 } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import { BatchRescheduleModal } from '@/components/dashboard/batch-reschedule-modal';
@@ -337,6 +337,15 @@ function BookingCard({
                 </span>
               )}
             </div>
+          )}
+          {/* The plan for this trial, opened already set to its subject, grade and child. */}
+          {booking.is_trial && booking.status === 'scheduled' && (
+            <Link
+              href={`/dashboard/teacher/trial-playbook?subject=${encodeURIComponent(booking.trial_subject ?? '')}&grade=${booking.roster[0]?.grade ?? ''}&child=${encodeURIComponent(booking.roster[0]?.name ?? booking.student_names[0] ?? '')}&booking=${booking.id}`}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1 text-[12px] font-bold text-emerald-800 hover:bg-emerald-100"
+            >
+              <Compass className="w-3.5 h-3.5" /> Open the trial playbook
+            </Link>
           )}
         </div>
         <span className={`shrink-0 px-2 py-0.5 rounded-md text-[10px] font-bold ${status.bg} ${status.text}`}>

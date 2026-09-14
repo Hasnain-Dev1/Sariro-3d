@@ -79,6 +79,9 @@ const TEACHER_NAV: NavItem[] = [
   { href: '/dashboard/teacher', label: 'Home', icon: LayoutDashboard },
   MESSAGES_NAV,
   { href: '/dashboard/teacher/lessons', label: 'Lessons', icon: BookOpen },
+  /* The plan for every kind of trial — the half hour that decides whether a
+     family stays. Also opened straight from a trial on the schedule. */
+  { href: '/dashboard/teacher/trial-playbook', label: 'Trial Playbooks', icon: Sparkles },
   { href: '/dashboard/teacher/doubt-sessions', label: 'Doubt Sessions', icon: HelpCircle },
   { href: '/dashboard/teacher/leaderboard', label: 'Leaderboard', icon: Trophy },
   { href: '/dashboard/teacher#schedule', label: 'My Schedule', icon: Calendar },
