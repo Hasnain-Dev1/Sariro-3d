@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Rocket, X } from 'lucide-react';
 import { useAuth } from '@/components/auth/auth-provider';
+import { overOwnButtons } from '@/lib/ui/own-buttons';
 
 /**
  * SARIRO — the ask that follows you down the page
@@ -41,6 +42,11 @@ const DISMISS_KEY = 'sariro-cta-dismissed';
 /** Show once they have committed to the page — roughly past the hero. */
 const SHOW_AFTER_PX = 700;
 
+/* Over a section with its own buttons — pricing — the bar steps aside. It sits
+   bottom-centre, where the MIDDLE pricing card's button lands as it scrolls
+   into view: a free-class ask covering the "buy" button is the ask getting in
+   the way of the sale. See lib/ui/own-buttons.ts. */
+
 export default function StickyCta() {
   const pathname = usePathname();
   const { user, loading } = useAuth();
@@ -56,7 +62,7 @@ export default function StickyCta() {
   }, []);
 
   useEffect(() => {
-    const onScroll = () => setVisible(window.scrollY > SHOW_AFTER_PX);
+    const onScroll = () => setVisible(window.scrollY > SHOW_AFTER_PX && !overOwnButtons());
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);

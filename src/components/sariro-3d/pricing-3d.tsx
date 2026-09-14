@@ -2,25 +2,12 @@
 
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
-import { Check, Star, ArrowRight, Sparkles, Tag } from 'lucide-react';
-import {
-  PRICING_TIERS,
-  DISCOUNT_LABEL,
-  DISCOUNT_DEADLINE,
-  discountActive,
-  discountPercent,
-  classesForTier,
-  perClassForTier,
-} from '@/lib/sariro-data';
+import { Check, Sparkles, Tag } from 'lucide-react';
+import { DISCOUNT_LABEL, DISCOUNT_DEADLINE, discountActive } from '@/lib/sariro-data';
 import Link from 'next/link';
 import { PRICE_PER_MONTH_GROUP, PRICE_PER_MONTH_ONE_TO_ONE, CURRENCY } from '@/lib/school/pricing';
-import { SplitText3D, MagneticButton, TiltCard3D } from './scroll-effects';
-
-const ACCENT_MAP: Record<string, { text: string; bg: string; soft: string; border: string; gradient: string }> = {
-  blue:   { text: 'text-blue-700',   bg: 'bg-blue-600',   soft: 'bg-blue-50',   border: 'border-blue-200',   gradient: 'from-blue-600 to-blue-800' },
-  green:  { text: 'text-green-700',  bg: 'bg-green-600',  soft: 'bg-green-50',  border: 'border-green-200',  gradient: 'from-green-600 to-green-800' },
-  violet: { text: 'text-violet-700', bg: 'bg-violet-600', soft: 'bg-violet-50', border: 'border-violet-200', gradient: 'from-violet-600 to-violet-800' },
-};
+import { SplitText3D } from './scroll-effects';
+import CodingPricing from '@/components/home/coding-pricing';
 
 export default function Pricing3D() {
   const sectionRef = useRef<HTMLDivElement>(null);
@@ -49,7 +36,7 @@ export default function Pricing3D() {
   const orb2Y = useTransform(scrollYProgress, [0, 1], [-80, 80]);
 
   return (
-    <section id="pricing" ref={sectionRef} data-chapter="pricing" data-chapter-label="Pricing" className="relative py-24 sm:py-32 overflow-hidden bg-gradient-to-b from-white to-slate-50">
+    <section id="pricing" ref={sectionRef} data-hide-sticky-cta data-chapter="pricing" data-chapter-label="Pricing" className="relative py-24 sm:py-32 overflow-hidden bg-gradient-to-b from-white to-slate-50">
       {/* Parallax decorative orbs */}
       <motion.div
         style={{ y: orb1Y }}
@@ -191,145 +178,11 @@ export default function Pricing3D() {
         </motion.div>
       </div>
 
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* The coding & AI ladder — a different product shape: a cohort you buy
-            once, not a month you renew. Labelled so the two are not read as
-            competing prices for the same thing. */}
-        <p
-          className="text-xs font-bold uppercase tracking-[0.18em] mb-4 text-slate-500"
-          style={{ fontFamily: 'var(--font-grotesk)' }}
-        >
-          Coding &amp; AI · any age
-        </p>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-stretch">
-          {PRICING_TIERS.map((tier, i) => {
-            const a = ACCENT_MAP[tier.accent] ?? ACCENT_MAP.blue;
-            const pct = discountPercent(tier.price, tier.originalPrice);
-            const classes = classesForTier(tier.id);
-            const perClass = tier.price === null ? null : perClassForTier(tier.id, tier.price);
-            return (
-              <motion.div
-                key={tier.id}
-                initial={{ opacity: 0, y: 50, rotateY: -8 }}
-                whileInView={{ opacity: 1, y: 0, rotateY: 0 }}
-                viewport={{ once: true, margin: '-60px' }}
-                transition={{ duration: 0.7, delay: i * 0.12 }}
-                className={`relative ${tier.popular ? 'lg:-mt-6 lg:mb-6' : ''}`}
-                style={{
-                  transformStyle: 'preserve-3d',
-                  perspective: '1000px',
-                  transform: tier.popular ? 'translateZ(30px) scale(1.05)' : 'translateZ(0px)',
-                }}
-              >
-                {tier.popular && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
-                    <div className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-gradient-to-r from-blue-600 to-violet-600 text-white text-xs font-bold shadow-lg shadow-blue-500/40" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                      <Star className="w-3.5 h-3.5 fill-current" />
-                      Most popular
-                    </div>
-                  </div>
-                )}
-
-                <TiltCard3D
-                  className={`card-3d h-full ${tier.popular ? 'ring-2 ring-blue-500 shadow-2xl shadow-blue-500/20' : ''}`}
-                  maxTilt={tier.popular ? 6 : 10}
-                >
-                  <div className="p-8 h-full flex flex-col">
-                    {/* Tier name */}
-                    <div className="mb-2" style={{ transform: 'translateZ(30px)' }}>
-                      <h3 className={`text-2xl font-extrabold ${a.text}`} style={{ fontFamily: 'var(--font-jakarta)' }}>
-                        {tier.name}
-                      </h3>
-                      <p className="text-sm text-slate-600 mt-1">{tier.tagline}</p>
-                    </div>
-
-                    {/* Price */}
-                    <div className="my-6 py-4 border-y border-slate-100" style={{ transform: 'translateZ(20px)' }}>
-                      {tier.price === null ? (
-                        <div className="text-4xl font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
-                          Custom
-                        </div>
-                      ) : (
-                        <div>
-                          {pct > 0 && (
-                            <div className="flex items-center gap-2 mb-2">
-                              <span
-                                className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md text-white shadow-sm"
-                                style={{ background: '#DC2626', fontFamily: 'var(--font-grotesk)' }}
-                              >
-                                Save {pct}%
-                              </span>
-                              <span
-                                className="text-xs font-bold uppercase tracking-wider line-through"
-                                style={{ fontFamily: 'var(--font-grotesk)', color: '#DC2626' }}
-                              >
-                                ${tier.originalPrice}
-                              </span>
-                            </div>
-                          )}
-                          <div className="flex items-baseline gap-1">
-                            <span className="text-5xl font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
-                              ${tier.price}
-                            </span>
-                            <span className="text-sm font-semibold text-slate-500">/ {tier.period}</span>
-                          </div>
-                          {/* The number that makes the lump sum mean something.
-                              $699 reads as expensive; "$7.28 a class, 96 of them"
-                              reads as what it is - and puts coding beside school's
-                              $9.99 rather than in another price class entirely.
-                              Derived from the catalogue, never typed here. */}
-                          {perClass !== null && (
-                            <p className="text-[13px] text-slate-600 mt-1.5 tabular-nums">
-                              <span className="font-bold text-slate-800">
-                                ${perClass.toFixed(2)} a class
-                              </span>{' '}
-                              · {classes} classes
-                            </p>
-                          )}
-                          {pct > 0 && (
-                            <p
-                              className="text-xs font-bold mt-1.5"
-                              style={{ fontFamily: 'var(--font-grotesk)', color: '#DC2626' }}
-                            >
-                              You save ${tier.originalPrice! - tier.price!}
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Features */}
-                    <ul className="space-y-3 mb-8 flex-1" style={{ transform: 'translateZ(15px)' }}>
-                      {tier.features.map((f) => (
-                        <li key={f} className="flex items-start gap-2.5 text-sm text-slate-700">
-                          <span className={`flex-shrink-0 mt-0.5 w-5 h-5 rounded-md ${a.bg} flex items-center justify-center`}>
-                            <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
-                          </span>
-                          <span className="font-medium">{f}</span>
-                        </li>
-                      ))}
-                    </ul>
-
-                    {/* CTA → courses page with level pre-selected */}
-                    <MagneticButton
-                      as="a"
-                      href={`/courses?level=${tier.id === 'expert' ? 'Advanced' : (tier.id.charAt(0).toUpperCase() + tier.id.slice(1))}`}
-                      strength={0.15}
-                      className={`btn-tactile w-full justify-center px-5 py-3.5 text-sm ${
-                        tier.popular ? 'btn-tactile-primary' :
-                        tier.id === 'school-pro' ? 'btn-tactile-deep' :
-                        'btn-tactile-light'
-                      }`}
-                    >
-                      {tier.cta}
-                      <ArrowRight className="w-4 h-4" />
-                    </MagneticButton>
-                  </div>
-                </TiltCard3D>
-              </motion.div>
-            );
-          })}
-        </div>
+      <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* The coding & AI ladder — a different product shape: a course you buy
+            once, not a month you renew. Its own component now; see
+            components/home/coding-pricing.tsx for why the old cards went. */}
+        <CodingPricing />
 
         {/* Trust footer */}
         <motion.div
