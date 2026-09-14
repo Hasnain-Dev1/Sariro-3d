@@ -1,111 +1,102 @@
 'use client';
 
-import { motion, useInView, useMotionValue, useTransform, animate, useScroll } from 'framer-motion';
-import { useEffect, useRef, useState } from 'react';
+import { motion, useInView, useMotionValue, useTransform, animate, useScroll, useReducedMotion } from 'framer-motion';
+import { useEffect, useRef } from 'react';
 import { Users, Globe, FileText, Award } from 'lucide-react';
 import { BRAND, HERO_STATS } from '@/lib/sariro-data';
 import { SplitText3D } from './scroll-effects';
-import { NumberFlip3D } from './kit-3d';
 
 const ICON_MAP = [Users, Globe, FileText, Award];
 const ACCENT_STYLES = [
-  { text: 'text-blue-600', bg: 'from-blue-500 to-blue-700', shadow: 'shadow-blue-500/40', glow: 'rgba(37, 99, 235, 0.45)', hex: '#2563EB' },
-  { text: 'text-green-600', bg: 'from-green-500 to-green-700', shadow: 'shadow-green-500/40', glow: 'rgba(22, 163, 74, 0.45)', hex: '#16A34A' },
-  { text: 'text-violet-600', bg: 'from-violet-500 to-violet-700', shadow: 'shadow-violet-500/40', glow: 'rgba(124, 58, 237, 0.45)', hex: '#7C3AED' },
-  { text: 'text-amber-600', bg: 'from-amber-500 to-amber-700', shadow: 'shadow-amber-500/40', glow: 'rgba(245, 158, 11, 0.45)', hex: '#F59E0B' },
+  { text: 'text-blue-600', bg: 'from-blue-500 to-blue-700', hex: '#2563EB', soft: 'rgba(37, 99, 235, 0.10)' },
+  { text: 'text-green-600', bg: 'from-green-500 to-green-700', hex: '#16A34A', soft: 'rgba(22, 163, 74, 0.10)' },
+  { text: 'text-violet-600', bg: 'from-violet-500 to-violet-700', hex: '#7C3AED', soft: 'rgba(124, 58, 237, 0.10)' },
+  { text: 'text-amber-600', bg: 'from-amber-500 to-amber-700', hex: '#D97706', soft: 'rgba(245, 158, 11, 0.12)' },
 ];
 
-function Counter({ value, suffix, index }: { value: number; suffix: string; index: number }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true, margin: '-50px' });
-  const count = useMotionValue(0);
-  const rounded = useTransform(count, (v) => Math.floor(v));
-  const [displayValue, setDisplayValue] = useState(0);
+/* One line under each number, so a figure is a fact and not a boast. Only
+   what is already said about Mimo elsewhere on the site (FAQ, About, Story). */
+const CONTEXT = [
+  'Over twelve years of teaching',
+  'Learners from around the world',
+  'Published research',
+  'Inventions filed',
+];
+
+/**
+ * A founder's record, one card each.
+ *
+ * The cards used to carry a spinning shape behind each corner — rotateY on a
+ * flat square, so for half of every turn it was seen edge-on as a sliver, and
+ * the card in front sliced it in two. On a still screenshot it read as broken
+ * glass on four cards. The per-digit flip counter printed "5000+" in fixed
+ * cells while every other page says "5,000+". Both gone: a calm card, a real
+ * number format, and one count-up the first time the card is seen.
+ */
+function StatCard({ value, suffix, index }: { value: number; suffix: string; index: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: '-60px' });
+  const reduced = useReducedMotion();
+  /* Starts at the real number, so the server-rendered page, a crawler and a
+     reader with motion off all see "5,000+" rather than "0". It only drops to
+     zero to count up if the card has not been seen yet. */
+  const count = useMotionValue(value);
+  const shown = useTransform(count, (v) => Math.round(v).toLocaleString('en-US'));
+  const counted = useRef(false);
 
   useEffect(() => {
-    const unsub = rounded.on('change', (v) => setDisplayValue(v));
-    return () => unsub();
-  }, [rounded]);
+    if (reduced || counted.current) return;
+    const el = ref.current;
+    if (el && el.getBoundingClientRect().top > window.innerHeight) count.set(0);
+  }, [count, reduced]);
 
   useEffect(() => {
-    if (inView) {
-      const controls = animate(count, value, {
-        duration: 2,
-        ease: [0.22, 1, 0.36, 1],
-      });
-      return controls.stop;
-    }
-  }, [inView, value, count]);
+    if (!inView || reduced || counted.current) return;
+    counted.current = true;
+    if (count.get() === value) return;
+    const controls = animate(count, value, { duration: 1.6, ease: [0.22, 1, 0.36, 1], delay: index * 0.08 });
+    return controls.stop;
+  }, [inView, reduced, value, count, index]);
 
   const a = ACCENT_STYLES[index % ACCENT_STYLES.length];
   const Icon = ICON_MAP[index % ICON_MAP.length];
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 60, rotateX: -20 }}
-      whileInView={{ opacity: 1, y: 0, rotateX: 0 }}
-      viewport={{ once: true, margin: '-50px' }}
-      transition={{ duration: 0.7, delay: index * 0.12 }}
-      whileHover={{ y: -8, rotateX: 5 }}
-      className="relative perspective-1000"
-      style={{ transformStyle: 'preserve-3d' }}
+      ref={ref}
+      initial={reduced ? false : { opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-60px' }}
+      transition={{ duration: 0.55, delay: index * 0.08, ease: [0.22, 1, 0.36, 1] }}
+      className="group relative h-full"
     >
-      {/* Floating 3D shape behind the card */}
-      <motion.div
-        animate={{
-          rotateY: [0, 360],
-          y: [0, -10, 0],
-        }}
-        transition={{
-          rotateY: { duration: 12 + index * 2, repeat: Infinity, ease: 'linear' },
-          y: { duration: 4, repeat: Infinity, ease: 'easeInOut' },
-        }}
-        className="absolute -top-6 -right-6 w-20 h-20 opacity-20 pointer-events-none"
-        style={{
-          background: `linear-gradient(135deg, ${a.hex}, transparent)`,
-          transform: 'rotateY(45deg)',
-          borderRadius: index % 2 === 0 ? '30%' : '50%',
-        }}
-      />
+      <div className="relative h-full overflow-hidden rounded-[1.6rem] border border-slate-200/80 bg-white px-4 py-6 sm:px-7 sm:py-9 text-center shadow-[0_1px_2px_rgba(15,23,42,0.04),0_18px_40px_-28px_rgba(15,23,42,0.28)] transition-[transform,box-shadow] duration-300 group-hover:-translate-y-1 group-hover:shadow-[0_1px_2px_rgba(15,23,42,0.04),0_28px_56px_-30px_rgba(15,23,42,0.38)]">
+        {/* The accent sits inside the card: a hairline on top and a soft wash
+            behind the icon. Nothing crosses the card's edge. */}
+        <span aria-hidden className="absolute inset-x-8 top-0 h-[3px] rounded-b-full" style={{ background: `linear-gradient(90deg, transparent, ${a.hex}, transparent)` }} />
+        <span aria-hidden className="pointer-events-none absolute left-1/2 top-0 h-40 w-40 -translate-x-1/2 -translate-y-1/3 rounded-full blur-2xl" style={{ background: a.soft }} />
 
-      <div
-        className="card-3d p-5 sm:p-8 text-center h-full relative overflow-hidden"
-        style={{ transformStyle: 'preserve-3d' }}
-      >
-        {/* Glow */}
-        <div
-          className="absolute -top-8 left-1/2 -translate-x-1/2 w-32 h-32 rounded-full blur-2xl opacity-40 pointer-events-none"
-          style={{ background: a.glow }}
-        />
-
-        {/* Icon — floating with translateZ */}
-        <motion.div
-          animate={{ y: [0, -6, 0] }}
-          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut', delay: index * 0.3 }}
-          className={`inline-flex w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br ${a.bg} items-center justify-center shadow-xl ${a.shadow} mb-3 sm:mb-5`}
-          style={{ transform: 'translateZ(40px)' }}
-        >
-          <Icon className="w-5 h-5 sm:w-7 sm:h-7 text-white" strokeWidth={2.4} />
-        </motion.div>
-
-        {/* 3D Number Flip counter */}
-        <div
-          className={`text-[2rem] sm:text-5xl lg:text-6xl font-extrabold ${a.text} flex items-center justify-center tabular-nums`}
-          style={{ fontFamily: 'var(--font-jakarta)', transform: 'translateZ(25px)' }}
-        >
-          <span ref={ref}>
-            <NumberFlip3D value={displayValue} accentColor={a.hex} />
-          </span>
-          <span>{suffix}</span>
+        <div className={`relative mx-auto mb-4 sm:mb-6 flex h-11 w-11 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${a.bg} shadow-lg`} style={{ boxShadow: `0 12px 24px -12px ${a.hex}` }}>
+          <Icon className="h-5 w-5 sm:h-7 sm:w-7 text-white" strokeWidth={2.3} />
         </div>
 
-        {/* Label */}
-        <div
-          className="mt-1.5 sm:mt-2 text-[10.5px] sm:text-sm font-bold uppercase tracking-wider text-slate-500 leading-tight"
-          style={{ fontFamily: 'var(--font-grotesk)', transform: 'translateZ(15px)' }}
+        <p
+          className={`relative text-[2.1rem] sm:text-5xl lg:text-[3.6rem] font-extrabold leading-none tracking-[-0.03em] tabular-nums ${a.text}`}
+          style={{ fontFamily: 'var(--font-jakarta)' }}
+        >
+          <motion.span>{shown}</motion.span>
+          {suffix}
+        </p>
+
+        <p
+          className="relative mt-3 sm:mt-4 text-[10.5px] sm:text-[13px] font-bold uppercase tracking-[0.14em] text-slate-700 leading-tight"
+          style={{ fontFamily: 'var(--font-grotesk)' }}
         >
           {HERO_STATS[index].label}
-        </div>
+        </p>
+        <p className="relative mt-1.5 text-[11.5px] sm:text-[13px] text-slate-500 leading-snug">
+          {CONTEXT[index]}
+        </p>
       </div>
     </motion.div>
   );
@@ -162,7 +153,7 @@ export default function Stats3D() {
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 lg:gap-6">
           {HERO_STATS.map((s, i) => (
-            <Counter key={s.label} value={s.value} suffix={s.suffix} index={i} />
+            <StatCard key={s.label} value={s.value} suffix={s.suffix} index={i} />
           ))}
         </div>
 
