@@ -20,15 +20,16 @@ describe('the attention registry', () => {
     }
   });
 
-  test('links are same-page anchors or HR tabs, so the queue lands on the panel', () => {
+  test('links are full addresses, so the queue works from any page', () => {
     for (const spec of Object.values(ATTENTION)) {
-      for (const href of Object.values(spec.href)) assert.match(href!, /^(#[a-z-]+|\?tab=[a-z_]+)$/, spec.key);
+      for (const href of Object.values(spec.href)) assert.match(href!, /^\/dashboard\/[a-z/-]+(\?(tab|do)=[a-z_-]+)?(#[a-z-]+)?$/, spec.key);
     }
   });
 
-  test('HR is sent to tabs, admin and super admin to sections', () => {
-    for (const key of sourcesFor('hr')) assert.match(ATTENTION[key].href.hr!, /^\?tab=/);
-    for (const key of sourcesFor('super_admin')) assert.match(ATTENTION[key].href.super_admin!, /^#/);
+  test('HR is sent to its tabs; admin and super admin into their own workspaces', () => {
+    for (const key of sourcesFor('hr')) assert.match(ATTENTION[key].href.hr!, /^\/dashboard\/hr\?tab=/);
+    for (const key of sourcesFor('super_admin')) assert.match(ATTENTION[key].href.super_admin!, /^\/dashboard\/super-admin\/[a-z]+[#?]/);
+    for (const key of sourcesFor('admin')) assert.match(ATTENTION[key].href.admin!, /^\/dashboard\/admin\/[a-z]+[#?]/);
   });
 });
 
@@ -70,7 +71,7 @@ describe('summariseAttention', () => {
 
   test('each item carries the link for this role', () => {
     const s = summariseAttention('hr', { ...all('hr', 0), credit_requests: 4 });
-    assert.equal(s.items[0].href, '?tab=credit_requests');
+    assert.equal(s.items[0].href, '/dashboard/hr?tab=credit_requests');
     assert.equal(s.items[0].title, '4 credit requests are waiting');
   });
 });

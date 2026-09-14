@@ -545,6 +545,11 @@ button.card-3d:hover {
 }
 ::-webkit-scrollbar-thumb:hover { background: #1D4ED8; }
 
+/* A strip that scrolls sideways — workspace tabs, "On this page". It reads as
+   a row you can swipe; a ten-pixel blue bar under it reads as a broken layout. */
+.scroll-strip { scrollbar-width: none; }
+.scroll-strip::-webkit-scrollbar { display: none; }
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

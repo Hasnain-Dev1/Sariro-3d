@@ -25,6 +25,10 @@ import RewardTheme from '@/components/dashboard/reward-theme';
 import { AttentionProvider, useAttention } from '@/components/ops/attention-provider';
 import CommandBar, { openCommandBar } from '@/components/ops/command-bar';
 import type { StaffRole } from '@/lib/ops/attention';
+import { WORKSPACE_ICON } from '@/components/ops/workspace-chrome';
+import {
+  WORKSPACE_META, WORKSPACE_ORDER, placesFor, waitingAt, workspaceAt, workspaceHref, type WorkspaceRole,
+} from '@/lib/ops/workspaces';
 
 /* The roles with a Today queue and a command bar. The rest of the product —
    students, teachers, sellers — keep the shell they have for now. */
@@ -45,6 +49,8 @@ interface NavItem {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  /** A heading drawn above the first item of each group in the sidebar. */
+  group?: string;
 }
 
 /* One address for the in-house chat, in every role's sidebar. Declared once so
@@ -94,28 +100,48 @@ const HR_NAV: NavItem[] = [
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
-const ADMIN_NAV: NavItem[] = [
-  { href: '/dashboard/admin', label: 'Home', icon: LayoutDashboard },
-  MESSAGES_NAV,
-  { href: '/dashboard/admin/lessons', label: 'Lesson Pages', icon: BookOpen },
-  { href: '/dashboard/admin/support', label: 'Support Inbox', icon: LifeBuoy },
-  { href: '/dashboard/admin#cohorts', label: 'Courses', icon: GraduationCap },
-  { href: '/dashboard/admin#enrollments', label: 'Enrollments', icon: BookOpen },
-  { href: '/settings', label: 'Settings', icon: Settings },
-];
+/* Today and Messages, then the workspaces (lib/ops/workspaces.ts), then the
+   pages that are not workspaces. The first five are also the phone's bottom
+   bar — Today, Messages, Classes, People, Sales — and every workspace page
+   carries a strip of all of them, so Finance and Quality are one tap away
+   there too. */
+function workspaceNav(role: WorkspaceRole): NavItem[] {
+  return WORKSPACE_ORDER[role].map((key, i) => {
+    const meta = WORKSPACE_META[key];
+    const item: NavItem = { href: workspaceHref(role, key), label: meta.label, icon: WORKSPACE_ICON[meta.icon] };
+    return i === 0 ? item : { ...item, group: 'Workspaces' };
+  });
+}
 
-const SUPER_ADMIN_NAV: NavItem[] = [
-  { href: '/dashboard/super-admin', label: 'Home', icon: LayoutDashboard },
-  MESSAGES_NAV,
-  { href: '/dashboard/super-admin/parents', label: 'Parent Access', icon: Users },
-  { href: '/dashboard/super-admin/teacher-pay', label: 'Tiers & Pay', icon: DollarSign },
-  /* No Courses entry. Creating and scheduling them is Admin's job (§11,
-     extended) — Super Admin watches the numbers they produce. The courses
-     section is still on the page, read-only, because it is analytics. */
-  { href: '/dashboard/super-admin#pricing', label: 'Pricing', icon: DollarSign },
-  { href: '/dashboard/super-admin#audit', label: 'Audit Logs', icon: ScrollText },
-  { href: '/settings', label: 'Settings', icon: Settings },
-];
+const ADMIN_NAV: NavItem[] = (() => {
+  const [today, ...workspaces] = workspaceNav('admin');
+  return [
+    today,
+    MESSAGES_NAV,
+    ...workspaces,
+    { href: '/dashboard/admin/lessons', label: 'Lesson Pages', icon: BookOpen, group: 'Pages' },
+    { href: '/dashboard/admin/support', label: 'Support Inbox', icon: LifeBuoy, group: 'Pages' },
+    { href: '/settings', label: 'Settings', icon: Settings, group: 'Pages' },
+  ];
+})();
+
+const SUPER_ADMIN_NAV: NavItem[] = (() => {
+  const [today, ...workspaces] = workspaceNav('super_admin');
+  return [
+    today,
+    MESSAGES_NAV,
+    ...workspaces,
+    { href: '/dashboard/super-admin/parents', label: 'Parent Access', icon: Users, group: 'Pages' },
+    { href: '/dashboard/super-admin/teacher-pay', label: 'Tiers & Pay', icon: DollarSign, group: 'Pages' },
+    { href: '/settings', label: 'Settings', icon: Settings, group: 'Pages' },
+  ];
+})();
+
+/** Every section of every workspace, for ⌘K. Built once. */
+const PLACES: Record<WorkspaceRole, ReturnType<typeof placesFor>> = {
+  super_admin: placesFor('super_admin'),
+  admin: placesFor('admin'),
+};
 
 function getNavForRole(role: UserRole): NavItem[] {
   switch (role) {
@@ -512,20 +538,46 @@ function CommandBarButton() {
   );
 }
 
-/** How many things are waiting, as a sidebar badge. Red when any are urgent. */
-function AttentionBadge({ compact = false }: { compact?: boolean }) {
+/**
+ * How many things are waiting, as a sidebar badge. Red when any are urgent.
+ * On Today (`href` omitted) everything; on a workspace, only what is waiting
+ * inside it.
+ */
+function AttentionBadge({ compact = false, href }: { compact?: boolean; href?: string }) {
   const attention = useAttention();
-  if (!attention || attention.total === 0) return null;
-  const urgent = attention.bySeverity.urgent > 0;
+  if (!attention) return null;
+  const { count, urgent } = href
+    ? waitingAt(attention.items, href)
+    : { count: attention.total, urgent: attention.bySeverity.urgent > 0 };
+  if (count === 0) return null;
   return (
     <span
       className={`${compact ? 'absolute -top-1 right-[calc(50%-18px)]' : 'ml-auto'} min-w-[20px] h-5 px-1.5 rounded-full text-[10.5px] font-black text-white flex items-center justify-center tabular-nums`}
       style={{ background: urgent ? '#DC2626' : '#D97706' }}
-      aria-label={`${attention.total} waiting on you`}
+      aria-label={`${count} waiting`}
     >
-      {attention.total > 99 ? '99+' : attention.total}
+      {count > 99 ? '99+' : count}
     </span>
   );
+}
+
+/**
+ * Active on its own page and the pages beneath it — except the role's home,
+ * which is the parent of every workspace and would otherwise stay lit on all
+ * of them.
+ */
+function navActive(href: string, pathname: string, isHome: boolean): boolean {
+  const path = href.split('#')[0];
+  if (pathname === path) return true;
+  if (isHome || path === '/dashboard') return false;
+  return pathname.startsWith(`${path}/`);
+}
+
+/** A workspace (not Today, not another page) for staff who have them. */
+function isWorkspaceItem(role: UserRole, href: string): boolean {
+  if (role !== 'super_admin' && role !== 'admin') return false;
+  const ws = workspaceAt(role, href);
+  return ws !== null && ws !== 'today';
 }
 
 /* ───── Topbar ───── */
@@ -574,26 +626,38 @@ function DashboardSidebar({ role, pathname }: { role: UserRole; pathname: string
   return (
     <aside className="hidden lg:flex flex-col w-64 shrink-0 border-r border-slate-200 bg-white h-[calc(100vh-4rem)] sticky top-16 p-4">
       <nav className="flex-1 space-y-1 overflow-y-auto overflow-x-hidden -mx-1 px-1">
-        {items.map((item) => {
-          const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href.split('#')[0]) && item.href.split('#')[0] !== '/dashboard');
+        {items.map((item, i) => {
+          const isHome = i === 0;
+          const isActive = navActive(item.href, pathname, isHome);
           const Icon = item.icon;
-          const isHome = item.href === items[0]?.href;
+          const heading = item.group && item.group !== items[i - 1]?.group ? item.group : null;
+          /* What is waiting sits on Today, where the queue lists it, and on
+             each workspace, counting its own share. */
+          const badge = isHome
+            ? <AttentionBadge />
+            : isWorkspaceItem(role, item.href) ? <AttentionBadge href={item.href} /> : null;
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors min-h-[44px] ${
-                isActive
-                  ? 'bg-blue-50 text-blue-700'
-                  : 'text-slate-700 hover:bg-slate-50'
-              }`}
-              style={{ fontFamily: 'var(--font-grotesk)' }}
-            >
-              <Icon className="w-5 h-5 shrink-0" />
-              <span className="truncate">{item.label}</span>
-              {/* What is waiting sits on Home, where the Today queue lists it. */}
-              {isHome ? <AttentionBadge /> : isActive && <ChevronRight className="w-4 h-4 ml-auto" />}
-            </Link>
+            <div key={item.href}>
+              {heading && (
+                <p className="px-3 pt-4 pb-1.5 text-[10.5px] font-bold uppercase tracking-[0.16em] text-slate-400" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                  {heading}
+                </p>
+              )}
+              <Link
+                href={item.href}
+                aria-current={isActive ? 'page' : undefined}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors min-h-[44px] ${
+                  isActive
+                    ? 'bg-blue-50 text-blue-700'
+                    : 'text-slate-700 hover:bg-slate-50'
+                }`}
+                style={{ fontFamily: 'var(--font-grotesk)' }}
+              >
+                <Icon className="w-5 h-5 shrink-0" />
+                <span className="truncate">{item.label}</span>
+                {badge ?? (isActive && <ChevronRight className="w-4 h-4 ml-auto" />)}
+              </Link>
+            </div>
           );
         })}
       </nav>
@@ -621,8 +685,8 @@ function MobileBottomNav({ role, pathname }: { role: UserRole; pathname: string 
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 pb-[env(safe-area-inset-bottom)]">
       <div className={`grid h-16 ${items.length >= 5 ? 'grid-cols-5' : items.length === 4 ? 'grid-cols-4' : 'grid-cols-3'}`}>
-        {items.map((item) => {
-          const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href.split('#')[0]) && item.href.split('#')[0] !== '/dashboard');
+        {items.map((item, i) => {
+          const isActive = navActive(item.href, pathname, i === 0);
           const Icon = item.icon;
           return (
             <Link
@@ -633,7 +697,7 @@ function MobileBottomNav({ role, pathname }: { role: UserRole; pathname: string 
               }`}
               style={{ fontFamily: 'var(--font-grotesk)' }}
             >
-              {item.href === items[0]?.href && <AttentionBadge compact />}
+              {i === 0 ? <AttentionBadge compact /> : isWorkspaceItem(role, item.href) && <AttentionBadge compact href={item.href} />}
               <Icon className="w-5 h-5" />
               <span className="truncate max-w-full px-1">{item.label.split(' ')[0]}</span>
             </Link>
@@ -671,12 +735,16 @@ const ROLE_DASHBOARD_PATHS: Record<UserRole, string> = {
 };
 
 function getRoleFromPath(pathname: string): UserRole | null {
+  /* Everything beneath these two, not only the home page: the workspaces
+     (/dashboard/super-admin/finance) and the pages that were already there —
+     Tiers & Pay, Parent Access, Lesson Pages — were one typed URL from any
+     signed-in account. */
+  if (pathname === '/dashboard/super-admin' || pathname.startsWith('/dashboard/super-admin/')) return 'super_admin';
+  if (pathname === '/dashboard/admin' || pathname.startsWith('/dashboard/admin/')) return 'admin';
   if (pathname === '/dashboard/student') return 'student';
   if (pathname === '/dashboard/teacher') return 'teacher';
   if (pathname === '/dashboard/seller') return 'seller';
   if (pathname === '/dashboard/hr') return 'hr';
-  if (pathname === '/dashboard/admin') return 'admin';
-  if (pathname === '/dashboard/super-admin') return 'super_admin';
   return null;
 }
 
@@ -778,7 +846,7 @@ function AuthGate({ children }: { children: ReactNode }) {
   return (
     <AttentionProvider role={staffRole}>
       {shell}
-      <CommandBar role={staffRole} nav={getNavForRole(role)} />
+      <CommandBar role={staffRole} nav={getNavForRole(role)} sections={staffRole === 'hr' ? undefined : PLACES[staffRole]} />
     </AttentionProvider>
   );
 }

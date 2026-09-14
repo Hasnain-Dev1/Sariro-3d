@@ -10,6 +10,7 @@
 
 import { createClient } from '@/lib/supabase/client';
 import { errorMessage } from '@/lib/dashboard/error-message';
+import { actionHref, sectionHref } from '@/lib/ops/workspaces';
 
 /**
  * What is actually waiting on an admin right now.
@@ -61,7 +62,7 @@ export async function fetchAdminActionQueue(): Promise<AdminActionItem[]> {
         key: 'approvals',
         label: (approvals.count ?? 0) === 1 ? '1 enrolment waiting for approval' : `${approvals.count} enrolments waiting for approval`,
         count: approvals.count ?? 0,
-        href: '#purchase-intents',
+        href: sectionHref('admin', 'purchase-intents'),
       });
     }
 
@@ -76,7 +77,7 @@ export async function fetchAdminActionQueue(): Promise<AdminActionItem[]> {
         key: 'unassigned_batches',
         label: unassignedCount === 1 ? '1 batch has no teacher' : `${unassignedCount} batches have no teacher`,
         count: unassignedCount,
-        href: '#batches',
+        href: actionHref('admin', 'classes', 'schedule-batch'),
       });
     }
 
@@ -85,7 +86,7 @@ export async function fetchAdminActionQueue(): Promise<AdminActionItem[]> {
         key: 'unmarked_classes',
         label: (stale.count ?? 0) === 1 ? '1 past class was never marked' : `${stale.count} past classes were never marked`,
         count: stale.count ?? 0,
-        href: '#schedule',
+        href: sectionHref('admin', 'decisions'),
       });
     }
   } catch (err) {

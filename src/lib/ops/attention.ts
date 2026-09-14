@@ -17,7 +17,13 @@
  * Pure — no fetching here — so the ranking is tested.
  */
 
+import { actionHref, sectionHref } from './workspaces';
+
 export type StaffRole = 'super_admin' | 'admin' | 'hr';
+
+const SA = 'super_admin' as const;
+const AD = 'admin' as const;
+const HR = '/dashboard/hr';
 
 export type AttentionKey =
   | 'unresolved_classes'
@@ -54,7 +60,8 @@ export interface AttentionSpec {
   severity: Severity;
   icon: AttentionIcon;
   accent: string;
-  /** Where each role goes to deal with it. A role absent here never sees the item. */
+  /** Where each role goes to deal with it — a full address, so it works from any
+      page. A role absent here never sees the item. */
   href: Partial<Record<StaffRole, string>>;
   /** Words the command bar matches on. */
   keywords: string;
@@ -70,7 +77,7 @@ export const ATTENTION: Record<AttentionKey, AttentionSpec> = {
     severity: 'urgent',
     icon: 'calendar-x',
     accent: '#DC2626',
-    href: { super_admin: '#decisions', admin: '#decisions' },
+    href: { super_admin: sectionHref(SA, 'decisions'), admin: sectionHref(AD, 'decisions') },
     keywords: 'unresolved classes decision happened no show attendance',
   },
   catchup_overdue: {
@@ -80,7 +87,7 @@ export const ATTENTION: Record<AttentionKey, AttentionSpec> = {
     severity: 'urgent',
     icon: 'calendar-clock',
     accent: '#EA580C',
-    href: { super_admin: '#catchup-overdue', admin: '#catchup-overdue', hr: '?tab=my_teachers' },
+    href: { super_admin: sectionHref(SA, 'catchup-overdue'), admin: sectionHref(AD, 'catchup-overdue'), hr: `${HR}?tab=my_teachers` },
     keywords: 'catch up catchup overdue make up session teacher',
   },
   unrecorded_invoices: {
@@ -90,7 +97,7 @@ export const ATTENTION: Record<AttentionKey, AttentionSpec> = {
     severity: 'urgent',
     icon: 'receipt',
     accent: '#B45309',
-    href: { super_admin: '#unrecorded-invoices', hr: '?tab=sales' },
+    href: { super_admin: sectionHref(SA, 'unrecorded-invoices'), hr: `${HR}?tab=sales` },
     keywords: 'invoice unrecorded sale ledger books reconcile',
   },
   approvals: {
@@ -100,7 +107,7 @@ export const ATTENTION: Record<AttentionKey, AttentionSpec> = {
     severity: 'today',
     icon: 'user-check',
     accent: '#2563EB',
-    href: { admin: '#purchase-intents' },
+    href: { admin: sectionHref(AD, 'purchase-intents') },
     keywords: 'approve enrolment enrollment purchase intent pending',
   },
   unassigned_batches: {
@@ -110,7 +117,9 @@ export const ATTENTION: Record<AttentionKey, AttentionSpec> = {
     severity: 'today',
     icon: 'users',
     accent: '#7C3AED',
-    href: { admin: '#batch-tools' },
+    /* A batch with no teacher is a batch never scheduled — scheduling attaches
+       the teacher — so this opens Schedule a batch rather than a list. */
+    href: { admin: actionHref(AD, 'classes', 'schedule-batch') },
     keywords: 'batch cohort no teacher schedule assign',
   },
   credit_requests: {
@@ -120,7 +129,7 @@ export const ATTENTION: Record<AttentionKey, AttentionSpec> = {
     severity: 'today',
     icon: 'coins',
     accent: '#CA8A04',
-    href: { super_admin: '#credit-requests', hr: '?tab=credit_requests' },
+    href: { super_admin: sectionHref(SA, 'credit-requests'), hr: `${HR}?tab=credit_requests` },
     keywords: 'credit request approve reject top up',
   },
   expenses_pending: {
@@ -130,7 +139,7 @@ export const ATTENTION: Record<AttentionKey, AttentionSpec> = {
     severity: 'today',
     icon: 'wallet',
     accent: '#0891B2',
-    href: { super_admin: '#expenses' },
+    href: { super_admin: sectionHref(SA, 'expenses') },
     keywords: 'expense approve sign off spend',
   },
   policy_flags: {
@@ -140,7 +149,7 @@ export const ATTENTION: Record<AttentionKey, AttentionSpec> = {
     severity: 'today',
     icon: 'shield',
     accent: '#BE185D',
-    href: { super_admin: '#chat-policy', admin: '#chat-policy', hr: '?tab=policy' },
+    href: { super_admin: sectionHref(SA, 'chat-policy'), admin: sectionHref(AD, 'chat-policy'), hr: `${HR}?tab=policy` },
     keywords: 'chat policy flag contact details phone review',
   },
   trial_grades: {
@@ -150,7 +159,7 @@ export const ATTENTION: Record<AttentionKey, AttentionSpec> = {
     severity: 'watch',
     icon: 'graduation',
     accent: '#4F46E5',
-    href: { super_admin: '#trial-grades' },
+    href: { super_admin: sectionHref(SA, 'trial-grades') },
     keywords: 'trial grade seat missing',
   },
   low_credits: {
@@ -160,7 +169,7 @@ export const ATTENTION: Record<AttentionKey, AttentionSpec> = {
     severity: 'watch',
     icon: 'battery',
     accent: '#16A34A',
-    href: { super_admin: '#low-credits', hr: '?tab=credits' },
+    href: { super_admin: sectionHref(SA, 'low-credits'), hr: `${HR}?tab=credits` },
     keywords: 'low credits running out renew churn top up',
   },
   leave_requests: {
@@ -170,7 +179,7 @@ export const ATTENTION: Record<AttentionKey, AttentionSpec> = {
     severity: 'today',
     icon: 'plane',
     accent: '#0EA5E9',
-    href: { hr: '?tab=payments' },
+    href: { hr: `${HR}?tab=payments` },
     keywords: 'leave request teacher holiday absence cover',
   },
   incentive_requests: {
@@ -180,7 +189,7 @@ export const ATTENTION: Record<AttentionKey, AttentionSpec> = {
     severity: 'today',
     icon: 'award',
     accent: '#9333EA',
-    href: { hr: '?tab=incentives' },
+    href: { hr: `${HR}?tab=incentives` },
     keywords: 'incentive request approve bonus teacher',
   },
   unsettled_payouts: {
@@ -190,7 +199,7 @@ export const ATTENTION: Record<AttentionKey, AttentionSpec> = {
     severity: 'watch',
     icon: 'banknote',
     accent: '#059669',
-    href: { hr: '?tab=payments' },
+    href: { hr: `${HR}?tab=payments` },
     keywords: 'payout settle teacher earnings pay',
   },
 };

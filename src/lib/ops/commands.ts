@@ -1,21 +1,26 @@
 import type { AttentionItem, StaffRole } from './attention';
+import { actionHref, sectionHref } from './workspaces';
 
 /**
  * SARIRO — the command bar (⌘K / Ctrl+K)
  * ============================================================================
- * Everything a member of staff can reach, typed rather than scrolled for. The
- * admin page is 2,300 lines; finding "Issue a certificate" on it meant knowing
- * it was below the chat policy panel. Here it is three letters.
+ * Everything a member of staff can reach, typed rather than scrolled for.
+ * Finding "Issue a certificate" on the old admin page meant knowing it was
+ * below the chat policy panel. Here it is three letters.
  *
  * Three kinds of command, in the order they are offered:
  *
  *   Needs you   the live attention items, with their counts — the command bar
  *               is also the fastest way to see what is waiting
  *   Do          the jobs each role actually does
- *   Go to       every page in the sidebar
+ *   Go to       every page in the sidebar, then every section of every workspace
  *
- * Pure: the component supplies the attention items and the sidebar, and this
- * decides what is offered and in what order. Tested, including the search.
+ * Every link is a full address, so a command works from any page — Messages,
+ * Settings, another workspace — not only from the page it points into.
+ *
+ * Pure: the component supplies the attention items, the sidebar and the
+ * sections, and this decides what is offered and in what order. Tested,
+ * including the search.
  */
 
 export type CommandGroup = 'Needs you' | 'Do' | 'Go to';
@@ -41,49 +46,72 @@ interface Action {
   keywords: string;
 }
 
-/** The jobs, per role. Links are sections on the role's home or its own pages. */
+const SA = 'super_admin' as const;
+const AD = 'admin' as const;
+const HR = '/dashboard/hr';
+
+/** The jobs, per role. A dialog is `?do=`, a section is its workspace address. */
 const ACTIONS: Record<StaffRole, Action[]> = {
   super_admin: [
-    { label: 'Issue a certificate', hint: 'Find a student and issue or print a certificate', href: '#certificates', keywords: 'certificate issue print course complete' },
-    { label: 'Decide past classes', hint: 'Mark whether classes happened', href: '#decisions', keywords: 'unresolved class happened no show attendance decide' },
-    { label: 'Approve expenses', hint: 'Sign off what HR recorded', href: '#expenses', keywords: 'expense approve spend' },
-    { label: 'Sales & refunds', hint: 'The ledger, filters and reports', href: '#sales', keywords: 'sales refunds ledger revenue report gst renewal' },
-    { label: 'Trial management', hint: 'Every trial with teacher, seller and feedback', href: '#trials', keywords: 'trial free class funnel seller teacher feedback' },
-    { label: 'Credits running low', hint: 'Top up students before they stop', href: '#low-credits', keywords: 'credits low top up renew churn' },
-    { label: 'Payment links & pricing', hint: 'Razorpay links by tier', href: '#pricing', keywords: 'pricing razorpay payment links' },
-    { label: 'Audit logs', hint: 'Who changed what', href: '#audit', keywords: 'audit log history changes' },
+    { label: 'Issue a certificate', hint: 'Find a student and issue or print a certificate', href: sectionHref(SA, 'certificates'), keywords: 'certificate issue print course complete' },
+    { label: 'Decide past classes', hint: 'Mark whether classes happened', href: sectionHref(SA, 'decisions'), keywords: 'unresolved class happened no show attendance decide' },
+    { label: 'Approve expenses', hint: 'Sign off what HR recorded', href: sectionHref(SA, 'expenses'), keywords: 'expense approve spend' },
+    { label: 'Book a trial class', hint: 'Into a teacher’s open hours', href: actionHref(SA, 'classes', 'book-trial'), keywords: 'book trial free class demo' },
+    { label: 'Change a batch schedule', hint: 'New days and times, a start date or a break', href: actionHref(SA, 'classes', 'change-schedule'), keywords: 'reschedule batch days times break holiday' },
+    { label: 'Manage users & roles', hint: 'Change a role or sign in as someone', href: actionHref(SA, 'people', 'users'), keywords: 'users roles staff impersonate sign in as' },
+    { label: 'Assign a teacher', hint: 'Reporting admin and HR for a teacher', href: actionHref(SA, 'people', 'assign-teacher'), keywords: 'assign teacher admin hr manager reporting' },
+    { label: 'Assign a seller', hint: 'Reporting admin and HR for a seller', href: actionHref(SA, 'people', 'assign-seller'), keywords: 'assign seller admin hr manager reporting' },
+    { label: 'Teachers & courses', hint: 'Put teachers on courses', href: actionHref(SA, 'classes', 'teachers'), keywords: 'teacher cohort course assign' },
+    { label: 'Course eligibility', hint: 'Which tracks and levels each teacher may teach', href: actionHref(SA, 'classes', 'eligibility'), keywords: 'eligibility teacher track level training' },
+    { label: 'Adjust a student’s credits', hint: 'Add or deduct, with a reason', href: sectionHref(SA, 'credit-adjust'), keywords: 'credits adjust add deduct balance' },
+    { label: 'Earnings & sales report', hint: 'Teacher earnings and seller sales by month', href: actionHref(SA, 'finance', 'earnings'), keywords: 'earnings sales report month teacher seller' },
     { label: 'Parent access', hint: 'Link parents to children', href: '/dashboard/super-admin/parents', keywords: 'parent access link child' },
     { label: 'Teacher tiers & pay', hint: 'Rates and tier rules', href: '/dashboard/super-admin/teacher-pay', keywords: 'teacher pay tier rate salary' },
   ],
   admin: [
-    { label: 'Issue a certificate', hint: 'Find a student and issue or print a certificate', href: '#certificates', keywords: 'certificate issue print course complete' },
-    { label: 'Approve enrolments', hint: 'Families waiting to start', href: '#purchase-intents', keywords: 'approve enrolment enrollment pending purchase' },
-    { label: 'Schedule or change a batch', hint: 'Batch tools and teacher assignment', href: '#batch-tools', keywords: 'batch schedule change teacher assign cohort' },
-    { label: 'Decide past classes', hint: 'Mark whether classes happened', href: '#decisions', keywords: 'unresolved class happened no show attendance decide' },
-    { label: 'Courses', hint: 'Every course and its status', href: '#cohorts', keywords: 'course cohort status meet link' },
-    { label: 'Book a trial class', hint: 'Manual trial booking', href: '#manual-trial', keywords: 'book trial free class manual' },
-    { label: 'Class monitoring', hint: 'Observe and score classes', href: '#monitoring', keywords: 'monitoring observe class quality' },
+    { label: 'Issue a certificate', hint: 'Find a student and issue or print a certificate', href: sectionHref(AD, 'certificates'), keywords: 'certificate issue print course complete' },
+    { label: 'Approve enrolments', hint: 'Families waiting to start', href: sectionHref(AD, 'purchase-intents'), keywords: 'approve enrolment enrollment pending purchase' },
+    { label: 'Create a course', hint: 'Coding, school subject or focus course', href: actionHref(AD, 'classes', 'new-course'), keywords: 'new course create cohort' },
+    { label: 'Schedule a batch', hint: 'Teacher, days and times — classes are generated', href: actionHref(AD, 'classes', 'schedule-batch'), keywords: 'schedule batch teacher assign cohort timetable' },
+    { label: 'Change a batch schedule', hint: 'New days and times, a start date or a break', href: actionHref(AD, 'classes', 'change-schedule'), keywords: 'reschedule batch days times break holiday' },
+    { label: 'Manage batches', hint: 'Roster, teacher changes and removals', href: actionHref(AD, 'classes', 'manage-batches'), keywords: 'batch manage roster reassign remove teacher' },
+    { label: 'Decide past classes', hint: 'Mark whether classes happened', href: sectionHref(AD, 'decisions'), keywords: 'unresolved class happened no show attendance decide' },
+    { label: 'Book a trial class', hint: 'Into a teacher’s open hours', href: actionHref(AD, 'classes', 'book-trial'), keywords: 'book trial free class demo' },
+    { label: 'Enrol a student by hand', hint: 'For a payment taken outside the site', href: actionHref(AD, 'people', 'manual-enroll'), keywords: 'manual enrol enroll student add' },
+    { label: 'Manage users', hint: 'Find a user and change their role', href: actionHref(AD, 'people', 'users'), keywords: 'users roles' },
+    { label: 'Teachers & courses', hint: 'Put teachers on courses', href: actionHref(AD, 'people', 'teachers'), keywords: 'teacher cohort course assign' },
+    { label: 'Course eligibility', hint: 'Which tracks and levels each teacher may teach', href: actionHref(AD, 'people', 'eligibility'), keywords: 'eligibility teacher track level' },
+    { label: 'Monitor a class', hint: 'Observe and score a teacher', href: sectionHref(AD, 'monitoring'), keywords: 'monitoring observe class quality score' },
+    { label: 'Export data', hint: 'Users, enrolments and revenue as CSV', href: sectionHref(AD, 'revenue'), keywords: 'export csv download users enrolments revenue' },
     { label: 'Lesson pages', hint: 'Write and edit lesson content', href: '/dashboard/admin/lessons', keywords: 'lesson pages content edit' },
     { label: 'Support inbox', hint: 'Help requests from families', href: '/dashboard/admin/support', keywords: 'support inbox help ticket' },
   ],
   hr: [
-    { label: 'Generate an invoice', hint: 'Branded tax invoice', href: '?tab=invoices', keywords: 'invoice generate bill gst' },
-    { label: 'Record a sale', hint: 'Punch a sale against its invoice', href: '?tab=sales', keywords: 'sale record punch refund ledger' },
-    { label: 'Issue a certificate', hint: 'Find a student and issue or print a certificate', href: '?tab=certificates', keywords: 'certificate issue print course complete' },
-    { label: 'Credit requests', hint: 'Approve or reject', href: '?tab=credit_requests', keywords: 'credit request approve reject' },
-    { label: 'Teacher payments & leave', hint: 'Settle payouts, review leave', href: '?tab=payments', keywords: 'payout settle pay leave teacher' },
-    { label: 'Incentives', hint: 'Approve incentive requests', href: '?tab=incentives', keywords: 'incentive bonus approve' },
-    { label: 'Credits & tiers', hint: 'Adjust credits, set teacher tiers', href: '?tab=credits', keywords: 'credits adjust tier teacher rate' },
-    { label: 'My teachers', hint: 'Roster and catch-up compliance', href: '?tab=my_teachers', keywords: 'teachers roster catch up compliance' },
-    { label: 'Expenses', hint: 'Record what was spent', href: '?tab=expenses', keywords: 'expense spend record' },
+    { label: 'Generate an invoice', hint: 'Branded tax invoice', href: `${HR}?tab=invoices`, keywords: 'invoice generate bill gst' },
+    { label: 'Record a sale', hint: 'Punch a sale against its invoice', href: `${HR}?tab=sales`, keywords: 'sale record punch refund ledger' },
+    { label: 'Issue a certificate', hint: 'Find a student and issue or print a certificate', href: `${HR}?tab=certificates`, keywords: 'certificate issue print course complete' },
+    { label: 'Credit requests', hint: 'Approve or reject', href: `${HR}?tab=credit_requests`, keywords: 'credit request approve reject' },
+    { label: 'Teacher payments & leave', hint: 'Settle payouts, review leave', href: `${HR}?tab=payments`, keywords: 'payout settle pay leave teacher' },
+    { label: 'Incentives', hint: 'Approve incentive requests', href: `${HR}?tab=incentives`, keywords: 'incentive bonus approve' },
+    { label: 'Credits & tiers', hint: 'Adjust credits, set teacher tiers', href: `${HR}?tab=credits`, keywords: 'credits adjust tier teacher rate' },
+    { label: 'My teachers', hint: 'Roster and catch-up compliance', href: `${HR}?tab=my_teachers`, keywords: 'teachers roster catch up compliance' },
+    { label: 'Expenses', hint: 'Record what was spent', href: `${HR}?tab=expenses`, keywords: 'expense spend record' },
     { label: 'Doubt sessions', hint: 'Extra help sessions', href: '/dashboard/hr/doubt-sessions', keywords: 'doubt session help' },
   ],
 };
 
+export interface Place {
+  href: string;
+  label: string;
+  hint?: string;
+  keywords?: string;
+}
+
 export function staffCommands(
   role: StaffRole,
   attention: readonly AttentionItem[],
-  nav: readonly { href: string; label: string }[]
+  nav: readonly Place[],
+  sections: readonly Place[] = []
 ): Command[] {
   const needs: Command[] = attention.map((a) => ({
     id: `needs:${a.key}`,
@@ -105,10 +133,14 @@ export function staffCommands(
     keywords: a.keywords,
   }));
 
+  // The sidebar first (workspaces and pages), then every section inside them.
   const seen = new Set([...needs, ...actions].map((c) => c.href));
-  const goTo: Command[] = nav
-    .filter((n) => !seen.has(n.href))
-    .map((n) => ({ id: `go:${n.href}`, group: 'Go to', label: n.label, href: n.href, keywords: n.label.toLowerCase() }));
+  const goTo: Command[] = [];
+  for (const p of [...nav, ...sections]) {
+    if (seen.has(p.href)) continue;
+    seen.add(p.href);
+    goTo.push({ id: `go:${p.href}`, group: 'Go to', label: p.label, hint: p.hint, href: p.href, keywords: p.keywords ?? p.label.toLowerCase() });
+  }
 
   return [...needs, ...actions, ...goTo];
 }
@@ -140,19 +172,34 @@ export function searchCommands(commands: readonly Command[], query: string): Com
 }
 
 /**
- * Where a command goes, given where the reader already is.
- *   '#section'  scroll on this page
- *   '?tab=x'    switch tab on this page
- *   '/path'     navigate
+ * Where a command goes, given the page the reader is on.
+ *   same page + '?tab=x'     switch tab
+ *   same page + '?do=x'      open the dialog
+ *   same page + '#section'   scroll to it
+ *   anything else            navigate — the page finishes the job on arrival
+ *
+ * An href with no path ('#x', '?tab=x') is always this page.
  */
 export type CommandTarget =
   | { kind: 'scroll'; id: string }
   | { kind: 'tab'; tab: string }
+  | { kind: 'do'; action: string }
   | { kind: 'navigate'; href: string };
 
-export function targetOf(href: string): CommandTarget {
-  if (href.startsWith('#')) return { kind: 'scroll', id: href.slice(1) };
-  const tab = /^\?tab=([a-z_]+)$/.exec(href);
-  if (tab) return { kind: 'tab', tab: tab[1] };
+const trimPath = (p: string) => (p.length > 1 ? p.replace(/\/+$/, '') : p);
+
+export function targetOf(href: string, here?: string): CommandTarget {
+  const m = /^([^?#]*)(?:\?([^#]*))?(?:#(.*))?$/.exec(href);
+  if (!m) return { kind: 'navigate', href };
+  const [, path, query = '', hash = ''] = m;
+  const samePage = path === '' || (here !== undefined && trimPath(path) === trimPath(here.split(/[?#]/)[0]));
+  if (!samePage) return { kind: 'navigate', href };
+
+  const params = new URLSearchParams(query);
+  const tab = params.get('tab');
+  if (tab && /^[a-z_]+$/.test(tab)) return { kind: 'tab', tab };
+  const action = params.get('do');
+  if (action && /^[a-z-]+$/.test(action)) return { kind: 'do', action };
+  if (hash) return { kind: 'scroll', id: hash };
   return { kind: 'navigate', href };
 }

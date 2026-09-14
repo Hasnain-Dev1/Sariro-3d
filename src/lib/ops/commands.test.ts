@@ -70,8 +70,50 @@ describe('searchCommands', () => {
   });
 });
 
-test('targetOf', () => {
-  assert.deepEqual(targetOf('#decisions'), { kind: 'scroll', id: 'decisions' });
-  assert.deepEqual(targetOf('?tab=credit_requests'), { kind: 'tab', tab: 'credit_requests' });
-  assert.deepEqual(targetOf('/dashboard/hr/doubt-sessions'), { kind: 'navigate', href: '/dashboard/hr/doubt-sessions' });
+describe('sections in "Go to"', () => {
+  const sections = [
+    { href: '/dashboard/super-admin/finance#expenses', label: 'Expenses', hint: 'Finance', keywords: 'expense spend finance' },
+    { href: '/dashboard/super-admin/quality#audit', label: 'Audit logs', hint: 'Quality', keywords: 'audit log quality' },
+  ];
+  const commands = staffCommands('super_admin', [], [{ href: '/dashboard/super-admin/finance', label: 'Finance' }], sections);
+
+  test('come after the sidebar, carrying their workspace as the hint', () => {
+    const go = commands.filter((c) => c.group === 'Go to');
+    assert.equal(go[0].label, 'Finance');
+    assert.equal(go.find((c) => c.label === 'Audit logs')?.hint, 'Quality');
+  });
+
+  test('a section already offered as a job is not offered twice', () => {
+    // "Approve expenses" is a job pointing at the same section.
+    assert.equal(commands.filter((c) => c.href === '/dashboard/super-admin/finance#expenses').length, 1);
+  });
+
+  test('are found by the words of their workspace', () => {
+    assert.ok(searchCommands(commands, 'audit').some((c) => c.label === 'Audit logs'));
+  });
+});
+
+describe('targetOf', () => {
+  test('an href with no path is this page', () => {
+    assert.deepEqual(targetOf('#decisions'), { kind: 'scroll', id: 'decisions' });
+    assert.deepEqual(targetOf('?tab=credit_requests'), { kind: 'tab', tab: 'credit_requests' });
+    assert.deepEqual(targetOf('?do=book-trial'), { kind: 'do', action: 'book-trial' });
+  });
+
+  test('on the page it points into, it acts in place', () => {
+    const here = '/dashboard/super-admin/finance';
+    assert.deepEqual(targetOf('/dashboard/super-admin/finance#expenses', here), { kind: 'scroll', id: 'expenses' });
+    assert.deepEqual(targetOf('/dashboard/super-admin/finance?do=earnings', `${here}/`), { kind: 'do', action: 'earnings' });
+    assert.deepEqual(targetOf('/dashboard/hr?tab=sales', '/dashboard/hr'), { kind: 'tab', tab: 'sales' });
+  });
+
+  test('from anywhere else, it navigates and the page finishes the job', () => {
+    assert.deepEqual(targetOf('/dashboard/super-admin/finance#expenses', '/dashboard/messages'), { kind: 'navigate', href: '/dashboard/super-admin/finance#expenses' });
+    assert.deepEqual(targetOf('/dashboard/hr?tab=sales', '/settings'), { kind: 'navigate', href: '/dashboard/hr?tab=sales' });
+    assert.deepEqual(targetOf('/dashboard/hr/doubt-sessions'), { kind: 'navigate', href: '/dashboard/hr/doubt-sessions' });
+  });
+
+  test('a workspace does not count as its parent', () => {
+    assert.deepEqual(targetOf('/dashboard/super-admin#x', '/dashboard/super-admin/finance'), { kind: 'navigate', href: '/dashboard/super-admin#x' });
+  });
 });

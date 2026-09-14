@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowRight, CornerDownLeft, Search, Zap, Compass, AlertCircle, type LucideIcon } from 'lucide-react';
-import { staffCommands, searchCommands, type Command, type CommandGroup } from '@/lib/ops/commands';
+import { staffCommands, searchCommands, type Command, type CommandGroup, type Place } from '@/lib/ops/commands';
 import type { StaffRole } from '@/lib/ops/attention';
 import { useAttention } from './attention-provider';
 import { goTo } from './go-to';
@@ -34,7 +34,7 @@ const GROUP_ICON: Record<CommandGroup, LucideIcon> = {
 const isTyping = (el: EventTarget | null) =>
   el instanceof HTMLElement && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName));
 
-export default function CommandBar({ role, nav }: { role: StaffRole; nav: readonly { href: string; label: string }[] }) {
+export default function CommandBar({ role, nav, sections }: { role: StaffRole; nav: readonly Place[]; sections?: readonly Place[] }) {
   const router = useRouter();
   const attention = useAttention();
   const [open, setOpen] = useState(false);
@@ -43,7 +43,7 @@ export default function CommandBar({ role, nav }: { role: StaffRole; nav: readon
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const commands = useMemo(() => staffCommands(role, attention?.items ?? [], nav), [role, attention?.items, nav]);
+  const commands = useMemo(() => staffCommands(role, attention?.items ?? [], nav, sections), [role, attention?.items, nav, sections]);
   const results = useMemo(() => searchCommands(commands, query), [commands, query]);
 
   const close = useCallback(() => { setOpen(false); setQuery(''); setActive(0); }, []);
