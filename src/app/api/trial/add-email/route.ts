@@ -5,6 +5,7 @@ import { assertSameOrigin } from '@/lib/security/origin-check';
 import { normalizeIndianMobile } from '@/lib/phone/india';
 import { smsConfigured } from '@/lib/phone/otp';
 import { TRIAL_HOME } from '@/lib/dashboard/trial-only';
+import { findAccountByEmail, findAuthUserByEmail } from '@/lib/account/email-identity';
 
 /**
  * SARIRO — POST /api/trial/add-email
@@ -82,9 +83,8 @@ export async function POST(req: NextRequest) {
     return bad('already_set', 'That account already has an email. Sign in with it to see your class.', 409);
   }
 
-  // Somebody else's address, already spoken for.
-  const { data: taken } = await admin
-    .from('profiles').select('id').eq('email', email).limit(1).maybeSingle();
+  // Somebody else's address, already spoken for — on a profile or at sign-in.
+  const taken = (await findAccountByEmail(admin, email)) ?? (await findAuthUserByEmail(admin, email));
   if (taken) {
     return bad('email_taken', 'That email is already used by another Sariro account.', 409);
   }
@@ -96,6 +96,9 @@ export async function POST(req: NextRequest) {
   });
   if (authErr) {
     console.warn('[add-email] updateUser failed:', authErr.message);
+    if (/already|registered|exists/i.test(authErr.message)) {
+      return bad('email_taken', 'That email is already used by another Sariro account.', 409);
+    }
     return bad('save_failed', 'We could not save that. Please try again.', 500);
   }
   await admin.from('profiles').update({ email }).eq('id', id);

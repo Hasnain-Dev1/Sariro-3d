@@ -5,6 +5,7 @@ import { assertSameOrigin } from '@/lib/security/origin-check';
 import { generateOtp, isOtpShaped } from '@/lib/phone/otp';
 import { sendEmail } from '@/lib/email/hostinger';
 import { isBlockedEmail, BLOCKED_EMAIL_MESSAGE } from '@/lib/email/disposable';
+import { findAccountByEmail, normaliseEmail } from '@/lib/account/email-identity';
 
 /**
  * SARIRO — POST /api/email   { action: 'send' | 'verify', email, code? }
@@ -46,13 +47,20 @@ interface Body {
 }
 
 /**
- * Mark the signed-in account's email as verified.
+ * Mark the signed-in account's email as verified — when it is that account's
+ * own email.
  *
  * Only ever the caller's OWN profile — matching by address instead would let
  * an unauthenticated request stamp a stranger's account by verifying an
  * address it had already verified, and this form is public. An anonymous
  * verification still counts for the booking, because the booking route asks
  * the database rather than trusting anybody.
+ *
+ * And only when the address verified IS the one they sign in with. This used
+ * to write the verified address onto whoever was signed in, so staff booking a
+ * trial for a family while logged in had the family's email copied over their
+ * own profile — three addresses on seven profiles before it was caught. See
+ * lib/account/email-identity.ts.
  */
 async function stampVerifiedProfile(
   admin: ReturnType<typeof createServiceClient>,
@@ -61,7 +69,7 @@ async function stampVerifiedProfile(
   try {
     const supa = await createServerClientHelper();
     const { data: { user } } = await supa.auth.getUser();
-    if (!user) return;
+    if (!user || normaliseEmail(user.email) !== email) return;
     await admin.from('profiles').update({ email, email_verified: true }).eq('id', user.id);
   } catch (err) {
     // Never fails the verification: they typed the right code, and whether we
@@ -213,12 +221,14 @@ export async function POST(req: NextRequest) {
          Deliberately AFTER verification. Answering "does this address have an
          account?" before the code is confirmed would let anybody type an
          address and learn whether it is one of our customers. */
-      const { data: account } = await admin
-        .from('profiles')
-        .select('phone, phone_verified, phone_country_code')
-        .eq('email', email)
-        .limit(1)
-        .maybeSingle();
+      const ownerId = await findAccountByEmail(admin, email);
+      const { data: account } = ownerId
+        ? await admin
+            .from('profiles')
+            .select('phone, phone_verified, phone_country_code')
+            .eq('id', ownerId)
+            .maybeSingle()
+        : { data: null };
 
       return NextResponse.json({
         ok: true,

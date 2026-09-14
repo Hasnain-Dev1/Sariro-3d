@@ -41,7 +41,10 @@ export default function ProfileCompletionModal() {
   const missingName = !profile?.full_name;
   const missingPhone = !profile?.phone;
   const missingEmail = !profile?.email;
-  const needsEmailOverride = missingEmail;
+  /* Only asked of an account with no sign-in email at all. When there is one,
+     the profile copies it — letting the box be edited is how a profile ends up
+     carrying an address that belongs to another account. */
+  const needsEmailOverride = missingEmail && !user?.email;
 
   /* Decide whether to show the modal */
   useEffect(() => {
@@ -156,14 +159,19 @@ export default function ProfileCompletionModal() {
         updates.phone = phoneFieldE164(phone);
         updates.phone_country_code = phone.country;
       }
-      if (needsEmailOverride) updates.email = emailOverride.trim();
+      if (needsEmailOverride) updates.email = emailOverride.trim().toLowerCase();
+      else if (missingEmail && user?.email) updates.email = user.email.trim().toLowerCase();
 
       const { error: updateError } = await supabase
         .from('profiles')
         .update(updates)
         .eq('id', user!.id);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        // The database keeps one account per email (scripts/unique-profile-emails.sql).
+        if (updateError.code === '23505') throw new Error('That email already belongs to another Sariro account.');
+        throw updateError;
+      }
 
       // Refresh profile in context
       await refreshProfile();

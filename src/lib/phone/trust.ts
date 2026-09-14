@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { findAccountByEmail } from '@/lib/account/email-identity';
 
 /**
  * SARIRO — when a phone number does not need a code
@@ -125,8 +126,13 @@ export async function loadPhoneTrust(
   if (!emailProved) return { trusted: false };
 
   const spellings = phoneSpellings(input.phone);
+  /* The account that really owns the address — not any profile that happens
+     to carry a copy of it. See lib/account/email-identity.ts. */
+  const ownerId = await findAccountByEmail(admin, email);
   const [account, codes, profiles] = await Promise.all([
-    admin.from('profiles').select('phone').eq('email', email).limit(5),
+    ownerId
+      ? admin.from('profiles').select('phone').eq('id', ownerId).limit(1)
+      : Promise.resolve({ data: [] as { phone: string | null }[], error: null }),
     admin.from('phone_verifications').select('phone').eq('phone', input.phone).not('verified_at', 'is', null).limit(1),
     admin.from('profiles').select('id').in('phone', spellings).eq('phone_verified', true).limit(1),
   ]);

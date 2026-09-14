@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { TRIAL_HOME } from '@/lib/dashboard/trial-only';
 import { sendEmail } from '@/lib/email/hostinger';
 import { gradeTag } from '@/lib/grade/tag';
+import { findAccountByEmail, findAuthUserByEmail } from '@/lib/account/email-identity';
 
 /**
  * SARIRO — the account a free class comes with
@@ -110,9 +111,11 @@ export async function resolveTrialAccount(
   };
 
   if (input.email) {
-    const { data: byEmail } = await admin
-      .from('profiles').select('id').eq('email', input.email).limit(1).maybeSingle();
-    if (byEmail) return existing(byEmail.id as string, input.email, input.emailProved);
+    /* The account that owns the address, never a profile merely carrying a
+       copy of it — see lib/account/email-identity.ts for the staff account a
+       family's trial could otherwise have been booked into. */
+    const byEmail = await findAccountByEmail(admin, input.email);
+    if (byEmail) return existing(byEmail, input.email, input.emailProved);
   } else {
     /* No email was given at all — a staff caller booking on somebody's behalf.
        Then the phone is the only identity there is, and matching it beats
@@ -146,9 +149,10 @@ export async function resolveTrialAccount(
     /* Two tabs, or a double-click: the address was registered a moment ago by
        this same family. Book against that account rather than failing them. */
     if (input.email && /already|registered|exists/i.test(createErr?.message ?? '')) {
-      const { data: again } = await admin
-        .from('profiles').select('id').eq('email', input.email).limit(1).maybeSingle();
-      if (again) return existing(again.id as string, input.email, input.emailProved);
+      /* Or Supabase knows the address and no profile admits to it: a profile
+         whose copy of the email drifted. The sign-in record is the truth. */
+      const again = (await findAccountByEmail(admin, input.email)) ?? (await findAuthUserByEmail(admin, input.email));
+      if (again) return existing(again, input.email, input.emailProved);
     }
     console.warn('[trial-account] createUser failed:', createErr?.message);
     return { ok: false, message: 'We could not set up your account. Please try again.' };

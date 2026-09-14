@@ -77,11 +77,14 @@ function fakeAdmin(db: {
     const b = {
       select: () => b,
       eq: (col: string, v: unknown) => { filters[col] = v; return b; },
+      ilike: (col: string, v: unknown) => { filters[col] = v; return b; },
       in: (col: string, v: unknown) => { filters[col] = v; return b; },
       not: () => b,
       limit: async () => {
         calls.push(table);
-        if (table === 'profiles' && 'email' in filters) return { data: (db.accountPhones ?? []).map((phone) => ({ phone })), error: null };
+        // The account that owns the email (lib/account/email-identity.ts), then its phone.
+        if (table === 'profiles' && 'email' in filters) return { data: db.accountPhones?.length ? [{ id: 'acct', email: 'parent@example.com' }] : [], error: null };
+        if (table === 'profiles' && 'id' in filters) return { data: (db.accountPhones ?? []).map((phone) => ({ phone })), error: null };
         if (table === 'profiles') {
           const hit = (filters.phone as string[]).some((p) => (db.verifiedProfiles ?? []).includes(p));
           return { data: hit ? [{ id: 'x' }] : [], error: null };
@@ -103,6 +106,7 @@ function fakeAdmin(db: {
         return { data: db.emailProved === true, error: null };
       },
       from: builder,
+      auth: { admin: { getUserById: async () => ({ data: { user: { email: 'parent@example.com' } }, error: null }) } },
     } as never,
   };
 }
