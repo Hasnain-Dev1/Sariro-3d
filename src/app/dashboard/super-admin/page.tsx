@@ -27,6 +27,7 @@ import UnresolvedClassesPanel from '@/components/dashboard/unresolved-classes-pa
 import CatchUpOverduePanel from '@/components/dashboard/catchup-overdue-panel';
 import TrialGradesPanel from '@/components/dashboard/trial-grades-panel';
 import TrialManagementPanel from '@/components/dashboard/trial-management-panel';
+import TodayQueue from '@/components/ops/today-queue';
 import CertificatesPanel from '@/components/dashboard/certificates-panel';
 import { useAuth } from '@/components/auth/auth-provider';
 import { TRACKS, COURSES, RAZORPAY_LINKS, RAZORPAY_LINKS_PREMIUM } from '@/lib/sariro-data';
@@ -776,6 +777,10 @@ function SuperAdminDashboardInner() {
           </div>
         </motion.div>
 
+        {/* What is waiting on you, before anything else on this page. See
+            components/ops/today-queue.tsx. */}
+        <TodayQueue />
+
         {/* Stats (5 cards for super-admin) */}
         {/* Oversight before totals. A super-admin's job is to notice what is
             broken, and the stat cards below say how big the system is, never
@@ -791,7 +796,7 @@ function SuperAdminDashboardInner() {
 
         {/* V2 §54 — every HR expense appears here, and this is where they are
             signed off. canApprove is the only difference from the HR view. */}
-        <section className="mb-10">
+        <section id="expenses" className="mb-10">
           <div className="flex items-center gap-2.5 mb-4">
             <Receipt className="w-5 h-5 text-slate-400" />
             <h2 className="text-lg font-bold text-slate-900">Expenses</h2>
@@ -802,7 +807,7 @@ function SuperAdminDashboardInner() {
         {/* An invoice with no sale against it. The ledger refuses a sale
             without an invoice, so this is the only gap left: the customer was
             billed and the books were never told. */}
-        <section className="mb-10">
+        <section id="unrecorded-invoices" className="mb-10">
           <div className="flex items-center gap-2.5 mb-4">
             <ShieldAlert className="w-5 h-5 text-slate-400" />
             <h2 className="text-lg font-bold text-slate-900">Invoices not yet in the books</h2>
@@ -812,7 +817,7 @@ function SuperAdminDashboardInner() {
 
         {/* The books. A sale enters from its invoice number and nothing is
             retyped, so what is counted here is what the customer was sent. */}
-        <section className="mb-10">
+        <section id="sales" className="mb-10">
           <div className="flex items-center gap-2.5 mb-4">
             <ScrollText className="w-5 h-5 text-slate-400" />
             <h2 className="text-lg font-bold text-slate-900">Sales &amp; refunds</h2>
@@ -849,7 +854,7 @@ function SuperAdminDashboardInner() {
         {/* First, because each answer here is worth three saleable seats. A
             trial seat with no grade cannot be banded, so the class stops being
             offered as one to JOIN and every new booking opens a fresh one. */}
-        <section className="mb-10">
+        <section id="trial-grades" className="mb-10">
           <div className="flex items-center gap-2.5 mb-4">
             <GraduationCap className="w-5 h-5 text-slate-400" />
             <h2 className="text-lg font-bold text-slate-900">Trial seats with no grade</h2>
@@ -862,17 +867,17 @@ function SuperAdminDashboardInner() {
             to need four screens and a join done in somebody's head; the one
             answer that matters, a trial with a child and no lead behind them,
             was not visible on any of them. */}
-        <section className="mb-10">
+        <section id="trials" className="mb-10">
           <TrialManagementPanel />
         </section>
 
         {/* Course certificates: issued when a course is finished, withdrawn
             if pressed on the wrong child. Same panel as admin and HR. */}
-        <section className="mb-10">
+        <section id="certificates" className="mb-10">
           <CertificatesPanel />
         </section>
 
-        <section className="mb-10">
+        <section id="decisions" className="mb-10">
           <div className="flex items-center gap-2.5 mb-4">
             <HelpCircle className="w-5 h-5 text-slate-400" />
             <h2 className="text-lg font-bold text-slate-900">Classes needing a decision</h2>
@@ -884,7 +889,7 @@ function SuperAdminDashboardInner() {
             between a teacher and their reminders; only a missed deadline puts
             anything here, and it disappears again the moment the last session
             is arranged. */}
-        <section className="mb-10">
+        <section id="catchup-overdue" className="mb-10">
           <div className="flex items-center gap-2.5 mb-4">
             <CalendarClock className="w-5 h-5 text-slate-400" />
             <h2 className="text-lg font-bold text-slate-900">Overdue catch-up sessions</h2>
@@ -895,7 +900,7 @@ function SuperAdminDashboardInner() {
         {/* §63 — the students closest to stopping. Credits are what they paid
             for; running out is the churn event, and it is the only one the
             system can see coming. */}
-        <section className="mb-10">
+        <section id="low-credits" className="mb-10">
           <div className="flex items-center gap-2.5 mb-4">
             <CoinsIcon className="w-5 h-5 text-slate-400" />
             <h2 className="text-lg font-bold text-slate-900">Credits running low</h2>
@@ -908,7 +913,7 @@ function SuperAdminDashboardInner() {
 
         {/* §52 — "Super Admin should see the complete history." Same queue HR
             works, opened to every decided request rather than the pending few. */}
-        <section className="mb-10">
+        <section id="credit-requests" className="mb-10">
           <div className="flex items-center gap-2.5 mb-4">
             <CoinsIcon className="w-5 h-5 text-slate-400" />
             <h2 className="text-lg font-bold text-slate-900">Credit requests</h2>
@@ -919,7 +924,7 @@ function SuperAdminDashboardInner() {
         {/* Attempts to move a learner's conversation off Sariro. This sits high
             on the page on purpose: it is the thing that, left unseen, quietly
             takes students out of the company with a departing teacher. */}
-        <section className="mb-10">
+        <section id="chat-policy" className="mb-10">
           <div className="flex items-center gap-2.5 mb-4">
             <ShieldAlert className="w-5 h-5 text-slate-400" />
             <h2 className="text-lg font-bold text-slate-900">Chat policy</h2>

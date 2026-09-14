@@ -24,7 +24,13 @@ import InvoiceWorkspace from '@/components/dashboard/invoice-workspace';
 import SalesLedgerPanel from '@/components/dashboard/sales-ledger-panel';
 import UnrecordedInvoicesPanel from '@/components/dashboard/unrecorded-invoices-panel';
 import HrSalesPanel from '@/components/dashboard/hr-sales-panel';
+import LowCreditPanel from '@/components/dashboard/low-credit-panel';
+import TodayQueue from '@/components/ops/today-queue';
+import { useOpsTab } from '@/components/ops/go-to';
 import CertificatesPanel from '@/components/dashboard/certificates-panel';
+
+const HR_TABS = ['overview', 'my_teachers', 'incentives', 'payments', 'credits', 'tiers', 'enquiries', 'expenses', 'policy', 'credit_requests', 'invoices', 'sales', 'certificates'] as const;
+type HrTab = (typeof HR_TABS)[number];
 
 export default function HRDashboard() {
   const { user, loading } = useAuth();
@@ -40,7 +46,10 @@ export default function HRDashboard() {
   const [assignments, setAssignments] = useState<Map<string, TeacherAssignmentRow[]>>(new Map());
   const [students, setStudents] = useState<StudentProfile[]>([]);
   const [loadingData, setLoadingData] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'my_teachers' | 'incentives' | 'payments' | 'credits' | 'tiers' | 'enquiries' | 'expenses' | 'policy' | 'credit_requests' | 'invoices' | 'sales' | 'certificates'>('overview');
+  const [activeTab, setActiveTab] = useState<HrTab>('overview');
+  /* ?tab=credit_requests opens that tab — the Today queue and the command bar
+     both send HR straight to the tab where the work is. */
+  useOpsTab(setActiveTab, HR_TABS);
   const { toast, showToast } = useDashboardToast();
   const [showSales, setShowSales] = useState(false);
   /* Invoices issued more than a day ago with no sale against them. Carried on
@@ -154,58 +163,10 @@ export default function HRDashboard() {
             </button>
           </div>
 
-          {/* Who is waiting on a decision from you.
-              These counts already existed — they were spread across four stat
-              cards that also carried money totals, so "3 leave requests" read
-              like a statistic rather than three people waiting. */}
-          {(pendingLeaves.length > 0 || pendingIncentives.length > 0 || pendingEarnings.length > 0) && (
-            <div className="card card--feature mb-6" style={{ ['--accent' as string]: '#D97706' }}>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-600 mb-3">
-                Waiting on you
-              </p>
-              <ul className="space-y-2">
-                {pendingLeaves.length > 0 && (
-                  <li>
-                    <button
-                      onClick={() => setActiveTab('payments')}
-                      className="w-full flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 hover:border-amber-300 transition-colors text-left"
-                    >
-                      <span className="font-semibold text-slate-900 text-[15px]">
-                        {pendingLeaves.length} leave {pendingLeaves.length === 1 ? 'request' : 'requests'} to review
-                      </span>
-                      <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-                    </button>
-                  </li>
-                )}
-                {pendingIncentives.length > 0 && (
-                  <li>
-                    <button
-                      onClick={() => setActiveTab('incentives')}
-                      className="w-full flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 hover:border-amber-300 transition-colors text-left"
-                    >
-                      <span className="font-semibold text-slate-900 text-[15px]">
-                        {pendingIncentives.length} incentive {pendingIncentives.length === 1 ? 'request' : 'requests'} to approve
-                      </span>
-                      <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-                    </button>
-                  </li>
-                )}
-                {pendingEarnings.length > 0 && (
-                  <li>
-                    <button
-                      onClick={() => setActiveTab('payments')}
-                      className="w-full flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 hover:border-amber-300 transition-colors text-left"
-                    >
-                      <span className="font-semibold text-slate-900 text-[15px]">
-                        {pendingEarnings.length} teacher {pendingEarnings.length === 1 ? 'payout is' : 'payouts are'} unsettled
-                      </span>
-                      <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-                    </button>
-                  </li>
-                )}
-              </ul>
-            </div>
-          )}
+          {/* Everything waiting on HR — leave, incentives and payouts as before, now
+              with credit requests, unrecorded invoices, chat flags, overdue
+              catch-ups and low credits beside them. Each opens its tab. */}
+          <TodayQueue />
 
           {/* Summary cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
@@ -216,7 +177,7 @@ export default function HRDashboard() {
           </div>
 
           {/* Tab bar */}
-          <div className="flex border-b border-slate-200 mb-4 overflow-x-auto">
+          <div id="ops-tabs" className="flex border-b border-slate-200 mb-4 overflow-x-auto">
             {[
               { key: 'overview', label: 'Overview', badge: 0 },
               { key: 'my_teachers', label: 'My Teachers', badge: 0 },
@@ -233,7 +194,7 @@ export default function HRDashboard() {
             ].map((tab) => (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key as 'overview' | 'my_teachers' | 'incentives' | 'payments' | 'credits' | 'enquiries' | 'expenses' | 'policy' | 'credit_requests' | 'invoices' | 'sales')}
+                onClick={() => setActiveTab(tab.key as HrTab)}
                 className={`min-h-[44px] px-4 text-xs font-bold transition-colors touch-manipulation whitespace-nowrap ${
                   activeTab === tab.key
                     ? 'text-violet-700 border-b-2 border-violet-600'
@@ -541,6 +502,13 @@ export default function HRDashboard() {
               {/* ─── CREDITS & TIERS TAB ─── */}
               {activeTab === 'credits' && (
                 <div className="space-y-6">
+                  {/* First on the tab the Today queue sends HR to for low credits. */}
+                  <div>
+                    <h2 className="text-lg font-extrabold text-slate-900 mb-3" style={{ fontFamily: 'var(--font-jakarta)' }}>
+                      Running low on credits
+                    </h2>
+                    <LowCreditPanel />
+                  </div>
                   {/* Credit adjustment */}
                   <div>
                     <h2 className="text-lg font-extrabold text-slate-900 mb-3" style={{ fontFamily: 'var(--font-jakarta)' }}>

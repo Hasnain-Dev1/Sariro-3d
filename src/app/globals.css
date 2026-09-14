@@ -778,3 +778,20 @@ html[data-syllabus-open="true"] header {
     transform: none !important;
   }
 }
+
+/* ============================================================
+   OPS — a jumped-to section glows once, so the eye lands on it.
+   See components/ops/go-to.ts.
+   ============================================================ */
+@keyframes ops-flash {
+  0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+  20% { box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.22); }
+  100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+}
+.ops-flash {
+  border-radius: 1.25rem;
+  animation: ops-flash 1.8s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ops-flash { animation: none; outline: 2px solid rgba(37, 99, 235, 0.35); outline-offset: 4px; }
+}

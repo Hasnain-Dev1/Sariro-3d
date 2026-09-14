@@ -8,7 +8,7 @@ import {
   Lock, PlayCircle, Trophy, ArrowRight, X, FolderOpen,
   Search, Download, UserCheck, TrendingUp, Phone, LogIn,
   Calendar, CalendarClock, Rocket, Mail, ChevronRight,
-  ClipboardList,
+  ClipboardList, HelpCircle,
 } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import ManualTrialBooking from '@/components/dashboard/manual-trial-booking';
@@ -16,8 +16,6 @@ import { useAuth } from '@/components/auth/auth-provider';
 import { TRACKS, COURSES } from '@/lib/sariro-data';
 import { createClient } from '@/lib/supabase/client';
 import {
-  fetchAdminActionQueue,
-  type AdminActionItem,
   fetchAdminStats, fetchPendingPurchaseIntents, fetchCohorts,
   confirmPurchaseIntent, rejectPurchaseIntent, transitionCohortStatus,
   createCohort, updateCohortMeetUrl, updateCohortMaterialsUrl,
@@ -50,6 +48,8 @@ import { contactIdentity, canAssignCourse } from '@/lib/contact/reachability';
 import { UnknownBadge } from '@/components/dashboard/unknown-contact';
 import BookTrialModal from '@/components/dashboard/book-trial-modal';
 import CatchUpOverduePanel from '@/components/dashboard/catchup-overdue-panel';
+import UnresolvedClassesPanel from '@/components/dashboard/unresolved-classes-panel';
+import TodayQueue from '@/components/ops/today-queue';
 import { ShieldAlert } from 'lucide-react';
 
 /* ───── Helpers ───── */
@@ -1406,7 +1406,6 @@ function AdminDashboardInner() {
   const [cohortFilter, setCohortFilter] = useState<string>('all');
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [actionQueue, setActionQueue] = useState<AdminActionItem[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showUserManagement, setShowUserManagement] = useState(false);
   const [showTeacherModal, setShowTeacherModal] = useState(false);
@@ -1437,10 +1436,6 @@ function AdminDashboardInner() {
     return () => { cancelled = true; };
   }, []);
 
-  const loadActionQueue = useCallback(async () => {
-    setActionQueue(await fetchAdminActionQueue());
-  }, []);
-
   const loadAll = useCallback(async () => {
     setError(null);
     const [s, intents, c, rev] = await Promise.all([
@@ -1451,7 +1446,6 @@ function AdminDashboardInner() {
     ]);
     setStats(s);
     setStatsLoading(false);
-    void loadActionQueue();
     setPendingIntents(intents);
     setIntentsLoading(false);
     setCohorts(c);
@@ -1580,7 +1574,7 @@ function AdminDashboardInner() {
                 Approve enrollments, manage courses, and activate batches.
               </p>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
+            <div id="batch-tools" className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={() => setShowUserManagement(true)}
                 className="btn-tactile btn-tactile-light px-4 py-2.5 text-sm flex items-center gap-2"
@@ -1652,11 +1646,26 @@ function AdminDashboardInner() {
           </div>
         )}
 
+        {/* What is waiting on this admin, first. See components/ops/today-queue.tsx. */}
+        <TodayQueue />
+
         {/* §32 — the teachers reporting to THIS admin who have not arranged a
             catch-up session in time. The route scopes by reporting_admin_id,
             so the same panel the super-admin sees over everyone shows an admin
             only their own people. Empty for three days by design. */}
-        <div className="mb-8">
+        {/* Classes whose time has passed with no decision. Admins could already
+            answer these (the route allows them) but the panel only lived on the
+            super-admin page, and the old queue here linked to a #schedule
+            section that did not exist. */}
+        <div id="decisions" className="mb-8">
+          <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2.5 mb-4">
+            <HelpCircle className="w-5 h-5 text-slate-400" />
+            Classes needing a decision
+          </h2>
+          <UnresolvedClassesPanel />
+        </div>
+
+        <div id="catchup-overdue" className="mb-8">
           <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2.5 mb-4">
             <CalendarClock className="w-5 h-5 text-slate-400" />
             Overdue catch-up sessions
@@ -1665,29 +1674,6 @@ function AdminDashboardInner() {
         </div>
 
         {/* Stats grid */}
-                {/* What needs a decision, separated from what is merely true. The stat
-            cards below are context; this is the work. */}
-        {actionQueue.length > 0 && (
-          <div className="card card--feature mb-8" style={{ ['--accent' as string]: '#D97706' }}>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-600 mb-3">
-              Needs you today
-            </p>
-            <ul className="space-y-2">
-              {actionQueue.map((item) => (
-                <li key={item.key}>
-                  <a
-                    href={item.href}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 hover:border-amber-300 transition-colors"
-                  >
-                    <span className="font-semibold text-slate-900 text-[15px]">{item.label}</span>
-                    <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
           <StatCard icon={Users} color="bg-blue-100 text-blue-600" value={stats?.totalUsers ?? 0} label="Total users" loading={statsLoading} />
           <StatCard icon={BookOpen} color="bg-green-100 text-green-600" value={stats?.totalEnrollments ?? 0} label="Enrollments" loading={statsLoading} />
@@ -1701,7 +1687,7 @@ function AdminDashboardInner() {
         </div>
 
         {/* Pending enrollments queue */}
-        <div className="mb-10">
+        <div id="purchase-intents" className="mb-10">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2" style={{ fontFamily: 'var(--font-jakarta)' }}>
               <Clock className="w-5 h-5 text-amber-600" />
@@ -2026,13 +2012,13 @@ function AdminDashboardInner() {
 
       {/* Course certificates are issued here when a course is finished — the
           same panel HR has, so whoever finishes the paperwork can do it. */}
-      <div className="max-w-7xl mx-auto mb-10">
+      <div id="certificates" className="max-w-7xl mx-auto mb-10">
         <CertificatesPanel />
       </div>
 
       {/* Attempts to move a learner's conversation off Sariro. Admins see the
           same queue as HR — whoever gets there first should be able to act. */}
-      <div className="max-w-7xl mx-auto mb-10">
+      <div id="chat-policy" className="max-w-7xl mx-auto mb-10">
         <div className="flex items-center gap-2.5 mb-4">
           <ShieldAlert className="w-5 h-5 text-slate-400" />
           <h2 className="text-lg font-bold text-slate-900">Chat policy</h2>
@@ -2141,7 +2127,7 @@ function DemoRequestsSection({ onToast }: { onToast: (msg: string, kind?: 'succe
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div id="manual-trial" className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2" style={{ fontFamily: 'var(--font-jakarta)' }}>
           <Rocket className="w-5 h-5 text-amber-600" /> Demo Class Requests
           {newCount > 0 && (

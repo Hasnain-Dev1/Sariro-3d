@@ -8,7 +8,7 @@ import {
   Menu, X, LayoutDashboard, BookOpen, Calendar, Settings,
   LogOut, ChevronRight, Bell, Home as HomeIcon, GraduationCap,
   Users, ShieldCheck, DollarSign, ScrollText, ArrowLeft, Sparkles,
-  Loader2, AlertTriangle, Trophy, LifeBuoy, HelpCircle, MessageSquare, Mic,
+  Loader2, AlertTriangle, Trophy, LifeBuoy, HelpCircle, MessageSquare, Mic, Search, Command,
 } from 'lucide-react';
 import { useAuth, getRole, type UserRole } from '@/components/auth/auth-provider';
 import { createClient } from '@/lib/supabase/client';
@@ -22,6 +22,14 @@ import {
 } from '@/lib/dashboard/notifications-data';
 import PriorityMessageAlert from '@/components/dashboard/priority-message-alert';
 import RewardTheme from '@/components/dashboard/reward-theme';
+import { AttentionProvider, useAttention } from '@/components/ops/attention-provider';
+import CommandBar, { openCommandBar } from '@/components/ops/command-bar';
+import type { StaffRole } from '@/lib/ops/attention';
+
+/* The roles with a Today queue and a command bar. The rest of the product —
+   students, teachers, sellers — keep the shell they have for now. */
+const staffRoleOf = (role: UserRole): StaffRole | null =>
+  role === 'super_admin' || role === 'admin' || role === 'hr' ? role : null;
 
 /* ════════════════════════════════════════════════════════════════
    DashboardLayout
@@ -486,8 +494,42 @@ function NotificationBell() {
   );
 }
 
+/* ───── Command bar trigger ───── */
+function CommandBarButton() {
+  return (
+    <button
+      type="button"
+      onClick={openCommandBar}
+      className="inline-flex items-center gap-2 h-10 pl-2.5 pr-2 sm:pl-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white hover:border-slate-300 text-slate-500 transition-colors"
+      aria-label="Search and jump (Ctrl+K)"
+    >
+      <Search className="w-4 h-4" />
+      <span className="hidden md:inline text-[13px] font-semibold pr-6" style={{ fontFamily: 'var(--font-grotesk)' }}>Search or jump…</span>
+      <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10.5px] font-bold text-slate-400">
+        <Command className="w-3 h-3" />K
+      </kbd>
+    </button>
+  );
+}
+
+/** How many things are waiting, as a sidebar badge. Red when any are urgent. */
+function AttentionBadge({ compact = false }: { compact?: boolean }) {
+  const attention = useAttention();
+  if (!attention || attention.total === 0) return null;
+  const urgent = attention.bySeverity.urgent > 0;
+  return (
+    <span
+      className={`${compact ? 'absolute -top-1 right-[calc(50%-18px)]' : 'ml-auto'} min-w-[20px] h-5 px-1.5 rounded-full text-[10.5px] font-black text-white flex items-center justify-center tabular-nums`}
+      style={{ background: urgent ? '#DC2626' : '#D97706' }}
+      aria-label={`${attention.total} waiting on you`}
+    >
+      {attention.total > 99 ? '99+' : attention.total}
+    </span>
+  );
+}
+
 /* ───── Topbar ───── */
-function DashboardTopbar({ onMenuClick }: { onMenuClick?: () => void }) {
+function DashboardTopbar({ onMenuClick, staff = false }: { onMenuClick?: () => void; staff?: boolean }) {
   return (
     <header className="sticky top-0 z-40 bg-white/85 backdrop-blur-lg border-b border-slate-200">
       <div className="flex items-center justify-between h-16 px-4 sm:px-6">
@@ -505,6 +547,7 @@ function DashboardTopbar({ onMenuClick }: { onMenuClick?: () => void }) {
 
         {/* Right: back to the site, bell, avatar */}
         <div className="flex items-center gap-1 sm:gap-2">
+          {staff && <CommandBarButton />}
           {/* "Back to website" lived only in the desktop sidebar. On a phone the
               sidebar does not exist, so the only way out of the dashboard was
               the unlabelled logo — which nobody reads as "leave". Labelled, and
@@ -534,6 +577,7 @@ function DashboardSidebar({ role, pathname }: { role: UserRole; pathname: string
         {items.map((item) => {
           const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href.split('#')[0]) && item.href.split('#')[0] !== '/dashboard');
           const Icon = item.icon;
+          const isHome = item.href === items[0]?.href;
           return (
             <Link
               key={item.href}
@@ -547,7 +591,8 @@ function DashboardSidebar({ role, pathname }: { role: UserRole; pathname: string
             >
               <Icon className="w-5 h-5 shrink-0" />
               <span className="truncate">{item.label}</span>
-              {isActive && <ChevronRight className="w-4 h-4 ml-auto" />}
+              {/* What is waiting sits on Home, where the Today queue lists it. */}
+              {isHome ? <AttentionBadge /> : isActive && <ChevronRight className="w-4 h-4 ml-auto" />}
             </Link>
           );
         })}
@@ -583,11 +628,12 @@ function MobileBottomNav({ role, pathname }: { role: UserRole; pathname: string 
             <Link
               key={item.href}
               href={item.href}
-              className={`flex flex-col items-center justify-center gap-1 text-[10px] font-bold transition-colors ${
+              className={`relative flex flex-col items-center justify-center gap-1 text-[10px] font-bold transition-colors ${
                 isActive ? 'text-blue-600' : 'text-slate-500'
               }`}
               style={{ fontFamily: 'var(--font-grotesk)' }}
             >
+              {item.href === items[0]?.href && <AttentionBadge compact />}
               <Icon className="w-5 h-5" />
               <span className="truncate max-w-full px-1">{item.label.split(' ')[0]}</span>
             </Link>
@@ -703,9 +749,11 @@ function AuthGate({ children }: { children: ReactNode }) {
     return <LoadingGate />;
   }
 
-  return (
+  const staffRole = staffRoleOf(role);
+
+  const shell = (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <DashboardTopbar />
+      <DashboardTopbar staff={!!staffRole} />
       <div className="flex flex-1">
         <DashboardSidebar role={role} pathname={pathname} />
         <main className="flex-1 min-w-0 pb-20 lg:pb-0">
@@ -721,6 +769,17 @@ function AuthGate({ children }: { children: ReactNode }) {
           points are pretend. */}
       {role === 'student' && <RewardTheme />}
     </div>
+  );
+
+  /* Staff get what is waiting on them counted once for the whole page — the
+     Today queue, the sidebar badge and the command bar all read the same
+     numbers — and ⌘K to reach anything. */
+  if (!staffRole) return shell;
+  return (
+    <AttentionProvider role={staffRole}>
+      {shell}
+      <CommandBar role={staffRole} nav={getNavForRole(role)} />
+    </AttentionProvider>
   );
 }
 
