@@ -135,6 +135,7 @@ export const module1: SpeakingModule = {
     }),
 
     lesson(1, 2, 3, 'Your natural speaking voice', {
+      soundLab: ['th', 'v-w'],
       oneLine: 'The voice that works is the one you already use with a friend — most people swap it for a worse one the moment they are being watched.',
       idea: [
         'Record yourself explaining something to a friend, then record yourself giving a talk on the same subject. For most people the second is slower in some places, faster in others, flatter overall, and about half a tone higher. Something happens to the voice under observation and it is almost never an improvement.',
@@ -185,6 +186,7 @@ export const module1: SpeakingModule = {
     }),
 
     lesson(1, 3, 4, 'Breath, pace and the pause', {
+      soundLab: ['ed', 's-ending'],
       oneLine: 'A pause is the most powerful thing you can do with a sentence, and it is free.',
       idea: [
         'Nervousness makes people speak faster. Speaking faster makes them run out of breath. Running out of breath makes them more nervous. It is the loop that ruins most first speeches, and it can be broken at any point — the easiest place is the pause.',
@@ -249,6 +251,7 @@ export const module1: SpeakingModule = {
     }),
 
     lesson(1, 4, 5, 'Volume, pitch and emphasis', {
+      soundLab: ['stress'],
       oneLine: 'Emphasis is how a listener knows which words matter — a flat delivery tells them nothing does.',
       idea: [
         'Say "I never said she stole my money" seven times, stressing a different word each time. It means seven different things. Nothing changed except which word you leaned on.',
@@ -313,6 +316,7 @@ export const module1: SpeakingModule = {
     }),
 
     lesson(1, 5, 6, 'Recording yourself, and listening back', {
+      soundLab: ['q', 'silent'],
       oneLine: 'Everybody hates their own recorded voice, and everybody who gets good at this listens to it anyway.',
       idea: [
         'Your recorded voice sounds wrong to you because you have never heard it before. When you speak, most of what you hear arrives through the bones of your skull, which carries low frequencies far better than air does. The recording is what everyone else has always heard. They are not disappointed.',

@@ -18,6 +18,7 @@ export const module7: SpeakingModule = {
   outcome: 'Handle an interview, a viva, and a presentation to a class or a meeting.',
   lessons: [
     lesson(7, 0, 37, 'The interview', {
+      soundLab: ['x', 'g'],
       oneLine: 'An interview answer is thirty to ninety seconds long, has one point, and ends — the commonest failure is not stopping.',
       idea: [
         'Interviewers are not testing whether you can talk. They are testing whether you can answer the question that was asked, in a length a human can absorb, without needing to be rescued.',
@@ -128,6 +129,7 @@ export const module7: SpeakingModule = {
     }),
 
     lesson(7, 2, 39, 'Presenting in a class or a meeting', {
+      soundLab: ['ough'],
       oneLine: 'The room is small, everybody knows you, and the rules are almost the opposite of a stage.',
       idea: [
         'A presentation to twelve people who know you is not a small version of a speech to four hundred. Projection that works on a stage is shouting in a meeting room. The formality that reads as professional to strangers reads as strange to your classmates.',

@@ -40,6 +40,7 @@ import CatchUpPanel from '@/components/dashboard/catchup-panel';
 import { attendanceDeadline, deadlineTone } from '@/lib/dashboard/attendance-deadline';
 import { Coins, Mic } from 'lucide-react';
 import PracticeProgress from '@/components/speaking/practice-progress';
+import QuestRecord from '@/components/speaking/quest/quest-record';
 import NoRoomBanner from '@/components/dashboard/no-room-banner';
 import ParentReportCard from '@/components/dashboard/parent-report-card';
 import CapabilityChips from '@/components/dashboard/capability-chips';
@@ -1011,6 +1012,10 @@ function SessionDetailsModal({
                             userId={student.user_id}
                             childName={student.student_name || 'This student'}
                           />
+                          {/* Homework and Voice Quest: did they practise, and did it pass. */}
+                          <div className="mt-3">
+                            <QuestRecord userId={student.user_id} name={student.student_name || 'This student'} />
+                          </div>
                           <div className="mt-3">
                             <PracticeProgress
                               userId={student.user_id}

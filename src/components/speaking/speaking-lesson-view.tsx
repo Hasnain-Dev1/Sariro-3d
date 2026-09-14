@@ -1,9 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import { Lightbulb, Quote, Mic, ListChecks, Plus } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Lightbulb, Quote, Mic, ListChecks, Plus, AudioLines } from 'lucide-react';
 import SpeakingLab, { type Drill } from '@/components/speaking/speaking-lab';
+import SoundLab from '@/components/speaking/sound-lab';
 import type { SpeakingLesson } from '@/lib/speaking/lesson';
+import { homeworkFor, levelStatus } from '@/lib/speaking/quest/homework';
+import HomeworkPanel from '@/components/speaking/quest/homework-panel';
+import { ArenaCard, LevelBadge, WarmUp } from '@/components/speaking/quest/level-parts';
+import { useAttempts } from '@/components/speaking/quest/use-attempts';
 
 /**
  * SARIRO — a Public Speaking lesson, on screen
@@ -17,15 +22,25 @@ import type { SpeakingLesson } from '@/lib/speaking/lesson';
  * sitting where the work is. The mentor's notes are not rendered here at all —
  * they are for the person teaching the class, and a student reading "watch for
  * students who are avoiding this" learns the wrong thing about themselves.
+ *
+ * ── A level, not a page ─────────────────────────────────────────────────────
+ * Every lesson is also a level of Voice Quest (lib/speaking/quest): it opens
+ * with a tongue-twister warm-up, carries the game the class plays and where
+ * the skill is needed in real life, and ends with homework — missions with a
+ * number of tries, a pass mark, stars and a record of every attempt.
  */
 export default function SpeakingLessonView({ lesson }: { lesson: SpeakingLesson }) {
   const [active, setActive] = useState<Drill>(lesson.drills[0]);
   const [showExtra, setShowExtra] = useState(false);
+  const { attempts, afterLog } = useAttempts();
+  const missions = useMemo(() => homeworkFor(lesson), [lesson]);
+  const status = useMemo(() => (attempts ? levelStatus(missions, attempts) : null), [missions, attempts]);
 
   const extras = lesson.extraDrills ?? [];
 
   return (
     <article className="space-y-6 max-w-3xl">
+      <LevelBadge lesson={lesson} stars={status?.stars} cleared={status?.cleared} />
       <header>
         <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
           Lesson {lesson.number}
@@ -35,6 +50,9 @@ export default function SpeakingLessonView({ lesson }: { lesson: SpeakingLesson 
         </h1>
         <p className="text-[15px] text-slate-600 mt-2 leading-[1.7]">{lesson.oneLine}</p>
       </header>
+
+      {/* Thirty seconds that wake every mouth in the room up. */}
+      <WarmUp lesson={lesson} />
 
       {/* ── The idea ── */}
       <section className="space-y-3">
@@ -64,6 +82,9 @@ export default function SpeakingLessonView({ lesson }: { lesson: SpeakingLesson 
           </ul>
         </section>
       )}
+
+      {/* ── The game the class plays, and where this is needed for real ── */}
+      <ArenaCard lesson={lesson} />
 
       {/* ── The practice. The lesson. ── */}
       <section className="space-y-3">
@@ -99,6 +120,20 @@ export default function SpeakingLessonView({ lesson }: { lesson: SpeakingLesson 
 
         <SpeakingLab key={active.id} drill={active} />
       </section>
+
+      {/* ── How it is really said ──
+          A spelling with more than one sound, heard, sorted, said and used in
+          a real sentence. After the drills, because the drills are the lesson;
+          this is where a student who stumbled on a word finds out why. */}
+      {lesson.soundLab && lesson.soundLab.length > 0 && (
+        <section className="space-y-3">
+          <SectionLabel icon={<AudioLines className="w-4 h-4" />}>How it is really said</SectionLabel>
+          <SoundLab patternIds={lesson.soundLab} />
+        </section>
+      )}
+
+      {/* ── Homework: tries, a pass mark, and the record of every attempt ── */}
+      <HomeworkPanel missions={missions} attempts={attempts} onLogged={afterLog} title={`Level ${lesson.number} homework`} />
 
       {/* ── Their own check ── */}
       <section className="space-y-2">

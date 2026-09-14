@@ -2,6 +2,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { SPEAKING_MODULES, allSpeakingLessons, getSpeakingLesson } from './index';
 import { buildGradeSyllabus } from '@/lib/school/curriculum';
+import { SOUND_PATTERNS, soundPattern } from '@/lib/speaking/sounds';
 
 /**
  * SARIRO — the written course against the sold one
@@ -17,6 +18,21 @@ import { buildGradeSyllabus } from '@/lib/school/curriculum';
 
 const syllabus = buildGradeSyllabus('public-speaking', 0);
 const lessons = allSpeakingLessons();
+
+describe('the Sound Lab lives inside the course', () => {
+  test('every pattern a lesson names exists', () => {
+    for (const l of lessons) {
+      for (const id of l.soundLab ?? []) assert.ok(soundPattern(id), `${l.key} names unknown sound "${id}"`);
+    }
+  });
+
+  test('every pattern is taught in at least one lesson, and only once', () => {
+    const named = lessons.flatMap((l) => l.soundLab ?? []);
+    for (const p of SOUND_PATTERNS) {
+      assert.equal(named.filter((id) => id === p.id).length, 1, `"${p.id}" is in ${named.filter((id) => id === p.id).length} lessons`);
+    }
+  });
+});
 
 describe('the course matches the syllabus that was sold', () => {
   test('46 lessons — 48 slots less the two assessments', () => {

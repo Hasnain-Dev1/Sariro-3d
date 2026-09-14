@@ -36,10 +36,13 @@ const PROMPTS = [
 
 export default function WritingLab({
   prompt,
+  drillId,
   minWords = 60,
   onLogged,
 }: {
   prompt?: string;
+  /** What the draft is logged under — a homework mission id, so it counts toward that mission. */
+  drillId?: string;
   minWords?: number;
   onLogged?: () => void;
 }) {
@@ -140,7 +143,7 @@ export default function WritingLab({
           <button
             onClick={async () => {
               const ok = await logAttempt({
-                kind: 'writing', drillId: prompt ? 'lesson' : `prompt-${promptIndex}`,
+                kind: 'writing', drillId: drillId ?? (prompt ? 'lesson' : `prompt-${promptIndex}`),
                 score: report.score, metrics: writingMetrics(report),
               });
               setSaved(true);

@@ -58,9 +58,12 @@ const PASSAGE_IDS = PASSAGES.map((p) => p.id);
 
 export default function ListeningLab({
   passage,
+  drillId,
   onLogged,
 }: {
   passage?: string;
+  /** What the attempt is logged under — a homework mission id, so it counts toward that mission. */
+  drillId?: string;
   onLogged?: () => void;
 }) {
   /* Dealt after mount, because the deck lives in this device's storage and the
@@ -158,7 +161,7 @@ export default function ListeningLab({
       // See speaking-lab: never awaited, never allowed to block the result.
       void logAttempt({
         kind: 'listening',
-        drillId: passage ? 'lesson' : `passage-${passageId}`,
+        drillId: drillId ?? (passage ? 'lesson' : `passage-${passageId}`),
         score: result.score,
         metrics: listeningMetrics(result),
       }).then((ok) => { if (ok) onLogged?.(); });

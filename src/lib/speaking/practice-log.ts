@@ -57,9 +57,17 @@ export async function logAttempt(input: LogInput): Promise<boolean> {
  * `userId` is for a teacher or parent looking at somebody else; omitted, it
  * means the signed-in learner. RLS decides whether that is allowed, not this.
  */
+/**
+ * Sound Lab sort rounds are stored as listening rows (the table allows three
+ * kinds) under a `sound:<pattern>` drill id. They are a different skill from
+ * catching a passage, so the listening curve and the parent report leave them
+ * out unless asked — Voice Quest asks, because its badges and homework use them.
+ */
+const SOUND_ROUND = /(?:^|:)sound:[a-z-]+$/;
+
 export async function fetchAttempts(
   userId?: string,
-  opts: { kind?: PracticeKind; limit?: number } = {}
+  opts: { kind?: PracticeKind; limit?: number; sounds?: boolean } = {}
 ): Promise<PracticeAttempt[]> {
   try {
     const supabase = createClient();
@@ -81,14 +89,16 @@ export async function fetchAttempts(
     const { data, error } = await q;
     if (error) return [];
 
-    return (data ?? []).map((r) => ({
-      id: r.id as string,
-      kind: r.kind as PracticeKind,
-      drillId: (r.drill_id as string | null) ?? null,
-      score: r.score as number,
-      metrics: (r.metrics as Record<string, number>) ?? {},
-      createdAt: r.created_at as string,
-    }));
+    return (data ?? [])
+      .filter((r) => opts.sounds || !SOUND_ROUND.test((r.drill_id as string | null) ?? ''))
+      .map((r) => ({
+        id: r.id as string,
+        kind: r.kind as PracticeKind,
+        drillId: (r.drill_id as string | null) ?? null,
+        score: r.score as number,
+        metrics: (r.metrics as Record<string, number>) ?? {},
+        createdAt: r.created_at as string,
+      }));
   } catch {
     return [];
   }

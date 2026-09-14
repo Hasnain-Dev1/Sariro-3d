@@ -72,6 +72,15 @@ export interface SpeakingLesson {
 
   /** The student's own check, answerable honestly by them alone. */
   selfCheck: string[];
+
+  /**
+   * Sound Lab patterns this lesson teaches (lib/speaking/sounds.ts): a spelling
+   * said more than one way — Q in queen, antique and queue — heard in three
+   * accents, sorted as a game, said aloud and used in real sentences. Placed
+   * in the lessons about the voice, delivery and real situations, where saying
+   * a word wrong in public is the thing a student is afraid of.
+   */
+  soundLab?: string[];
 }
 
 export interface SpeakingModule {

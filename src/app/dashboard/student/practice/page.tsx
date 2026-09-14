@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Mic, Ear, PenLine, ArrowLeft, Lock, Loader2, ArrowRight, Shuffle, BookOpen } from 'lucide-react';
+import { Mic, Ear, PenLine, ArrowLeft, Lock, Loader2, ArrowRight, Shuffle, BookOpen, AudioLines, Map as MapIcon } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/components/auth/auth-provider';
@@ -11,6 +11,8 @@ import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import SpeakingLab, { type Drill } from '@/components/speaking/speaking-lab';
 import ListeningLab from '@/components/speaking/listening-lab';
 import WritingLab from '@/components/speaking/writing-lab';
+import SoundLab from '@/components/speaking/sound-lab';
+import VoiceQuest from '@/components/speaking/quest/voice-quest';
 import PracticeProgress from '@/components/speaking/practice-progress';
 import { PASSAGES, passageById, readingSeconds } from '@/lib/speaking/passages';
 import { dealFromStorage } from '@/lib/speaking/passages/deck';
@@ -64,10 +66,12 @@ const SPEAKING_DRILLS: Drill[] = [
   },
 ];
 
-type Tab = 'speaking' | 'listening' | 'writing';
+type Tab = 'quest' | 'speaking' | 'sounds' | 'listening' | 'writing';
 
 const TABS: { key: Tab; label: string; icon: typeof Mic; blurb: string }[] = [
+  { key: 'quest', label: 'Quest', icon: MapIcon, blurb: 'Your rank, your streak, today’s quest and the whole course as a map — every level with homework that keeps score.' },
   { key: 'speaking', label: 'Speaking', icon: Mic, blurb: 'Pace, pauses, filler words and whether your voice moves.' },
+  { key: 'sounds', label: 'Sounds', icon: AudioLines, blurb: 'Why Q says three different things, and every other spelling that lies — heard, sorted and said.' },
   { key: 'listening', label: 'Listening', icon: Ear, blurb: 'Catch a passage once and give it back.' },
   { key: 'writing', label: 'Writing', icon: PenLine, blurb: 'Sentence rhythm, soft words, and who did the thing.' },
 ];
@@ -176,7 +180,7 @@ export default function PracticePage() {
     return () => { live = false; };
   }, [user]);
 
-  const [tab, setTab] = useState<Tab>('speaking');
+  const [tab, setTab] = useState<Tab>('quest');
   const [drill, setDrill] = useState(0);
   /* Bumped when a lab actually writes a row, which re-mounts the panel below
      so the attempt they just finished is in it. Refreshing the whole page to
@@ -218,7 +222,7 @@ export default function PracticePage() {
   return (
     <DashboardLayout>
       <section className="relative pt-6 sm:pt-10 pb-16 px-4 sm:px-6 lg:px-10">
-        <div className="max-w-3xl mx-auto">
+        <div className={`${tab === 'quest' ? 'max-w-5xl' : 'max-w-3xl'} mx-auto`}>
           <Link
             href="/dashboard/student"
             className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-800 mb-4"
@@ -237,7 +241,7 @@ export default function PracticePage() {
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-3 gap-2 mb-6">
+          <div className="grid grid-cols-5 gap-2 mb-6">
             {TABS.map((t) => (
               <button
                 key={t.key}
@@ -305,14 +309,20 @@ export default function PracticePage() {
             </div>
           )}
 
+          {tab === 'quest' && <VoiceQuest />}
+
+          {/* Every pattern, with the passport of stamps across all of them. */}
+          {tab === 'sounds' && <SoundLab />}
           {tab === 'listening' && <ListeningLab onLogged={noteLogged} />}
           {tab === 'writing' && <WritingLab onLogged={noteLogged} />}
 
           {/* Underneath the drill, not above it. Somebody who opened this page
               came to practise; the history is what they read afterwards. */}
-          <div className="mt-6">
-            <PracticeProgress key={logged} />
-          </div>
+          {tab !== 'quest' && (
+            <div className="mt-6">
+              <PracticeProgress key={logged} />
+            </div>
+          )}
         </div>
       </section>
     </DashboardLayout>

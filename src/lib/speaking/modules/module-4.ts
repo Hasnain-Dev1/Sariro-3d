@@ -168,6 +168,7 @@ export const module4: SpeakingModule = {
     }),
 
     lesson(4, 3, 22, 'Using notes without reading them', {
+      soundLab: ['ea', 'oo'],
       oneLine: 'Notes should hold your structure, not your sentences — a page of prose is a script, and a script gets read.',
       idea: [
         'Notes are not cheating and nobody in the audience minds them. What the audience minds is being read to, and that happens the moment your notes contain full sentences, because a full sentence on paper is irresistible.',
@@ -219,6 +220,7 @@ export const module4: SpeakingModule = {
     }),
 
     lesson(4, 4, 23, 'Speaking to a camera', {
+      soundLab: ['c', 'ch'],
       oneLine: 'A camera gives you nothing back, which is why speaking to one feels wrong and has to be learned separately.',
       idea: [
         'Every instinct you have as a speaker is calibrated to feedback — a nod, a frown, someone leaning in. A lens gives you none of it, so the natural response is to speed up, flatten out, and finish early. This is why competent speakers are often poor on video.',
