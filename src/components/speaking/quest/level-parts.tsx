@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Flame, Gamepad2, Globe2, Volume2, Mic, X } from 'lucide-react';
 import SpeakingLab from '@/components/speaking/speaking-lab';
 import type { SpeakingLesson } from '@/lib/speaking/lesson';
-import { ARENA } from '@/lib/speaking/quest/arena';
+import { ARENA, type ArenaGame } from '@/lib/speaking/quest/arena';
 import { twisterFor, worldOf } from '@/lib/speaking/quest/worlds';
 import { StarRow } from './homework-panel';
 import type { Stars } from '@/lib/speaking/quest/homework';
@@ -65,8 +65,9 @@ export function WarmUp({ lesson }: { lesson: SpeakingLesson }) {
   );
 }
 
-export function ArenaCard({ lesson }: { lesson: SpeakingLesson }) {
-  const game = ARENA[lesson.number];
+/** The class game. A stage can bring its own game and its own real-life moment (lib/speaking/stages.ts). */
+export function ArenaCard({ lesson, game: override, realWorld }: { lesson: SpeakingLesson; game?: ArenaGame; realWorld?: string }) {
+  const game = override ?? ARENA[lesson.number];
   if (!game) return null;
   const world = worldOf(lesson.moduleNum);
   return (
@@ -89,7 +90,7 @@ export function ArenaCard({ lesson }: { lesson: SpeakingLesson }) {
       </ol>
       <div className="mx-4 sm:mx-5 mb-4 rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2.5 flex items-start gap-2">
         <Globe2 className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-        <p className="text-[13px] text-slate-700"><span className="font-bold text-slate-900">In real life: </span>{game.realWorld}</p>
+        <p className="text-[13px] text-slate-700"><span className="font-bold text-slate-900">In real life: </span>{realWorld ?? game.realWorld}</p>
       </div>
     </div>
   );

@@ -178,7 +178,7 @@ export default function LearnChooser() {
                   className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full"
                   style={{ color: SPEAKING_ACCENT, background: `${SPEAKING_ACCENT}14` }}
                 >
-                  Any age
+                  Grades 1–12 &amp; adults
                 </span>
               </span>
 
@@ -186,8 +186,8 @@ export default function LearnChooser() {
                 Public Speaking &amp; Presence
               </h3>
               <p className="text-[14px] leading-[1.6] text-slate-600 flex-1">
-                The skill every other subject is eventually judged by — a viva, an interview, a
-                room. Learnable, and almost never taught.
+                The skill every other subject is eventually judged by. Show and tell at six, a
+                debate at twelve, an interview at seventeen — one course, pitched to every age.
               </p>
 
               <span className="card-meta flex items-center justify-between">

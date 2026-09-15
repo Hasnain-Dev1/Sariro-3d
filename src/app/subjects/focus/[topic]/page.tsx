@@ -14,6 +14,7 @@ import {
 import { cadencePlans } from '@/lib/school/pricing';
 import { DOMAINS } from '@/lib/capabilities/taxonomy';
 import CadenceChooser from '@/app/subjects/cadence-chooser';
+import SpeakingStages from '@/components/speaking/speaking-stages-section';
 
 /**
  * SARIRO — /subjects/focus/[topic]
@@ -94,6 +95,10 @@ export default async function SpecialisationPage({ params }: Params) {
           </p>
         </div>
       </section>
+
+      {/* Public Speaking is the one focus course taught at every age, so its page
+          shows how the same lesson meets a six-year-old and a sixteen-year-old. */}
+      {spec.slug === 'public-speaking' && <SpeakingStages accent={accent} />}
 
       <section className="py-14 sm:py-20 bg-white">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">

@@ -2,6 +2,7 @@ import type { Drill } from '@/components/speaking/speaking-lab';
 import type { SpeakingLesson } from '@/lib/speaking/lesson';
 import type { PracticeAttempt, PracticeKind } from '@/lib/speaking/progress';
 import { soundPattern } from '@/lib/speaking/sounds';
+import { stageLesson, type Stage } from '@/lib/speaking/stages';
 import { SHOWCASES, type Showcase } from './worlds';
 
 /**
@@ -64,12 +65,39 @@ export const LOG_KIND: Record<MissionKind, PracticeKind> = {
   sound: 'listening',
 };
 
-const HEARD: MetricGoal = { key: 'wpm', min: 40, label: 'your words were heard' };
-const WROTE: MetricGoal = { key: 'words', min: 40, label: 'at least 40 words' };
-
 const words = (s: string | undefined) => (s ?? '').trim().split(/\s+/).filter(Boolean).length;
 
-export function homeworkFor(lesson: SpeakingLesson): Mission[] {
+/**
+ * The bar, by stage. The same mission (same id, same record) asks less of a
+ * six-year-old: fewer tries, a gentler pass mark, a lower "we heard words"
+ * floor for a slower reader — and no writing at all for Sprouts, who are
+ * learning to write sentences in school, not scripts. A child who moves up a
+ * stage keeps every try; the missions simply ask more from then on.
+ */
+interface StageRules {
+  speak: [number, number];
+  stretch: [number, number];
+  listen: [number, number];
+  write: { attempts: number; pass: number; words: number } | null;
+  sound: [number, number];
+  heardWpm: number;
+}
+
+export const STAGE_RULES: Record<Stage, StageRules> = {
+  foundation: { speak: [2, 55], stretch: [1, 55], listen: [2, 60], write: null, sound: [2, 60], heardWpm: 25 },
+  primary: { speak: [3, 60], stretch: [2, 65], listen: [2, 65], write: { attempts: 1, pass: 65, words: 25 }, sound: [2, 70], heardWpm: 30 },
+  middle: { speak: [3, 65], stretch: [2, 70], listen: [2, 70], write: { attempts: 1, pass: 70, words: 40 }, sound: [2, 75], heardWpm: 40 },
+  senior: { speak: [3, 65], stretch: [2, 70], listen: [2, 70], write: { attempts: 1, pass: 70, words: 40 }, sound: [2, 75], heardWpm: 40 },
+  adult: { speak: [3, 65], stretch: [2, 70], listen: [2, 70], write: { attempts: 1, pass: 70, words: 40 }, sound: [2, 75], heardWpm: 40 },
+};
+
+const tries = (n: number) => (n === 1 ? 'One try' : `${['', 'One', 'Two', 'Three', 'Four', 'Five'][n] ?? n} tries`);
+
+/** The homework for one lesson, as the learner's stage sees it. */
+export function homeworkFor(base: SpeakingLesson, stage: Stage = 'senior'): Mission[] {
+  const lesson = stageLesson(base, stage);
+  const rules = STAGE_RULES[stage];
+  const heard: MetricGoal = { key: 'wpm', min: rules.heardWpm, label: 'your words were heard' };
   const id = (slug: string) => `hw:${lesson.key}:${slug}`;
   const main = lesson.drills[0];
   const stretch = lesson.drills[1] ?? lesson.extraDrills?.[0] ?? main;
@@ -78,29 +106,36 @@ export function homeworkFor(lesson: SpeakingLesson): Mission[] {
   const missions: Mission[] = [
     {
       id: id('speak'), kind: 'speak', title: main.title,
-      brief: `${main.brief} Three tries — the report after each one tells you what to change for the next.`,
-      attempts: 3, pass: 65, goal: HEARD, xp: 40,
+      brief: `${main.brief} ${tries(rules.speak[0])} — the report after each one tells you what to change for the next.`,
+      attempts: rules.speak[0], pass: rules.speak[1], goal: heard, xp: 40,
       drill: { ...main, id: id('speak') },
     },
     {
       id: id('listen'), kind: 'listen', title: 'Hear it once, give it back',
-      brief: 'Listen to the line from today’s lesson, then type or say exactly what you heard. Great speakers are great listeners first.',
-      attempts: 2, pass: 70, xp: 30,
+      brief: stage === 'foundation'
+        ? 'Listen to the sentence, then say it back or type it. Listen with your whole brain!'
+        : 'Listen to the line from today’s lesson, then type or say exactly what you heard. Great speakers are great listeners first.',
+      attempts: rules.listen[0], pass: rules.listen[1], xp: 30,
       passage: listenText,
     },
-    {
-      id: id('write'), kind: 'write', title: 'Write it before you say it',
-      brief: `Plan “${stretch.title}” on paper first: 4 to 6 sentences of what you will actually say. Then say it in the next mission.`,
-      attempts: 1, pass: 70, goal: WROTE, xp: 30,
-      prompt: `Write what you will say for “${stretch.title}”. ${stretch.brief}`,
-    },
   ];
+
+  if (rules.write) {
+    const sentences = stage === 'primary' ? '3 or 4 sentences' : '4 to 6 sentences';
+    missions.push({
+      id: id('write'), kind: 'write', title: 'Write it before you say it',
+      brief: `Plan “${stretch.title}” on paper first: ${sentences} of what you will actually say. Then say it in the next mission.`,
+      attempts: rules.write.attempts, pass: rules.write.pass,
+      goal: { key: 'words', min: rules.write.words, label: `at least ${rules.write.words} words` }, xp: 30,
+      prompt: `Write what you will say for “${stretch.title}”. ${stretch.brief}`,
+    });
+  }
 
   if (stretch !== main) {
     missions.push({
       id: id('stretch'), kind: 'speak', title: `Level up: ${stretch.title}`,
-      brief: `${stretch.brief} Use what you wrote. Two tries.`,
-      attempts: 2, pass: 70, goal: HEARD, xp: 50,
+      brief: `${stretch.brief}${rules.write ? ' Use what you wrote.' : ''} ${tries(rules.stretch[0])}.`,
+      attempts: rules.stretch[0], pass: rules.stretch[1], goal: heard, xp: 50,
       drill: { ...stretch, id: id('stretch') },
     });
   }
@@ -110,8 +145,8 @@ export function homeworkFor(lesson: SpeakingLesson): Mission[] {
     if (!pattern) continue;
     missions.push({
       id: id(`sound:${p}`), kind: 'sound', title: `Sound sort: ${pattern.spelling}`,
-      brief: `${pattern.hook} Sort eight words by their sound — twice. Silver or better passes.`,
-      attempts: 2, pass: 75, xp: 30,
+      brief: `${pattern.hook} Sort eight words by their sound — twice.${rules.sound[1] <= 60 ? ' Five right passes.' : ' Silver or better passes.'}`,
+      attempts: rules.sound[0], pass: rules.sound[1], xp: 30,
       pattern: p,
     });
   }
@@ -119,34 +154,52 @@ export function homeworkFor(lesson: SpeakingLesson): Mission[] {
   return missions;
 }
 
-/** The showcase at an assessment slot: one performance, one listen, one script. */
-export function showcaseMissions(showcase: Showcase): Mission[] {
+/** The showcase at an assessment slot: one performance, one listen, and a script from Explorers up. */
+export function showcaseMissions(showcase: Showcase, stage: Stage = 'senior'): Mission[] {
   const id = (slug: string) => `hw:showcase:${showcase.slot}:${slug}`;
   const long = showcase.slot === 48;
-  return [
-    {
-      id: id('write'), kind: 'write', title: 'Write the script',
-      brief: long
+  const junior = stage === 'foundation' || stage === 'primary';
+
+  const write: Mission | null = stage === 'foundation' ? null : {
+    id: id('write'), kind: 'write', title: 'Write the script',
+    brief: junior
+      ? long
+        ? 'Your big speech about something you care about: a hook, a story, three reasons and a strong ending.'
+        : 'A one-minute talk: a hook, three reasons with signpost words, and a mic-drop ending.'
+      : long
         ? 'A persuasive two-minute talk built around a true story about you. Opening, the story, three reasons, the ask, the ending.'
         : 'A ninety-second talk on something you care about: an opening that earns attention, three signposted points, an ending that lands.',
-      attempts: 1, pass: 75, goal: { key: 'words', min: long ? 180 : 120, label: `at least ${long ? 180 : 120} words` }, xp: 80,
-      prompt: long ? 'Write your Grand Stage speech.' : 'Write your Mid-Course Stage talk.',
-    },
-    {
-      id: id('speak'), kind: 'speak', title: long ? 'The Grand Stage performance' : 'The Mid-Course performance',
-      brief: `${showcase.brief} Standing, to camera, from key words only. Three tries — your best one counts.`,
-      attempts: 3, pass: long ? 80 : 75, goal: { key: 'fillersPerMin', max: 4, label: 'no more than 4 filler words a minute' }, xp: 200,
-      drill: { id: id('speak'), title: showcase.name, brief: showcase.brief, targetSeconds: long ? 120 : 90 },
-    },
-    {
-      id: id('listen'), kind: 'listen', title: 'Listen like a judge',
-      brief: 'Hear a famous line and give it back word for word. A judge who cannot repeat what was said cannot judge it.',
-      attempts: 2, pass: 75, xp: 60,
-      passage: long
+    attempts: 1, pass: junior ? 65 : 75,
+    goal: (() => { const min = junior ? (long ? 80 : 60) : long ? 180 : 120; return { key: 'words', min, label: `at least ${min} words` }; })(),
+    xp: 80,
+    prompt: long ? 'Write your Grand Stage speech.' : 'Write your Mid-Course Stage talk.',
+  };
+
+  const seconds = stage === 'foundation' ? (long ? 60 : 45) : junior ? (long ? 90 : 60) : long ? 120 : 90;
+  const perform: Mission = {
+    id: id('speak'), kind: 'speak', title: long ? 'The Grand Stage performance' : 'The Mid-Course performance',
+    brief: junior
+      ? `Your showcase! Stand tall, look at the camera, and give your ${seconds}-second talk. Three tries — your best one counts.`
+      : `${showcase.brief} Standing, to camera, from key words only. Three tries — your best one counts.`,
+    attempts: 3,
+    pass: stage === 'foundation' ? 60 : junior ? 65 : long ? 80 : 75,
+    goal: { key: 'fillersPerMin', max: junior ? 6 : 4, label: `no more than ${junior ? 6 : 4} filler words a minute` },
+    xp: 200,
+    drill: { id: id('speak'), title: showcase.name, brief: showcase.brief, targetSeconds: seconds },
+  };
+
+  const listen: Mission = {
+    id: id('listen'), kind: 'listen', title: 'Listen like a judge',
+    brief: 'Hear a famous line and give it back word for word. A judge who cannot repeat what was said cannot judge it.',
+    attempts: 2, pass: junior ? 65 : 75, xp: 60,
+    passage: junior
+      ? long ? 'One child, one teacher, one book and one pen can change the world.' : 'Believe you can, and you are halfway there.'
+      : long
         ? 'Education is the most powerful weapon which can change the world. One child, one teacher, one book, one pen can change the world.'
         : 'We choose to go to the Moon in this decade, not because it is easy, but because it is hard.',
-    },
-  ];
+  };
+
+  return write ? [write, perform, listen] : [perform, listen];
 }
 
 export function showcaseBySlot(slot: number): Showcase | null {

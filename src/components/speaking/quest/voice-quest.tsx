@@ -9,6 +9,8 @@ import type { PracticeAttempt } from '@/lib/speaking/progress';
 import { useAttempts } from './use-attempts';
 import HomeworkPanel, { MissionCard, StarRow } from './homework-panel';
 import { ArenaCard, LevelBadge, WarmUp } from './level-parts';
+import { useLearnerStage } from '@/components/speaking/use-stage';
+import { stageLesson, STAGES, type Stage } from '@/lib/speaking/stages';
 
 /**
  * SARIRO — Voice Quest
@@ -25,13 +27,18 @@ import { ArenaCard, LevelBadge, WarmUp } from './level-parts';
 
 type Selection = { type: 'level'; key: string } | { type: 'showcase'; slot: number };
 
-export default function VoiceQuest({ demo }: {
+export default function VoiceQuest({ demo, stage: forced }: {
   /**
    * A sample history to show instead of the learner's own — for showing a
    * family what the quest looks like a few weeks in, in a trial class.
    */
   demo?: readonly PracticeAttempt[];
+  /** Which age stage to show; the learner's own, from their grade, when omitted. */
+  stage?: Stage;
 } = {}) {
+  const { stage: mine } = useLearnerStage();
+  const stage = forced ?? mine;
+  const stageMeta = STAGES[stage];
   const lessons = useMemo(() => allSpeakingLessons(), []);
   const live = useAttempts();
   const attempts = demo ?? live.attempts;
@@ -41,8 +48,8 @@ export default function VoiceQuest({ demo }: {
   useEffect(() => { setOffset(new Date().getTimezoneOffset()); setNow(Date.now()); }, []);
 
   const state = useMemo<QuestState | null>(
-    () => (attempts && now !== null ? questState(attempts, lessons, { now, offsetMinutes: offset }) : null),
-    [attempts, lessons, now, offset]
+    () => (attempts && now !== null ? questState(attempts, lessons, { now, offsetMinutes: offset, stage }) : null),
+    [attempts, lessons, now, offset, stage]
   );
 
   const [selected, setSelected] = useState<Selection | null>(null);
@@ -72,7 +79,9 @@ export default function VoiceQuest({ demo }: {
             <div className="flex items-center gap-4 min-w-0 flex-1">
               <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center text-4xl shrink-0" aria-hidden>{state.rank.emoji}</div>
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/50" style={{ fontFamily: 'var(--font-grotesk)' }}>Voice Quest · Rank {state.rank.level}</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/50" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                  Voice Quest · Rank {state.rank.level} · <span aria-hidden>{stageMeta.emoji}</span> {stageMeta.name}
+                </p>
                 <p className="text-[1.9rem] font-extrabold leading-none tracking-tight" style={{ fontFamily: 'var(--font-jakarta)' }}>{state.rank.title}</p>
                 <div className="mt-3 h-2.5 rounded-full bg-white/10 overflow-hidden">
                   <div className="h-full rounded-full bg-gradient-to-r from-amber-300 to-fuchsia-400 transition-all" style={{ width: `${Math.round(state.rank.progress * 100)}%` }} />
@@ -165,7 +174,7 @@ export default function VoiceQuest({ demo }: {
       </section>
 
       {/* ── The selected level ─────────────────────────────────────────── */}
-      {current && <Selected state={state} attempts={attempts ?? []} selection={current} afterLog={afterLog} />}
+      {current && <Selected state={state} attempts={attempts ?? []} selection={current} afterLog={afterLog} stage={stage} />}
 
       {/* ── Badges ─────────────────────────────────────────────────────── */}
       <section>
@@ -200,7 +209,7 @@ function Stat({ icon, value, label }: { icon: React.ReactNode; value: number | s
   );
 }
 
-function Selected({ state, attempts, selection, afterLog }: { state: QuestState; attempts: readonly PracticeAttempt[]; selection: Selection; afterLog: () => void }) {
+function Selected({ state, attempts, selection, afterLog, stage }: { state: QuestState; attempts: readonly PracticeAttempt[]; selection: Selection; afterLog: () => void; stage: Stage }) {
   if (selection.type === 'showcase') {
     const s = state.showcases.find((x) => x.showcase.slot === selection.slot);
     if (!s) return null;
@@ -217,14 +226,15 @@ function Selected({ state, attempts, selection, afterLog }: { state: QuestState;
             </div>
           )}
         </div>
-        {s.unlocked && <HomeworkPanel missions={showcaseMissions(s.showcase)} attempts={attempts} onLogged={afterLog} title={s.showcase.name} subtitle="Showcase missions" />}
+        {s.unlocked && <HomeworkPanel missions={showcaseMissions(s.showcase, stage)} attempts={attempts} onLogged={afterLog} title={s.showcase.name} subtitle="Showcase missions" />}
       </section>
     );
   }
 
   const found = state.worlds.flatMap((w) => w.levels).find((l) => l.lesson.key === selection.key);
   if (!found) return null;
-  const { lesson, status } = found;
+  const { status } = found;
+  const lesson = stageLesson(found.lesson, stage);
   return (
     <section className="space-y-4" id="quest-level">
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
@@ -237,9 +247,9 @@ function Selected({ state, attempts, selection, afterLog }: { state: QuestState;
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <WarmUp lesson={lesson} />
-        <ArenaCard lesson={lesson} />
+        <ArenaCard lesson={lesson} game={lesson.game} realWorld={lesson.realWorld} />
       </div>
-      <HomeworkPanel missions={homeworkFor(lesson)} attempts={attempts} onLogged={afterLog} title={`Level ${lesson.number} homework`} />
+      <HomeworkPanel key={`${stage}:${lesson.key}`} missions={homeworkFor(found.lesson, stage)} attempts={attempts} onLogged={afterLog} title={`Level ${lesson.number} homework`} />
     </section>
   );
 }

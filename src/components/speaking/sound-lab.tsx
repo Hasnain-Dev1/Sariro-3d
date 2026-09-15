@@ -72,6 +72,7 @@ export default function SoundLab({
   initial,
   initialMode = 'learn',
   practise = true,
+  simple = false,
   logAs = (id) => `sound:${id}`,
   onLogged,
 }: {
@@ -81,6 +82,8 @@ export default function SoundLab({
   initialMode?: Mode;
   /** Show the speaking lab under the real-life lines. Off for a teacher screen-sharing. */
   practise?: boolean;
+  /** For Grades 1–6: no phonetic symbols or rules, fewer words, no notes for grown-ups. */
+  simple?: boolean;
   /**
    * The drill id a finished sort round is recorded under, or null to record
    * nothing (a teacher demonstrating). Homework passes its mission id; the
@@ -226,7 +229,7 @@ export default function SoundLab({
       </div>
 
       <div className="border-t border-slate-100 bg-[#FBFAF8] px-5 sm:px-7 py-6">
-        {mode === 'learn' && <Learn pattern={pattern} color={color} say={say} speaking={speaking} />}
+        {mode === 'learn' && <Learn pattern={pattern} color={color} say={say} speaking={speaking} simple={simple} />}
         {mode === 'sort' && <SortGame key={pattern.id} pattern={pattern} color={color} say={say} onFinish={(correct, total) => earn(pattern.id, correct, total)} />}
         {mode === 'say' && <SayIt key={pattern.id} pattern={pattern} color={color} say={say} />}
         {mode === 'real' && <RealLife key={pattern.id} pattern={pattern} say={say} speaking={speaking} practise={practise} />}
@@ -251,11 +254,11 @@ function HearButton({ text, onSay, active, label }: { text: string; onSay: () =>
   );
 }
 
-function Learn({ pattern, color, say, speaking }: { pattern: SoundPattern; color: string; say: (t: string, k?: string) => void; speaking: string | null }) {
+function Learn({ pattern, color, say, speaking, simple }: { pattern: SoundPattern; color: string; say: (t: string, k?: string) => void; speaking: string | null; simple: boolean }) {
   const words = (ws: SoundWord[]) => ws.map((x) => x.say ?? x.word).join('. ');
   return (
     <div className="space-y-5">
-      {pattern.rule && (
+      {pattern.rule && !simple && (
         <p className="rounded-xl bg-white border border-slate-200 px-4 py-3 text-[14px] text-slate-700 leading-relaxed">
           <span className="font-bold text-slate-900">The rule. </span>{pattern.rule}
         </p>
@@ -267,7 +270,7 @@ function Learn({ pattern, color, say, speaking }: { pattern: SoundPattern; color
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="text-[1.15rem] font-extrabold text-slate-900 leading-tight" style={{ fontFamily: 'var(--font-jakarta)' }}>{way.sounds}</p>
-                <p className="text-[12px] font-mono text-slate-400">{way.ipa}</p>
+                {!simple && <p className="text-[12px] font-mono text-slate-400">{way.ipa}</p>}
               </div>
               <button
                 type="button"
@@ -280,7 +283,7 @@ function Learn({ pattern, color, say, speaking }: { pattern: SoundPattern; color
             </div>
             <p className="mt-1.5 text-[12.5px] text-slate-500 leading-snug">{way.how}</p>
             <div className="mt-3 flex flex-wrap gap-1.5">
-              {way.words.map((x) => (
+              {(simple ? way.words.slice(0, 5) : way.words).map((x) => (
                 <HearButton key={x.word} text={x.word} onSay={() => say(x.say ?? x.word, x.word)} active={speaking === x.word} />
               ))}
             </div>
@@ -302,7 +305,7 @@ function Learn({ pattern, color, say, speaking }: { pattern: SoundPattern; color
             ))}
           </ul>
         </div>
-        {(pattern.indiaTip || pattern.accentNote) && (
+        {!simple && (pattern.indiaTip || pattern.accentNote) && (
           <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-4 space-y-2.5">
             {pattern.indiaTip && (
               <p className="text-[13.5px] text-sky-950 leading-snug"><span className="font-bold">Coach’s tip. </span>{pattern.indiaTip}</p>

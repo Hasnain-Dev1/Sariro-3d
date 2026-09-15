@@ -7,6 +7,8 @@ import { homeworkFor, showcaseMissions, attemptPasses, type Mission } from '@/li
 import { questState, dailyQuest } from '@/lib/speaking/quest/engine';
 import { SHOWCASES } from '@/lib/speaking/quest/worlds';
 import { useAttempts } from './use-attempts';
+import { createClient } from '@/lib/supabase/client';
+import { stageFor, STAGES, type Stage } from '@/lib/speaking/stages';
 import { KIND_META } from './homework-panel';
 
 /**
@@ -23,15 +25,25 @@ export default function QuestRecord({ userId, name }: { userId: string; name: st
   const [clock, setClock] = useState<{ now: number; offset: number } | null>(null);
   useEffect(() => { setClock({ now: Date.now(), offset: new Date().getTimezoneOffset() }); }, []);
 
+  /* The learner's stage decides the pass marks their missions were set at. */
+  const [stage, setStage] = useState<Stage | null>(null);
+  useEffect(() => {
+    let live = true;
+    createClient().from('profiles').select('grade').eq('id', userId).maybeSingle()
+      .then(({ data }) => { if (live) setStage(stageFor((data?.grade as number | null | undefined) ?? null)); });
+    return () => { live = false; };
+  }, [userId]);
+
   const index = useMemo(() => {
     const m = new Map<string, { mission: Mission; where: string }>();
-    for (const l of lessons) for (const mission of homeworkFor(l)) m.set(mission.id, { mission, where: `Level ${l.number}` });
-    for (const s of SHOWCASES) for (const mission of showcaseMissions(s)) m.set(mission.id, { mission, where: 'Showcase' });
+    if (!stage) return m;
+    for (const l of lessons) for (const mission of homeworkFor(l, stage)) m.set(mission.id, { mission, where: `Level ${l.number}` });
+    for (const s of SHOWCASES) for (const mission of showcaseMissions(s, stage)) m.set(mission.id, { mission, where: 'Showcase' });
     return m;
-  }, [lessons]);
+  }, [lessons, stage]);
 
-  if (!attempts || !clock) return <div className="h-24 rounded-xl bg-slate-100 animate-pulse" />;
-  const state = questState(attempts, lessons, { now: clock.now, offsetMinutes: clock.offset });
+  if (!attempts || !clock || !stage) return <div className="h-24 rounded-xl bg-slate-100 animate-pulse" />;
+  const state = questState(attempts, lessons, { now: clock.now, offsetMinutes: clock.offset, stage });
 
   const homework = attempts
     .filter((a) => a.drillId && (index.has(a.drillId) || a.drillId.startsWith('dq:')))
@@ -41,7 +53,7 @@ export default function QuestRecord({ userId, name }: { userId: string; name: st
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Voice Quest & homework</p>
+      <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Voice Quest & homework · {STAGES[stage].emoji} {STAGES[stage].name} ({STAGES[stage].grades})</p>
       <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2">
         <Tile icon={<Zap className="w-3.5 h-3.5 text-amber-500" />} value={`${state.rank.emoji} ${state.rank.title}`} label={`${state.xp.toLocaleString()} XP`} />
         <Tile icon={<Flame className="w-3.5 h-3.5 text-orange-500" />} value={`${state.streak.current} days`} label={`best ${state.streak.best}`} />
@@ -65,7 +77,7 @@ export default function QuestRecord({ userId, name }: { userId: string; name: st
             <tbody>
               {homework.map((a, i) => {
                 const hit = a.drillId?.startsWith('dq:')
-                  ? { mission: dailyQuest(a.drillId.slice(3)), where: 'Daily quest' }
+                  ? { mission: dailyQuest(a.drillId.slice(3), stage), where: 'Daily quest' }
                   : index.get(a.drillId as string);
                 if (!hit) return null;
                 const ok = attemptPasses(hit.mission, a);

@@ -4,6 +4,7 @@ import { PROMPTS } from '@/lib/speaking/voice-check';
 import { SOUND_PATTERNS } from '@/lib/speaking/sounds';
 import { homeworkFor, levelStatus, missionStatus, showcaseMissions, type LevelStatus, type Mission, type MissionStatus } from './homework';
 import { SHOWCASES, TWISTERS, WORLDS, type Showcase, type World } from './worlds';
+import type { Stage } from '@/lib/speaking/stages';
 
 /**
  * SARIRO — Voice Quest: everything a learner has earned, from what they did
@@ -71,6 +72,19 @@ export const RANKS = [
   { xp: 12000, title: 'Legend', emoji: '🏆' },
 ] as const;
 
+/* Same thresholds, friendlier names for Grades 1–6: a seven-year-old is not an "Orator". */
+const JUNIOR_RANKS: { title: string; emoji: string }[] = [
+  { title: 'Seedling', emoji: '🌱' },
+  { title: 'Chatterbox', emoji: '💬' },
+  { title: 'Storyteller', emoji: '📚' },
+  { title: 'Show Star', emoji: '⭐' },
+  { title: 'Brave Voice', emoji: '🦁' },
+  { title: 'Speaker Star', emoji: '🌟' },
+  { title: 'Super Speaker', emoji: '🚀' },
+  { title: 'Stage Hero', emoji: '🦸' },
+  { title: 'Voice Legend', emoji: '🏆' },
+];
+
 export interface Rank {
   level: number;
   title: string;
@@ -82,58 +96,70 @@ export interface Rank {
   progress: number;
 }
 
-export function rankFor(xp: number): Rank {
+export function rankFor(xp: number, stage: Stage = 'senior'): Rank {
   let i = 0;
   while (i + 1 < RANKS.length && xp >= RANKS[i + 1].xp) i++;
   const floor = RANKS[i].xp;
   const next = i + 1 < RANKS.length ? RANKS[i + 1].xp : null;
-  return { level: i + 1, title: RANKS[i].title, emoji: RANKS[i].emoji, floor, next, progress: next === null ? 1 : (xp - floor) / (next - floor) };
+  const name = stage === 'foundation' || stage === 'primary' ? JUNIOR_RANKS[i] : RANKS[i];
+  return { level: i + 1, title: name.title, emoji: name.emoji, floor, next, progress: next === null ? 1 : (xp - floor) / (next - floor) };
 }
 
 /* ── The daily quest ──────────────────────────────────────────────────────── */
+
+/** Spellings a Grade 1–6 child meets in their own reading; the Greek-and-French ones wait. */
+const JUNIOR_SOUNDS = ['silent', 'oo', 'ea', 's-ending', 'th', 'q', 'ed', 'v-w'];
 
 /**
  * One short mission a day, the same for everybody on the same date, rotating
  * through speaking, sounds, listening, a twister and writing. It is what makes
  * opening the app on a day with no class worth doing — and it keeps the streak.
  */
-export function dailyQuest(key: string): Mission {
+export function dailyQuest(key: string, stage: Stage = 'senior'): Mission {
   const n = dayNumber(key);
   const id = `dq:${key}`;
-  switch (((n % 5) + 5) % 5) {
+  const junior = stage === 'foundation' || stage === 'primary';
+  let kind = ((n % 5) + 5) % 5;
+  // Sprouts do not get a writing quest: they get a sound round that day instead.
+  if (kind === 4 && stage === 'foundation') kind = 1;
+  switch (kind) {
     case 0: {
       const prompt = PROMPTS[((n % PROMPTS.length) + PROMPTS.length) % PROMPTS.length];
+      const seconds = stage === 'foundation' ? 30 : stage === 'primary' ? 45 : 60;
+      const maxUm = junior ? 4 : 2;
       return {
-        id, kind: 'speak', title: 'The Zero-Um Minute',
-        brief: `Talk for sixty seconds: ${prompt.text} The challenge is not what you say — it is saying it with almost no “um”.`,
-        attempts: 1, pass: 55, goal: { key: 'fillersPerMin', max: 2, label: 'no more than 2 filler words a minute' }, xp: 60,
-        drill: { id, title: 'The Zero-Um Minute', brief: prompt.text, targetSeconds: 60 },
+        id, kind: 'speak', title: junior ? 'The No-Um Challenge' : 'The Zero-Um Minute',
+        brief: `Talk for ${seconds} seconds: ${prompt.text} The challenge is not what you say — it is saying it with almost no “um”.`,
+        attempts: 1, pass: junior ? 50 : 55, goal: { key: 'fillersPerMin', max: maxUm, label: `no more than ${maxUm} filler words a minute` }, xp: 60,
+        drill: { id, title: junior ? 'The No-Um Challenge' : 'The Zero-Um Minute', brief: prompt.text, targetSeconds: seconds },
       };
     }
     case 1: {
-      const p = SOUND_PATTERNS[((n % SOUND_PATTERNS.length) + SOUND_PATTERNS.length) % SOUND_PATTERNS.length];
-      return { id, kind: 'sound', title: `Sound of the day: ${p.spelling}`, brief: `${p.hook} One round, gold wins it.`, attempts: 1, pass: 85, xp: 60, pattern: p.id };
+      const pool = junior ? SOUND_PATTERNS.filter((x) => JUNIOR_SOUNDS.includes(x.id)) : SOUND_PATTERNS;
+      const p = pool[((n % pool.length) + pool.length) % pool.length];
+      return { id, kind: 'sound', title: `Sound of the day: ${p.spelling}`, brief: `${p.hook} One round${junior ? ' — six right wins it' : ', gold wins it'}.`, attempts: 1, pass: junior ? 75 : 85, xp: 60, pattern: p.id };
     }
     case 2: {
       const p = SOUND_PATTERNS[((n * 7) % SOUND_PATTERNS.length + SOUND_PATTERNS.length) % SOUND_PATTERNS.length];
       const line = p.realWorld[((n % p.realWorld.length) + p.realWorld.length) % p.realWorld.length];
-      return { id, kind: 'listen', title: 'Echo', brief: `${line.situation}: hear it once and give it back, word for word.`, attempts: 1, pass: 80, xp: 60, passage: line.line };
+      return { id, kind: 'listen', title: 'Echo', brief: `${line.situation}: hear it once and give it back, word for word.`, attempts: 1, pass: junior ? 65 : 80, xp: 60, passage: line.line };
     }
     case 3: {
       const t = TWISTERS[((n % TWISTERS.length) + TWISTERS.length) % TWISTERS.length];
       return {
         id, kind: 'speak', title: 'Twister Speed Run',
         brief: `Say it three times in your head, then record it once, clean: “${t.text}” (${t.focus})`,
-        attempts: 1, pass: 60, goal: { key: 'pronunciation', min: 80, label: '80% of words heard right' }, xp: 60,
+        attempts: 1, pass: junior ? 50 : 60, goal: { key: 'pronunciation', min: junior ? 70 : 80, label: `${junior ? 70 : 80}% of words heard right` }, xp: 60,
         drill: { id, title: 'Twister Speed Run', brief: t.focus, passage: t.text, targetSeconds: 8 },
       };
     }
     default: {
       const prompt = PROMPTS[((n * 3) % PROMPTS.length + PROMPTS.length) % PROMPTS.length];
+      const minWords = junior ? 25 : 40;
       return {
         id, kind: 'write', title: 'Opening Line Lab',
-        brief: `Write the first 3 to 5 sentences of a talk on: ${prompt.text} Make the first sentence impossible to ignore.`,
-        attempts: 1, pass: 70, goal: { key: 'words', min: 40, label: 'at least 40 words' }, xp: 60,
+        brief: `Write the first ${junior ? '2 or 3' : '3 to 5'} sentences of a talk on: ${prompt.text} Make the first sentence impossible to ignore.`,
+        attempts: 1, pass: junior ? 65 : 70, goal: { key: 'words', min: minWords, label: `at least ${minWords} words` }, xp: 60,
         prompt: `Write the opening of a talk on: ${prompt.text}`,
       };
     }
@@ -198,17 +224,18 @@ const SOUND_ID = /(?:^|:)sound:([a-z-]+)$/;
 export function questState(
   attempts: readonly PracticeAttempt[],
   lessons: readonly SpeakingLesson[],
-  opts: { now?: number; offsetMinutes?: number } = {}
+  opts: { now?: number; offsetMinutes?: number; stage?: Stage } = {}
 ): QuestState {
   const now = opts.now ?? Date.now();
   const offset = opts.offsetMinutes ?? 0;
+  const stage = opts.stage ?? 'senior';
   const todayKey = dayKey(now, offset);
 
   const worlds: WorldProgress[] = WORLDS.map((world) => {
     const levels = lessons
       .filter((l) => l.moduleNum === world.num)
       .sort((a, b) => a.number - b.number)
-      .map((lesson) => ({ lesson, status: levelStatus(homeworkFor(lesson), attempts) }));
+      .map((lesson) => ({ lesson, status: levelStatus(homeworkFor(lesson, stage), attempts) }));
     return {
       world,
       levels,
@@ -219,10 +246,10 @@ export function questState(
 
   const showcases: ShowcaseProgress[] = SHOWCASES.map((showcase) => {
     const toward = worlds.filter((w) => showcase.worlds.includes(w.world.num)).reduce((n, w) => n + w.cleared, 0);
-    return { showcase, toward, unlocked: toward >= showcase.unlockAfter, status: levelStatus(showcaseMissions(showcase), attempts) };
+    return { showcase, toward, unlocked: toward >= showcase.unlockAfter, status: levelStatus(showcaseMissions(showcase, stage), attempts) };
   });
 
-  const daily = missionStatus(dailyQuest(todayKey), attempts);
+  const daily = missionStatus(dailyQuest(todayKey, stage), attempts);
   const streak = streakOf(attempts, now, offset);
 
   /* Badges. */
@@ -268,7 +295,7 @@ export function questState(
   // Every daily quest ever passed, not only today's.
   const dailyIds = new Set(attempts.filter((a) => a.drillId?.startsWith('dq:')).map((a) => a.drillId as string));
   for (const did of dailyIds) {
-    const status = missionStatus(dailyQuest(did.slice(3)), attempts);
+    const status = missionStatus(dailyQuest(did.slice(3), stage), attempts);
     if (status.passed) xp += status.mission.xp;
   }
   xp += badges.filter((b) => b.earned).length * XP.badge;
@@ -276,7 +303,7 @@ export function questState(
   const totalLevels = worlds.reduce((n, w) => n + w.levels.length, 0);
   return {
     xp,
-    rank: rankFor(xp),
+    rank: rankFor(xp, stage),
     streak,
     worlds,
     showcases,

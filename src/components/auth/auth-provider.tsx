@@ -36,6 +36,8 @@ export interface Profile {
   timezone?: string | null;
   track?: string | null;
   current_cohort_id?: string | null;
+  /** 1–14 (lib/grade/tag.ts); decides the Public Speaking stage (lib/speaking/stages.ts). */
+  grade?: number | null;
   created_at: string;
   updated_at: string;
 }

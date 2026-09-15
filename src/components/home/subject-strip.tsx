@@ -234,7 +234,7 @@ export default function SubjectStrip() {
                   className="text-[11px] font-semibold uppercase tracking-wider"
                   style={{ color: SPEAKING_ACCENT }}
                 >
-                  Any age
+                  Grades 1–12 &amp; adults
                 </span>
                 <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-600 group-hover:translate-x-0.5 transition-all duration-300" />
               </span>
