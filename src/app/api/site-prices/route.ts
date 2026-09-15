@@ -3,7 +3,7 @@ import { revalidatePath, revalidateTag } from 'next/cache';
 import { requireActor, readJson } from '@/lib/auth/actor';
 import { bestEffort } from '@/lib/supabase/best-effort';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
-import { readSitePrices } from '@/lib/pricing/site-prices-server';
+import { readInrSitePrices, readSitePrices } from '@/lib/pricing/site-prices-server';
 import { SITE_PRICES_TAG, sitePriceRows, validateSitePrices } from '@/lib/pricing/site-prices';
 
 /**
@@ -27,7 +27,8 @@ export async function GET(req: NextRequest) {
   const ip = getClientIp(req);
   const rl = rateLimit({ key: `site-prices:${ip}`, limit: 60, windowMs: 60_000, ip });
   if (!rl.ok) return NextResponse.json({ ok: false, error: 'rate_limited' }, { status: 429, headers: NO_STORE });
-  return NextResponse.json({ ok: true, prices: await readSitePrices({ fresh: true }) }, { headers: NO_STORE });
+  const [prices, inr] = await Promise.all([readSitePrices({ fresh: true }), readInrSitePrices({ fresh: true })]);
+  return NextResponse.json({ ok: true, prices, inr }, { headers: NO_STORE });
 }
 
 export async function PUT(req: NextRequest) {

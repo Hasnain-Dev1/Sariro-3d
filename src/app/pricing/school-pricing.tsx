@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { ArrowRight, Check, ClipboardList, GraduationCap, Users } from 'lucide-react';
 import { LESSONS_PER_GRADE } from '@/lib/school/curriculum';
-import { cadencePlans, formatPrice, perClassFor, perMonthFor } from '@/lib/school/pricing';
-import { useSitePrices } from '@/components/pricing/site-prices-provider';
+import { useCadencePlans, usePriceLine } from '@/components/pricing/site-prices-provider';
+import CurrencySwitch from '@/components/pricing/currency-switch';
 
 /**
  * SARIRO — school pricing on /pricing
@@ -44,7 +44,10 @@ const RATIOS = [
 ];
 
 export default function SchoolPricing() {
-  const sitePrices = useSitePrices();
+  // Rupees for a family in India, dollars for everybody else — one switch flips all of it.
+  const lines = { '1:4': usePriceLine('1:4'), '1:1': usePriceLine('1:1') };
+  const yearPlans = useCadencePlans(LESSONS_PER_GRADE, '1:4');
+  const inRupees = lines['1:4'].currency === 'INR';
   return (
     <section className="relative py-14 sm:py-20 bg-white border-t border-slate-100">
       <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -62,15 +65,18 @@ export default function SchoolPricing() {
             Maths, science, English and Public Speaking are priced per class.
           </h2>
           <p className="mt-3 text-slate-600 text-[15px] leading-[1.65]">
-            One class a week, {LESSONS_PER_GRADE} a year, the same price everywhere in the world.
+            One class a week, {LESSONS_PER_GRADE} a year.{' '}
+            {inRupees
+              ? 'Rupee prices for families in India, GST included — pay by UPI, card or net banking.'
+              : 'Dollar prices for families outside India.'}{' '}
             Coding is sold as a track instead — those tiers are above.
           </p>
+          <CurrencySwitch className="mt-4" />
         </div>
 
         <div className="grid md:grid-cols-2 gap-4 mb-10">
           {RATIOS.map((r) => {
-            const perClass = perClassFor(r.ratio, sitePrices);
-            const perMonth = perMonthFor(r.ratio, sitePrices);
+            const { perClass, perMonth } = lines[r.ratio];
             return (
               <div
                 key={r.ratio}
@@ -100,12 +106,12 @@ export default function SchoolPricing() {
 
                 <span className="flex items-baseline gap-2 mb-1">
                   <span className="text-4xl font-extrabold text-slate-900 tabular-nums">
-                    {formatPrice(perMonth)}
+                    {perMonth}
                   </span>
                   <span className="text-slate-500 text-[15px]">/ month</span>
                 </span>
                 <span className="text-[13px] text-slate-500 tabular-nums mb-4">
-                  {formatPrice(perClass)} per class · 4 classes a month
+                  {perClass} per class · 4 classes a month
                 </span>
 
                 <p className="text-[14px] leading-[1.6] text-slate-600 flex-1">{r.blurb}</p>
@@ -126,7 +132,7 @@ export default function SchoolPricing() {
           </p>
 
           <div className="grid sm:grid-cols-3 gap-3">
-            {cadencePlans(LESSONS_PER_GRADE, '1:4', sitePrices).map((plan) => (
+            {yearPlans.map((plan) => (
               <div
                 key={plan.cadence}
                 className="rounded-xl border p-4"

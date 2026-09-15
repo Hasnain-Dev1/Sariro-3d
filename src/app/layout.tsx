@@ -10,7 +10,7 @@ import { ImpersonationBanner } from "@/components/security/impersonation-banner"
 import WelcomePopup from "@/components/welcome/welcome-popup";
 import { CSP } from "@/lib/security/csp";
 import { SitePricesProvider } from "@/components/pricing/site-prices-provider";
-import { readSitePrices } from "@/lib/pricing/site-prices-server";
+import { readInrSitePrices, readSitePrices } from "@/lib/pricing/site-prices-server";
 
 // Font weights trimmed to what the UI actually leans on (measured: 700 and
 // 800 dominate; 400/500/900 are rare). Fewer weight files = less to download
@@ -114,7 +114,7 @@ export default async function RootLayout({
   /* The website's live prices, which HR can change from the pricing
      calculator. Cached for five minutes and refreshed the moment a price is
      saved — see lib/pricing/site-prices-server.ts. */
-  const sitePrices = await readSitePrices();
+  const [sitePrices, inrPrices] = await Promise.all([readSitePrices(), readInrSitePrices()]);
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -130,7 +130,7 @@ export default async function RootLayout({
         className={`${inter.variable} ${jakarta.variable} ${grotesk.variable} antialiased`}
       >
         <AuthProvider>
-          <SitePricesProvider prices={sitePrices}>
+          <SitePricesProvider prices={sitePrices} inr={inrPrices}>
           {children}
           {/* Profile completion modal — lives in root so it works on EVERY page
               (public + dashboard). Auto-shows when user is logged in but

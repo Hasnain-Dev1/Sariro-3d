@@ -6,6 +6,10 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { Check, ClipboardList, GraduationCap } from 'lucide-react';
 import { REDUCED, SPRING_QUICK } from '@/lib/motion';
 import type { CadenceOption } from '@/app/subjects/subject-picker';
+import { useDisplayCurrency, useInrPrices } from '@/components/pricing/site-prices-provider';
+import CurrencySwitch from '@/components/pricing/currency-switch';
+import { inrCadencePlans } from '@/lib/pricing/inr-site';
+import { LESSONS_PER_GRADE } from '@/lib/school/curriculum';
 
 /**
  * SARIRO — Payment cadence chooser
@@ -37,14 +41,35 @@ export default function CadenceChooser({
   const spring = reduced ? REDUCED : SPRING_QUICK;
   const [cadence, setCadence] = useState<CadenceOption['cadence']>('monthly');
 
+  /* Rupees for a family in India (a focus course is 48 classes, like a grade
+     year); the server's dollar plans for everybody else. */
+  const { currency } = useDisplayCurrency();
+  const inr = useInrPrices();
+  const rupeePlans: CadenceOption[] = currency === 'INR'
+    ? inrCadencePlans(LESSONS_PER_GRADE, '1:4', inr).map((p) => ({
+        cadence: p.cadence,
+        label: p.label,
+        blurb: p.blurb,
+        perPayment: p.perPaymentFormatted,
+        payments: p.payments,
+        lifetime: p.lifetimeFormatted,
+        saving: p.savingLabel,
+        discountPercent: p.discountPercent,
+      }))
+    : [];
+  const shown = rupeePlans.length ? rupeePlans : plans;
+
   return (
     <div className="card card--feature sm:p-8">
-      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">
-        How would you like to pay?
-      </p>
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+          How would you like to pay?
+        </p>
+        <CurrencySwitch />
+      </div>
 
       <div className="space-y-2.5">
-        {plans.map((plan) => {
+        {shown.map((plan) => {
           const active = cadence === plan.cadence;
           return (
             <button

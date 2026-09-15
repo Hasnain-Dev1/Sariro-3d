@@ -5,6 +5,9 @@ import Link from 'next/link';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Check, ClipboardList, GraduationCap } from 'lucide-react';
 import { REDUCED, SPRING_QUICK } from '@/lib/motion';
+import { useDisplayCurrency, useInrPrices } from '@/components/pricing/site-prices-provider';
+import CurrencySwitch from '@/components/pricing/currency-switch';
+import { inrCadencePlans } from '@/lib/pricing/inr-site';
 
 /**
  * SARIRO — Grade picker + price
@@ -81,6 +84,25 @@ export default function SubjectPicker({
   const chosen = useMemo(() => grades.find((g) => g.grade === grade) ?? grades[0], [grades, grade]);
   const price = prices[`${grade}:${scope}`];
 
+  /* Rupees for a family in India: the price list HR sets, worked out here from
+     the class count. Dollars — as the server priced them — for everybody else,
+     and whenever the rupee list cannot price this course. */
+  const { currency } = useDisplayCurrency();
+  const inr = useInrPrices();
+  const rupeePlans: CadenceOption[] = currency === 'INR' && price
+    ? inrCadencePlans(price.classes, '1:4', inr).map((p) => ({
+        cadence: p.cadence,
+        label: p.label,
+        blurb: p.blurb,
+        perPayment: p.perPaymentFormatted,
+        payments: p.payments,
+        lifetime: p.lifetimeFormatted,
+        saving: p.savingLabel,
+        discountPercent: p.discountPercent,
+      }))
+    : [];
+  const plans = rupeePlans.length ? rupeePlans : price?.plans ?? [];
+
   return (
     <div className="card card--feature sm:p-8">
       {/* ── grade ─────────────────────────────────────────────────────── */}
@@ -145,14 +167,17 @@ export default function SubjectPicker({
           animate={{ opacity: 1, y: 0 }}
           transition={spring}
         >
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">
-            How would you like to pay?
-          </p>
+          <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              How would you like to pay?
+            </p>
+            <CurrencySwitch />
+          </div>
 
           {/* Three cadences, cheapest commitment first. A parent who sees the
               full price first never reaches the monthly line underneath it. */}
           <div className="space-y-2.5">
-            {price.plans.map((plan) => {
+            {plans.map((plan) => {
               const active = cadence === plan.cadence;
               return (
                 <button

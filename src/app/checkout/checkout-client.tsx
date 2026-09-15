@@ -9,8 +9,11 @@ import { getBankDetails, transferReference } from '@/lib/checkout/bank-details';
 import { RazorpayCheckoutButton } from '@/components/auth/razorpay-checkout';
 import { resolveCheckoutItem } from '@/lib/checkout/resolve';
 import type { LearningRatio } from '@/lib/sariro-data';
-import { formatPrice, type Cadence, type SitePrices } from '@/lib/school/pricing';
-import { useSitePrices } from '@/components/pricing/site-prices-provider';
+import { type Cadence, type SitePrices } from '@/lib/school/pricing';
+import { useDisplayCurrency, useInrPrices, useSitePrices } from '@/components/pricing/site-prices-provider';
+import CurrencySwitch from '@/components/pricing/currency-switch';
+import { useAuth } from '@/components/auth/auth-provider';
+import { INR_PHONE_MESSAGE, isIndianPhone, type InrPlanPrices } from '@/lib/pricing/inr-site';
 
 /**
  * SARIRO — the one checkout
@@ -59,12 +62,20 @@ export default function CheckoutClient() {
      the checkout asks for the live figures too, and the Pay button always
      shows what will actually be charged, even straight after HR changes it. */
   const pagePrices = useSitePrices();
+  const pageInr = useInrPrices();
+  const { currency, setCurrency } = useDisplayCurrency();
+  const { user, profile } = useAuth();
   const [livePrices, setLivePrices] = useState<SitePrices>(pagePrices);
+  const [liveInr, setLiveInr] = useState<InrPlanPrices>(pageInr);
   useEffect(() => {
     let live = true;
     fetch('/api/site-prices', { cache: 'no-store' })
       .then((r) => r.json())
-      .then((j) => { if (live && j?.ok && j.prices) setLivePrices(j.prices as SitePrices); })
+      .then((j) => {
+        if (!live || !j?.ok) return;
+        if (j.prices) setLivePrices(j.prices as SitePrices);
+        if (j.inr) setLiveInr(j.inr as InrPlanPrices);
+      })
       .catch(() => { /* the page's prices stand */ });
     return () => { live = false; };
   }, []);
@@ -79,8 +90,8 @@ export default function CheckoutClient() {
         scope: params.get('scope'),
         ratio,
         cadence,
-      }, livePrices),
-    [params, ratio, cadence, livePrices]
+      }, livePrices, { currency, inr: liveInr }),
+    [params, ratio, cadence, livePrices, currency, liveInr]
   );
 
   /**
@@ -256,7 +267,25 @@ export default function CheckoutClient() {
               </button>
             </div>
 
-            {method === 'card' ? (
+            {method === 'card' && item.currency === 'INR' && user && !isIndianPhone(profile?.phone) ? (
+              /* Rupee prices are for families in India — the server refuses a
+                 rupee order without a +91 number, so say it before they press. */
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <p className="text-[14px] text-amber-900 leading-[1.6]">{INR_PHONE_MESSAGE}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCurrency('USD')}
+                    className="h-10 px-4 rounded-lg bg-slate-900 text-white text-[13.5px] font-semibold"
+                  >
+                    Pay in dollars
+                  </button>
+                  <Link href="/settings" className="inline-flex items-center h-10 px-4 rounded-lg border border-slate-300 bg-white text-[13.5px] font-semibold text-slate-800">
+                    Add my Indian number
+                  </Link>
+                </div>
+              </div>
+            ) : method === 'card' ? (
               <RazorpayCheckoutButton
                 track={item.track}
                 level={item.level}
@@ -345,9 +374,13 @@ export default function CheckoutClient() {
           className="card card--feature lg:sticky lg:top-24"
           style={{ ['--accent' as string]: item.accent }}
         >
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">
-            Your enrolment
-          </p>
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Your enrolment
+            </p>
+            {/* Coding tracks are sold in dollars only. */}
+            {item.kind === 'school' && <CurrencySwitch />}
+          </div>
 
           <p className="text-xl font-bold text-slate-900 leading-snug">{item.tagline}</p>
           <p className="text-[14px] text-slate-600 mt-1">
@@ -371,7 +404,7 @@ export default function CheckoutClient() {
               <span>
                 {item.payments > 1 ? `${item.payments} payments in total` : 'One payment'}
               </span>
-              <span className="tabular-nums">{formatPrice(item.lifetimeTotal)}</span>
+              <span className="tabular-nums">{item.lifetimeFormatted}</span>
             </div>
 
             {item.savingLabel && (
@@ -381,6 +414,11 @@ export default function CheckoutClient() {
             )}
           </div>
 
+          {item.currency === 'INR' && (
+            <p className="text-[12.5px] text-slate-600 mt-3 leading-[1.6]">
+              Rupee price for families in India, GST included. Pay by UPI, card or net banking.
+            </p>
+          )}
           <p className="text-[12.5px] text-slate-500 mt-4 leading-[1.6]">
             We find a batch that fits your timings before your first class. If nothing suits, you
             get a full refund.

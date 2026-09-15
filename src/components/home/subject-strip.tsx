@@ -20,8 +20,7 @@ import {
   LESSONS_PER_GRADE,
   SCHOOL_SUBJECTS,
 } from '@/lib/school/curriculum';
-import { formatPrice, perMonthFor } from '@/lib/school/pricing';
-import { useSitePrices } from '@/components/pricing/site-prices-provider';
+import { usePriceLine } from '@/components/pricing/site-prices-provider';
 
 /**
  * SARIRO — the homepage subject strip
@@ -90,7 +89,8 @@ const CODING_ACCENT = '#EA580C';
 const SPEAKING_ACCENT = '#DB2777';
 
 export default function SubjectStrip() {
-  const monthly = formatPrice(perMonthFor('1:4', useSitePrices()));
+  // Rupees for a family in India, dollars for everybody else.
+  const monthly = usePriceLine('1:4').perMonth;
 
   /* Chapter marker: this section answers "what do you teach", and it and
      HowItWorks were the only two on the homepage without one - so the jump

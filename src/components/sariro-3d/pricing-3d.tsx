@@ -5,14 +5,16 @@ import { useEffect, useRef, useState } from 'react';
 import { Check, Sparkles, Tag } from 'lucide-react';
 import { DISCOUNT_LABEL, DISCOUNT_DEADLINE, discountActive } from '@/lib/sariro-data';
 import Link from 'next/link';
-import { formatPrice } from '@/lib/school/pricing';
-import { useSitePrices } from '@/components/pricing/site-prices-provider';
+import { usePriceLine } from '@/components/pricing/site-prices-provider';
+import CurrencySwitch from '@/components/pricing/currency-switch';
 import { SplitText3D } from './scroll-effects';
 import CodingPricing from '@/components/home/coding-pricing';
 
 export default function Pricing3D() {
   const sectionRef = useRef<HTMLDivElement>(null);
-  const sitePrices = useSitePrices();
+  // Rupees for a family in India, dollars for everybody else.
+  const group = usePriceLine('1:4');
+  const oneToOne = usePriceLine('1:1');
 
   /**
    * Set after mount, never during render.
@@ -160,12 +162,13 @@ export default function Pricing3D() {
                 className="text-4xl font-extrabold text-slate-900 leading-none tabular-nums"
                 style={{ fontFamily: 'var(--font-jakarta)' }}
               >
-                {formatPrice(sitePrices.groupMonthly)}
+                {group.perMonth}
                 <span className="text-base font-bold text-slate-500"> /month</span>
               </p>
               <p className="text-[13px] text-slate-500 mt-1.5 tabular-nums">
-                One to one: {formatPrice(sitePrices.oneToOneMonthly)}/month
+                One to one: {oneToOne.perMonth}/month
               </p>
+              <CurrencySwitch className="mt-2.5" />
               <Link
                 href="/courses"
                 className="mt-4 inline-flex items-center justify-center h-11 px-5 rounded-xl bg-green-600 hover:bg-green-700 text-white text-sm font-bold transition-colors"

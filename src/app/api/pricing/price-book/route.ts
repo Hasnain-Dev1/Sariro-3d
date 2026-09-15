@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { SITE_PRICES_TAG } from '@/lib/pricing/site-prices';
 import { requireActor, readJson } from '@/lib/auth/actor';
 import { loadPriceBook, priceBookHistory, savePriceBook } from '@/lib/pricing/price-book-store';
 
@@ -43,6 +45,11 @@ export async function PUT(req: NextRequest) {
       { status: result.setup ? 503 : 500 }
     );
   }
+
+  /* The public prices in the book are the rupee prices on the website, so a
+     save refreshes every cached page — the same as saving the dollar prices. */
+  revalidateTag(SITE_PRICES_TAG, { expire: 0 });
+  revalidatePath('/', 'layout');
 
   const [loaded, history] = await Promise.all([loadPriceBook(actor.admin), priceBookHistory(actor.admin)]);
   return NextResponse.json({ ok: true, ...loaded, history });

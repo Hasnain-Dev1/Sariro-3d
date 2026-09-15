@@ -8,6 +8,7 @@ import {
   gradeGroupFor,
 } from '@/lib/school/curriculum';
 import { DEFAULT_SITE_PRICES, cadencePlans, formatPrice, type Cadence, type SitePrices } from '@/lib/school/pricing';
+import { inrCadencePlans, type DisplayCurrency, type InrPlanPrices } from '@/lib/pricing/inr-site';
 
 /**
  * SARIRO — one checkout, every product
@@ -53,6 +54,12 @@ export interface CheckoutItem {
   backHref: string;
   /** Coding is a one-time purchase; school and focus are paid over time. */
   offersCadence: boolean;
+  /**
+   * What this item is priced and charged in. Rupees only for school and focus
+   * courses (the rupee price list has no coding tiers), and only when rupees
+   * were asked for and the price list can price it.
+   */
+  currency: DisplayCurrency;
 
   /** What they hand over today. */
   perPayment: number;
@@ -92,12 +99,16 @@ export interface CheckoutParams {
  * has just fetched fresh, and create-order prices from a fresh read too, so the
  * figure on the Pay button and the figure charged come from the same numbers.
  */
-export function resolveCheckoutItem(p: CheckoutParams, prices: SitePrices = DEFAULT_SITE_PRICES): CheckoutItem | null {
+export function resolveCheckoutItem(
+  p: CheckoutParams,
+  prices: SitePrices = DEFAULT_SITE_PRICES,
+  money: { currency?: DisplayCurrency; inr?: InrPlanPrices } = {}
+): CheckoutItem | null {
   const codingId = (p.course ?? '').trim();
   if (codingId) return resolveCoding(codingId, p.ratio);
 
   const slug = (p.subject ?? p.focus ?? '').trim();
-  if (slug) return resolveSchool(slug, p, prices);
+  if (slug) return resolveSchool(slug, p, prices, money);
 
   return null;
 }
@@ -121,6 +132,7 @@ function resolveCoding(courseId: string, ratio: LearningRatio): CheckoutItem | n
     // One payment, one seat. There is no instalment plan for a coding cohort,
     // and inventing one here would be a promise the billing cannot keep.
     offersCadence: false,
+    currency: 'USD',
     perPayment: price,
     perPaymentFormatted: formatPrice(price),
     payments: 1,
@@ -134,7 +146,12 @@ function resolveCoding(courseId: string, ratio: LearningRatio): CheckoutItem | n
   };
 }
 
-function resolveSchool(slug: string, p: CheckoutParams, prices: SitePrices): CheckoutItem | null {
+function resolveSchool(
+  slug: string,
+  p: CheckoutParams,
+  prices: SitePrices,
+  money: { currency?: DisplayCurrency; inr?: InrPlanPrices }
+): CheckoutItem | null {
   const subject = getSubject(slug);
   const focus = subject ? null : getSpecialisation(slug);
   if (!subject && !focus) return null;
@@ -144,7 +161,13 @@ function resolveSchool(slug: string, p: CheckoutParams, prices: SitePrices): Che
   const grade = p.grade ? Number(p.grade) : null;
   const classes = isFocus || scope === 'grade' ? LESSONS_PER_GRADE : LESSONS_PER_GROUP;
 
-  const plan = cadencePlans(classes, p.ratio, prices).find((c) => c.cadence === p.cadence);
+  /* Rupees when asked for and the price list can price this course; dollars
+     otherwise. The same choice create-order makes, from the same numbers. */
+  const inrPlan = money.currency === 'INR' && money.inr
+    ? inrCadencePlans(classes, p.ratio, money.inr).find((c) => c.cadence === p.cadence)
+    : undefined;
+  const currency: DisplayCurrency = inrPlan ? 'INR' : 'USD';
+  const plan = inrPlan ?? cadencePlans(classes, p.ratio, prices).find((c) => c.cadence === p.cadence);
   if (!plan) return null;
 
   const group = grade ? gradeGroupFor(grade) : null;
@@ -168,6 +191,7 @@ function resolveSchool(slug: string, p: CheckoutParams, prices: SitePrices): Che
     classes,
     backHref: isFocus ? `/subjects/focus/${slug}` : `/subjects/${slug}`,
     offersCadence: true,
+    currency,
     perPayment: plan.perPayment,
     perPaymentFormatted: plan.perPaymentFormatted,
     payments: plan.payments,
@@ -181,6 +205,7 @@ function resolveSchool(slug: string, p: CheckoutParams, prices: SitePrices): Che
       scope,
       cadence: p.cadence,
       ratio: p.ratio,
+      currency,
     },
     courseName: `${name} — ${scopeLabel}`,
     track: slug,

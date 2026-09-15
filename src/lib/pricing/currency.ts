@@ -88,6 +88,23 @@ export function checkChargeCurrency(chargeCurrency: string | undefined): Currenc
 }
 
 /**
+ * The check for one order, when the order names its own currency.
+ *
+ * Since 15 Sep 2026 an Indian family pays the rupee price list in rupees (so
+ * UPI works) while everybody else pays dollars. The rule that caught the
+ * original defect still holds, just per order instead of per server: the
+ * currency the customer was SHOWN is the currency they are CHARGED, always.
+ * A dollar order still goes through checkChargeCurrency(RAZORPAY_CURRENCY).
+ */
+export function checkOrderCurrency(currency: string | undefined): CurrencyCheck {
+  const c = (currency ?? '').trim().toUpperCase();
+  if (!SUPPORTED_CURRENCIES.includes(c as SupportedCurrency)) {
+    return { ok: false, chargeCurrency: c, displayCurrency: c, reason: `Unsupported order currency "${c}".` };
+  }
+  return { ok: true, chargeCurrency: c, displayCurrency: c };
+}
+
+/**
  * A displayed price in the smallest unit of its own currency.
  *
  * Takes the currency explicitly so it cannot be called without the caller having

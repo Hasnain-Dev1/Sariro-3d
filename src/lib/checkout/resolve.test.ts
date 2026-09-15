@@ -1,6 +1,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { resolveCheckoutItem } from './resolve';
+import { DEFAULT_INR_PRICES } from '@/lib/pricing/inr-site';
 import { codingPrice, normalizeCodingLevel } from '@/lib/pricing/coding';
 import { COURSES } from '@/lib/sariro-data';
 import { SPECIALISATIONS, SCHOOL_SUBJECTS, LESSONS_PER_GRADE, LESSONS_PER_GROUP } from '@/lib/school/curriculum';
@@ -123,7 +124,24 @@ describe('the order body always says what the server needs', () => {
       scope: 'grade',
       cadence: 'monthly',
       ratio: '1:4',
+      currency: 'USD',
     });
+  });
+
+  test('a family in India is priced from the rupee price list, and the order says so', () => {
+    const item = resolveCheckoutItem(
+      { ...base, subject: 'chemistry', grade: '10', scope: 'grade', cadence: 'full' },
+      undefined,
+      { currency: 'INR', inr: DEFAULT_INR_PRICES }
+    )!;
+    assert.equal(item.currency, 'INR');
+    assert.equal(item.perPayment, 26_999);
+    assert.equal(item.orderBody.currency, 'INR');
+  });
+
+  test('coding tracks stay in dollars even when rupees are asked for', () => {
+    const item = resolveCheckoutItem({ ...base, course: COURSES[0].id }, undefined, { currency: 'INR', inr: DEFAULT_INR_PRICES })!;
+    assert.equal(item.currency, 'USD');
   });
 
   test('coding orders carry track, level and ratio — and never an amount', () => {

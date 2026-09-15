@@ -7,7 +7,8 @@ import {
   RAZORPAY_CURRENCY,
   getSupabaseAdmin,
 } from '@/lib/razorpay/server';
-import { checkChargeCurrency, toMinorUnits, type SupportedCurrency } from '@/lib/pricing/currency';
+import { checkChargeCurrency, checkOrderCurrency, toMinorUnits, type SupportedCurrency } from '@/lib/pricing/currency';
+import { INR_PHONE_MESSAGE, inrCadencePlans, isIndianPhone } from '@/lib/pricing/inr-site';
 import {
   LESSONS_PER_GRADE,
   LESSONS_PER_GROUP,
@@ -15,7 +16,7 @@ import {
   getSubject,
 } from '@/lib/school/curriculum';
 import { cadencePlans } from '@/lib/school/pricing';
-import { readSitePrices } from '@/lib/pricing/site-prices-server';
+import { readInrSitePrices, readSitePrices } from '@/lib/pricing/site-prices-server';
 import { rateLimit, rateLimitedResponse, getClientIp, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -168,6 +169,8 @@ async function handlePost(req: NextRequest) {
     grade?: number;
     scope?: 'grade' | 'group';
     cadence?: 'monthly' | 'quarterly' | 'full';
+    /** 'INR' for a family in India paying the rupee price list. School courses only. */
+    currency?: string;
   };
   try {
     body = await req.json();
@@ -180,6 +183,8 @@ async function handlePost(req: NextRequest) {
   let displayPrice: number | null = null;
   let track: string;
   let level: string;
+  /* Dollars unless a school course asks for rupees and the buyer may pay them. */
+  let orderCurrency: 'USD' | 'INR' = 'USD';
 
   if (body.kind === 'school') {
     const subjectSlug = (body.subject || '').trim();
@@ -203,10 +208,23 @@ async function handlePost(req: NextRequest) {
     // subject can be bought as a whole three-year group.
     const classes = isFocus || scope === 'grade' ? LESSONS_PER_GRADE : LESSONS_PER_GROUP;
 
+    /* Rupees: the price list HR sets, for a family in India. The switch on the
+       site lets anybody LOOK at rupee prices; paying them needs an Indian phone
+       number on the account, checked here where it cannot be skipped. */
+    if (String(body.currency).toUpperCase() === 'INR') {
+      const { data: me } = await supaServer.from('profiles').select('phone').eq('id', userId).maybeSingle();
+      if (!isIndianPhone((me as { phone?: string | null } | null)?.phone)) {
+        return NextResponse.json({ ok: false, error: 'inr_needs_indian_phone', message: INR_PHONE_MESSAGE }, { status: 409 });
+      }
+      orderCurrency = 'INR';
+    }
+
     // Priced from a FRESH read of the live prices — never a cached figure. HR
     // can change them at any time, and the checkout page fetches them fresh
     // too, so what the parent was shown is what this charges.
-    const plan = cadencePlans(classes, ratio, await readSitePrices({ fresh: true })).find((p) => p.cadence === cadence);
+    const plan = orderCurrency === 'INR'
+      ? inrCadencePlans(classes, ratio, await readInrSitePrices({ fresh: true })).find((p) => p.cadence === cadence)
+      : cadencePlans(classes, ratio, await readSitePrices({ fresh: true })).find((p) => p.cadence === cadence);
     if (!plan) {
       return NextResponse.json(
         { ok: false, error: 'unknown_cadence' },
@@ -247,7 +265,9 @@ async function handlePost(req: NextRequest) {
   // currency, `displayPrice * 100` bills the wrong amount entirely — a $199
   // course charged as INR 199 is about $2.30. Refuse rather than guess: a
   // blocked checkout costs one sale, a mis-charged one runs undetected.
-  const currencyCheck = checkChargeCurrency(RAZORPAY_CURRENCY);
+  /* A rupee order is priced AND charged in rupees; a dollar order is still held
+     to the server's configured charge currency, exactly as before. */
+  const currencyCheck = orderCurrency === 'INR' ? checkOrderCurrency('INR') : checkChargeCurrency(RAZORPAY_CURRENCY);
   if (!currencyCheck.ok) {
     console.error('[create-order] currency misconfigured:', currencyCheck.reason);
     return NextResponse.json(
@@ -271,6 +291,9 @@ async function handlePost(req: NextRequest) {
     .eq('level', level)
     .eq('ratio', ratio)
     .eq('status', 'pending')
+    // A pending dollar intent is not reused for a rupee order, or the reverse:
+    // the intent records what was quoted, in which currency.
+    .eq('display_currency', currencyCheck.displayCurrency)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -320,7 +343,7 @@ async function handlePost(req: NextRequest) {
   // ── Create the Razorpay order ───────────────────────────────────────
   const order = await createOrder({
     amount,
-    currency: RAZORPAY_CURRENCY,
+    currency: currencyCheck.chargeCurrency,
     receipt: intentId,
     description: `Sariro ${level} ${track} (${ratio})`,
     notes: {

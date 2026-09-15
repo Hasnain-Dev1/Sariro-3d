@@ -1,5 +1,7 @@
 import { DEFAULT_SITE_PRICES, type SitePrices } from '@/lib/school/pricing';
 import { SITE_PRICE_KEYS, SITE_PRICES_TAG, sitePricesFromRows } from './site-prices';
+import { DEFAULT_INR_PRICES, inrPricesFromLadder, type InrPlanPrices } from './inr-site';
+import { sanitizeLadder } from './price-book';
 
 /**
  * SARIRO — reading the website's live prices, on the server
@@ -20,6 +22,31 @@ import { SITE_PRICE_KEYS, SITE_PRICES_TAG, sitePricesFromRows } from './site-pri
  * Any failure — unset env, timeout, bad row — falls back to the defaults in
  * lib/school/pricing.ts rather than breaking a page that shows a price.
  */
+
+/**
+ * The rupee prices Indian visitors see: the PUBLIC prices from the price book
+ * (the private table HR saves from the calculator). Only the public price per
+ * plan leaves this function — never a floor, an offer or a cost. Same caching
+ * as the dollar prices, and the price book's save refreshes the same tag.
+ */
+export async function readInrSitePrices(opts: { fresh?: boolean } = {}): Promise<InrPlanPrices> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !url.startsWith('http') || !key || key.startsWith('PUT_YOUR')) return DEFAULT_INR_PRICES;
+  try {
+    const res = await fetch(`${url}/rest/v1/price_book?select=data&id=eq.current`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+      ...(opts.fresh ? { cache: 'no-store' as const } : { next: { revalidate: 300, tags: [SITE_PRICES_TAG] } }),
+      signal: AbortSignal.timeout(4_000),
+    });
+    if (!res.ok) return DEFAULT_INR_PRICES;
+    const rows = (await res.json()) as { data?: { ladder?: unknown } }[];
+    if (!rows[0]?.data) return DEFAULT_INR_PRICES;
+    return inrPricesFromLadder(sanitizeLadder(rows[0].data.ladder));
+  } catch {
+    return DEFAULT_INR_PRICES;
+  }
+}
 
 export async function readSitePrices(opts: { fresh?: boolean } = {}): Promise<SitePrices> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
