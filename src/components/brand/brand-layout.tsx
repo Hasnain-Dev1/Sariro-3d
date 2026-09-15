@@ -623,15 +623,15 @@ function AuthNavButton({ mobile = false }: { mobile?: boolean }) {
     student: {
       label: 'Student',
       links: [
-        { href: '/dashboard/student', label: 'My Courses' },
-        { href: '/dashboard/student#schedule', label: 'My Schedule' },
+        { href: '/dashboard/student/classes#courses', label: 'My Courses' },
+        { href: '/dashboard/student#next-class', label: 'My Next Class' },
       ],
     },
     teacher: {
       label: 'Teacher',
       links: [
-        { href: '/dashboard/teacher', label: 'My Schedule' },
-        { href: '/dashboard/teacher#students', label: 'My Students' },
+        { href: '/dashboard/teacher/classes#schedule', label: 'My Schedule' },
+        { href: '/dashboard/teacher/students#roster', label: 'My Students' },
       ],
     },
     hr: {

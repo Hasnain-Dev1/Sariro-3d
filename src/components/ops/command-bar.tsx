@@ -4,15 +4,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowRight, CornerDownLeft, Search, Zap, Compass, AlertCircle, type LucideIcon } from 'lucide-react';
-import { staffCommands, searchCommands, type Command, type CommandGroup, type Place } from '@/lib/ops/commands';
-import type { StaffRole } from '@/lib/ops/attention';
+import { commandsFor, searchCommands, COMMAND_PLACEHOLDER, type Command, type CommandGroup, type Place } from '@/lib/ops/commands';
+import type { QueueRole } from '@/lib/ops/attention';
 import { useAttention } from './attention-provider';
 import { goTo } from './go-to';
 
 /**
  * SARIRO — ⌘K
  * ============================================================================
- * One keystroke to anything a member of staff does: what is waiting on them
+ * One keystroke to anything a person does here: what is waiting on them
  * (with live counts), the jobs they do, and every page they can reach. Opens
  * with ⌘K / Ctrl+K, or "/" when not typing. See lib/ops/commands.ts for what is
  * offered and how search ranks it.
@@ -34,7 +34,7 @@ const GROUP_ICON: Record<CommandGroup, LucideIcon> = {
 const isTyping = (el: EventTarget | null) =>
   el instanceof HTMLElement && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName));
 
-export default function CommandBar({ role, nav, sections }: { role: StaffRole; nav: readonly Place[]; sections?: readonly Place[] }) {
+export default function CommandBar({ role, nav, sections }: { role: QueueRole; nav: readonly Place[]; sections?: readonly Place[] }) {
   const router = useRouter();
   const attention = useAttention();
   const [open, setOpen] = useState(false);
@@ -43,7 +43,7 @@ export default function CommandBar({ role, nav, sections }: { role: StaffRole; n
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const commands = useMemo(() => staffCommands(role, attention?.items ?? [], nav, sections), [role, attention?.items, nav, sections]);
+  const commands = useMemo(() => commandsFor(role, attention?.items ?? [], nav, sections), [role, attention?.items, nav, sections]);
   const results = useMemo(() => searchCommands(commands, query), [commands, query]);
 
   const close = useCallback(() => { setOpen(false); setQuery(''); setActive(0); }, []);
@@ -123,7 +123,7 @@ export default function CommandBar({ role, nav, sections }: { role: StaffRole; n
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={onInputKey}
-                placeholder="Jump to anything — try “certificate” or “credit”"
+                placeholder={COMMAND_PLACEHOLDER[role]}
                 className="flex-1 h-14 bg-transparent text-[15px] text-slate-900 placeholder:text-slate-400 focus:outline-none"
                 aria-controls="command-results"
                 aria-activedescendant={results[active] ? `cmd-${active}` : undefined}

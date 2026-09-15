@@ -194,7 +194,7 @@ export async function POST(req: NextRequest) {
             type: 'credit_update',
             title: 'Credits added',
             message: `${reqRow.approved_amount} credit${Number(reqRow.approved_amount) === 1 ? '' : 's'} were added to your balance.`,
-            link: '/dashboard/student',
+            link: '/dashboard/student/credits#balance',
           });
         }
 

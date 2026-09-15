@@ -1,6 +1,7 @@
 import {
   CalendarX2, CalendarClock, UserCheck, Users, Receipt, Coins, Wallet, ShieldAlert, GraduationCap,
-  BatteryLow, Plane, Award, Banknote, type LucideIcon,
+  BatteryLow, Plane, Award, Banknote, ClipboardCheck, PenLine, Link2Off, FolderOpen, Compass, Phone,
+  PhoneMissed, Handshake, PauseCircle, Video, Mic, type LucideIcon,
 } from 'lucide-react';
 import type { AttentionIcon } from '@/lib/ops/attention';
 
@@ -19,4 +20,15 @@ export const OPS_ICON: Record<AttentionIcon, LucideIcon> = {
   plane: Plane,
   award: Award,
   banknote: Banknote,
+  clipboard: ClipboardCheck,
+  pen: PenLine,
+  link: Link2Off,
+  folder: FolderOpen,
+  compass: Compass,
+  phone: Phone,
+  'phone-missed': PhoneMissed,
+  handshake: Handshake,
+  pause: PauseCircle,
+  video: Video,
+  mic: Mic,
 };

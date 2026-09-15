@@ -39,7 +39,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, ChevronRight, Calendar as CalendarIcon,
-  Video, Clock, X, HelpCircle, ClipboardCheck, BookOpen,
+  Video, Clock, X, HelpCircle, ClipboardCheck, BookOpen, Compass,
 } from 'lucide-react';
 import type { TeacherBookingRow } from '@/lib/dashboard/teacher-data';
 import { getTrackName } from '@/lib/dashboard/upsell-engine';
@@ -469,6 +469,18 @@ export function TeacherCalendar({ bookings, timezone, onSelectBooking, onChanged
                       >
                         <Video className="w-3 h-3" /> {joinedIds.has(b.id) ? 'Joined ✓' : 'Join'}
                       </button>
+                    )}
+                    {/* The plan for this trial, opened for its first child. Every
+                        child of a group trial has their own link under Trials
+                        coming up. */}
+                    {b.is_trial && b.status === 'scheduled' && (
+                      <Link
+                        href={`/dashboard/teacher/trial-playbook?subject=${encodeURIComponent(b.trial_subject ?? '')}&grade=${b.roster[0]?.grade ?? ''}&child=${encodeURIComponent(b.roster[0]?.name ?? b.student_names[0] ?? '')}&student=${b.roster[0]?.id ?? ''}&booking=${b.id}`}
+                        className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-[10px] font-bold transition-colors"
+                        style={{ fontFamily: 'var(--font-grotesk)' }}
+                      >
+                        <Compass className="w-3 h-3" /> Playbook
+                      </Link>
                     )}
                     {onSelectBooking && (b.status === 'scheduled' || b.status === 'completed') && (
                       <button

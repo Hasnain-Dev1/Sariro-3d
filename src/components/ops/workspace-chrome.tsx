@@ -4,10 +4,11 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import {
-  ArrowRight, CheckCircle2, Sun, CalendarRange, Users, TrendingUp, Landmark, ShieldCheck, type LucideIcon,
+  ArrowRight, CheckCircle2, Sun, CalendarRange, Users, TrendingUp, Landmark, ShieldCheck, Wallet, Sprout,
+  PhoneCall, Trophy, Compass, type LucideIcon,
 } from 'lucide-react';
 import {
-  ROLE_LABEL, WORKSPACE_META, WORKSPACE_ORDER, sectionsIn, waitingAt, workspaceHref,
+  ROLE_COPY, WORKSPACE_ORDER, sectionsIn, waitingAt, workspaceHref, workspaceMeta,
   type WorkspaceIcon, type WorkspaceKey, type WorkspaceRole,
 } from '@/lib/ops/workspaces';
 import type { AttentionItem } from '@/lib/ops/attention';
@@ -33,6 +34,11 @@ export const WORKSPACE_ICON: Record<WorkspaceIcon, LucideIcon> = {
   sales: TrendingUp,
   finance: Landmark,
   quality: ShieldCheck,
+  wallet: Wallet,
+  growth: Sprout,
+  trials: PhoneCall,
+  progress: Trophy,
+  explore: Compass,
 };
 
 function CountPill({ count, urgent, inverted = false }: { count: number; urgent: boolean; inverted?: boolean }) {
@@ -57,7 +63,7 @@ export function WorkspaceTabs() {
     <nav aria-label="Workspaces" className="mb-6 -mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto scroll-strip">
       <div className="inline-flex min-w-full sm:min-w-0 gap-1 rounded-2xl bg-white border border-[var(--card-border)] p-1.5 shadow-[0_1px_2px_rgba(42,37,31,0.05)]">
         {WORKSPACE_ORDER[ws.role].map((key) => {
-          const meta = WORKSPACE_META[key];
+          const meta = workspaceMeta(ws.role, key);
           const Icon = WORKSPACE_ICON[meta.icon];
           const href = workspaceHref(ws.role, key);
           const active = key === ws.workspace;
@@ -91,7 +97,7 @@ export function WorkspaceHeader({ actions }: { actions?: ReactNode }) {
   const router = useRouter();
   if (!ws) return null;
 
-  const meta = WORKSPACE_META[ws.workspace];
+  const meta = workspaceMeta(ws.role, ws.workspace);
   const Icon = WORKSPACE_ICON[meta.icon];
   const href = workspaceHref(ws.role, ws.workspace);
   const here: AttentionItem[] = (attention?.items ?? []).filter((i) => waitingAt([i], href).count > 0);
@@ -110,7 +116,7 @@ export function WorkspaceHeader({ actions }: { actions?: ReactNode }) {
             </span>
             <div className="min-w-0">
               <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                {ROLE_LABEL[ws.role]} · Workspace
+                {ROLE_COPY[ws.role].eyebrow}
               </p>
               <h1 className="mt-0.5 text-[1.85rem] sm:text-[2.2rem] font-extrabold leading-[1.05] tracking-[-0.02em] text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
                 {meta.label}
@@ -198,13 +204,13 @@ export function WorkspaceTiles() {
     <section className="mb-10" aria-labelledby="workspaces-heading">
       <div className="flex items-end justify-between gap-3 mb-4">
         <div>
-          <h2 id="workspaces-heading" className="text-lg font-bold text-slate-900">Workspaces</h2>
-          <p className="text-[13px] text-slate-500">Everything else, one focused page each.</p>
+          <h2 id="workspaces-heading" className="text-lg font-bold text-slate-900">{ROLE_COPY[ws.role].tilesTitle}</h2>
+          <p className="text-[13px] text-slate-500">{ROLE_COPY[ws.role].tilesBlurb}</p>
         </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+      <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 ${keys.length === 4 ? 'xl:grid-cols-4' : 'xl:grid-cols-3'}`}>
         {keys.map((key) => {
-          const meta = WORKSPACE_META[key];
+          const meta = workspaceMeta(ws.role, key);
           const Icon = WORKSPACE_ICON[meta.icon];
           const href = workspaceHref(ws.role, key);
           const waiting = waitingAt(items, href);

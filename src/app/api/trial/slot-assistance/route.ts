@@ -228,7 +228,7 @@ export async function POST(req: NextRequest) {
         type: 'lead_slot_assistance',
         title: 'A family needs a time arranging',
         message: `${name} wants ${subjectLabel(subject)} (${gradeTag(grade)}). All slots were filled — ring them to arrange the class.`,
-        link: `/dashboard/seller?lead=${result.leadId}`,
+        link: `/dashboard/seller/leads?lead=${result.leadId}`,
       })
     );
   }

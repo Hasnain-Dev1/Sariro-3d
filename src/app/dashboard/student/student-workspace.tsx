@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -10,8 +10,6 @@ import {
   ChevronDown, ChevronUp, CheckCircle2, Circle, Download, FolderOpen,
   X, Award, Users, CalendarPlus, Coins, History, Mic,
 } from 'lucide-react';
-import DashboardLayout from '@/components/dashboard/dashboard-layout';
-import { DesktopClock } from '@/components/dashboard/desktop-clock';
 import { TzBadge } from '@/components/dashboard/tz-badge';
 import { CancelClassModal } from '@/components/dashboard/cancel-class-modal';
 import { canJoinNow, humanCountdown } from '@/lib/dashboard/join-window';
@@ -46,6 +44,10 @@ import TrialClassesSection from '@/components/dashboard/trial-classes-section';
 import PracticeProgress from '@/components/speaking/practice-progress';
 import ParentReportCard from '@/components/dashboard/parent-report-card';
 import { canPractise } from '@/lib/speaking/access';
+import TodayQueue from '@/components/ops/today-queue';
+import { WorkspaceProvider, OpsSection } from '@/components/ops/workspace';
+import { WorkspaceTabs, WorkspaceHeader, WorkspaceTiles, WorkspaceAction } from '@/components/ops/workspace-chrome';
+import type { WorkspaceKey } from '@/lib/ops/workspaces';
 
 /* ───── Types ───── */
 interface Enrollment {
@@ -666,13 +668,16 @@ function ClassNotesSection({
   cohorts: Record<string, Cohort>;
   timezone: string | null;
 }) {
-  if (pastBookings.length === 0) return null;
-
   return (
-    <div className="mb-10">
+    <div>
       <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-jakarta)' }}>
         <FolderOpen className="w-5 h-5 text-amber-600" /> Class Notes &amp; Projects
       </h2>
+      {/* On its own workspace the section is always there, so it says what
+          will appear rather than leaving a heading over nothing. */}
+      {pastBookings.length === 0 && (
+        <p className="text-sm text-slate-500">After each class, its notes and a place to hand in your project appear here.</p>
+      )}
       <div className="space-y-2">
         {pastBookings.map((booking) => {
           const cohort = cohorts[booking.cohort_id];
@@ -760,15 +765,38 @@ function ClassNotesSection({
 function CreditsSection({
   credits,
   transactions,
+  historyOnly = false,
 }: {
   credits: CreditRow | null;
   transactions: CreditTransactionRow[];
+  /** On Credits the balances are already above, in StudentCreditsPanel. */
+  historyOnly?: boolean;
 }) {
   const [showHistory, setShowHistory] = useState(false);
   const balance = credits?.balance ?? 0;
 
+  if (historyOnly) {
+    return transactions.length === 0 ? (
+      <p className="text-sm text-slate-500">No credits used or added yet.</p>
+    ) : (
+      <div className="card-3d p-4 space-y-2">
+        {transactions.map((tx) => (
+          <div key={tx.id} className="flex items-center justify-between gap-3 py-2 border-b border-slate-100 last:border-0">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-slate-900 truncate" style={{ fontFamily: 'var(--font-jakarta)' }}>{tx.description}</p>
+              <p className="text-xs text-slate-500">{formatTransactionType(tx.type)} · {formatTransactionTime(tx.created_at)}</p>
+            </div>
+            <p className={`text-sm font-extrabold shrink-0 ${tx.amount > 0 ? 'text-green-600' : 'text-red-600'}`} style={{ fontFamily: 'var(--font-grotesk)' }}>
+              {formatCreditAmount(tx.amount)}
+            </p>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
-    <div className="mb-10">
+    <div>
       {/* Balance card */}
       <div className="card-3d p-5 mb-3" style={{ background: balance > 0 ? 'linear-gradient(135deg, #F0FDF4 0%, #FFFFFF 100%)' : undefined }}>
         <div className="flex items-center justify-between gap-3">
@@ -836,7 +864,7 @@ function ClassmatesSection({ classmates }: {
 }) {
   if (classmates.length === 0) return null;
   return (
-    <div className="mb-10">
+    <div>
       <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-jakarta)' }}>
         <Users className="w-5 h-5 text-violet-600" /> Classmates
       </h2>
@@ -873,7 +901,7 @@ function ClassmatesSection({ classmates }: {
 }
 
 /* ───── Main page ───── */
-function StudentDashboardInner() {
+function StudentDashboardInner({ workspace }: { workspace: WorkspaceKey }) {
   const { user, profile } = useAuth();
   const supabase = createClient();
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
@@ -1181,64 +1209,52 @@ function StudentDashboardInner() {
     );
   }
 
-  return (
-    <section className="relative pt-6 sm:pt-10 pb-16 px-4 sm:px-6 lg:px-10">
-      <div className="max-w-6xl mx-auto">
-        {/* Welcome header */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mb-8 flex items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Sparkles className="w-5 h-5 text-blue-600" />
-              <span className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                Student Dashboard
-              </span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
-              Hey {firstName}! 👋
-            </h1>
-            <p className="text-slate-600 mt-1.5 text-sm sm:text-base">
-              Welcome back. Here's your learning journey at a glance.
-            </p>
-          </div>
-          <DesktopClock />
-        </motion.div>
+  const headerActions: Partial<Record<WorkspaceKey, ReactNode>> = {
+    classes: (
+      <>
+        <WorkspaceAction icon={BookOpen} primary href="/dashboard/student/lessons">My lessons</WorkspaceAction>
+        {canPractise(enrollments) && <WorkspaceAction icon={Mic} href="/dashboard/student/practice">Practice room</WorkspaceAction>}
+      </>
+    ),
+    progress: (
+      <>
+        {canPractise(enrollments) && <WorkspaceAction icon={Mic} primary href="/dashboard/student/practice">Practice room</WorkspaceAction>}
+        <WorkspaceAction icon={Award} href="/dashboard/student/leaderboard">Leaderboard</WorkspaceAction>
+      </>
+    ),
+    explore: (
+      <>
+        <WorkspaceAction icon={Sparkles} primary href="/welcome?from=dashboard#book">Try a free class</WorkspaceAction>
+        <WorkspaceAction icon={Rocket} href="/courses">All courses</WorkspaceAction>
+      </>
+    ),
+  };
 
-        {/* A booked trial, for somebody who already has classes. TrialJourney
-            takes the whole page for a student with nothing else on their
-            account; replacing a real dashboard would hide their actual
-            classes behind a trial for a second course. Without this, a booked
-            trial was invisible to anybody already enrolled — the class
+  return (
+    <section className="relative pt-6 sm:pt-8 pb-16 px-4 sm:px-6 lg:px-10">
+      <div className="max-w-6xl mx-auto">
+        <WorkspaceTabs />
+
+        {workspace !== 'today' && <WorkspaceHeader actions={headerActions[workspace]} />}
+
+        {/* A booked trial, for somebody who already has classes. Without this, a
+            booked trial was invisible to anybody already enrolled — the class
             existed, the teacher expected them, and nothing said so. */}
-        {trial && <TrialCard trial={trial} timezone={profile?.timezone ?? null} />}
+        {workspace === 'today' && trial && <TrialCard trial={trial} timezone={profile?.timezone ?? null} />}
 
         {/* Live class-status popup (teacher late / no-show) */}
         <TeacherLatePopup />
-
-        {/* The one question a student actually has, answered before anything
-            else on a 1,191-line page. Nothing below is removed — it is just no
-            longer the first thing a six-year-old meets. */}
-        {!loading && !error && (
-          <StudentNextUp
-            booking={bookings[0] ?? null}
-            firstName={firstName}
-            hasCredits={(credits?.balance ?? 0) > 0}
-            joined={false}
-            onJoin={() => {
-              document.getElementById('next-class-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }}
-          />
-        )}
 
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
           </div>
         ) : error ? (
-          <div className="card-3d p-6 border-l-4 border-red-400">
+          <div className="card-3d p-6 border-l-4 border-red-400 mb-8">
             <div className="flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
               <div>
-                <h3 className="font-bold text-slate-900 mb-1">Couldn't load your dashboard</h3>
+                <h3 className="font-bold text-slate-900 mb-1">Couldn&apos;t load your dashboard</h3>
                 <p className="text-sm text-slate-600">{error}</p>
                 <button onClick={() => window.location.reload()} className="mt-3 text-xs font-bold text-blue-600">
                   Try again
@@ -1247,135 +1263,147 @@ function StudentDashboardInner() {
             </div>
           </div>
         ) : (
+          /* ── Today ── The one question a student actually has — when is my
+             class, and what do I press? — answered before anything else. */
+          <OpsSection id="next-class" bare>
+            <StudentNextUp
+              booking={bookings[0] ?? null}
+              firstName={firstName}
+              hasCredits={(credits?.balance ?? 0) > 0}
+              joined={false}
+              onJoin={() => {
+                document.getElementById('next-class-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }}
+            />
+            {bookings.length > 0 && (
+              <div className="mt-4 max-w-md">
+                <ScheduleCard
+                  key={bookings[0].id}
+                  booking={bookings[0]}
+                  cohort={bookings[0].cohort_id ? cohorts[bookings[0].cohort_id] : undefined}
+                  timezone={userTimezone}
+                  credits={credits}
+                />
+              </div>
+            )}
+          </OpsSection>
+        )}
+
+        {/* Then the rest of the day, in a child's words — see QUEUE_COPY. */}
+        {workspace === 'today' && (
           <>
-            {/* Recommended next (only if user has completed a course) */}
-            {recommendation && (
-              <div className="mb-8">
+            <TodayQueue />
+            <WorkspaceTiles />
+          </>
+        )}
+
+        {!loading && !error && (
+          <>
+            {/* ── Classes ─────────────────────────────────────────────────── */}
+
+            {/* enrollments is never empty here — a student with none is sent to
+                the trial page by AuthGate before any of this renders. */}
+            <OpsSection id="courses" icon={BookOpen}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {enrollments.map((e) => (
+                  <CourseCard
+                    key={e.id}
+                    enrollment={e}
+                    cohort={e.cohort_id ? cohorts[e.cohort_id] : undefined}
+                    onChanged={loadAll}
+                  />
+                ))}
+              </div>
+            </OpsSection>
+
+            {/* Their free classes, kept apart from the ones above. A trial
+                consumes no credit, belongs to no cohort and may be for a course
+                they have never bought. Renders nothing for somebody who has
+                never had one. */}
+            <OpsSection id="trials" bare>
+              <TrialClassesSection timezone={userTimezone} />
+            </OpsSection>
+
+            {/* Class Notes & Projects (Capstone system — links to submission page) */}
+            <OpsSection id="notes" bare>
+              <ClassNotesSection pastBookings={pastBookings} cohorts={cohorts} timezone={userTimezone} />
+            </OpsSection>
+
+            {/* ── Progress ────────────────────────────────────────────────── */}
+
+            {/* What they did on the six days there was no class. Public Speaking
+                only: a child learning Python has no use for a filler-word chart,
+                and the sidebar row already carries the offer to everybody else. */}
+            {canPractise(enrollments) && (
+              <OpsSection id="practice" icon={Mic}>
+                {/* The report first — it is the thing a parent reads and the
+                    thing they forward. The detail below it is for the child. */}
+                <ParentReportCard childName={displayName} />
+                <div className="mt-4">
+                  <PracticeProgress />
+                </div>
+                <Link
+                  href="/dashboard/student/practice"
+                  className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-blue-600 hover:text-blue-700"
+                  style={{ fontFamily: 'var(--font-grotesk)' }}
+                >
+                  Open the practice room <ArrowRight className="w-4 h-4" />
+                </Link>
+              </OpsSection>
+            )}
+
+            {/* §56-57 — points earned by turning up, spent on cosmetics. */}
+            <OpsSection id="rewards" icon={Sparkles}>
+              <RewardsPanel />
+            </OpsSection>
+
+            {/* Classmates (v2 — only rendered when peers exist) */}
+            <OpsSection id="classmates" bare>
+              <ClassmatesSection classmates={classmates} />
+            </OpsSection>
+
+            {/* ── Credits ─────────────────────────────────────────────────── */}
+
+            {/* Two balances, the pause notice, and every lesson still owed —
+                the explanation before the ledger. */}
+            <OpsSection id="balance" icon={Coins}>
+              <StudentCreditsPanel />
+            </OpsSection>
+
+            <OpsSection id="history" icon={History}>
+              <CreditsSection credits={credits} transactions={creditTransactions} historyOnly />
+            </OpsSection>
+
+            {/* ── Explore ─────────────────────────────────────────────────── */}
+
+            {/* Only once a course is complete; otherwise the tracks say it. */}
+            <OpsSection id="recommended" bare>
+              {recommendation ? (
                 <RecommendedNextCard
                   rec={recommendation.rec}
                   completedTrackName={recommendation.completedTrackName}
                   completedLevel={recommendation.completedLevel}
                 />
-              </div>
-            )}
+              ) : null}
+            </OpsSection>
 
-            {/* Two balances, the pause notice, and every lesson still owed.
-                Above the transaction history on purpose: a family whose
-                classes have stopped needs the explanation before the ledger. */}
-            <div className="mb-10">
-              <StudentCreditsPanel />
-            </div>
-
-            {/* Credits balance + transaction history */}
-            <CreditsSection credits={credits} transactions={creditTransactions} />
-
-            {/* My Courses */}
-            <div className="mb-10">
-              <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-jakarta)' }}>
-                <BookOpen className="w-5 h-5 text-blue-600" /> My Courses
-              </h2>
-              {/* enrollments is never empty here — a student with none is sent
-                  to NotEnrolledYet above, before any of this renders. */}
-              {(
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {enrollments.map((e) => (
-                    <CourseCard
-                      key={e.id}
-                      enrollment={e}
-                      cohort={e.cohort_id ? cohorts[e.cohort_id] : undefined}
-                      onChanged={loadAll}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Next Class — only the single next upcoming session (not the whole
-                course schedule), so students always see exactly what's next. */}
-            <div className="mb-10" id="schedule">
-              <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-jakarta)' }}>
-                <Calendar className="w-5 h-5 text-blue-600" /> Next Class
-              </h2>
-              {bookings.length === 0 ? (
-                <div className="card-3d p-6 text-center">
-                  <Clock className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                  <p className="text-sm text-slate-500">
-                    No sessions scheduled yet. Once your cohort is activated, your class times will appear here.
-                  </p>
-                </div>
-              ) : (
-                <div className="max-w-md">
-                  <ScheduleCard
-                    key={bookings[0].id}
-                    booking={bookings[0]}
-                    cohort={bookings[0].cohort_id ? cohorts[bookings[0].cohort_id] : undefined}
-                    timezone={userTimezone}
-                    credits={credits}
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Their free classes, kept apart from the ones above. A trial
-                consumes no credit, belongs to no cohort and may be for a
-                course they have never bought — listing it with their real
-                schedule would make a free half hour look like a paid lesson.
-                Renders nothing at all for somebody who has never had one. */}
-            <TrialClassesSection timezone={userTimezone} />
-
-            {/* Class Notes & Projects (Capstone system — links to submission page) */}
-            <ClassNotesSection pastBookings={pastBookings} cohorts={cohorts} timezone={userTimezone} />
-
-            {/* What they did on the six days there was no class. A dashboard
-                that only counts attendance can only ever say "8 classes"; this
-                is the half of the story that belongs to the child.
-
-                Public Speaking only. A child learning Python has no use for a
-                filler-word chart, and the sidebar row plus the locked page
-                already carry the offer to everybody else — putting the pitch
-                on their home screen as well is nagging, not marketing. */}
-            {canPractise(enrollments) && (
-            <div>
-              <div className="flex items-center justify-between gap-3 mb-4">
-                <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2" style={{ fontFamily: 'var(--font-jakarta)' }}>
-                  <Mic className="w-5 h-5 text-blue-600" /> Practice
-                </h2>
-                <Link
-                  href="/dashboard/student/practice"
-                  className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                  style={{ fontFamily: 'var(--font-grotesk)' }}
-                >
-                  Practice room <ArrowRight className="w-3 h-3" />
-                </Link>
-              </div>
-              {/* The report first — it is the thing a parent reads and the
-                  thing they forward. The detail below it is for the child. */}
-              <ParentReportCard childName={displayName} />
-              <div className="mt-4">
-                <PracticeProgress />
-              </div>
-            </div>
-            )}
-
-            {/* §56-57 — points earned by turning up, spent on cosmetics.
-                Below the work, above the browsing: it is a reason to come back,
-                not the reason they are here. */}
-            <div>
-              <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-jakarta)' }}>
-                <Sparkles className="w-5 h-5 text-violet-600" /> Points &amp; Rewards
-              </h2>
-              <RewardsPanel />
-            </div>
-
-            {/* Classmates (v2 — only rendered when peers exist) */}
-            <ClassmatesSection classmates={classmates} />
-
-            {/* Browse all tracks (always shown for discoverability) */}
-            <div>
-              <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-jakarta)' }}>
-                <TrendingUp className="w-5 h-5 text-blue-600" /> Explore Tracks
-              </h2>
+            <OpsSection id="tracks" icon={TrendingUp}>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {/* A student who liked one course wants to try another, and the
+                    booking form lived only on the public site behind a sign-in
+                    they had already done. */}
+                <Link
+                  href="/welcome?from=dashboard#book"
+                  className="card-3d p-4 hover:shadow-lg transition-shadow group border-2 border-dashed border-orange-200 bg-orange-50/40"
+                >
+                  <h4 className="font-bold text-slate-900 text-sm mb-1 flex items-center gap-1.5" style={{ fontFamily: 'var(--font-jakarta)' }}>
+                    <Sparkles className="w-4 h-4 text-orange-500" /> Try another course, free
+                  </h4>
+                  <p className="text-xs text-slate-500 line-clamp-2">Book a free trial class in any subject — no credits used.</p>
+                  <div className="mt-3 flex items-center gap-1 text-xs font-bold text-orange-600">
+                    Book a trial <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+                </Link>
                 {TRACKS.map((track) => (
                   <Link
                     key={track.id}
@@ -1392,7 +1420,7 @@ function StudentDashboardInner() {
                   </Link>
                 ))}
               </div>
-            </div>
+            </OpsSection>
           </>
         )}
       </div>
@@ -1400,10 +1428,15 @@ function StudentDashboardInner() {
   );
 }
 
-export default function StudentDashboard() {
+/**
+ * The student's dashboard, one space at a time: Today, Classes, Progress,
+ * Credits, Explore. The page lists every section once; lib/ops/workspaces.ts
+ * decides where each appears. The shell is held by (workspace)/layout.tsx.
+ */
+export default function StudentWorkspace({ workspace }: { workspace: WorkspaceKey }) {
   return (
-    <DashboardLayout>
-      <StudentDashboardInner />
-    </DashboardLayout>
+    <WorkspaceProvider role="student" workspace={workspace}>
+      <StudentDashboardInner workspace={workspace} />
+    </WorkspaceProvider>
   );
 }

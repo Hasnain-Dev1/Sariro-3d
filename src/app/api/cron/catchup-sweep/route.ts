@@ -122,7 +122,7 @@ async function run(req: NextRequest) {
         type: 'catchup_reminder',
         title: stage === 'overdue' ? 'Catch-up session overdue' : 'Catch-up session to arrange',
         message: TEACHER_WORDS[stage](lesson),
-        link: '/dashboard/teacher#catchup',
+        link: '/dashboard/teacher/classes#catchup',
       });
     }
 
@@ -194,7 +194,7 @@ async function run(req: NextRequest) {
             'and we will find you a new time.'
           : 'Your classes are still paused. Your teacher, your course and everything you have ' +
             'completed are all still here — add credits to start again.',
-        link: '/dashboard/student',
+        link: '/dashboard/student/credits#balance',
       }).then(() => {}, () => {});
     }
   }

@@ -47,7 +47,7 @@ export default function NextClassCard({
 
   if (!next) {
     return (
-      <div className="card card--feature mb-10">
+      <div className="card card--feature">
         <div className="flex items-center gap-2.5 mb-2">
           <CalendarClock className="w-5 h-5 text-slate-400" />
           <span className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
@@ -65,7 +65,7 @@ export default function NextClassCard({
   const open = win.state === 'open';
 
   return (
-    <div className="card card--feature mb-10" style={{ ['--accent' as string]: '#16A34A' }}>
+    <div className="card card--feature" style={{ ['--accent' as string]: '#16A34A' }}>
       <div className="flex items-center gap-2.5 mb-3">
         <CalendarClock className="w-5 h-5 text-green-600" />
         <span className="text-xs font-bold uppercase tracking-[0.18em] text-green-600">

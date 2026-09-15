@@ -1,28 +1,41 @@
 /**
- * SARIRO — staff workspaces
+ * SARIRO — workspaces
  * ============================================================================
- * The admin and super-admin dashboards were each one page: thirty panels,
- * two thousand lines, read top to bottom. A super admin looking for last
- * month's expenses scrolled past trial grades, chat flags and lesson plans to
- * reach them, and every panel on the page fetched its data on every visit.
+ * Every dashboard was one page: thirty panels, two thousand lines, read top to
+ * bottom. A super admin looking for last month's expenses scrolled past trial
+ * grades, chat flags and lesson plans to reach them; a teacher looking for a
+ * project to mark scrolled past their pay, their calendar and their monitoring
+ * scores. And every panel on the page fetched its data on every visit.
  *
- * Now each role has workspaces — Today, Classes, People, Sales, Finance,
- * Quality — and each is its own address. This file is the one list of which
- * section lives in which workspace. Everything that points at a section reads
- * it: the Today queue's Resolve buttons, the sidebar, ⌘K, and the section
- * component itself, which renders only in the workspace named here. So a link
- * can never point at a section that is not on the page it opens — the bug the
- * old "Needs you today" box shipped with.
+ * Now each role has workspaces — a teacher's Today, Classes, Students, Pay and
+ * Growth; a student's Today, Classes, Progress, Credits and Explore — and each
+ * is its own address. This file is the one list of which section lives in
+ * which workspace. Everything that points at a section reads it: the Today
+ * queue's buttons, the sidebar, ⌘K, and the section component itself, which
+ * renders only in the workspace named here. So a link can never point at a
+ * section that is not on the page it opens — the bug the old "Needs you today"
+ * box shipped with.
  *
  * Pure, and tested (workspaces.test.ts), including a check that every section
  * here is actually placed on its role's page.
  */
 
-export type WorkspaceRole = 'super_admin' | 'admin';
+export type WorkspaceRole = 'super_admin' | 'admin' | 'teacher' | 'seller' | 'student';
 
-export type WorkspaceKey = 'today' | 'classes' | 'people' | 'sales' | 'finance' | 'quality';
+export type WorkspaceKey =
+  | 'today'
+  // staff
+  | 'classes' | 'people' | 'sales' | 'finance' | 'quality'
+  // teacher
+  | 'students' | 'pay' | 'growth'
+  // seller
+  | 'leads' | 'trials'
+  // student
+  | 'progress' | 'credits' | 'explore';
 
-export type WorkspaceIcon = 'today' | 'classes' | 'people' | 'sales' | 'finance' | 'quality';
+export type WorkspaceIcon =
+  | 'today' | 'classes' | 'people' | 'sales' | 'finance' | 'quality'
+  | 'wallet' | 'growth' | 'trials' | 'progress' | 'explore';
 
 export interface WorkspaceMeta {
   key: WorkspaceKey;
@@ -33,29 +46,76 @@ export interface WorkspaceMeta {
   accent: string;
 }
 
-export const WORKSPACE_META: Record<WorkspaceKey, WorkspaceMeta> = {
-  today: { key: 'today', label: 'Today', blurb: 'What is waiting on you, and how the system is doing.', icon: 'today', accent: '#0F172A' },
-  classes: { key: 'classes', label: 'Classes', blurb: 'Classes, batches, trials and courses — everything that runs on the timetable.', icon: 'classes', accent: '#7C3AED' },
-  people: { key: 'people', label: 'People', blurb: 'Students, families and teachers: enrolments, credits and certificates.', icon: 'people', accent: '#2563EB' },
-  sales: { key: 'sales', label: 'Sales', blurb: 'The funnel from first enquiry to paid seat.', icon: 'sales', accent: '#0891B2' },
-  finance: { key: 'finance', label: 'Finance', blurb: 'Money in and out: invoices, the ledger, expenses and next month.', icon: 'finance', accent: '#059669' },
-  quality: { key: 'quality', label: 'Quality', blurb: 'Keeping classes good and conversations on Sariro.', icon: 'quality', accent: '#BE185D' },
+const meta = (key: WorkspaceKey, label: string, icon: WorkspaceIcon, accent: string, blurb: string): WorkspaceMeta =>
+  ({ key, label, icon, accent, blurb });
+
+const STAFF_META: Partial<Record<WorkspaceKey, WorkspaceMeta>> = {
+  today: meta('today', 'Today', 'today', '#0F172A', 'What is waiting on you, and how the system is doing.'),
+  classes: meta('classes', 'Classes', 'classes', '#7C3AED', 'Classes, batches, trials and courses — everything that runs on the timetable.'),
+  people: meta('people', 'People', 'people', '#2563EB', 'Students, families and teachers: enrolments, credits and certificates.'),
+  sales: meta('sales', 'Sales', 'sales', '#0891B2', 'The funnel from first enquiry to paid seat.'),
+  finance: meta('finance', 'Finance', 'finance', '#059669', 'Money in and out: invoices, the ledger, expenses and next month.'),
+  quality: meta('quality', 'Quality', 'quality', '#BE185D', 'Keeping classes good and conversations on Sariro.'),
 };
+
+/* The same word means different work to different people — "Classes" to an
+   admin is every batch on the timetable, to a teacher it is their own week —
+   so each role names and describes its own workspaces. */
+export const WORKSPACE_META: Record<WorkspaceRole, Partial<Record<WorkspaceKey, WorkspaceMeta>>> = {
+  super_admin: STAFF_META,
+  admin: STAFF_META,
+  teacher: {
+    today: meta('today', 'Today', 'today', '#0F172A', 'Your next class, and what is waiting on you.'),
+    classes: meta('classes', 'Classes', 'classes', '#16A34A', 'Your timetable, the trials coming up, write-ups and the catch-ups you owe.'),
+    students: meta('students', 'Students', 'people', '#2563EB', 'The children you teach: projects to review and who is running low on credits.'),
+    pay: meta('pay', 'Pay', 'wallet', '#059669', 'What you have earned, what is on its way, and how to ask for leave or an incentive.'),
+    growth: meta('growth', 'Growth', 'growth', '#9333EA', 'Your rating, the courses you are cleared for, and how your classes are observed.'),
+  },
+  seller: {
+    today: meta('today', 'Today', 'today', '#0F172A', 'The calls that matter today.'),
+    leads: meta('leads', 'Leads', 'sales', '#0891B2', 'Every family you are working with, in the order to ring them.'),
+    trials: meta('trials', 'Trials', 'trials', '#7C3AED', 'Book a trial class and see which grades still have seats.'),
+    pay: meta('pay', 'Payout', 'wallet', '#059669', 'Your sales, your incentive and what you are owed this month.'),
+  },
+  student: {
+    today: meta('today', 'Today', 'today', '#1D4ED8', 'Your next class and what to do today.'),
+    classes: meta('classes', 'Classes', 'classes', '#2563EB', 'Your courses, your free classes, and notes from every class so far.'),
+    progress: meta('progress', 'Progress', 'progress', '#7C3AED', 'Practice, points and rewards — and the people in your class.'),
+    credits: meta('credits', 'Credits', 'wallet', '#059669', 'Classes left on your plan, and every credit in and out.'),
+    explore: meta('explore', 'Explore', 'explore', '#EA580C', 'What to learn next.'),
+  },
+};
+
+export function workspaceMeta(role: WorkspaceRole, key: WorkspaceKey): WorkspaceMeta {
+  const m = WORKSPACE_META[role][key];
+  if (!m) throw new Error(`${role} has no ${key} workspace`);
+  return m;
+}
 
 export const ROLE_HOME: Record<WorkspaceRole, string> = {
   super_admin: '/dashboard/super-admin',
   admin: '/dashboard/admin',
+  teacher: '/dashboard/teacher',
+  seller: '/dashboard/seller',
+  student: '/dashboard/student',
 };
 
-export const ROLE_LABEL: Record<WorkspaceRole, string> = {
-  super_admin: 'Super Admin',
-  admin: 'Admin',
+/** The words around the workspaces, which are not the same for a child. */
+export const ROLE_COPY: Record<WorkspaceRole, { eyebrow: string; tilesTitle: string; tilesBlurb: string }> = {
+  super_admin: { eyebrow: 'Super Admin · Workspace', tilesTitle: 'Workspaces', tilesBlurb: 'Everything else, one focused page each.' },
+  admin: { eyebrow: 'Admin · Workspace', tilesTitle: 'Workspaces', tilesBlurb: 'Everything else, one focused page each.' },
+  teacher: { eyebrow: 'Teacher · Workspace', tilesTitle: 'Your workspaces', tilesBlurb: 'Everything else about your teaching, one page each.' },
+  seller: { eyebrow: 'Seller · Workspace', tilesTitle: 'Your workspaces', tilesBlurb: 'Leads, trials and pay, one page each.' },
+  student: { eyebrow: 'My Sariro', tilesTitle: 'Your spaces', tilesBlurb: 'Everything else, one tap each.' },
 };
 
 /** Which workspaces each role has, in sidebar order. Admin has no Finance. */
 export const WORKSPACE_ORDER: Record<WorkspaceRole, readonly WorkspaceKey[]> = {
   super_admin: ['today', 'classes', 'people', 'sales', 'finance', 'quality'],
   admin: ['today', 'classes', 'people', 'sales', 'quality'],
+  teacher: ['today', 'classes', 'students', 'pay', 'growth'],
+  seller: ['today', 'leads', 'trials', 'pay'],
+  student: ['today', 'classes', 'progress', 'credits', 'explore'],
 };
 
 export interface SectionSpec {
@@ -122,10 +182,59 @@ export const SECTIONS = {
     { id: 'monitoring', workspace: 'quality', label: 'Monitor a class', keywords: 'monitoring observe class score teacher' },
     { id: 'chat-policy', workspace: 'quality', label: 'Chat policy', keywords: 'chat policy flag contact details phone' },
   ],
+  teacher: [
+    { id: 'next-class', workspace: 'today', label: 'Next class', keywords: 'next class join now upcoming' },
+    { id: 'totals', workspace: 'today', label: 'This week', keywords: 'stats classes hours students week' },
+
+    { id: 'registers', workspace: 'classes', label: 'Registers to mark', keywords: 'attendance register mark present absent penalty deadline' },
+    { id: 'schedule', workspace: 'classes', label: 'Schedule', keywords:'calendar timetable join mark attendance register reschedule cancel add session change schedule' },
+    { id: 'trials', workspace: 'classes', label: 'Trials coming up', keywords: 'trial playbook family answers prep demo free class plan' },
+    { id: 'write-ups', workspace: 'classes', label: 'Trial write-ups', keywords: 'trial write up feedback rating pay held release' },
+    { id: 'catchup', workspace: 'classes', label: 'Catch-up sessions', keywords: 'catch up catchup make up missed lesson deadline owe' },
+
+    { id: 'reviews', workspace: 'students', label: 'Projects to review', keywords: 'project submission review feedback capstone homework' },
+    { id: 'roster', workspace: 'students', label: 'My students', keywords: 'students roster children enrolments progress' },
+    { id: 'low-credits', workspace: 'students', label: 'Credits running low', keywords: 'low credits running out renew' },
+
+    { id: 'earnings', workspace: 'pay', label: 'Earnings & payouts', keywords: 'earnings payout pay salary incentive leave month bank' },
+
+    { id: 'standing', workspace: 'growth', label: 'Courses & rating', keywords: 'rating stars courses cleared training eligibility subjects' },
+    { id: 'monitoring', workspace: 'growth', label: 'Monitoring', keywords: 'monitoring observed score quality review' },
+    { id: 'managers', workspace: 'growth', label: 'Who you report to', keywords: 'manager admin hr reporting contact help' },
+    { id: 'tips', workspace: 'growth', label: 'Teaching tips', keywords: 'tips advice timezone room link' },
+  ],
+  seller: [
+    { id: 'managers', workspace: 'today', label: 'Who you report to', keywords: 'manager admin hr reporting contact' },
+
+    { id: 'queues', workspace: 'leads', label: 'Today’s calls', keywords: 'queue follow up overdue missed trial slot final conversation call ring reminder' },
+    { id: 'signals', workspace: 'leads', label: 'Who to ring first', keywords: 'trial write ups signals likely yes teacher opinion' },
+    { id: 'all-leads', workspace: 'leads', label: 'All my leads', keywords: 'leads pipeline stage family search' },
+
+    { id: 'trial-grades', workspace: 'trials', label: 'Open trial seats', keywords: 'trial grade seats class full band' },
+
+    { id: 'payout', workspace: 'pay', label: 'Payout', keywords: 'payout incentive sales commission month settle earned' },
+  ],
+  student: [
+    { id: 'next-class', workspace: 'today', label: 'Next class', keywords: 'next class join time when schedule' },
+
+    { id: 'courses', workspace: 'classes', label: 'My courses', keywords: 'courses enrolled progress lessons batch' },
+    { id: 'trials', workspace: 'classes', label: 'Free trial classes', keywords: 'trial free class' },
+    { id: 'notes', workspace: 'classes', label: 'Class notes & projects', keywords: 'notes project submit homework past classes recording' },
+
+    { id: 'practice', workspace: 'progress', label: 'Speaking practice', keywords: 'practice speaking report voice quest parent' },
+    { id: 'rewards', workspace: 'progress', label: 'Points & rewards', keywords: 'points rewards shop badges theme' },
+    { id: 'classmates', workspace: 'progress', label: 'Classmates', keywords: 'classmates friends batch group' },
+
+    { id: 'balance', workspace: 'credits', label: 'Classes left', keywords: 'credits balance paused catch up top up' },
+    { id: 'history', workspace: 'credits', label: 'Credit history', keywords: 'credit history transactions used added' },
+
+    { id: 'recommended', workspace: 'explore', label: 'Recommended next', keywords: 'next course recommended level up' },
+    { id: 'tracks', workspace: 'explore', label: 'Explore tracks', keywords: 'tracks courses browse try another trial' },
+  ],
 } as const satisfies Record<WorkspaceRole, readonly SectionSpec[]>;
 
 export type SectionId<R extends WorkspaceRole> = (typeof SECTIONS)[R][number]['id'];
-export type AnySectionId = SectionId<'super_admin'> | SectionId<'admin'>;
+export type AnySectionId = { [R in WorkspaceRole]: SectionId<R> }[WorkspaceRole];
 
 export function workspaceHref(role: WorkspaceRole, workspace: WorkspaceKey): string {
   return workspace === 'today' ? ROLE_HOME[role] : `${ROLE_HOME[role]}/${workspace}`;
@@ -163,16 +272,19 @@ export function workspaceAt(role: WorkspaceRole, pathname: string): WorkspaceKey
   return WORKSPACE_ORDER[role].find((w) => workspaceHref(role, w) === path) ?? null;
 }
 
-/** Everything a staff member can scroll to, for ⌘K's "Go to". */
+/** Everything a person can scroll to, for ⌘K's "Go to". */
 export function placesFor(role: WorkspaceRole): { href: string; label: string; hint: string; keywords: string }[] {
   return (SECTIONS[role] as readonly SectionSpec[])
     .filter((s) => s.workspace !== 'today')
-    .map((s) => ({
-      href: `${workspaceHref(role, s.workspace)}#${s.id}`,
-      label: s.label,
-      hint: WORKSPACE_META[s.workspace].label,
-      keywords: `${s.keywords} ${WORKSPACE_META[s.workspace].label.toLowerCase()}`,
-    }));
+    .map((s) => {
+      const ws = workspaceMeta(role, s.workspace);
+      return {
+        href: `${workspaceHref(role, s.workspace)}#${s.id}`,
+        label: s.label,
+        hint: ws.label,
+        keywords: `${s.keywords} ${ws.label.toLowerCase()}`,
+      };
+    });
 }
 
 /** How much is waiting on one page — for the sidebar badge and workspace tabs. */

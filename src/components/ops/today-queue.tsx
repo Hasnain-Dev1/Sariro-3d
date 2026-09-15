@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, CheckCircle2, Command, Loader2, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/components/auth/auth-provider';
-import { ATTENTION_SHORT, greetingFor, type AttentionItem, type Severity } from '@/lib/ops/attention';
+import { ATTENTION_SHORT, QUEUE_COPY, greetingFor, type AttentionItem, type QueueCopy, type Severity } from '@/lib/ops/attention';
 import { useAttention } from './attention-provider';
 import { goTo } from './go-to';
 import { OPS_ICON } from './ops-icon';
@@ -13,19 +13,26 @@ import { openCommandBar } from './command-bar';
 /**
  * SARIRO — Today
  * ============================================================================
- * The first thing on a staff dashboard: what is waiting on this person, most
+ * The first thing on every dashboard: what is waiting on this person, most
  * urgent first, one click from the place it gets done. Replaces the scroll —
  * a super admin used to read thirty panels top to bottom to find out whether
- * anything needed them.
+ * anything needed them, and a teacher found their held pay by scrolling past
+ * it. It speaks each role's language (QUEUE_COPY): a child is told what there
+ * is to do today, and nothing on their screen says Urgent.
  *
  * Every count comes from the panel's own fetcher (attention-provider.tsx), so
  * the number here and the list it opens always agree.
  */
 
-const SEVERITY_LABEL: Record<Severity, { label: string; dot: string; text: string; chip: string }> = {
-  urgent: { label: 'Urgent', dot: '#F87171', text: 'text-red-700', chip: 'bg-red-50 text-red-700 ring-red-200' },
-  today: { label: 'Today', dot: '#FBBF24', text: 'text-amber-700', chip: 'bg-amber-50 text-amber-800 ring-amber-200' },
-  watch: { label: 'Watch', dot: '#34D399', text: 'text-emerald-700', chip: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
+const SEVERITY_STYLE: Record<Severity, { dot: string; chip: string }> = {
+  urgent: { dot: '#F87171', chip: 'bg-red-50 text-red-700 ring-red-200' },
+  today: { dot: '#FBBF24', chip: 'bg-amber-50 text-amber-800 ring-amber-200' },
+  watch: { dot: '#34D399', chip: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
+};
+
+const MASTHEAD: Record<QueueCopy['tone'], string> = {
+  work: 'radial-gradient(120% 140% at 0% 0%, #3B2F22 0%, #1A1611 55%, #0D0B08 100%)',
+  learner: 'radial-gradient(120% 140% at 0% 0%, #7C3AED 0%, #2563EB 55%, #1E3A8A 100%)',
 };
 
 function useNow(everyMs: number) {
@@ -63,17 +70,18 @@ export default function TodayQueue() {
   }, []);
 
   if (!attention) return null;
-  const { items, total, bySeverity, failed, allClear, pending, refresh, lastUpdated } = attention;
+  const { items, total, bySeverity, failed, allClear, pending, refresh, lastUpdated, role } = attention;
+  const copy = QUEUE_COPY[role];
   const firstName = (profile?.full_name ?? '').trim().split(/\s+/)[0] || 'there';
   const nothingYet = pending && items.length === 0;
 
   const headline = nothingYet
-    ? 'Checking what needs you…'
+    ? copy.checking
     : allClear
-      ? 'Nothing is waiting on you.'
+      ? copy.nothing
       : items.length === 0
         ? 'Nothing found yet.'
-        : `${total} ${total === 1 ? 'thing needs' : 'things need'} you`;
+        : copy.headline(total);
 
   return (
     <section id="today" className="mb-10" aria-labelledby="today-heading">
@@ -81,7 +89,7 @@ export default function TodayQueue() {
         {/* The masthead */}
         <div
           className="relative px-5 py-6 sm:px-8 sm:py-7 text-white"
-          style={{ background: 'radial-gradient(120% 140% at 0% 0%, #3B2F22 0%, #1A1611 55%, #0D0B08 100%)' }}
+          style={{ background: MASTHEAD[copy.tone] }}
         >
           <span aria-hidden className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
           <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
@@ -98,8 +106,8 @@ export default function TodayQueue() {
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                   {(['urgent', 'today', 'watch'] as Severity[]).filter((s) => bySeverity[s] > 0).map((s) => (
                     <span key={s} className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[12px] font-semibold text-white/90 tabular-nums">
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: SEVERITY_LABEL[s].dot }} />
-                      {bySeverity[s]} {SEVERITY_LABEL[s].label.toLowerCase()}
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: SEVERITY_STYLE[s].dot }} />
+                      {bySeverity[s]} {copy.severity[s].toLowerCase()}
                     </span>
                   ))}
                 </div>
@@ -138,13 +146,13 @@ export default function TodayQueue() {
             <div className="flex items-center gap-3 rounded-2xl bg-white border border-emerald-200 px-5 py-4">
               <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0" />
               <p className="text-[14.5px] text-slate-700">
-                <span className="font-bold text-slate-900">All clear.</span> Every queue is empty — classes decided, requests answered, invoices in the books.
+                <span className="font-bold text-slate-900">All clear.</span> {copy.allClear}
               </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
               {items.map((item) => (
-                <QueueCard key={item.key} item={item} onOpen={() => goTo(item.href, router.push)} />
+                <QueueCard key={item.key} item={item} copy={copy} onOpen={() => goTo(item.href, router.push)} />
               ))}
               {nothingYet && [0, 1, 2].map((i) => <SkeletonCard key={i} />)}
             </div>
@@ -165,9 +173,9 @@ export default function TodayQueue() {
   );
 }
 
-function QueueCard({ item, onOpen }: { item: AttentionItem; onOpen: () => void }) {
+function QueueCard({ item, copy, onOpen }: { item: AttentionItem; copy: QueueCopy; onOpen: () => void }) {
   const Icon = OPS_ICON[item.icon];
-  const sev = SEVERITY_LABEL[item.severity];
+  const sev = SEVERITY_STYLE[item.severity];
   return (
     <button
       type="button"
@@ -183,7 +191,7 @@ function QueueCard({ item, onOpen }: { item: AttentionItem; onOpen: () => void }
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
             <span className={`text-[10.5px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ring-1 ${sev.chip}`} style={{ fontFamily: 'var(--font-grotesk)' }}>
-              {sev.label}
+              {copy.severity[item.severity]}
             </span>
             <span className="text-[1.9rem] leading-none font-extrabold text-slate-900 tabular-nums" style={{ fontFamily: 'var(--font-jakarta)' }}>
               {item.count}
@@ -192,7 +200,7 @@ function QueueCard({ item, onOpen }: { item: AttentionItem; onOpen: () => void }
           <p className="mt-2 text-[15px] font-bold text-slate-900 leading-snug">{item.title}</p>
           <p className="mt-1 text-[12.5px] leading-[1.5] text-slate-500 line-clamp-2">{item.why}</p>
           <span className="mt-3 inline-flex items-center gap-1 text-[12.5px] font-bold" style={{ color: item.accent, fontFamily: 'var(--font-grotesk)' }}>
-            Resolve
+            {copy.cta}
             <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
           </span>
         </div>

@@ -132,7 +132,7 @@ export default function SellerQueues({ sellerId }: { sellerId?: string }) {
 
   useEffect(() => { void load(); }, [load]);
 
-  /* A reminder's deep link: /dashboard/seller?lead=…  The family may be in no
+  /* A reminder's deep link: /dashboard/seller/leads?lead=…  The family may be in no
      queue at all, so it opens in "All leads", where every family is. */
   useEffect(() => {
     const wanted = new URLSearchParams(globalThis.location?.search ?? '').get('lead');

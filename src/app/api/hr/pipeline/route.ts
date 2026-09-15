@@ -306,7 +306,7 @@ export async function POST(req: NextRequest) {
           decision === 'approved'
             ? `₹${Number(decided.amount).toLocaleString('en-IN')} for ${monthLabel(decided.month_key as string)} joins your next settlement.`
             : `HR did not approve the ${monthLabel(decided.month_key as string)} incentive.${note ? ` Reason: ${note}` : ''}`,
-        link: '/dashboard/seller?tab=payout',
+        link: '/dashboard/seller/pay',
       })
     );
 
@@ -397,7 +397,7 @@ export async function POST(req: NextRequest) {
         message: next === 'paid'
           ? `${total} for ${month} is marked paid.`
           : `${total} for ${month} is approved${next === 'processing' ? ' and the payment is on its way' : ''}.`,
-        link: '/dashboard/seller?tab=payout',
+        link: '/dashboard/seller/pay',
       })
     );
 

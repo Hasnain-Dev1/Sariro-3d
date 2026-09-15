@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { staffCommands, searchCommands, targetOf } from './commands';
+import { commandsFor, searchCommands, targetOf } from './commands';
 import { summariseAttention, sourcesFor } from './attention';
 
 const nav = [
@@ -16,8 +16,8 @@ const hrAttention = summariseAttention('hr', {
   unrecorded_invoices: 1,
 }).items;
 
-describe('staffCommands', () => {
-  const commands = staffCommands('hr', hrAttention, nav);
+describe('commandsFor', () => {
+  const commands = commandsFor('hr', hrAttention, nav);
 
   test('needs first, then jobs, then pages', () => {
     const groups = commands.map((c) => c.group);
@@ -40,15 +40,22 @@ describe('staffCommands', () => {
     assert.equal(new Set(commands.map((c) => c.id)).size, commands.length);
   });
 
-  test('every role can issue a certificate from the bar', () => {
+  test('every staff role can issue a certificate from the bar', () => {
     for (const role of ['super_admin', 'admin', 'hr'] as const) {
-      assert.ok(staffCommands(role, [], []).some((c) => /certificate/i.test(c.label)), role);
+      assert.ok(commandsFor(role, [], []).some((c) => /certificate/i.test(c.label)), role);
     }
+  });
+
+  test('each role reaches its own everyday job in a word', () => {
+    assert.equal(searchCommands(commandsFor('teacher', [], []), 'register')[0].label, 'Mark a register');
+    assert.equal(searchCommands(commandsFor('teacher', [], []), 'playbook')[0].label, 'Open a trial playbook');
+    assert.equal(searchCommands(commandsFor('seller', [], []), 'book')[0].label, 'Book a trial class');
+    assert.equal(searchCommands(commandsFor('student', [], []), 'practice')[0].label, 'Practise speaking');
   });
 });
 
 describe('searchCommands', () => {
-  const commands = staffCommands('hr', hrAttention, nav);
+  const commands = commandsFor('hr', hrAttention, nav);
 
   test('empty query offers everything in order', () => {
     assert.equal(searchCommands(commands, '  ').length, commands.length);
@@ -75,7 +82,7 @@ describe('sections in "Go to"', () => {
     { href: '/dashboard/super-admin/finance#expenses', label: 'Expenses', hint: 'Finance', keywords: 'expense spend finance' },
     { href: '/dashboard/super-admin/quality#audit', label: 'Audit logs', hint: 'Quality', keywords: 'audit log quality' },
   ];
-  const commands = staffCommands('super_admin', [], [{ href: '/dashboard/super-admin/finance', label: 'Finance' }], sections);
+  const commands = commandsFor('super_admin', [], [{ href: '/dashboard/super-admin/finance', label: 'Finance' }], sections);
 
   test('come after the sidebar, carrying their workspace as the hint', () => {
     const go = commands.filter((c) => c.group === 'Go to');

@@ -231,7 +231,7 @@ export async function POST(req: NextRequest) {
       message:
         `Lesson ${lesson.lesson_number}${lesson.lesson_title ? ` — ${lesson.lesson_title}` : ''} ` +
         `with ${teacher?.full_name ?? 'your teacher'}, ${cfg.minutes} minutes.`,
-      link: '/dashboard/student',
+      link: '/dashboard/student/credits#balance',
     }).then(() => {}, () => {});
 
     return NextResponse.json({ ok: true, bookingId: booking.id, slotEnd: endIso });

@@ -218,7 +218,7 @@ export default function TeacherEarnings() {
   };
 
   return (
-    <section className="mb-10">
+    <section>
       <div className="flex items-center gap-2 mb-4">
         <Wallet className="w-5 h-5 text-green-600" />
         <h2 className="text-lg sm:text-xl font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>

@@ -1,20 +1,17 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Calendar, Clock, Users, Video, Loader2, AlertCircle, ClipboardCheck,
-  CheckCircle2, XCircle, UserX, ChevronRight, GraduationCap, Sparkles,
-  Plus, Edit3, Save, StickyNote, X, CalendarPlus,
-  Star, ExternalLink, FolderOpen, MessageCircle, CalendarClock, Compass,
+  CheckCircle2, XCircle, UserX, ChevronRight, Sparkles,
+  Plus, Save, StickyNote, X, CalendarPlus, BarChart3, PenLine, BookOpen, Trophy, Settings,
+  Star, ExternalLink, FolderOpen, MessageCircle, CalendarClock, Compass, Coins, Mic,
 } from 'lucide-react';
-import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import { BatchRescheduleModal } from '@/components/dashboard/batch-reschedule-modal';
-import { DesktopClock } from '@/components/dashboard/desktop-clock';
 import MonitoringPanel from '@/components/dashboard/monitoring-panel';
-import { JOIN_OPENS_MINUTES_BEFORE, humanCountdown } from '@/lib/dashboard/join-window';
-import { useLiveJoinWindow } from '@/lib/dashboard/use-join-window';
 import NextClassCard from '@/components/dashboard/next-class-card';
 import TeacherEarnings from '@/components/dashboard/teacher-earnings';
 import TeacherManagers from '@/components/dashboard/teacher-managers';
@@ -38,7 +35,6 @@ import { TeacherCalendar } from '@/components/dashboard/teacher-calendar';
 import LowCreditPanel from '@/components/dashboard/low-credit-panel';
 import CatchUpPanel from '@/components/dashboard/catchup-panel';
 import { attendanceDeadline, deadlineTone } from '@/lib/dashboard/attendance-deadline';
-import { Coins, Mic } from 'lucide-react';
 import PracticeProgress from '@/components/speaking/practice-progress';
 import QuestRecord from '@/components/speaking/quest/quest-record';
 import NoRoomBanner from '@/components/dashboard/no-room-banner';
@@ -48,8 +44,13 @@ import { teacherRating, recentRating, type ClassFeedback } from '@/lib/dashboard
 import { createClient } from '@/lib/supabase/client';
 import PayHeldPanel from '@/components/dashboard/pay-held-panel';
 import { fetchMyAssignments } from '@/lib/dashboard/teacher-assignments-data';
-import { subjectLabel } from '@/lib/trial/subjects';
-import { gradeTag, gradeName } from '@/lib/grade/tag';
+import RegistersToMark from '@/components/dashboard/registers-to-mark';
+import TrialsAhead from '@/components/dashboard/trials-ahead';
+import TodayQueue from '@/components/ops/today-queue';
+import { useAttention } from '@/components/ops/attention-provider';
+import { WorkspaceProvider, OpsSection, useShows, useOpsDo } from '@/components/ops/workspace';
+import { WorkspaceTabs, WorkspaceHeader, WorkspaceTiles, WorkspaceAction } from '@/components/ops/workspace-chrome';
+import { sectionHref, type WorkspaceKey } from '@/lib/ops/workspaces';
 
 /* ───── Helpers ───── */
 function levelDisplay(level: string): string {
@@ -73,27 +74,6 @@ function formatSessionTime(iso: string, timezone: string | null): string {
   }
 }
 
-function formatDuration(startIso: string, endIso: string): string {
-  try {
-    const start = new Date(startIso).getTime();
-    const end = new Date(endIso).getTime();
-    const minutes = Math.round((end - start) / (1000 * 60));
-    if (minutes < 60) return `${minutes}m`;
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return mins === 0 ? `${hours}h` : `${hours}h ${mins}m`;
-  } catch {
-    return '';
-  }
-}
-
-const BOOKING_STATUS: Record<string, { bg: string; text: string; label: string }> = {
-  scheduled: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Scheduled' },
-  completed: { bg: 'bg-green-100', text: 'text-green-700', label: 'Completed' },
-  cancelled: { bg: 'bg-slate-100', text: 'text-slate-500', label: 'Cancelled' },
-  no_show: { bg: 'bg-red-100', text: 'text-red-700', label: 'No-show' },
-};
-
 const ENROLLMENT_STATUS: Record<string, { bg: string; text: string; label: string }> = {
   active: { bg: 'bg-green-100', text: 'text-green-700', label: 'Active' },
   completed: { bg: 'bg-violet-100', text: 'text-violet-700', label: 'Completed' },
@@ -115,389 +95,6 @@ function StatCard({ icon: Icon, color, value, label, loading }: {
         {loading ? <Loader2 className="w-5 h-5 animate-spin text-slate-400" /> : value}
       </div>
       <div className="text-xs text-slate-500">{label}</div>
-    </div>
-  );
-}
-
-/* ───── ICS calendar export (mirrors student dashboard) ─────
-   Builds an RFC 5545 .ics file for a booking so teachers can add
-   sessions to Google Calendar / Outlook / Apple Calendar with one click. */
-function buildTeacherICS(booking: TeacherBookingRow): string {
-  const trackName = getTrackName(booking.cohort_track);
-  const meetUrl = booking.google_meet_url || booking.cohort_meet_url || '';
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const fmtDate = (iso: string) => {
-    const d = new Date(iso);
-    return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
-  };
-  const escapeICS = (s: string) => s.replace(/([,;\\])/g, '\\$1').replace(/\n/g, '\\n');
-  const summary = `Sariro — ${trackName} (${levelDisplay(booking.cohort_level)} · ${booking.cohort_ratio})`;
-  const description = meetUrl
-    ? `Sariro live session. Join: ${meetUrl}`
-    : 'Sariro live session.';
-  const lines = [
-    'BEGIN:VCALENDAR',
-    'VERSION:2.0',
-    'PRODID:-//Sariro//Teacher Session//EN',
-    'CALSCALE:GREGORIAN',
-    'METHOD:PUBLISH',
-    'BEGIN:VEVENT',
-    `UID:${booking.id}@sariro-teacher`,
-    `DTSTAMP:${fmtDate(new Date().toISOString())}`,
-    `DTSTART:${fmtDate(booking.slot_start)}`,
-    `DTEND:${fmtDate(booking.slot_end)}`,
-    `SUMMARY:${escapeICS(summary)}`,
-    `DESCRIPTION:${escapeICS(description)}`,
-    `LOCATION:${escapeICS(meetUrl || 'Online')}`,
-    'END:VEVENT',
-    'END:VCALENDAR',
-  ];
-  return lines.join('\r\n');
-}
-
-function downloadTeacherICS(booking: TeacherBookingRow) {
-  const ics = buildTeacherICS(booking);
-  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `sariro-teacher-session-${booking.id.slice(0, 8)}.ics`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-/* ───── Booking card (schedule) ───── */
-function BookingCard({
-  booking, timezone, onStatusChange, onManage, onReschedule,
-}: {
-  booking: TeacherBookingRow;
-  timezone: string | null;
-  onStatusChange: (id: string, status: 'scheduled' | 'completed' | 'cancelled' | 'no_show') => Promise<void>;
-  onManage?: (booking: TeacherBookingRow) => void;
-  onReschedule?: (booking: TeacherBookingRow) => void;
-}) {
-  const [processing, setProcessing] = useState(false);
-  const meetUrl = booking.google_meet_url || booking.cohort_meet_url;
-  const status = BOOKING_STATUS[booking.status] || BOOKING_STATUS.scheduled;
-  const isPast = new Date(booking.slot_start) < new Date();
-  /* A trial has no cohort, so `cohort_track` is empty and this card used to
-     say nothing at all about what the class was for — the teacher found out
-     when the family joined it. `trial_subject` is what the parent chose. */
-  const trackName = booking.is_trial
-    ? (booking.trial_subject ? subjectLabel(booking.trial_subject) : 'Trial class')
-    : getTrackName(booking.cohort_track);
-
-  const [started, setStarted] = useState(false);
-  const [startInfo, setStartInfo] = useState<string | null>(null);
-  const [earlyMsg, setEarlyMsg] = useState<string | null>(null);
-
-  // Doors open JOIN_OPENS_MINUTES_BEFORE (15) minutes before the start — the
-  // same constant the student side and the server use, so all three agree.
-  //
-  // The comment here used to say "5 minutes" while the constant said 15. Nobody
-  // was misled by the code, which read the constant; the next person to touch
-  // this would have been.
-  const EARLY_JOIN_MIN = JOIN_OPENS_MINUTES_BEFORE;
-  const joinOpensMs = new Date(booking.slot_start).getTime() - EARLY_JOIN_MIN * 60_000;
-
-  // Live: this is what makes the button appear ON ITS OWN at T-15 instead of
-  // waiting for a reload that a teacher sitting on the dashboard never does.
-  // Null for the first frame — see use-join-window.ts on hydration.
-  const win = useLiveJoinWindow(booking.slot_start, booking.slot_end ?? null);
-  const doorsOpen = win?.state === 'open';
-  const classEnded = win?.state === 'ended';
-
-  const handleStatus = async (newStatus: 'completed' | 'no_show' | 'cancelled') => {
-    setProcessing(true);
-    await onStatusChange(booking.id, newStatus);
-    setProcessing(false);
-  };
-
-  // Join Meet → records the join time FIRST (so the teacher is never
-  // falsely flagged as a no-show/late-join once they've actually clicked in),
-  // then opens the meet link. Registering the join and opening the call
-  // happen together — there is no separate "Start Class" step to forget.
-  const handleJoin = async () => {
-    if (Date.now() < joinOpensMs) {
-      const mins = Math.ceil((joinOpensMs - Date.now()) / 60_000);
-      setEarlyMsg(`You can join this class ${EARLY_JOIN_MIN} minutes before it starts — please come back in about ${mins} minute${mins === 1 ? '' : 's'}.`);
-      return;
-    }
-    setProcessing(true);
-    try {
-      const res = await fetch('/api/teacher/start-class', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId: booking.id }),
-      });
-      const json = await res.json();
-      if (json.ok) {
-        setStarted(true);
-        setStartInfo(json.late_minutes > 3 ? `Joined ${json.late_minutes} min late` : 'Joined on time');
-      } else if (json.error === 'too_early') {
-        setEarlyMsg(json.message);
-      }
-      // A transient failure to record the join should never block the
-      // teacher from actually getting into the call.
-    } catch { /* transient */ }
-    setProcessing(false);
-    if (meetUrl) window.open(meetUrl, '_blank', 'noopener,noreferrer');
-  };
-
-  return (
-    <div className="card-3d p-5">
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-green-600" style={{ fontFamily: 'var(--font-grotesk)' }}>
-              {levelDisplay(booking.cohort_level)} · {booking.cohort_ratio} · {formatDuration(booking.slot_start, booking.slot_end)}
-            </span>
-            {booking.batch_code && (
-              <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-slate-900 text-white tracking-wider">
-                {booking.batch_code}
-              </span>
-            )}
-          </div>
-          <h4 className="font-extrabold text-slate-900 text-base leading-tight" style={{ fontFamily: 'var(--font-jakarta)' }}>
-            {trackName}
-          </h4>
-          {/* ── Who is in the room, and at what level ─────────────────────
-              The name alone was never enough for a trial: a teacher walking
-              into a half hour that decides whether a family buys needs to
-              know the child's grade and what the class is supposed to be
-              about. Both were already in the database and on neither screen. */}
-          {booking.roster.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
-              {booking.roster.map((s) => (
-                <span key={s.id} className="inline-flex items-center gap-1 text-xs font-bold text-slate-600">
-                  {s.name}
-                  <span className="px-1 py-0.5 rounded text-[9px] font-black bg-slate-100 text-slate-600" title={gradeName(s.grade)}>
-                    {gradeTag(s.grade)}
-                  </span>
-                  {/* The teacher's half of the credit pause. Without it they
-                      sit waiting for a child the system has already stopped —
-                      and in a group the class runs regardless, so an empty
-                      seat explains nothing. */}
-                  {s.paused && (
-                    <span className="px-1 py-0.5 rounded text-[9px] font-black bg-red-100 text-red-700 tracking-wide">
-                      {s.statusLabel}
-                    </span>
-                  )}
-                </span>
-              ))}
-            </div>
-          ) : booking.student_names.length > 0 ? (
-            <div className="text-xs font-bold text-slate-600 mt-0.5 truncate">
-              {booking.student_names.join(', ')}
-            </div>
-          ) : null}
-          <div className="text-xs text-slate-500 mt-0.5">
-            {formatSessionTime(booking.slot_start, timezone)}
-          </div>
-
-          {/* Live timing + roster size.
-              The card showed a wall-clock time and left the arithmetic to the
-              teacher: "17:30" tells you nothing about whether to put the coffee
-              down. This says how long there is, and updates itself.
-              Renders only after mount — `win` is null on the server. */}
-          {win && booking.status === 'scheduled' && (
-            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-              <span
-                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10.5px] font-bold ${
-                  doorsOpen
-                    ? 'bg-green-100 text-green-700'
-                    : classEnded
-                      ? 'bg-slate-100 text-slate-500'
-                      : 'bg-amber-100 text-amber-800'
-                }`}
-              >
-                <Clock className="w-3 h-3" />
-                {doorsOpen
-                  ? 'Doors open now'
-                  : classEnded
-                    ? 'Ended'
-                    : `Starts ${humanCountdown(
-                        new Date(booking.slot_start).getTime() - Date.now()
-                      )}`}
-              </span>
-              {booking.student_names.length > 0 && (
-                <span className="inline-flex items-center gap-1 text-[10.5px] font-bold text-slate-500">
-                  <Users className="w-3 h-3" />
-                  {booking.student_names.length}
-                  {booking.student_names.length === 1 ? ' student' : ' students'}
-                </span>
-              )}
-              {!meetUrl && (
-                // Worth shouting about: without a link the class cannot happen,
-                // and the teacher should find out now rather than at 17:29.
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10.5px] font-bold bg-red-100 text-red-700">
-                  <AlertCircle className="w-3 h-3" />
-                  No meet link
-                </span>
-              )}
-            </div>
-          )}
-          {/* The plan for this trial, opened already set to its subject, grade and child. */}
-          {booking.is_trial && booking.status === 'scheduled' && (
-            <Link
-              href={`/dashboard/teacher/trial-playbook?subject=${encodeURIComponent(booking.trial_subject ?? '')}&grade=${booking.roster[0]?.grade ?? ''}&child=${encodeURIComponent(booking.roster[0]?.name ?? booking.student_names[0] ?? '')}&booking=${booking.id}`}
-              className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1 text-[12px] font-bold text-emerald-800 hover:bg-emerald-100"
-            >
-              <Compass className="w-3.5 h-3.5" /> Open the trial playbook
-            </Link>
-          )}
-        </div>
-        <span className={`shrink-0 px-2 py-0.5 rounded-md text-[10px] font-bold ${status.bg} ${status.text}`}>
-          {status.label.toUpperCase()}
-        </span>
-      </div>
-
-      {/* Meet link + actions */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {/* The join control tells the teacher WHICH of three situations they are
-            in, rather than offering one button that rejects the click. Before
-            this, "Join Meet" was always live-looking and answered an early
-            press with a telling-off — the card knew the class was hours away
-            and said nothing until clicked. */}
-        {meetUrl && !classEnded && (
-          doorsOpen || started ? (
-            <button
-              type="button"
-              onClick={handleJoin}
-              disabled={processing}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-bold transition-colors disabled:opacity-50 min-h-[40px] shadow-sm"
-              style={{ fontFamily: 'var(--font-grotesk)' }}
-            >
-              {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Video className="w-4 h-4" />}
-              {started ? (startInfo ?? 'Joined ✓') : 'Join Meet'}
-            </button>
-          ) : (
-            // Not a disabled button: there is nothing to press yet, and a
-            // greyed-out control invites the press anyway. This is the answer.
-            <span
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-100 text-slate-500 text-xs font-bold min-h-[40px]"
-              style={{ fontFamily: 'var(--font-grotesk)' }}
-              title={`The link opens ${EARLY_JOIN_MIN} minutes before the class starts`}
-            >
-              <Clock className="w-4 h-4" />
-              {win ? `Opens ${humanCountdown(win.msUntilOpen)}` : 'Checking…'}
-            </span>
-          )
-        )}
-
-        {/* The way into the attendance panel.
-            It used to say "Students" with a roster icon, which is what the panel
-            contains rather than what a teacher came to do — so the dashboard
-            appeared to have no way to mark attendance at all. It is the same
-            panel; it now says what it is for, and turns amber once the class has
-            ended and attendance is still outstanding (V2 §15). */}
-        {onManage && (() => {
-          const needsAttendance = classEnded && !booking.attendance_finalized_at;
-          /* §15 — how long is left before the late-attendance penalty. Shown on
-             the card, because a teacher who can see "6 hours left" marks it,
-             and one who finds out afterwards has only learned that the system
-             fines them. */
-          const deadline = attendanceDeadline(booking.slot_end, booking.attendance_finalized_at);
-          const tone = deadlineTone(deadline.state);
-          return (
-            <button
-              onClick={() => onManage(booking)}
-              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-colors min-h-[40px] ${
-                needsAttendance
-                  ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-sm'
-                  : 'bg-blue-50 hover:bg-blue-100 text-blue-700'
-              }`}
-              style={{ fontFamily: 'var(--font-grotesk)' }}
-            >
-              <ClipboardCheck className="w-3.5 h-3.5" />
-              {needsAttendance ? 'Mark Attendance' : 'Attendance & Students'}
-              {needsAttendance && deadline.label && tone && (
-                <span
-                  className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-black tracking-wide"
-                  style={{ color: tone.fg, background: '#FFFFFF' }}
-                >
-                  {deadline.penalised ? 'OVERDUE' : `${Math.max(1, Math.round(deadline.hoursLeft))}h`}
-                </span>
-              )}
-            </button>
-          );
-        })()}
-        {onReschedule && booking.status === 'scheduled' && (
-          <button
-            onClick={() => onReschedule(booking)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors min-h-[40px]"
-            style={{ fontFamily: 'var(--font-grotesk)' }}
-          >
-            <Edit3 className="w-3.5 h-3.5" /> Reschedule
-          </button>
-        )}
-
-        {/* Add to Calendar — exports .ics file for Google/Outlook/Apple Calendar */}
-        <button
-          type="button"
-          onClick={() => downloadTeacherICS(booking)}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-700 text-xs font-bold transition-colors min-h-[40px]"
-          style={{ fontFamily: 'var(--font-grotesk)' }}
-          aria-label="Add to calendar"
-        >
-          <CalendarPlus className="w-3.5 h-3.5" /> Add to Calendar
-        </button>
-
-        {/* Action buttons — only show for past scheduled sessions */}
-        {booking.status === 'scheduled' && isPast && (
-          <>
-            <button
-              onClick={() => handleStatus('completed')}
-              disabled={processing}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-bold disabled:opacity-50 min-h-[40px]"
-              style={{ fontFamily: 'var(--font-grotesk)' }}
-            >
-              {processing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-              Mark Complete
-            </button>
-            <button
-              onClick={() => handleStatus('no_show')}
-              disabled={processing}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold disabled:opacity-50 min-h-[40px]"
-              style={{ fontFamily: 'var(--font-grotesk)' }}
-            >
-              <UserX className="w-3.5 h-3.5" /> Student no-show
-            </button>
-          </>
-        )}
-
-        {/* Cancel button — for upcoming scheduled sessions */}
-        {booking.status === 'scheduled' && !isPast && (
-          <button
-            onClick={() => handleStatus('cancelled')}
-            disabled={processing}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold disabled:opacity-50 min-h-[40px]"
-            style={{ fontFamily: 'var(--font-grotesk)' }}
-          >
-            {processing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
-            Cancel
-          </button>
-        )}
-      </div>
-
-      {/* Early-join guard — teachers may only join 5 minutes before start */}
-      {earlyMsg && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50" role="dialog" aria-modal="true">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl text-center">
-            <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-4">
-              <CalendarClock className="w-7 h-7 text-amber-600" />
-            </div>
-            <h3 className="text-lg font-extrabold text-slate-900 mb-2" style={{ fontFamily: 'var(--font-jakarta)' }}>
-              A little early
-            </h3>
-            <p className="text-sm text-slate-600 mb-5">{earlyMsg}</p>
-            <button onClick={() => setEarlyMsg(null)} className="min-h-[44px] px-6 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold w-full">
-              Got it
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -1427,7 +1024,7 @@ function ProjectReviewsSection({ onToast }: { onToast: (msg: string, kind?: 'suc
   });
 
   return (
-    <div className="mb-10" id="reviews">
+    <div>
       <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-jakarta)' }}>
         <FolderOpen className="w-5 h-5 text-violet-600" />
         Project Reviews
@@ -1839,10 +1436,20 @@ function AddSessionModal({
 }
 
 /* ───── Main page ───── */
-function TeacherDashboardInner() {
+function TeacherDashboardInner({ workspace }: { workspace: WorkspaceKey }) {
   const { user, profile } = useAuth();
-  const displayName = profile?.full_name || 'Teacher';
+  const router = useRouter();
+  const attention = useAttention();
   const userTimezone = profile?.timezone || null;
+
+  /* Each workspace loads what it shows. The week's bookings feed Today's next
+     class and the whole Classes workspace; the roster is only on Students. */
+  const showTotals = useShows('totals');
+  const showRoster = useShows('roster');
+  const showNext = useShows('next-class');
+  const showSchedule = useShows('schedule');
+  const showStanding = useShows('standing');
+  const needsBookings = showNext || showSchedule;
 
   const [stats, setStats] = useState<TeacherStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
@@ -1855,10 +1462,10 @@ function TeacherDashboardInner() {
      children are deliberately not in here — see lib/dashboard/class-feedback.ts
      on why the two directions never mix. */
   const [myFeedback, setMyFeedback] = useState<ClassFeedback[]>([]);
-  // All bookings (unfiltered) — the calendar is now the single source for the
-  // schedule; the separate upcoming/past/all list was removed, and with it a
-  // duplicate fetchTeacherBookings call every load.
+  // All bookings (unfiltered) — the calendar is the single source for the
+  // schedule, the registers still open and the trials coming up.
   const [allBookings, setAllBookings] = useState<TeacherBookingRow[]>([]);
+  const [bookingsLoading, setBookingsLoading] = useState(true);
   const [students, setStudents] = useState<TeacherStudentRow[]>([]);
   const [studentsLoading, setStudentsLoading] = useState(true);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -1877,25 +1484,33 @@ function TeacherDashboardInner() {
 
   const loadAll = useCallback(async () => {
     const [s, st, allB] = await Promise.all([
-      fetchTeacherStats(),
-      fetchTeacherStudents(),
-      fetchTeacherBookings('all'),
+      showTotals ? fetchTeacherStats() : Promise.resolve(null),
+      showRoster ? fetchTeacherStudents() : Promise.resolve([] as TeacherStudentRow[]),
+      needsBookings ? fetchTeacherBookings('all') : Promise.resolve([] as TeacherBookingRow[]),
     ]);
     setStats(s);
     setStatsLoading(false);
     setAllBookings(allB);
+    setBookingsLoading(false);
     setStudents(st);
     setStudentsLoading(false);
-  }, []);
+  }, [showTotals, showRoster, needsBookings]);
 
   useEffect(() => {
     Promise.resolve().then(() => loadAll());
   }, [loadAll]);
 
+  /* After a class is marked, moved or added: this page, and the counts on the
+     queue and the sidebar, which read the same bookings. */
+  const afterChange = useCallback(() => {
+    void loadAll();
+    attention?.refresh();
+  }, [loadAll, attention]);
+
   /* Eligibility changes when an admin edits it, not when a class happens, so
      it loads once rather than joining the realtime refresh loop. */
   useEffect(() => {
-    if (!user) return;
+    if (!user || !showStanding) return;
     let cancelled = false;
     fetchMyAssignments().then((rows) => { if (!cancelled) setMyCourses(rows); });
 
@@ -1918,7 +1533,7 @@ function TeacherDashboardInner() {
     })();
 
     return () => { cancelled = true; };
-  }, [user]);
+  }, [user, showStanding]);
 
   const rating = teacherRating(myFeedback);
   const rating90 = recentRating(myFeedback, 90);
@@ -1936,6 +1551,12 @@ function TeacherDashboardInner() {
     const t = setTimeout(() => setToast(null), 3000);
     return () => clearTimeout(t);
   }, [toast]);
+
+  /* ⌘K and the queue open these from anywhere with ?do= — see useOpsDo. */
+  useOpsDo({
+    'add-session': () => setShowAddSession(true),
+    'change-schedule': () => setShowBatchReschedule(true),
+  });
 
   const handleStatusChange = async (
     bookingId: string,
@@ -1955,7 +1576,7 @@ function TeacherDashboardInner() {
         const j = await res.json();
         if (j.ok) {
           setToast({ type: 'success', message: status === 'no_show' ? 'Marked student no-show (half pay withheld)' : 'Class marked complete' });
-          await loadAll();
+          afterChange();
         } else {
           setToast({ type: 'error', message: j.message || j.error || 'Failed to update session' });
         }
@@ -1968,134 +1589,89 @@ function TeacherDashboardInner() {
     const result = await updateBookingStatus(bookingId, status);
     if (result.success) {
       setToast({ type: 'success', message: `Session marked as ${status.replace('_', '-')}` });
-      await loadAll();
+      afterChange();
     } else {
       setToast({ type: 'error', message: result.error || 'Failed to update session' });
     }
   };
 
+  const headerActions: Partial<Record<WorkspaceKey, ReactNode>> = {
+    classes: (
+      <>
+        <WorkspaceAction icon={Plus} primary onClick={() => setShowAddSession(true)}>Add a class</WorkspaceAction>
+        <WorkspaceAction icon={CalendarClock} onClick={() => setShowBatchReschedule(true)}>Change schedule</WorkspaceAction>
+        <WorkspaceAction icon={Compass} href="/dashboard/teacher/trial-playbook">Trial playbooks</WorkspaceAction>
+      </>
+    ),
+    students: (
+      <WorkspaceAction icon={BookOpen} href="/dashboard/teacher/lessons">Lesson plans</WorkspaceAction>
+    ),
+    growth: (
+      <>
+        <WorkspaceAction icon={Trophy} href="/dashboard/teacher/leaderboard">Leaderboard</WorkspaceAction>
+        <WorkspaceAction icon={Settings} href="/settings">Settings</WorkspaceAction>
+      </>
+    ),
+  };
+
   return (
-    <section className="relative pt-6 sm:pt-10 pb-16 px-4 sm:px-6 lg:px-10">
+    <section className="relative pt-6 sm:pt-8 pb-16 px-4 sm:px-6 lg:px-10">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mb-8 flex items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <GraduationCap className="w-5 h-5 text-green-600" />
-              <span className="text-xs font-bold uppercase tracking-[0.18em] text-green-600" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                Teacher Dashboard
-              </span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
-              Welcome, {displayName.split(' ')[0]}! 👋
-            </h1>
-            <p className="text-slate-600 mt-1.5 text-sm">
-              Your schedule, students, and session history at a glance.
-            </p>
-            {/* Subjects, not rows: three grades of maths reads as one chip.
-                Amber means the course is yours but the training is not signed
-                off yet — which is why it is worth showing rather than
-                flattening to a list of names. */}
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <CapabilityChips assignments={myCourses} emptyText="No courses assigned to you yet — ask an admin." />
-              {/* §2. Null, not zero, when nobody has rated — a brand new
-                  teacher is not a one-star teacher. */}
-              {rating.average !== null && (
-                <span
-                  title={
-                    rating90.average !== null && rating90.count >= 3
-                      ? `${rating90.average}/5 across the last 90 days (${rating90.count} ratings)`
-                      : `${rating.count} rating${rating.count === 1 ? '' : 's'} from students`
-                  }
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-bold"
-                  style={{ fontFamily: 'var(--font-grotesk)' }}
-                >
-                  <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                  {rating.average}/5
-                  <span className="font-medium opacity-70">· {rating.count}</span>
-                </span>
-              )}
-            </div>
+        <WorkspaceTabs />
+
+        {workspace === 'today' ? (
+          /* What is waiting on this teacher, first. See components/ops/today-queue.tsx. */
+          <TodayQueue />
+        ) : (
+          <WorkspaceHeader actions={headerActions[workspace]} />
+        )}
+
+        {/* Above everything else where classes are. A class the student cannot
+            get into is the only thing here that is already broken rather than
+            merely late. Renders nothing when every class has a link. */}
+        {(workspace === 'today' || workspace === 'classes') && <NoRoomBanner />}
+
+        {/* ── Today ─────────────────────────────────────────────────────── */}
+
+        {/* What am I teaching next, with whom, and which batch? */}
+        <OpsSection id="next-class" bare>
+          <NextClassCard
+            bookings={allBookings}
+            timezone={userTimezone}
+            onJoin={() => router.push(sectionHref('teacher', 'schedule'))}
+          />
+        </OpsSection>
+
+        <OpsSection id="totals" icon={BarChart3}>
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            <StatCard icon={Calendar} color="bg-green-100 text-green-600" value={stats?.classesThisWeek ?? 0} label="Classes this week" loading={statsLoading} />
+            <StatCard icon={Users} color="bg-blue-100 text-blue-600" value={stats?.activeStudents ?? 0} label="Active students" loading={statsLoading} />
+            <StatCard icon={Clock} color="bg-violet-100 text-violet-600" value={`${stats?.hoursTaught ?? 0}h`} label="Hours taught" loading={statsLoading} />
           </div>
-          <DesktopClock />
-        </motion.div>
+        </OpsSection>
 
-        {/* Above even the pay panel. A class the student cannot get into is
-            the only thing here that is already broken rather than merely
-            unpaid. Renders nothing when every class has a link. */}
-        <NoRoomBanner />
+        {workspace === 'today' && <WorkspaceTiles />}
 
-        {/* §10. Above everything, including the next class — because a rule
-            that holds somebody's money and does not tell them is not a rule,
-            it is a silent penalty. Renders nothing when nothing is held. */}
-        <PayHeldPanel onPaid={() => loadAll()} />
+        {/* ── Classes ───────────────────────────────────────────────────── */}
 
-        {/* What am I teaching next, with whom, and which batch? The teacher's
-            actual question, answered above everything else. */}
-        <NextClassCard
-          bookings={allBookings}
-          timezone={userTimezone}
-          onJoin={(b) => {
-            const el = document.getElementById('schedule');
-            el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            void b;
-          }}
-        />
+        {/* §15 — what is still owed, before the calendar it is buried in. */}
+        <OpsSection id="registers" icon={ClipboardCheck}>
+          <RegistersToMark bookings={allBookings} timezone={userTimezone} loading={bookingsLoading} onOpen={setManageBooking} />
+        </OpsSection>
 
-        {/* Reporting Admin + HR */}
-        <TeacherManagers />
-
-        {/* Earnings & payouts — teacher finance portal */}
-        <TeacherEarnings />
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
-          <StatCard icon={Calendar} color="bg-green-100 text-green-600" value={stats?.classesThisWeek ?? 0} label="Classes this week" loading={statsLoading} />
-          <StatCard icon={Users} color="bg-blue-100 text-blue-600" value={stats?.activeStudents ?? 0} label="Active students" loading={statsLoading} />
-          <StatCard icon={Clock} color="bg-violet-100 text-violet-600" value={`${stats?.hoursTaught ?? 0}h`} label="Hours taught" loading={statsLoading} />
-        </div>
-
-        {/* Schedule */}
-        <div className="mb-10" id="schedule">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-            <div className="flex items-center gap-3 flex-wrap">
-              <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2" style={{ fontFamily: 'var(--font-jakarta)' }}>
-                <Calendar className="w-5 h-5 text-green-600" />
-                My Schedule
-              </h2>
-              <button
-                onClick={() => setShowAddSession(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-bold transition-colors min-h-[36px]"
-                style={{ fontFamily: 'var(--font-grotesk)' }}
-              >
-                <Plus className="w-3.5 h-3.5" /> Add session
-              </button>
-            </div>
-          </div>
-
-          {/* Reschedule a whole batch going forward */}
-          <div className="flex justify-end mb-3">
-            <button
-              onClick={() => setShowBatchReschedule(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold min-h-[40px]"
-              style={{ fontFamily: 'var(--font-grotesk)' }}
-            >
-              <CalendarClock className="w-3.5 h-3.5" /> Change schedule
-            </button>
-          </div>
-
-          {/* Visual month calendar — the single source for the schedule. Pick a
-              day, then act on a class (Join, Mark attendance, Reschedule,
-              Cancel) right from its detail row. */}
-          {allBookings.length > 0 ? (
-            <div className="mb-2">
-              <TeacherCalendar
-                bookings={allBookings}
-                timezone={userTimezone}
-                onChanged={loadAll}
-                onSelectBooking={(booking) => setManageBooking(booking)}
-              />
-            </div>
+        {/* Visual month calendar — the single source for the schedule. Pick a
+            day, then act on a class (Join, Mark attendance, Reschedule,
+            Cancel) right from its detail row. */}
+        <OpsSection id="schedule" icon={Calendar}>
+          {bookingsLoading ? (
+            <div className="h-72 rounded-2xl bg-slate-100 animate-pulse" />
+          ) : allBookings.length > 0 ? (
+            <TeacherCalendar
+              bookings={allBookings}
+              timezone={userTimezone}
+              onChanged={afterChange}
+              onSelectBooking={(booking) => setManageBooking(booking)}
+            />
           ) : (
             <div className="card-3d p-8 text-center">
               <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
@@ -2107,63 +1683,44 @@ function TeacherDashboardInner() {
               </p>
             </div>
           )}
+        </OpsSection>
 
-          <BatchRescheduleModal
-            open={showBatchReschedule}
-            onClose={() => setShowBatchReschedule(false)}
-            onDone={loadAll}
-          />
-        </div>
+        {/* The half hour that decides whether a family stays: each child, what
+            the family told us, and the playbook for them. */}
+        <OpsSection id="trials" icon={Compass}>
+          <TrialsAhead bookings={allBookings} timezone={userTimezone} loading={bookingsLoading} />
+        </OpsSection>
 
-        {/* Project Reviews — pending submissions across all classes */}
-        <ProjectReviewsSection onToast={handleToast} />
+        {/* §10. A rule that holds somebody's money and does not tell them is
+            not a rule, it is a silent penalty. */}
+        <OpsSection id="write-ups" icon={PenLine}>
+          <PayHeldPanel onPaid={afterChange} showEmpty />
+        </OpsSection>
 
-        {/* Monitoring — V2 §31-32. Placed above the student list because a
-            teacher checking their own dashboard wants to know how they are
-            doing before they want the roster. */}
-        {user?.id && (
-          <div className="mb-10" id="monitoring">
-            <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-jakarta)' }}>
-              <ClipboardCheck className="w-5 h-5 text-violet-600" />
-              Monitoring
-            </h2>
-            <MonitoringPanel teacherId={user.id} />
-          </div>
-        )}
-
-        {/* §26 — a student who runs out of credits stops coming, and the
-            teacher is the person placed to notice first. Above the roster
-            because it is the part that needs acting on. */}
-        {/* §20 — above the low-credit list on purpose. That one is something to
-            be aware of; this is a list of things this teacher owes people, each
-            with a deadline of its own. */}
-        <div className="mb-10" id="catchup">
-          <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-jakarta)' }}>
-            <CalendarPlus className="w-5 h-5 text-blue-600" />
-            Catch-up sessions
-          </h2>
+        {/* §20 — a list of things this teacher owes people, each with a
+            deadline of its own. */}
+        <OpsSection id="catchup" icon={CalendarPlus}>
           <CatchUpPanel />
-        </div>
+        </OpsSection>
 
-        <div className="mb-10" id="low-credits">
-          <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-jakarta)' }}>
-            <Coins className="w-5 h-5 text-amber-600" />
-            Credits running low
-          </h2>
-          <LowCreditPanel />
-        </div>
+        {/* ── Students ──────────────────────────────────────────────────── */}
 
-        {/* Students */}
-        <div className="mb-10" id="students">
-          <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-jakarta)' }}>
-            <Users className="w-5 h-5 text-blue-600" />
-            My Students
-            {students.length > 0 && (
-              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-100 text-blue-700">
-                {students.length}
-              </span>
-            )}
-          </h2>
+        <OpsSection id="reviews" bare>
+          <ProjectReviewsSection onToast={handleToast} />
+        </OpsSection>
+
+        <OpsSection
+          id="roster"
+          icon={Users}
+          title={
+            <span className="flex items-center gap-2">
+              My students
+              {students.length > 0 && (
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-100 text-blue-700">{students.length}</span>
+              )}
+            </span>
+          }
+        >
           {studentsLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
@@ -2175,7 +1732,7 @@ function TeacherDashboardInner() {
                 No students assigned yet
               </h3>
               <p className="text-sm text-slate-500">
-                Students will appear here once you're assigned to a cohort with active enrollments.
+                Students will appear here once you&apos;re assigned to a cohort with active enrollments.
               </p>
             </div>
           ) : (
@@ -2185,37 +1742,77 @@ function TeacherDashboardInner() {
               ))}
             </div>
           )}
-        </div>
+        </OpsSection>
 
-        {/* Help card */}
-        <div>
-          <div className="card-3d p-6">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
-                <Sparkles className="w-5 h-5 text-amber-600" />
-              </div>
-              <div>
-                <h3 className="font-bold text-slate-900 mb-1" style={{ fontFamily: 'var(--font-jakarta)' }}>
-                  Teaching tips
-                </h3>
-                <p className="text-sm text-slate-600 mb-3">
-                  Use the same Google Meet link for all sessions in a cohort. Mark sessions as "Complete" right after they end so your hours-taught stat stays accurate.
-                </p>
-                <Link href="/settings" className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700" style={{ fontFamily: 'var(--font-grotesk)' }}>
-                  Update your timezone in settings <ChevronRight className="w-3 h-3" />
-                </Link>
-              </div>
+        {/* §26 — a student who runs out of credits stops coming, and the
+            teacher is the person placed to notice first. */}
+        <OpsSection id="low-credits" icon={Coins}>
+          <LowCreditPanel />
+        </OpsSection>
+
+        {/* ── Pay ───────────────────────────────────────────────────────── */}
+
+        <OpsSection id="earnings" bare>
+          <TeacherEarnings />
+        </OpsSection>
+
+        {/* ── Growth ────────────────────────────────────────────────────── */}
+
+        {/* Subjects, not rows: three grades of maths reads as one chip. Amber
+            means the course is yours but the training is not signed off yet. */}
+        <OpsSection id="standing" icon={Star}>
+          <div className="card-3d p-5 flex flex-col gap-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <CapabilityChips assignments={myCourses} emptyText="No courses assigned to you yet — ask an admin." />
             </div>
+            {/* §2. Null, not zero, when nobody has rated — a brand new teacher
+                is not a one-star teacher. */}
+            {rating.average !== null ? (
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <span className="inline-flex items-center gap-1.5 text-2xl font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
+                  <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
+                  {rating.average}/5
+                </span>
+                <span className="text-[13px] text-slate-500">
+                  from {rating.count} rating{rating.count === 1 ? '' : 's'}
+                  {rating90.average !== null && rating90.count >= 3 ? ` · ${rating90.average}/5 across the last 90 days` : ''}
+                </span>
+              </div>
+            ) : (
+              <p className="text-[13px] text-slate-500">No ratings from students yet.</p>
+            )}
           </div>
-        </div>
+        </OpsSection>
+
+        {/* Monitoring — V2 §31-32: how a teacher is doing, as observed. */}
+        <OpsSection id="monitoring" icon={ClipboardCheck}>
+          {user?.id && <MonitoringPanel teacherId={user.id} />}
+        </OpsSection>
+
+        <OpsSection id="managers" icon={Users}>
+          <TeacherManagers />
+        </OpsSection>
+
+        <OpsSection id="tips" icon={Sparkles}>
+          <div className="card-3d p-6">
+            <p className="text-sm text-slate-600 mb-3">
+              Use the same class room link for every session — save it once in Settings and every class, trials
+              included, gets a join button. Mark each register right after class so credits, your pay and the
+              child&apos;s lesson all move on.
+            </p>
+            <Link href="/settings" className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700" style={{ fontFamily: 'var(--font-grotesk)' }}>
+              Your room link and timezone <ChevronRight className="w-3 h-3" />
+            </Link>
+          </div>
+        </OpsSection>
       </div>
 
-      {/* v2 modals */}
+      {/* v2 modals — mounted on every workspace, so ?do= opens them anywhere */}
       <AnimatePresence>
         {manageBooking && (
           <SessionDetailsModal
             booking={manageBooking}
-            onClose={() => setManageBooking(null)}
+            onClose={() => { setManageBooking(null); afterChange(); }}
             onToast={handleToast}
             onStatusChange={handleStatusChange}
           />
@@ -2227,7 +1824,7 @@ function TeacherDashboardInner() {
             booking={rescheduleBookingState}
             onClose={() => setRescheduleBookingState(null)}
             onToast={handleToast}
-            onDone={loadAll}
+            onDone={afterChange}
           />
         )}
       </AnimatePresence>
@@ -2236,10 +1833,15 @@ function TeacherDashboardInner() {
           <AddSessionModal
             onClose={() => setShowAddSession(false)}
             onToast={handleToast}
-            onDone={loadAll}
+            onDone={afterChange}
           />
         )}
       </AnimatePresence>
+      <BatchRescheduleModal
+        open={showBatchReschedule}
+        onClose={() => setShowBatchReschedule(false)}
+        onDone={afterChange}
+      />
 
       {/* Toast */}
       <AnimatePresence>
@@ -2262,10 +1864,15 @@ function TeacherDashboardInner() {
   );
 }
 
-export default function TeacherDashboard() {
+/**
+ * The teacher's dashboard, one workspace at a time: Today, Classes, Students,
+ * Pay, Growth. The page lists every section once; lib/ops/workspaces.ts decides
+ * which workspace each appears in. The shell is held by (workspace)/layout.tsx.
+ */
+export default function TeacherWorkspace({ workspace }: { workspace: WorkspaceKey }) {
   return (
-    <DashboardLayout>
-      <TeacherDashboardInner />
-    </DashboardLayout>
+    <WorkspaceProvider role="teacher" workspace={workspace}>
+      <TeacherDashboardInner workspace={workspace} />
+    </WorkspaceProvider>
   );
 }

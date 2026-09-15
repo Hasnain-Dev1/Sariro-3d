@@ -1,12 +1,13 @@
-import type { AttentionItem, StaffRole } from './attention';
+import type { AttentionItem, QueueRole } from './attention';
 import { actionHref, sectionHref } from './workspaces';
 
 /**
  * SARIRO — the command bar (⌘K / Ctrl+K)
  * ============================================================================
- * Everything a member of staff can reach, typed rather than scrolled for.
- * Finding "Issue a certificate" on the old admin page meant knowing it was
- * below the chat policy panel. Here it is three letters.
+ * Everything a person can reach, typed rather than scrolled for. Finding
+ * "Issue a certificate" on the old admin page meant knowing it was below the
+ * chat policy panel; finding "write up a trial" on the teacher page meant
+ * knowing it was above the calendar. Here it is three letters.
  *
  * Three kinds of command, in the order they are offered:
  *
@@ -48,10 +49,13 @@ interface Action {
 
 const SA = 'super_admin' as const;
 const AD = 'admin' as const;
+const TE = 'teacher' as const;
+const SE = 'seller' as const;
+const ST = 'student' as const;
 const HR = '/dashboard/hr';
 
 /** The jobs, per role. A dialog is `?do=`, a section is its workspace address. */
-const ACTIONS: Record<StaffRole, Action[]> = {
+const ACTIONS: Record<QueueRole, Action[]> = {
   super_admin: [
     { label: 'Issue a certificate', hint: 'Find a student and issue or print a certificate', href: sectionHref(SA, 'certificates'), keywords: 'certificate issue print course complete' },
     { label: 'Decide past classes', hint: 'Mark whether classes happened', href: sectionHref(SA, 'decisions'), keywords: 'unresolved class happened no show attendance decide' },
@@ -101,6 +105,48 @@ const ACTIONS: Record<StaffRole, Action[]> = {
     { label: 'Doubt sessions', hint: 'Extra help sessions', href: '/dashboard/hr/doubt-sessions', keywords: 'doubt session help' },
     { label: 'Trial playbooks', hint: 'The plan teachers follow for every kind of trial', href: '/dashboard/teacher/trial-playbook', keywords: 'trial playbook lesson plan demo class activity' },
   ],
+  teacher: [
+    { label: 'Mark a register', hint: 'Who came, before the deadline', href: sectionHref(TE, 'registers'), keywords: 'attendance register mark present absent' },
+    { label: 'Write up a trial', hint: 'Rate it and release your pay', href: sectionHref(TE, 'write-ups'), keywords: 'trial write up feedback rating pay held' },
+    { label: 'Open a trial playbook', hint: 'The plan for every kind of trial', href: '/dashboard/teacher/trial-playbook', keywords: 'trial playbook plan demo prepare' },
+    { label: 'Add a class', hint: 'One extra session for a batch', href: actionHref(TE, 'classes', 'add-session'), keywords: 'add session class extra schedule' },
+    { label: 'Change a batch schedule', hint: 'New days and times going forward', href: actionHref(TE, 'classes', 'change-schedule'), keywords: 'reschedule batch days times break' },
+    { label: 'Arrange a catch-up', hint: 'Lessons a child missed while paused', href: sectionHref(TE, 'catchup'), keywords: 'catch up catchup make up missed lesson' },
+    { label: 'Review projects', hint: 'Feedback on what students handed in', href: sectionHref(TE, 'reviews'), keywords: 'project submission review feedback' },
+    { label: 'Set your class room link', hint: 'Meet or Zoom — every class uses it', href: '/settings', keywords: 'meet zoom link room join settings timezone' },
+    { label: 'Earnings & payouts', hint: 'This month, last month, and what is on its way', href: sectionHref(TE, 'earnings'), keywords: 'earnings pay payout money salary' },
+    { label: 'Lesson plans', hint: 'Every lesson in your courses', href: '/dashboard/teacher/lessons', keywords: 'lesson plan syllabus content module' },
+    { label: 'Doubt sessions', hint: 'Extra help sessions', href: '/dashboard/teacher/doubt-sessions', keywords: 'doubt session help extra' },
+    { label: 'Leaderboard', hint: 'How your classes compare', href: '/dashboard/teacher/leaderboard', keywords: 'leaderboard rank top teachers' },
+  ],
+  seller: [
+    { label: 'Book a trial class', hint: 'For a family you have just spoken to', href: actionHref(SE, 'trials', 'book-trial'), keywords: 'book trial free class demo' },
+    { label: 'Today’s calls', hint: 'Overdue, missed trials, final conversations', href: sectionHref(SE, 'queues'), keywords: 'calls queue follow up overdue reminder' },
+    { label: 'Find a family', hint: 'Search every lead by name or number', href: sectionHref(SE, 'queues'), keywords: 'search find lead family name phone note reminder all leads' },
+    { label: 'Who to ring first', hint: 'Ranked by what the write-ups say', href: sectionHref(SE, 'signals'), keywords: 'signals write ups likely rank' },
+    { label: 'Open trial seats', hint: 'Which grades can still join a class', href: sectionHref(SE, 'trial-grades'), keywords: 'trial grade seats full' },
+    { label: 'My payout', hint: 'Sales, incentive and what you are owed', href: sectionHref(SE, 'payout'), keywords: 'payout incentive commission money month' },
+  ],
+  student: [
+    { label: 'Join my next class', hint: 'When it is and the button to press', href: sectionHref(ST, 'next-class'), keywords: 'join class next time when meet' },
+    { label: 'Practise speaking', hint: 'Voice Quest, homework and the sound lab', href: '/dashboard/student/practice', keywords: 'practice speaking voice quest homework mission sound' },
+    { label: 'My lessons', hint: 'Read any lesson again', href: '/dashboard/student/lessons', keywords: 'lessons read notes course content' },
+    { label: 'Hand in a project', hint: 'Pick the class it belongs to', href: sectionHref(ST, 'notes'), keywords: 'project submit homework upload' },
+    { label: 'Classes left', hint: 'Your credits and anything paused', href: sectionHref(ST, 'balance'), keywords: 'credits balance top up paused renew' },
+    { label: 'Try another course', hint: 'Book a free trial class', href: '/welcome?from=dashboard#book', keywords: 'trial another course new subject book' },
+    { label: 'Leaderboard', hint: 'Points this week', href: '/dashboard/student/leaderboard', keywords: 'leaderboard points rank' },
+    { label: 'Get help', hint: 'Ask the Sariro team', href: '/dashboard/student/support', keywords: 'help support problem question' },
+  ],
+};
+
+/** What the search box suggests, in each role's own words. */
+export const COMMAND_PLACEHOLDER: Record<QueueRole, string> = {
+  super_admin: 'Jump to anything — try “certificate” or “credit”',
+  admin: 'Jump to anything — try “batch” or “approve”',
+  hr: 'Jump to anything — try “invoice” or “payout”',
+  teacher: 'Jump to anything — try “register” or “playbook”',
+  seller: 'Jump to anything — try “book” or “payout”',
+  student: 'Find anything — try “practice” or “project”',
 };
 
 export interface Place {
@@ -110,8 +156,8 @@ export interface Place {
   keywords?: string;
 }
 
-export function staffCommands(
-  role: StaffRole,
+export function commandsFor(
+  role: QueueRole,
   attention: readonly AttentionItem[],
   nav: readonly Place[],
   sections: readonly Place[] = []

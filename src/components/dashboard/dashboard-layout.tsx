@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
-  Menu, X, LayoutDashboard, BookOpen, Calendar, Settings,
+  Menu, X, LayoutDashboard, BookOpen, Settings,
   LogOut, ChevronRight, Bell, Home as HomeIcon, GraduationCap,
   Users, ShieldCheck, DollarSign, ScrollText, ArrowLeft, Sparkles,
   Loader2, AlertTriangle, Trophy, LifeBuoy, HelpCircle, MessageSquare, Mic, Search, Command,
@@ -24,16 +24,14 @@ import PriorityMessageAlert from '@/components/dashboard/priority-message-alert'
 import RewardTheme from '@/components/dashboard/reward-theme';
 import { AttentionProvider, useAttention } from '@/components/ops/attention-provider';
 import CommandBar, { openCommandBar } from '@/components/ops/command-bar';
-import type { StaffRole } from '@/lib/ops/attention';
 import { WORKSPACE_ICON } from '@/components/ops/workspace-chrome';
 import {
-  WORKSPACE_META, WORKSPACE_ORDER, placesFor, waitingAt, workspaceAt, workspaceHref, type WorkspaceRole,
+  WORKSPACE_ORDER, placesFor, waitingAt, workspaceAt, workspaceHref, workspaceMeta, type WorkspaceKey, type WorkspaceRole,
 } from '@/lib/ops/workspaces';
 
-/* The roles with a Today queue and a command bar. The rest of the product —
-   students, teachers, sellers — keep the shell they have for now. */
-const staffRoleOf = (role: UserRole): StaffRole | null =>
-  role === 'super_admin' || role === 'admin' || role === 'hr' ? role : null;
+/* Every role has a Today queue and ⌘K; all but HR, whose dashboard is tabbed,
+   also have workspaces. */
+const isWorkspaceRole = (role: UserRole): role is WorkspaceRole => role !== 'hr';
 
 /* ════════════════════════════════════════════════════════════════
    DashboardLayout
@@ -57,44 +55,6 @@ interface NavItem {
    the six lists below cannot drift apart on where Messages lives. */
 const MESSAGES_NAV: NavItem = { href: '/dashboard/messages', label: 'Messages', icon: MessageSquare };
 
-const STUDENT_NAV: NavItem[] = [
-  { href: '/dashboard/student', label: 'Home', icon: LayoutDashboard },
-  MESSAGES_NAV,
-  { href: '/dashboard/student/lessons', label: 'My Lessons', icon: BookOpen },
-  /* A live class happens once a week. This is the other six days — speaking,
-     listening and writing, all running on the device with nothing to wait for
-     and no cost per attempt. */
-  { href: '/dashboard/student/practice', label: 'Practice Room', icon: Mic },
-  { href: '/dashboard/student/leaderboard', label: 'Leaderboard', icon: Trophy },
-  { href: '/dashboard/student/support', label: 'Support', icon: LifeBuoy },
-  { href: '/courses', label: 'Browse Courses', icon: BookOpen },
-  /* A student who liked one course wants to try another, and the booking form
-     lived only on the public site behind a sign-in they had already done. */
-  { href: '/welcome?from=dashboard#book', label: 'Try Another Course', icon: Sparkles },
-  { href: '/dashboard/student#schedule', label: 'My Schedule', icon: Calendar },
-  { href: '/settings', label: 'Settings', icon: Settings },
-];
-
-const TEACHER_NAV: NavItem[] = [
-  { href: '/dashboard/teacher', label: 'Home', icon: LayoutDashboard },
-  MESSAGES_NAV,
-  { href: '/dashboard/teacher/lessons', label: 'Lessons', icon: BookOpen },
-  /* The plan for every kind of trial — the half hour that decides whether a
-     family stays. Also opened straight from a trial on the schedule. */
-  { href: '/dashboard/teacher/trial-playbook', label: 'Trial Playbooks', icon: Sparkles },
-  { href: '/dashboard/teacher/doubt-sessions', label: 'Doubt Sessions', icon: HelpCircle },
-  { href: '/dashboard/teacher/leaderboard', label: 'Leaderboard', icon: Trophy },
-  { href: '/dashboard/teacher#schedule', label: 'My Schedule', icon: Calendar },
-  { href: '/dashboard/teacher#students', label: 'Students', icon: Users },
-  { href: '/settings', label: 'Settings', icon: Settings },
-];
-
-const SELLER_NAV: NavItem[] = [
-  { href: '/dashboard/seller', label: 'Home', icon: LayoutDashboard },
-  MESSAGES_NAV,
-  { href: '/courses', label: 'Browse Courses', icon: BookOpen },
-  { href: '/settings', label: 'Settings', icon: Settings },
-];
 
 const HR_NAV: NavItem[] = [
   { href: '/dashboard/hr', label: 'Home', icon: LayoutDashboard },
@@ -105,16 +65,71 @@ const HR_NAV: NavItem[] = [
 
 /* Today and Messages, then the workspaces (lib/ops/workspaces.ts), then the
    pages that are not workspaces. The first five are also the phone's bottom
-   bar — Today, Messages, Classes, People, Sales — and every workspace page
-   carries a strip of all of them, so Finance and Quality are one tap away
+   bar — for an admin Today, Messages, Classes, People, Sales — and every
+   workspace page carries a strip of all of them, so the rest are one tap away
    there too. */
 function workspaceNav(role: WorkspaceRole): NavItem[] {
   return WORKSPACE_ORDER[role].map((key, i) => {
-    const meta = WORKSPACE_META[key];
+    const meta = workspaceMeta(role, key);
     const item: NavItem = { href: workspaceHref(role, key), label: meta.label, icon: WORKSPACE_ICON[meta.icon] };
     return i === 0 ? item : { ...item, group: 'Workspaces' };
   });
 }
+
+/* Today, Messages, Classes, Students, Pay on a phone. The pages a teacher opens
+   from inside a class — lesson plans, playbooks — sit under Pages. */
+const TEACHER_NAV: NavItem[] = (() => {
+  const [today, ...workspaces] = workspaceNav('teacher');
+  return [
+    today,
+    MESSAGES_NAV,
+    ...workspaces,
+    { href: '/dashboard/teacher/lessons', label: 'Lesson Plans', icon: BookOpen, group: 'Pages' },
+    /* The plan for every kind of trial — the half hour that decides whether a
+       family stays. Also opened straight from a trial on the schedule. */
+    { href: '/dashboard/teacher/trial-playbook', label: 'Trial Playbooks', icon: Sparkles, group: 'Pages' },
+    { href: '/dashboard/teacher/doubt-sessions', label: 'Doubt Sessions', icon: HelpCircle, group: 'Pages' },
+    { href: '/dashboard/teacher/leaderboard', label: 'Leaderboard', icon: Trophy, group: 'Pages' },
+    { href: '/settings', label: 'Settings', icon: Settings, group: 'Pages' },
+  ];
+})();
+
+const SELLER_NAV: NavItem[] = (() => {
+  const [today, ...workspaces] = workspaceNav('seller');
+  return [
+    today,
+    MESSAGES_NAV,
+    ...workspaces,
+    { href: '/courses', label: 'Browse Courses', icon: BookOpen, group: 'Pages' },
+    { href: '/settings', label: 'Settings', icon: Settings, group: 'Pages' },
+  ];
+})();
+
+/* A child's sidebar groups by what they came to do. The first five — Today,
+   Messages, Classes, Practice, Lessons — are the phone bar, so the practice
+   room stays one tap away: it is the other six days of the week. */
+const STUDENT_NAV: NavItem[] = (() => {
+  const nav = workspaceNav('student');
+  const ws = (key: WorkspaceKey) => nav.find((n) => n.href === workspaceHref('student', key))!;
+  return [
+    ws('today'),
+    MESSAGES_NAV,
+    { ...ws('classes'), group: 'Learn' },
+    /* A live class happens once a week. This is the other six days — speaking,
+       listening and writing, all running on the device with nothing to wait for
+       and no cost per attempt. */
+    { href: '/dashboard/student/practice', label: 'Practice Room', icon: Mic, group: 'Learn' },
+    { href: '/dashboard/student/lessons', label: 'Lessons', icon: BookOpen, group: 'Learn' },
+    { ...ws('progress'), group: 'You' },
+    { ...ws('credits'), group: 'You' },
+    { href: '/dashboard/student/leaderboard', label: 'Leaderboard', icon: Trophy, group: 'You' },
+    /* A student who liked one course wants to try another — Explore holds the
+       tracks and the free trial booking. */
+    { ...ws('explore'), group: 'More' },
+    { href: '/dashboard/student/support', label: 'Support', icon: LifeBuoy, group: 'More' },
+    { href: '/settings', label: 'Settings', icon: Settings, group: 'More' },
+  ];
+})();
 
 const ADMIN_NAV: NavItem[] = (() => {
   const [today, ...workspaces] = workspaceNav('admin');
@@ -144,6 +159,9 @@ const SUPER_ADMIN_NAV: NavItem[] = (() => {
 const PLACES: Record<WorkspaceRole, ReturnType<typeof placesFor>> = {
   super_admin: placesFor('super_admin'),
   admin: placesFor('admin'),
+  teacher: placesFor('teacher'),
+  seller: placesFor('seller'),
+  student: placesFor('student'),
 };
 
 function getNavForRole(role: UserRole): NavItem[] {
@@ -576,15 +594,15 @@ function navActive(href: string, pathname: string, isHome: boolean): boolean {
   return pathname.startsWith(`${path}/`);
 }
 
-/** A workspace (not Today, not another page) for staff who have them. */
+/** A workspace (not Today, not another page) for a role that has them. */
 function isWorkspaceItem(role: UserRole, href: string): boolean {
-  if (role !== 'super_admin' && role !== 'admin') return false;
+  if (!isWorkspaceRole(role)) return false;
   const ws = workspaceAt(role, href);
   return ws !== null && ws !== 'today';
 }
 
 /* ───── Topbar ───── */
-function DashboardTopbar({ onMenuClick, staff = false }: { onMenuClick?: () => void; staff?: boolean }) {
+function DashboardTopbar({ onMenuClick }: { onMenuClick?: () => void }) {
   return (
     <header className="sticky top-0 z-40 bg-white/85 backdrop-blur-lg border-b border-slate-200">
       <div className="flex items-center justify-between h-16 px-4 sm:px-6">
@@ -602,7 +620,7 @@ function DashboardTopbar({ onMenuClick, staff = false }: { onMenuClick?: () => v
 
         {/* Right: back to the site, bell, avatar */}
         <div className="flex items-center gap-1 sm:gap-2">
-          {staff && <CommandBarButton />}
+          <CommandBarButton />
           {/* "Back to website" lived only in the desktop sidebar. On a phone the
               sidebar does not exist, so the only way out of the dashboard was
               the unlabelled logo — which nobody reads as "leave". Labelled, and
@@ -744,9 +762,9 @@ function getRoleFromPath(pathname: string): UserRole | null {
      signed-in account. */
   if (pathname === '/dashboard/super-admin' || pathname.startsWith('/dashboard/super-admin/')) return 'super_admin';
   if (pathname === '/dashboard/admin' || pathname.startsWith('/dashboard/admin/')) return 'admin';
-  if (pathname === '/dashboard/student') return 'student';
-  if (pathname === '/dashboard/teacher') return 'teacher';
-  if (pathname === '/dashboard/seller') return 'seller';
+  /* Only the workspaces for these three: /dashboard/teacher/trial-playbook is
+     opened by admins and HR too, and guards itself. */
+  for (const r of ['student', 'teacher', 'seller'] as const) if (workspaceAt(r, pathname)) return r;
   if (pathname === '/dashboard/hr') return 'hr';
   return null;
 }
@@ -820,11 +838,9 @@ function AuthGate({ children }: { children: ReactNode }) {
     return <LoadingGate />;
   }
 
-  const staffRole = staffRoleOf(role);
-
   const shell = (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <DashboardTopbar staff={!!staffRole} />
+      <DashboardTopbar />
       <div className="flex flex-1">
         <DashboardSidebar role={role} pathname={pathname} />
         <main className="flex-1 min-w-0 pb-20 lg:pb-0">
@@ -842,14 +858,13 @@ function AuthGate({ children }: { children: ReactNode }) {
     </div>
   );
 
-  /* Staff get what is waiting on them counted once for the whole page — the
-     Today queue, the sidebar badge and the command bar all read the same
-     numbers — and ⌘K to reach anything. */
-  if (!staffRole) return shell;
+  /* What is waiting on this person is counted once for the whole page — the
+     Today queue, the sidebar badges and the command bar all read the same
+     numbers — and ⌘K reaches anything. */
   return (
-    <AttentionProvider role={staffRole}>
+    <AttentionProvider role={role}>
       {shell}
-      <CommandBar role={staffRole} nav={getNavForRole(role)} sections={staffRole === 'hr' ? undefined : PLACES[staffRole]} />
+      <CommandBar role={role} nav={getNavForRole(role)} sections={isWorkspaceRole(role) ? PLACES[role] : undefined} />
     </AttentionProvider>
   );
 }

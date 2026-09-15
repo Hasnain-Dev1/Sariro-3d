@@ -1,14 +1,14 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import {
-  SECTIONS, WORKSPACE_ORDER, ROLE_HOME, workspaceHref, workspaceAt, sectionHref, sectionsIn, placesFor,
+  SECTIONS, WORKSPACE_ORDER, ROLE_HOME, workspaceHref, workspaceAt, workspaceMeta, sectionHref, sectionsIn, placesFor,
   pathOf, waitingAt, type WorkspaceRole, type SectionSpec,
 } from './workspaces';
 import { ATTENTION, sourcesFor } from './attention';
-import { staffCommands } from './commands';
+import { commandsFor } from './commands';
 
-const ROLES: WorkspaceRole[] = ['super_admin', 'admin'];
+const ROLES: WorkspaceRole[] = ['super_admin', 'admin', 'teacher', 'seller', 'student'];
 
 /* The page each role's workspaces render from. Read as text: the registry is
    only worth trusting if the page it describes really places every section and
@@ -16,7 +16,35 @@ const ROLES: WorkspaceRole[] = ['super_admin', 'admin'];
 const PAGE_FILE: Record<WorkspaceRole, string> = {
   super_admin: 'src/app/dashboard/super-admin/super-admin-workspace.tsx',
   admin: 'src/app/dashboard/admin/admin-workspace.tsx',
+  teacher: 'src/app/dashboard/teacher/teacher-workspace.tsx',
+  seller: 'src/app/dashboard/seller/seller-workspace.tsx',
+  student: 'src/app/dashboard/student/student-workspace.tsx',
 };
+
+/**
+ * The page file for a URL path, allowing for route groups: /dashboard/teacher
+ * is served from src/app/dashboard/teacher/(workspace)/page.tsx.
+ */
+function routeFile(urlPath: string): string | null {
+  const walk = (dir: string, segments: string[]): string | null => {
+    if (segments.length === 0) {
+      const direct = `${dir}/page.tsx`;
+      if (existsSync(direct)) return direct;
+    } else if (existsSync(`${dir}/${segments[0]}`)) {
+      const hit = walk(`${dir}/${segments[0]}`, segments.slice(1));
+      if (hit) return hit;
+    }
+    if (!existsSync(dir)) return null;
+    for (const entry of readdirSync(dir)) {
+      if (/^\(.+\)$/.test(entry)) {
+        const hit = walk(`${dir}/${entry}`, segments);
+        if (hit) return hit;
+      }
+    }
+    return null;
+  };
+  return walk('src/app', urlPath.split('/').filter(Boolean));
+}
 const page = (role: WorkspaceRole) => readFileSync(PAGE_FILE[role], 'utf8');
 
 const placedIds = (role: WorkspaceRole) => [...page(role).matchAll(/<OpsSection\s+id="([a-z-]+)"/g)].map((m) => m[1]);
@@ -33,8 +61,7 @@ function assertLands(role: WorkspaceRole, href: string, label: string) {
   const ws = workspaceAt(role, path);
   if (ws === null) {
     // Not a workspace: it must be a real page of the app.
-    const file = `src/app${path}/page.tsx`;
-    assert.ok(existsSync(file), `${label}: ${href} is neither a workspace nor a page (${file})`);
+    assert.ok(routeFile(path), `${label}: ${href} is neither a workspace nor a page`);
     return;
   }
   const hash = href.split('#')[1];
@@ -66,9 +93,19 @@ describe('the workspace registry', () => {
       for (const id of placed) assert.ok(registered.includes(id), `#${id} is on the page but not in the registry, so it never renders`);
     });
 
-    test(`${role}: every workspace is a route`, () => {
+    test(`${role}: every workspace is a route, rendering this role's page for that workspace`, () => {
       for (const ws of WORKSPACE_ORDER[role]) {
-        assert.ok(existsSync(`src/app${workspaceHref(role, ws)}/page.tsx`), `${workspaceHref(role, ws)} has no page`);
+        const file = routeFile(workspaceHref(role, ws));
+        assert.ok(file, `${workspaceHref(role, ws)} has no page`);
+        assert.match(readFileSync(file, 'utf8'), new RegExp(`workspace="${ws}"`), `${file} does not render the ${ws} workspace`);
+      }
+    });
+
+    test(`${role}: every workspace has a name and a line saying what it is for`, () => {
+      for (const ws of WORKSPACE_ORDER[role]) {
+        const m = workspaceMeta(role, ws);
+        assert.equal(m.key, ws);
+        assert.ok(m.label && m.blurb.length > 10, `${role} ${ws}`);
       }
     });
 
@@ -77,7 +114,7 @@ describe('the workspace registry', () => {
     });
 
     test(`${role}: every ⌘K job lands`, () => {
-      for (const c of staffCommands(role, [], [], placesFor(role))) assertLands(role, c.href, c.label);
+      for (const c of commandsFor(role, [], [], placesFor(role))) assertLands(role, c.href, c.label);
     });
   }
 
@@ -90,6 +127,12 @@ describe('the workspace registry', () => {
     assert.equal(workspaceAt('super_admin', '/dashboard/super-admin/teacher-pay'), null);
     assert.equal(workspaceAt('admin', '/dashboard/admin/finance'), null, 'admin has no finance workspace');
     assert.equal(pathOf('/dashboard/admin/classes?do=new-course#x'), '/dashboard/admin/classes');
+    assert.equal(sectionHref('teacher', 'write-ups'), '/dashboard/teacher/classes#write-ups');
+    assert.equal(sectionHref('student', 'next-class'), '/dashboard/student#next-class');
+    assert.equal(workspaceAt('teacher', '/dashboard/teacher/trial-playbook'), null, 'the playbooks are a page, not a workspace');
+    assert.equal(workspaceAt('seller', '/dashboard/seller/pay'), 'pay');
+    assert.equal(workspaceMeta('seller', 'pay').label, 'Payout', 'the same key is named for its role');
+    assert.throws(() => workspaceMeta('student', 'finance'));
     for (const role of ROLES) assert.ok(ROLE_HOME[role].startsWith('/dashboard/'));
   });
 

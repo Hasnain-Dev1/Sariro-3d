@@ -151,7 +151,7 @@ async function run(req: NextRequest) {
         message: (r.body as string | null) || `Your follow-up on ${name} is due now.`,
         /* Deep-links to the lead itself. A reminder that lands on a dashboard
            and makes the seller search for the family is half a reminder. */
-        link: `/dashboard/seller?lead=${r.lead_id}`,
+        link: `/dashboard/seller/leads?lead=${r.lead_id}`,
       })
     );
     if (ok) sent += 1;

@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
         type: 'session_cancelled' as const,
         title: `${lead.student_name} cancelled their free class`,
         message: 'They are back in your Needs Slot Assistance queue. Worth a call to find out why.',
-        link: `/dashboard/seller?lead=${lead.id}`,
+        link: `/dashboard/seller/leads?lead=${lead.id}`,
       }]);
     }
   }

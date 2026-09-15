@@ -1,12 +1,12 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { ATTENTION, sourcesFor, summariseAttention, greetingFor, type AttentionKey, type StaffRole } from './attention';
+import { ATTENTION, QUEUE_COPY, sourcesFor, summariseAttention, greetingFor, type AttentionKey, type QueueRole } from './attention';
 
-const ROLES: StaffRole[] = ['super_admin', 'admin', 'hr'];
+const ROLES: QueueRole[] = ['super_admin', 'admin', 'hr', 'teacher', 'seller', 'student'];
 
 describe('the attention registry', () => {
   test('every role has something to watch, and every source belongs to someone', () => {
-    for (const role of ROLES) assert.ok(sourcesFor(role).length >= 3, role);
+    for (const role of ROLES) assert.ok(sourcesFor(role).length >= 4, role);
     for (const key of Object.keys(ATTENTION) as AttentionKey[]) {
       assert.ok(ROLES.some((r) => ATTENTION[key].href[r]), `${key} is shown to nobody`);
     }
@@ -22,19 +22,42 @@ describe('the attention registry', () => {
 
   test('links are full addresses, so the queue works from any page', () => {
     for (const spec of Object.values(ATTENTION)) {
-      for (const href of Object.values(spec.href)) assert.match(href!, /^\/dashboard\/[a-z/-]+(\?(tab|do)=[a-z_-]+)?(#[a-z-]+)?$/, spec.key);
+      for (const href of Object.values(spec.href)) assert.match(href!, /^\/(dashboard\/[a-z/-]+|settings)(\?(tab|do)=[a-z_-]+)?(#[a-z-]+)?$/, spec.key);
     }
   });
 
-  test('HR is sent to its tabs; admin and super admin into their own workspaces', () => {
+  test('HR is sent to its tabs; everyone else into their own dashboard', () => {
     for (const key of sourcesFor('hr')) assert.match(ATTENTION[key].href.hr!, /^\/dashboard\/hr\?tab=/);
     for (const key of sourcesFor('super_admin')) assert.match(ATTENTION[key].href.super_admin!, /^\/dashboard\/super-admin\/[a-z]+[#?]/);
     for (const key of sourcesFor('admin')) assert.match(ATTENTION[key].href.admin!, /^\/dashboard\/admin\/[a-z]+[#?]/);
+    for (const role of ['teacher', 'seller', 'student'] as const) {
+      for (const key of sourcesFor(role)) {
+        const href = ATTENTION[key].href[role]!;
+        assert.ok(href.startsWith(`/dashboard/${role}`) || href === '/settings', `${role} ${key} → ${href}`);
+      }
+    }
+  });
+
+  test('every role is spoken to in its own words, and a child is never told Urgent', () => {
+    for (const role of ROLES) {
+      const c = QUEUE_COPY[role];
+      assert.match(c.headline(1), /^1 /);
+      assert.match(c.headline(4), /^4 /);
+      assert.notEqual(c.headline(1).slice(2), c.headline(4).slice(2), `${role} headline does not change for one`);
+    }
+    assert.ok(!Object.values(QUEUE_COPY.student.severity).some((w) => /urgent/i.test(w)));
+    assert.equal(QUEUE_COPY.student.tone, 'learner');
+  });
+
+  test('a teacher is never shown staff work, and a student never sees a teacher’s', () => {
+    assert.ok(!sourcesFor('teacher').includes('unresolved_classes'));
+    assert.ok(!sourcesFor('student').some((k) => sourcesFor('teacher').includes(k)));
+    assert.ok(!sourcesFor('seller').some((k) => sourcesFor('teacher').includes(k)));
   });
 });
 
 describe('summariseAttention', () => {
-  const all = (role: StaffRole, n: number) => Object.fromEntries(sourcesFor(role).map((k) => [k, n])) as Record<AttentionKey, number>;
+  const all = (role: QueueRole, n: number) => Object.fromEntries(sourcesFor(role).map((k) => [k, n])) as Record<AttentionKey, number>;
 
   test('only what has something waiting, most urgent first, then the biggest', () => {
     const s = summariseAttention('super_admin', {
