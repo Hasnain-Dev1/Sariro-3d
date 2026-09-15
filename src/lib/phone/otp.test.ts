@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { generateOtp, isOtpShaped, otpChannel, OTP_LENGTH } from './otp';
+import { generateOtp, isOtpShaped, OTP_CHANNEL, OTP_LENGTH } from './otp';
 
 /**
  * SARIRO — the code
@@ -74,15 +74,7 @@ describe('what a person is allowed to submit', () => {
 });
 
 describe('the delivery channel', () => {
-  test('sms or whatsapp, however it is typed', () => {
-    assert.equal(otpChannel('whatsapp'), 'whatsapp');
-    assert.equal(otpChannel(' WhatsApp '), 'whatsapp');
-    assert.equal(otpChannel('sms'), 'sms');
-  });
-
-  test('unset or a typo keeps the provider default rather than breaking sends', () => {
-    assert.equal(otpChannel(undefined), null);
-    assert.equal(otpChannel(''), null);
-    assert.equal(otpChannel('whatsap'), null);
+  test('every code goes on WhatsApp — the founder’s rule, not a setting', () => {
+    assert.equal(OTP_CHANNEL, 'whatsapp');
   });
 });

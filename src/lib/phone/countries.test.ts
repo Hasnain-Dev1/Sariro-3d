@@ -2,7 +2,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   COUNTRY_LIST, countryByCode, countriesForDial, splitE164, toE164,
-  checkNational, stripTrunkPrefix, formatE164, smsReachable, guessCountry,
+  checkNational, stripTrunkPrefix, formatE164, codeReachable, guessCountry,
   DEFAULT_COUNTRY,
 } from './countries';
 
@@ -221,21 +221,21 @@ describe('display', () => {
   });
 });
 
-describe('who our SMS provider can actually reach', () => {
-  /* apitxt delivers to India. Everywhere else the request is accepted and the
-     message never arrives, so the product has to know rather than showing a
-     foreign parent a code box that can never be satisfied. */
-  test('India yes, everywhere else no', () => {
-    assert.equal(smsReachable('IN'), true);
-    assert.equal(smsReachable('NP'), false);
-    assert.equal(smsReachable('PK'), false);
-    assert.equal(smsReachable('US'), false);
+describe('who a WhatsApp code can reach', () => {
+  /* Codes go on WhatsApp, so every country we list is verified — not India
+     alone, as it was when codes went by SMS. */
+  test('every listed country', () => {
+    assert.equal(codeReachable('IN'), true);
+    assert.equal(codeReachable('NP'), true);
+    assert.equal(codeReachable('PK'), true);
+    assert.equal(codeReachable('US'), true);
   });
 
-  test('case and nothing are handled', () => {
-    assert.equal(smsReachable('in'), true);
-    assert.equal(smsReachable(null), false);
-    assert.equal(smsReachable(''), false);
+  test('case, nothing, and a country we do not list are handled', () => {
+    assert.equal(codeReachable('in'), true);
+    assert.equal(codeReachable(null), false);
+    assert.equal(codeReachable(''), false);
+    assert.equal(codeReachable('ZZ'), false);
   });
 });
 

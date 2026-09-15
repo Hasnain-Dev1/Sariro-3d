@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { Phone } from 'lucide-react';
 import {
   COUNTRY_LIST, countryByCode, checkNational, stripTrunkPrefix, toE164,
-  smsReachable, DEFAULT_COUNTRY,
+  DEFAULT_COUNTRY,
 } from '@/lib/phone/countries';
 
 /**
@@ -43,8 +43,10 @@ export interface PhoneFieldProps {
   required?: boolean;
   label?: string;
   id?: string;
-  /** Explain that a code can only be texted to Indian numbers. */
-  noteSmsReach?: boolean;
+  /** Shown in the empty number box. */
+  placeholder?: string;
+  /** A line under the field, e.g. that the code arrives on WhatsApp. */
+  hint?: string;
 }
 
 /**
@@ -80,7 +82,8 @@ export default function PhoneField({
   required = false,
   label = 'Phone number',
   id = 'phone-field',
-  noteSmsReach = false,
+  placeholder,
+  hint,
 }: PhoneFieldProps) {
   const country = countryByCode(value.country) ?? countryByCode(DEFAULT_COUNTRY)!;
   const problem = useMemo(() => phoneFieldProblem(value), [value]);
@@ -138,7 +141,7 @@ export default function PhoneField({
             disabled={disabled}
             value={value.national}
             onChange={(e) => onChange({ ...value, national: e.target.value })}
-            placeholder={country.code === 'IN' ? '98765 43210' : 'Phone number'}
+            placeholder={placeholder ?? (country.code === 'IN' ? '98765 43210' : 'Phone number')}
             className="w-full h-11 pl-10 pr-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-60"
             style={{ fontFamily: 'var(--font-inter)' }}
           />
@@ -147,13 +150,7 @@ export default function PhoneField({
 
       {touchedAndWrong && <p className="mt-1.5 text-xs text-red-600">{problem}</p>}
 
-      {/* Said before they wait for a code that is never coming. */}
-      {noteSmsReach && !smsReachable(country.code) && !touchedAndWrong && (
-        <p className="mt-1.5 text-xs text-slate-500">
-          We can only text a verification code to Indian numbers at the moment — for {country.name} we
-          will confirm by email instead.
-        </p>
-      )}
+      {hint && !touchedAndWrong && <p className="mt-1.5 text-xs text-slate-500">{hint}</p>}
 
       <p className="mt-1.5 text-[11px] text-slate-400">
         We store your country separately from your number — a number from {country.name} does not have

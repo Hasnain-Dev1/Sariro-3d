@@ -8,7 +8,7 @@ import {
 import { HoneypotField } from '@/components/security/honeypot';
 import { groupByDay, slotLabel, type PublicSlot } from '@/lib/trial/public-slots';
 import { trialSubjects, type TrialSubject } from '@/lib/trial/subjects';
-import { COUNTRY_LIST, guessCountry, smsReachable } from '@/lib/phone/countries';
+import { COUNTRY_LIST, guessCountry, codeReachable } from '@/lib/phone/countries';
 import { acceptPhone } from '@/lib/phone/accept';
 import { GRADE_CHOICES } from '@/lib/grade/tag';
 
@@ -191,7 +191,7 @@ export default function SelfServeBooking() {
 
   /* Whether we could send this number a code at all. Everything about the
      phone step branches on it. */
-  const canVerifyPhone = smsReachable(country);
+  const canVerifyPhone = codeReachable(country);
   const parsedPhone = useMemo(() => acceptPhone(phone, country), [phone, country]);
   const phoneUsable = parsedPhone.ok && (canVerifyPhone ? phoneVerified : true);
   /* The number the latest answer is about. A slow reply for a number they have
@@ -208,7 +208,7 @@ export default function SelfServeBooking() {
       try {
         const r = await fetch('/api/phone', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'check', phone: e164, email: email.trim() }),
+          body: JSON.stringify({ action: 'check', phone: e164, country, email: email.trim() }),
         });
         const j = await r.json().catch(() => null);
         if (phoneAsked.current !== e164) return;
@@ -223,7 +223,7 @@ export default function SelfServeBooking() {
       }
     }, 450);
     return () => window.clearTimeout(id);
-  }, [step, emailVerified, canVerifyPhone, parsedPhone, phoneVerified, codeSent, email]);
+  }, [step, emailVerified, canVerifyPhone, parsedPhone, phoneVerified, codeSent, email, country]);
 
   /* ── The phone, proved (India only) ─────────────────────────────────────── */
   const sendCode = async () => {
@@ -233,7 +233,7 @@ export default function SelfServeBooking() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         // The proved email goes too: the server will not spend a code on a
         // number this address already vouches for, even if the check was missed.
-        body: JSON.stringify({ action: 'send', phone: parsedPhone.ok ? parsedPhone.e164 : phone, email: email.trim() }),
+        body: JSON.stringify({ action: 'send', phone: parsedPhone.ok ? parsedPhone.e164 : phone, country, email: email.trim() }),
       });
       const j = await r.json().catch(() => null);
       if (!r.ok || !j?.ok) { setError(j?.message ?? 'We could not send a code to that number.'); return; }
@@ -253,7 +253,7 @@ export default function SelfServeBooking() {
     try {
       const r = await fetch('/api/phone', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'verify', phone: parsedPhone.ok ? parsedPhone.e164 : phone, code }),
+        body: JSON.stringify({ action: 'verify', phone: parsedPhone.ok ? parsedPhone.e164 : phone, country, code }),
       });
       const j = await r.json().catch(() => null);
       if (!r.ok || !j?.ok) { setError(j?.message ?? 'That code did not match.'); return; }
@@ -299,17 +299,19 @@ export default function SelfServeBooking() {
         | undefined;
       setAccount(acct ? { exists: !!acct.exists, phoneVerified: !!acct.phoneVerified } : null);
 
-      /* The number on the account is used as it is — whether or not it was ever
-         flagged verified, which most older accounts never were. The address was
-         just proved, and it is the account; asking that family to pay for a code
-         for their own number again is the ₹1 this is here to save. The booking
-         route accepts it by the same rule (lib/phone/trust.ts). */
+      /* The number on the account is offered straight away. A VERIFIED one
+         needs no code — the address was just proved, and it is the account.
+         One that was only ever typed is proved once, now: every account proves
+         its phone at least once (the founder's rule, lib/phone/trust.ts), and
+         the free check below still skips the code if the number was verified
+         with us before. A number abroad cannot be sent a code at all. */
       const accountCountry = acct?.phoneCountryCode || country;
       if (acct?.exists && acct.phone && acceptPhone(acct.phone, accountCountry).ok) {
         setPhone(acct.phone);
         if (acct.phoneCountryCode) { setCountry(acct.phoneCountryCode); setCountryTouched(true); }
-        setPhoneVerified(true);
-        setPhoneFromAccount(true);
+        const proved = acct.phoneVerified || !codeReachable(accountCountry);
+        setPhoneVerified(proved);
+        setPhoneFromAccount(proved);
         setPhoneTrustNote(null);
       }
     } catch {
@@ -634,8 +636,8 @@ export default function SelfServeBooking() {
           icon={Phone}
           hint={
             canVerifyPhone
-              ? 'We send a six-digit code. It is how we reach you about the class.'
-              : 'We can only text Indian numbers at the moment, so we will confirm yours when we ring.'
+              ? 'Enter the number your WhatsApp account uses. We send a six-digit code there, and it is how we reach you about the class.'
+              : 'We cannot send a code to this country yet, so we will confirm your number when we contact you.'
           }
         >
           <div className="flex gap-2">
@@ -665,7 +667,7 @@ export default function SelfServeBooking() {
                 setCodeSent(false); setPhoneVerified(false); setError(null);
                 setPhoneTrustNote(null); setPhoneFromAccount(false);
               }}
-              placeholder="Phone number"
+              placeholder="WhatsApp number"
               autoComplete="tel"
               autoFocus
               disabled={phoneVerified}
@@ -730,7 +732,7 @@ export default function SelfServeBooking() {
               </div>
             ) : (
               <Next onClick={sendCode} disabled={!parsedPhone.ok || otpBusy || checkingPhone}>
-                {otpBusy ? 'Sending…' : checkingPhone ? 'Checking…' : 'Send me a code'}
+                {otpBusy ? 'Sending…' : checkingPhone ? 'Checking…' : 'Send code on WhatsApp'}
               </Next>
             )
           ) : (

@@ -45,14 +45,19 @@ export interface SendResult {
 /** Whether we are able to verify numbers at all right now. */
 export const smsConfigured = () => !!process.env.APITXT_AUTHKEY;
 
-/** `APITXT_CHANNEL`: 'sms' or 'whatsapp'. Anything else is ignored, so a typo cannot break sending. */
-export function otpChannel(raw: string | undefined = process.env.APITXT_CHANNEL): 'sms' | 'whatsapp' | null {
-  const v = (raw ?? '').trim().toLowerCase();
-  return v === 'sms' || v === 'whatsapp' ? v : null;
-}
+/**
+ * Every code goes on WhatsApp — the founder's decision (15 Sep 2026). One
+ * channel that reaches a family in any country, rather than SMS that only
+ * ever reached India. Fixed here, not configurable, so a stray environment
+ * variable cannot quietly switch families back to a channel they never get.
+ */
+export const OTP_CHANNEL = 'whatsapp' as const;
 
 /**
- * Hand the code to apitxt.com.
+ * Hand the code to apitxt.com, to be delivered on WhatsApp.
+ *
+ * `wireNumber` is the full international number without the plus —
+ * `919876543210`, `9779801234567`.
  *
  * ── Why the response is barely inspected ────────────────────────────────────
  * The provider documents three query parameters and an example, and nothing
@@ -63,7 +68,7 @@ export function otpChannel(raw: string | undefined = process.env.APITXT_CHANNEL)
  * That is honest about what we actually know. If the provider later documents a
  * status field, this is the one place that changes.
  */
-export async function sendOtpSms(wireNumber: string, otp: string): Promise<SendResult> {
+export async function sendOtpWhatsApp(wireNumber: string, otp: string): Promise<SendResult> {
   const authkey = process.env.APITXT_AUTHKEY;
   if (!authkey) {
     return { sent: false, reason: 'not_configured', detail: 'APITXT_AUTHKEY is not set' };
@@ -73,12 +78,7 @@ export async function sendOtpSms(wireNumber: string, otp: string): Promise<SendR
   url.searchParams.set('authkey', authkey);
   url.searchParams.set('mobile', wireNumber);
   url.searchParams.set('otp', otp);
-  /* apitxt can deliver the same code over WhatsApp (`channel=whatsapp`). Set by
-     environment rather than hard-coded: which channel is cheaper and which
-     actually reaches families is a business call that can change without a
-     deploy. Unset keeps the provider's default. */
-  const channel = otpChannel();
-  if (channel) url.searchParams.set('channel', channel);
+  url.searchParams.set('channel', OTP_CHANNEL);
 
   try {
     // A hung provider must not hold the request open: the person is staring at

@@ -391,7 +391,10 @@ export function RazorpayCheckoutButton({
           className ??
           'btn-tactile btn-tactile-primary w-full px-6 py-4 text-base'
         }
-        style={{ background: accentColor }}
+        /* A caller that brings its own classes owns the look. Painting the
+           accent over them is how checkout's button ended up a flat block whose
+           colour did not match its own 3D edge. */
+        style={className ? undefined : { background: accentColor }}
       >
         {processing ? (
           <Loader2 className="w-5 h-5 animate-spin" />

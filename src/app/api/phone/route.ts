@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClientHelper, createServiceClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
-import { normalizeIndianMobile, maskIndianMobile } from '@/lib/phone/india';
-import { generateOtp, isOtpShaped, sendOtpSms } from '@/lib/phone/otp';
 import { loadPhoneTrust, TRUST_COPY } from '@/lib/phone/trust';
+import { sendPhoneCode, checkPhoneCode, parseOtpPhone, type OtpPhone } from '@/lib/phone/otp-flow';
+import { applyAccountPhone } from '@/lib/phone/account-phone';
 
 /**
  * SARIRO — POST /api/phone   { action: 'send' | 'verify', phone, code? }
@@ -40,26 +40,27 @@ import { loadPhoneTrust, TRUST_COPY } from '@/lib/phone/trust';
 export const runtime = 'nodejs';
 
 /**
- * Mark the signed-in account's phone as verified, canonically.
+ * Give the signed-in account the number it just proved.
  *
  * Only ever touches the caller's OWN profile. Matching by number instead would
  * mean an unauthenticated request could stamp a stranger's account simply by
  * verifying a number it had already verified — and the booking form is public.
  * So an anonymous verification still counts for the booking (the demo-class
  * route asks the database directly) and just does not write to anybody.
+ *
+ * Through applyAccountPhone, like every other proved number: the weekly limit
+ * on changing a verified number holds here too, and the sales records follow.
  */
 async function stampVerifiedProfile(
   admin: ReturnType<typeof createServiceClient>,
-  e164: string
+  phone: OtpPhone
 ): Promise<void> {
   try {
     const supa = await createServerClientHelper();
     const { data: { user } } = await supa.auth.getUser();
     if (!user) return;
-    await admin
-      .from('profiles')
-      .update({ phone: e164, phone_verified: true })
-      .eq('id', user.id);
+    const result = await applyAccountPhone(admin, user.id, { phone: phone.e164, countryCode: phone.countryCode, verified: true });
+    if (!result.ok) console.warn('[phone] profile kept its number:', result.error);
   } catch (err) {
     /* Never fails the verification. The person typed the right code; whether
        we managed to write a flag afterwards is our problem, not theirs. */
@@ -70,6 +71,8 @@ async function stampVerifiedProfile(
 interface Body {
   action?: 'send' | 'verify' | 'check';
   phone?: string;
+  /** ISO country picked on the form. Optional: a number with its dial code says it. */
+  country?: string;
   code?: string;
   /** The address proved earlier in the form. Lets a known number skip the code. */
   email?: string;
@@ -107,12 +110,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'invalid_json' }, { status: 400 });
   }
 
-  const parsed = normalizeIndianMobile(body.phone ?? '');
-  if (!parsed.ok) {
-    // The reason is the one from lib/phone/india.ts — it says what is wrong
-    // with the number rather than that it is invalid.
-    return NextResponse.json({ ok: false, error: 'bad_phone', message: parsed.reason }, { status: 400 });
+  /* Any country: codes go on WhatsApp. The reason says what is wrong with the
+     number rather than that it is invalid. */
+  const read = parseOtpPhone(body.phone, body.country);
+  if (!read.ok) {
+    return NextResponse.json({ ok: false, error: 'bad_phone', message: read.problem }, { status: 400 });
   }
+  const parsed = read.phone;
 
   let admin;
   try {
@@ -150,86 +154,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, needsCode: false, why: trust.why, message: TRUST_COPY[trust.why] });
     }
 
-    const code = generateOtp();
-
-    // Asked BEFORE the SMS: the database decides whether this number may be
-    // sent to, so a refusal costs nothing.
-    const { data, error } = await admin.rpc('request_phone_otp', {
-      p_phone: parsed.e164,
-      p_otp: code,
-      p_ip: ip,
-    });
-
-    if (error) {
-      const missing = /does not exist|schema cache/i.test(error.message);
-      console.warn('[phone] request_phone_otp:', error.message);
-      return NextResponse.json(
-        {
-          ok: false,
-          error: 'not_ready',
-          message: missing
-            ? 'Phone verification is not set up yet — run scripts/phone-otp.sql in Supabase.'
-            : 'Could not send a code right now. Please try again.',
-        },
-        { status: missing ? 503 : 500 }
-      );
+    /* The database's per-number rules, the SMS, and the words for each
+       refusal are shared with /api/account/phone (lib/phone/otp-flow.ts). A
+       missing SMS key comes back with `canProceed`: the form stops requiring
+       verification it cannot offer, and the booking route makes the same
+       judgement independently, so the two cannot disagree. */
+    const sent = await sendPhoneCode(admin, parsed, ip);
+    if (!sent.ok) {
+      const { status, ...refusal } = sent;
+      return NextResponse.json(refusal, { status });
     }
-
-    const decision = (Array.isArray(data) ? data[0] : data) as
-      | { allowed: boolean; retry_after: number; reason: string }
-      | undefined;
-
-    if (!decision?.allowed) {
-      if (decision?.reason === 'daily_cap') {
-        return NextResponse.json(
-          {
-            ok: false,
-            error: 'daily_cap',
-            message: 'That number has had several codes today. Please try again tomorrow, or call us and we will book it for you.',
-          },
-          { status: 429 }
-        );
-      }
-      return NextResponse.json(
-        {
-          ok: false,
-          error: 'cooldown',
-          retryAfter: decision?.retry_after ?? 30,
-          message: `Please wait ${decision?.retry_after ?? 30} seconds before asking for another code.`,
-        },
-        { status: 429 }
-      );
-    }
-
-    const result = await sendOtpSms(parsed.wire, code);
-    if (!result.sent) {
-      // The detail names the provider's own error and belongs in the log, not
-      // in a message to a parent who cannot act on it.
-      console.warn('[phone] sendOTP failed:', result.detail);
-
-      // A missing key is our mistake, not theirs, and it must not close the
-      // top of the funnel. `canProceed` tells the form to stop requiring
-      // verification it cannot offer — the booking route makes the same
-      // judgement independently, so the two cannot disagree.
-      if (result.reason === 'not_configured') {
-        return NextResponse.json(
-          {
-            ok: false,
-            error: 'not_configured',
-            canProceed: true,
-            message: 'Verification is unavailable right now — you can still book, and we will confirm by phone.',
-          },
-          { status: 503 }
-        );
-      }
-
-      return NextResponse.json(
-        { ok: false, error: 'send_failed', message: 'We could not send the code. Please check the number and try again.' },
-        { status: 502 }
-      );
-    }
-
-    return NextResponse.json({ ok: true, needsCode: true, sentTo: maskIndianMobile(parsed.e164) });
+    return NextResponse.json({ ok: true, needsCode: true, sentTo: sent.sentTo });
   }
 
   /* ── Verify ──────────────────────────────────────────────────────────── */
@@ -237,28 +172,9 @@ export async function POST(req: NextRequest) {
     const rl = rateLimit({ key: `otp-verify:${ip}`, limit: 20, windowMs: 60_000 });
     if (!rl.ok) return rateLimitedResponse(rl.retryAfterMs, 'Too many attempts. Please wait a moment.');
 
-    const code = (body.code ?? '').trim();
-    if (!isOtpShaped(code)) {
-      // Not counted as an attempt: a half-typed code is not a guess, and
-      // spending the cap on typing would lock people out mid-entry.
-      return NextResponse.json({ ok: false, error: 'bad_code', message: 'Enter the 6-digit code.' }, { status: 400 });
-    }
+    const checked = await checkPhoneCode(admin, parsed.e164, body.code);
 
-    const { data, error } = await admin.rpc('verify_phone_otp', {
-      p_phone: parsed.e164,
-      p_otp: code,
-    });
-
-    if (error) {
-      console.warn('[phone] verify_phone_otp:', error.message);
-      return NextResponse.json({ ok: false, error: 'verify_failed', message: 'Could not check that code. Please try again.' }, { status: 500 });
-    }
-
-    const result = (Array.isArray(data) ? data[0] : data) as
-      | { verified: boolean; reason: string; attempts_left: number }
-      | undefined;
-
-    if (result?.verified) {
+    if (checked.ok) {
       /* The profile learns about it. `phone_verified` had been declared on the
          Profile type since the column was added and written by precisely
          nothing — every one of the twenty-two accounts said false, including
@@ -270,25 +186,12 @@ export async function POST(req: NextRequest) {
          one human's number under `9709123454`, `+91 6296914378` and
          `+916296914378`; three spellings of one phone is three people as far
          as any lookup is concerned. */
-      await stampVerifiedProfile(admin, parsed.e164);
+      await stampVerifiedProfile(admin, parsed);
       return NextResponse.json({ ok: true, verified: true });
     }
 
-    const message =
-      result?.reason === 'expired'
-        ? 'That code has expired. Ask for a new one.'
-        : result?.reason === 'too_many_attempts'
-          ? 'Too many wrong codes. Ask for a new one.'
-          : result?.reason === 'no_code'
-            ? 'Ask for a code first.'
-            : result?.attempts_left
-              ? `That code is not right. ${result.attempts_left} ${result.attempts_left === 1 ? 'try' : 'tries'} left.`
-              : 'That code is not right.';
-
-    return NextResponse.json(
-      { ok: false, error: result?.reason ?? 'wrong', message, attemptsLeft: result?.attempts_left ?? 0 },
-      { status: 400 }
-    );
+    const { status, ...refusal } = checked;
+    return NextResponse.json(refusal, { status });
   }
 
   return NextResponse.json({ ok: false, error: 'bad_action' }, { status: 400 });

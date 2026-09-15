@@ -116,6 +116,10 @@ function ContactPageInner() {
   const scopeLabel = params.get('scope') ?? '';
   const cadence = params.get('pay') ?? '';
   const ratio = params.get('ratio') ?? '';
+  /* From the bank-transfer page's "I have made the transfer": the message says
+     it is paid, and carries the reference HR matches the payment by. */
+  const paid = params.get('paid') === '1';
+  const reference = (params.get('ref') ?? '').replace(/[^A-Za-z0-9-]/g, '').slice(0, 24);
 
   const [form, setForm] = useState({
     name: '',
@@ -137,11 +141,15 @@ function ContactPageInner() {
       subject: f.subject || 'billing',
       message:
         f.message ||
-        `I would like to pay by bank transfer${scopeLabel ? ` for ${scopeLabel}` : ''}${
-          cadence ? ` (${cadence})` : ''
-        }. Please send me the account details and a reference.`,
+        (paid
+          ? `I have paid by bank transfer${scopeLabel ? ` for ${scopeLabel}` : ''}${cadence ? ` (${cadence})` : ''}.${
+              reference ? ` My payment reference is ${reference}.` : ''
+            } Please confirm my seat.`
+          : `I would like to pay by bank transfer${scopeLabel ? ` for ${scopeLabel}` : ''}${
+              cadence ? ` (${cadence})` : ''
+            }. Please send me the account details and a reference.`),
     }));
-  }, [isBankTransfer, scopeLabel, cadence]);
+  }, [isBankTransfer, scopeLabel, cadence, paid, reference]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

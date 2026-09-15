@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, CheckCircle2, CreditCard, Landmark, Loader2, Users } from 'lucide-react';
-import Button3D from '@/components/brand/button-3d';
-import { getBankDetails, transferReference } from '@/lib/checkout/bank-details';
+import {
+  ArrowLeft, ArrowRight, CalendarRange, Check, CreditCard, Landmark, Loader2, Lock, ShieldCheck, User, Users,
+} from 'lucide-react';
 import { RazorpayCheckoutButton } from '@/components/auth/razorpay-checkout';
-import { resolveCheckoutItem } from '@/lib/checkout/resolve';
+import { resolveCheckoutItem, type CheckoutItem } from '@/lib/checkout/resolve';
 import type { LearningRatio } from '@/lib/sariro-data';
 import { type Cadence, type SitePrices } from '@/lib/school/pricing';
 import { useDisplayCurrency, useInrPrices, useSitePrices } from '@/components/pricing/site-prices-provider';
@@ -37,6 +37,16 @@ import { INR_PHONE_MESSAGE, isIndianPhone, type InrPlanPrices } from '@/lib/pric
  * products genuinely differ: a coding cohort is a single payment, school is
  * paid over time. `item.offersCadence` says which, and the summary shows "One
  * payment" rather than inventing an instalment plan that billing cannot honour.
+ *
+ * ── The look (15 Sep 2026) ──────────────────────────────────────────────────
+ * Rebuilt in the dashboard's language — numbered step cards, choice tiles that
+ * show what each choice costs, and the order summary holding the one action —
+ * after the founder called the old page cheap. The Pay button had also lost its
+ * styling: a `className` of just "w-full" replaced the tactile-button classes,
+ * leaving a flat blue block with its icons stacked.
+ *
+ * Bank transfer now goes to its own page (/checkout/bank-transfer), which lists
+ * every account with the one for the buyer's country first.
  */
 
 type Method = 'card' | 'bank';
@@ -46,6 +56,85 @@ const CADENCES: { value: Cadence; label: string }[] = [
   { value: 'quarterly', label: 'Every 3 months' },
   { value: 'full', label: 'Pay in full' },
 ];
+
+function Step({ n, title, hint, children }: { n: number; title: string; hint?: string; children: ReactNode }) {
+  return (
+    <section className="card-3d p-5 sm:p-6">
+      <div className="flex items-start gap-3 mb-4">
+        <span
+          className="inline-flex w-7 h-7 shrink-0 items-center justify-center rounded-full bg-slate-900 text-white text-[12px] font-black"
+          style={{ fontFamily: 'var(--font-grotesk)' }}
+        >
+          {n}
+        </span>
+        <div className="min-w-0">
+          <h2 className="text-[17px] font-extrabold text-slate-900 leading-tight" style={{ fontFamily: 'var(--font-jakarta)' }}>
+            {title}
+          </h2>
+          {hint && <p className="text-[13px] text-slate-500 mt-0.5">{hint}</p>}
+        </div>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function Choice({
+  selected, onClick, icon, title, detail, price, badge, accent,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  icon?: ReactNode;
+  title: string;
+  detail?: string;
+  price?: string | null;
+  badge?: string | null;
+  accent: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      className={`relative w-full h-full text-left rounded-2xl border-2 bg-white p-4 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50 ${
+        selected ? 'shadow-[0_10px_28px_-14px_rgba(15,23,42,0.35)]' : 'border-slate-200 hover:border-slate-300'
+      }`}
+      style={selected ? { borderColor: accent } : undefined}
+    >
+      <div className="flex items-start gap-3">
+        {icon && (
+          <span
+            className={`inline-flex w-10 h-10 shrink-0 items-center justify-center rounded-xl ${selected ? '' : 'bg-slate-100 text-slate-500'}`}
+            style={selected ? { background: `${accent}18`, color: accent } : undefined}
+          >
+            {icon}
+          </span>
+        )}
+        <div className="flex-1 min-w-0">
+          <span className="block font-bold text-slate-900 text-[15px] leading-snug" style={{ fontFamily: 'var(--font-jakarta)' }}>
+            {title}
+          </span>
+          {detail && <span className="block text-[12.5px] text-slate-500 mt-0.5 leading-snug">{detail}</span>}
+        </div>
+        <span
+          className={`inline-flex w-5 h-5 shrink-0 items-center justify-center rounded-full border-2 ${selected ? 'text-white' : 'border-slate-300'}`}
+          style={selected ? { background: accent, borderColor: accent } : undefined}
+          aria-hidden
+        >
+          {selected && <Check className="w-3 h-3" strokeWidth={3} />}
+        </span>
+      </div>
+      {(price || badge) && (
+        <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+          {price && <span className="text-[14px] font-extrabold text-slate-900 tabular-nums">{price}</span>}
+          {badge && (
+            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700">{badge}</span>
+          )}
+        </div>
+      )}
+    </button>
+  );
+}
 
 export default function CheckoutClient() {
   const params = useSearchParams();
@@ -80,350 +169,260 @@ export default function CheckoutClient() {
     return () => { live = false; };
   }, []);
 
-  const item = useMemo(
-    () =>
-      resolveCheckoutItem({
-        course: params.get('course'),
-        subject: params.get('subject'),
-        focus: params.get('focus'),
-        grade: params.get('grade'),
-        scope: params.get('scope'),
-        ratio,
-        cadence,
-      }, livePrices, { currency, inr: liveInr }),
-    [params, ratio, cadence, livePrices, currency, liveInr]
-  );
-
-  /**
-   * Both of these must sit ABOVE the `if (!item)` return below.
-   *
-   * `reference` is a hook, and a hook after an early return is called on some
-   * renders and not others — React counts hooks by position, so the first
-   * render with a resolvable item after one without would throw "rendered more
-   * hooks than during the previous render". `getBankDetails()` is a plain read
-   * and is kept alongside it so the pair cannot drift apart later.
-   *
-   * Memoised because the reference embeds the current minute: recomputing it on
-   * every render would quietly change the number a buyer is copying into their
-   * banking app while they are looking at it.
-   */
-  const bank = getBankDetails();
-  const reference = useMemo(() => transferReference(item?.slug ?? ''), [item?.slug]);
+  /* What each choice would cost, so a tile can say it. Priced by the same
+     resolver as the item itself — the numbers cannot disagree. */
+  const priced = useMemo(() => {
+    const base = {
+      course: params.get('course'),
+      subject: params.get('subject'),
+      focus: params.get('focus'),
+      grade: params.get('grade'),
+      scope: params.get('scope'),
+    };
+    const at = (r: LearningRatio, c: Cadence): CheckoutItem | null =>
+      resolveCheckoutItem({ ...base, ratio: r, cadence: c }, livePrices, { currency, inr: liveInr });
+    return {
+      item: at(ratio, cadence),
+      ratios: { '1:4': at('1:4', cadence), '1:1': at('1:1', cadence) } as Record<LearningRatio, CheckoutItem | null>,
+      cadences: Object.fromEntries(CADENCES.map((c) => [c.value, at(ratio, c.value)])) as Record<Cadence, CheckoutItem | null>,
+    };
+  }, [params, ratio, cadence, livePrices, currency, liveInr]);
+  const item = priced.item;
 
   if (!item) {
     return (
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-24 text-center">
-        <h1 className="text-2xl font-bold text-slate-900 mb-3">
-          We couldn&apos;t find that course
-        </h1>
-        <p className="text-slate-600 mb-8">
-          The link may be out of date. Pick a subject and we will bring you straight back here.
-        </p>
-        <Link
-          href="/courses#learn"
-          className="inline-flex items-center gap-2 h-12 px-6 rounded-xl bg-slate-900 text-white font-semibold"
-        >
-          Browse everything we teach
-        </Link>
+      <div className="max-w-xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+        <div className="card-3d p-8 text-center">
+          <h1 className="text-2xl font-extrabold text-slate-900 mb-3" style={{ fontFamily: 'var(--font-jakarta)' }}>
+            We couldn&apos;t find that course
+          </h1>
+          <p className="text-slate-600 mb-8">
+            The link may be out of date. Pick a subject and we will bring you straight back here.
+          </p>
+          <Link href="/courses#learn" className="btn-tactile btn-tactile-primary h-12 px-6 text-[15px]">
+            Browse everything we teach <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
       </div>
     );
   }
 
-  const bankHref =
-    `/contact?intent=bank-transfer&product=${item.slug}` +
-    `&scope=${encodeURIComponent(item.scopeLabel)}&pay=${cadence}&ratio=${ratio}`;
+  /* The same product, priced the same way, on the bank-transfer page. */
+  const transferQuery = new URLSearchParams();
+  for (const k of ['course', 'subject', 'focus', 'grade', 'scope'] as const) {
+    const v = params.get(k);
+    if (v) transferQuery.set(k, v);
+  }
+  transferQuery.set('ratio', ratio);
+  transferQuery.set('pay', cadence);
+  transferQuery.set('currency', item.currency);
+  const bankHref = `/checkout/bank-transfer?${transferQuery.toString()}`;
+
+  const needsIndianNumber = method === 'card' && item.currency === 'INR' && !!user && !isIndianPhone(profile?.phone);
+  const accent = item.accent;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-20">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 sm:pt-14 pb-20">
       <Link
         href={item.backHref}
-        className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 transition mb-8"
+        className="flex w-fit items-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-slate-900 transition mb-6"
       >
         <ArrowLeft className="w-4 h-4" />
         Back to {item.name}
       </Link>
 
-      <h1 className="text-[2rem] sm:text-4xl font-bold tracking-[-0.02em] text-slate-900 mb-8">
+      <p
+        className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.18em] text-blue-600 mb-2"
+        style={{ fontFamily: 'var(--font-grotesk)' }}
+      >
+        <Lock className="w-3.5 h-3.5" /> Secure checkout
+      </p>
+      <h1
+        className="text-[2rem] sm:text-[2.6rem] font-extrabold tracking-[-0.02em] text-slate-900 leading-[1.1]"
+        style={{ fontFamily: 'var(--font-jakarta)' }}
+      >
         Complete your enrolment
       </h1>
+      <p className="mt-3 text-[15px] text-slate-600 max-w-2xl leading-relaxed">
+        Choose how you learn and how you pay. The full total is shown before you pay.
+      </p>
 
-      <div className="grid lg:grid-cols-[1fr_380px] gap-6 items-start">
-        <div className="space-y-6">
-          {/* ── class size ─────────────────────────────────────────────── */}
-          <div className="card card--feature">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-4">
-              How would you like to learn?
-            </p>
+      <div className="mt-8 grid lg:grid-cols-[1fr_380px] gap-6 items-start">
+        <div className="space-y-5 min-w-0">
+          {/* ── 1. class size ─────────────────────────────────────────── */}
+          <Step n={1} title="How would you like to learn?">
             <div className="grid sm:grid-cols-2 gap-3">
               {(['1:4', '1:1'] as const).map((r) => (
-                <button
+                <Choice
                   key={r}
+                  selected={ratio === r}
                   onClick={() => setRatio(r)}
-                  aria-pressed={ratio === r}
-                  className="text-left rounded-xl border p-4 transition-colors"
-                  style={
-                    ratio === r
-                      ? { borderColor: item.accent, background: `${item.accent}08` }
-                      : { borderColor: '#E9E2D8' }
-                  }
-                >
-                  <span className="flex items-center gap-2 font-semibold text-slate-900 text-[15px]">
-                    {ratio === r ? (
-                      <CheckCircle2 className="w-4 h-4" style={{ color: item.accent }} />
-                    ) : (
-                      <Users className="w-4 h-4 text-slate-400" />
-                    )}
-                    {r === '1:4' ? 'Small batch of four' : 'One to one'}
-                  </span>
-                  <span className="block text-[13px] text-slate-600 mt-1">
-                    {r === '1:4'
-                      ? 'Learn alongside three others. Best value.'
-                      : 'The mentor’s full attention, paced to you.'}
-                  </span>
-                </button>
+                  accent={accent}
+                  icon={r === '1:4' ? <Users className="w-5 h-5" /> : <User className="w-5 h-5" />}
+                  title={r === '1:4' ? 'Small batch of four' : 'One to one'}
+                  detail={r === '1:4' ? 'Learn alongside three others.' : 'The mentor’s full attention, paced to you.'}
+                  price={priced.ratios[r]?.perPaymentFormatted ?? null}
+                  badge={r === '1:4' ? 'Best value' : null}
+                />
               ))}
             </div>
-          </div>
+          </Step>
 
-          {/* ── cadence, only where it is real ─────────────────────────── */}
+          {/* ── 2. cadence, only where it is real ─────────────────────── */}
           {item.offersCadence && (
-            <div className="card card--feature">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-4">
-                How would you like to spread it?
-              </p>
+            <Step n={2} title="How would you like to spread it?" hint="Same classes, whichever you pick.">
               <div className="grid sm:grid-cols-3 gap-3">
-                {CADENCES.map((c) => (
-                  <button
-                    key={c.value}
-                    onClick={() => setCadence(c.value)}
-                    aria-pressed={cadence === c.value}
-                    className="text-left rounded-xl border p-3.5 transition-colors"
-                    style={
-                      cadence === c.value
-                        ? { borderColor: item.accent, background: `${item.accent}08` }
-                        : { borderColor: '#E9E2D8' }
-                    }
-                  >
-                    <span className="block font-semibold text-slate-900 text-[14px]">
-                      {c.label}
-                    </span>
-                  </button>
-                ))}
+                {CADENCES.map((c) => {
+                  const option = priced.cadences[c.value];
+                  return (
+                    <Choice
+                      key={c.value}
+                      selected={cadence === c.value}
+                      onClick={() => setCadence(c.value)}
+                      accent={accent}
+                      title={c.label}
+                      detail={option ? (option.payments > 1 ? `${option.payments} payments` : 'One payment') : undefined}
+                      price={option?.perPaymentFormatted ?? null}
+                      badge={option?.savingLabel ?? null}
+                    />
+                  );
+                })}
               </div>
-            </div>
+            </Step>
           )}
 
-          {/* ── payment method ─────────────────────────────────────────── */}
-          <div className="card card--feature">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-4">
-              How would you like to pay?
-            </p>
-
-            <div className="space-y-3 mb-6">
-              <button
+          {/* ── 3. payment method ─────────────────────────────────────── */}
+          <Step n={item.offersCadence ? 3 : 2} title="How would you like to pay?">
+            <div className="grid sm:grid-cols-2 gap-3">
+              <Choice
+                selected={method === 'card'}
                 onClick={() => setMethod('card')}
-                aria-pressed={method === 'card'}
-                className="w-full text-left rounded-xl border p-4 transition-colors"
-                style={
-                  method === 'card'
-                    ? { borderColor: item.accent, background: `${item.accent}08` }
-                    : { borderColor: '#E9E2D8' }
-                }
-              >
-                <span className="flex items-center gap-2.5 font-semibold text-slate-900">
-                  {method === 'card' ? (
-                    <CheckCircle2 className="w-4 h-4" style={{ color: item.accent }} />
-                  ) : (
-                    <CreditCard className="w-4 h-4 text-slate-400" />
-                  )}
-                  Card, UPI or wallet
-                </span>
-                <span className="block text-[13px] text-slate-600 mt-1">
-                  Instant. Your seat is confirmed straight away.
-                </span>
-              </button>
-
-              <button
-                onClick={() => setMethod('bank')}
-                aria-pressed={method === 'bank'}
-                className="w-full text-left rounded-xl border p-4 transition-colors"
-                style={
-                  method === 'bank'
-                    ? { borderColor: item.accent, background: `${item.accent}08` }
-                    : { borderColor: '#E9E2D8' }
-                }
-              >
-                <span className="flex items-center gap-2.5 font-semibold text-slate-900">
-                  {method === 'bank' ? (
-                    <CheckCircle2 className="w-4 h-4" style={{ color: item.accent }} />
-                  ) : (
-                    <Landmark className="w-4 h-4 text-slate-400" />
-                  )}
-                  Bank transfer
-                </span>
-                <span className="block text-[13px] text-slate-600 mt-1">
-                  Available in several countries. We confirm within one working day.
-                </span>
-              </button>
-            </div>
-
-            {method === 'card' && item.currency === 'INR' && user && !isIndianPhone(profile?.phone) ? (
-              /* Rupee prices are for families in India — the server refuses a
-                 rupee order without a +91 number, so say it before they press. */
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                <p className="text-[14px] text-amber-900 leading-[1.6]">{INR_PHONE_MESSAGE}</p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setCurrency('USD')}
-                    className="h-10 px-4 rounded-lg bg-slate-900 text-white text-[13.5px] font-semibold"
-                  >
-                    Pay in dollars
-                  </button>
-                  <Link href="/settings" className="inline-flex items-center h-10 px-4 rounded-lg border border-slate-300 bg-white text-[13.5px] font-semibold text-slate-800">
-                    Add my Indian number
-                  </Link>
-                </div>
-              </div>
-            ) : method === 'card' ? (
-              <RazorpayCheckoutButton
-                track={item.track}
-                level={item.level}
-                ratio={ratio}
-                paymentLink=""
-                courseName={item.courseName}
-                accentColor={item.accent}
-                className="w-full"
-                // Server-priced. The client never sends an amount, so a
-                // tampered request cannot change what is charged.
-                orderBody={item.orderBody}
+                accent={accent}
+                icon={<CreditCard className="w-5 h-5" />}
+                title={item.currency === 'INR' ? 'UPI, card or net banking' : 'Card, UPI or wallet'}
+                detail="Instant. Your seat is confirmed straight away."
               />
-            ) : (
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
-                <p className="font-semibold text-slate-900 mb-2">Bank transfer</p>
+              <Choice
+                selected={method === 'bank'}
+                onClick={() => setMethod('bank')}
+                accent={accent}
+                icon={<Landmark className="w-5 h-5" />}
+                title="Bank transfer"
+                detail="Pay into our account for your country. Confirmed within one working day."
+              />
+            </div>
+          </Step>
+        </div>
 
-                {bank ? (
-                  /* Details are configured, so show them: the buyer can pay now
-                     rather than waiting for a reply. See bank-details.ts for the
-                     trade this makes and how to switch it off. */
-                  <>
-                    <p className="text-[14px] text-slate-600 leading-[1.65] mb-4">
-                      Transfer to the account below and quote the reference — that is what lets us
-                      match your payment to this enrolment without asking you.
-                    </p>
-                    <dl className="rounded-lg border border-slate-200 bg-white divide-y divide-slate-100 mb-4">
-                      {[
-                        ['Account name', bank.accountName],
-                        ['Account number', bank.accountNumber],
-                        ['Bank', bank.bankName],
-                        ['IFSC', bank.ifsc],
-                        ['SWIFT', bank.swift],
-                        ['UPI', bank.upi],
-                      ]
-                        .filter(([, v]) => v)
-                        .map(([label, value]) => (
-                          <div key={label as string} className="flex items-baseline justify-between gap-3 px-3.5 py-2.5">
-                            <dt className="text-[12.5px] font-semibold text-slate-500 shrink-0">{label}</dt>
-                            <dd className="text-[13.5px] font-bold text-slate-900 text-right break-all tabular-nums">
-                              {value}
-                            </dd>
-                          </div>
-                        ))}
-                      <div className="flex items-baseline justify-between gap-3 px-3.5 py-2.5 bg-amber-50">
-                        <dt className="text-[12.5px] font-bold text-amber-800 shrink-0">Reference</dt>
-                        <dd className="text-[13.5px] font-black text-amber-900 text-right break-all">
-                          {reference}
-                        </dd>
-                      </div>
-                    </dl>
-                    {/* Still offered: a transfer nobody tells us about is a
-                        payment we cannot match to a learner. */}
-                    <Button3D href={bankHref} color="#B45309" edge="#7C2D12">
-                      <Landmark className="w-4 h-4" />
-                      Tell us you have paid
-                    </Button3D>
-                    <p className="text-[12.5px] text-slate-500 mt-3">
-                      Sending the reference speeds this up a lot — otherwise a transfer arrives as a
-                      name and an amount, and we have to work out whose class it is.
-                    </p>
-                  </>
+        {/* ── the order summary, and the one action ───────────────────── */}
+        <aside className="lg:sticky lg:top-24">
+          <div className="card-3d overflow-hidden" style={{ ['--accent' as string]: accent }}>
+            <div className="h-1.5" style={{ background: `linear-gradient(90deg, ${accent}, ${accent}99)` }} />
+            <div className="p-5 sm:p-6">
+              <div className="flex items-center justify-between gap-2 mb-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                  Your enrolment
+                </p>
+                {/* Coding tracks are sold in dollars only. */}
+                {item.kind === 'school' && <CurrencySwitch />}
+              </div>
+
+              <p className="text-xl font-extrabold text-slate-900 leading-snug" style={{ fontFamily: 'var(--font-jakarta)' }}>
+                {item.tagline}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {[item.scopeLabel, item.classes > 0 ? `${item.classes} classes` : null, ratio === '1:1' ? 'One to one' : 'Batch of 4']
+                  .filter(Boolean)
+                  .map((chip) => (
+                    <span key={chip as string} className="rounded-full bg-slate-100 px-2.5 py-1 text-[11.5px] font-semibold text-slate-600">
+                      {chip}
+                    </span>
+                  ))}
+              </div>
+
+              <dl className="mt-5 space-y-2 text-[13.5px]">
+                <div className="flex items-center justify-between gap-3 text-slate-500">
+                  <dt className="flex items-center gap-1.5"><CalendarRange className="w-4 h-4" /> Plan</dt>
+                  <dd className="font-semibold text-slate-700">
+                    {item.offersCadence ? CADENCES.find((c) => c.value === cadence)?.label : 'One payment'}
+                  </dd>
+                </div>
+                {/* The total sits next to the instalment, never instead of it. A
+                    parent who discovers the full figure later feels misled, and
+                    they are right to. */}
+                <div className="flex items-center justify-between gap-3 text-slate-500">
+                  <dt>{item.payments > 1 ? `${item.payments} payments in total` : 'Total'}</dt>
+                  <dd className="font-semibold text-slate-700 tabular-nums">{item.lifetimeFormatted}</dd>
+                </div>
+              </dl>
+
+              <div className="mt-4 pt-4 border-t border-dashed border-slate-200 flex items-end justify-between gap-3">
+                <span className="text-[13px] font-bold text-slate-700">Due today</span>
+                <span className="text-[1.9rem] leading-none font-extrabold text-slate-900 tabular-nums" style={{ fontFamily: 'var(--font-jakarta)' }}>
+                  {item.perPaymentFormatted}
+                </span>
+              </div>
+              {item.savingLabel && (
+                <p className="mt-2 text-right text-[12.5px] font-bold text-emerald-700">{item.savingLabel} versus paying monthly</p>
+              )}
+
+              <div className="mt-5">
+                {method === 'bank' ? (
+                  <Link href={bankHref} className="btn-tactile btn-tactile-primary w-full h-14 text-[15px]">
+                    <Landmark className="w-5 h-5" /> See bank details <ArrowRight className="w-5 h-5" />
+                  </Link>
+                ) : needsIndianNumber ? (
+                  /* Rupee prices are for families in India — the server refuses a
+                     rupee order without a +91 number, so say it before they press. */
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                    <p className="text-[13.5px] text-amber-900 leading-[1.6]">{INR_PHONE_MESSAGE}</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setCurrency('USD')}
+                        className="btn-tactile btn-tactile-deep h-10 px-4 text-[13px]"
+                      >
+                        Pay in dollars
+                      </button>
+                      <Link href="/settings" className="btn-tactile btn-tactile-light h-10 px-4 text-[13px]">
+                        Add my Indian number
+                      </Link>
+                    </div>
+                  </div>
                 ) : (
-                  <>
-                    <p className="text-[14px] text-slate-600 leading-[1.65] mb-4">
-                      Tell us a little about the learner and we will send you the account details for
-                      your country, along with a reference so we can match your transfer straight
-                      away.
-                    </p>
-                    <Button3D href={bankHref} color="#B45309" edge="#7C2D12">
-                      <Landmark className="w-4 h-4" />
-                      Request bank details
-                    </Button3D>
-                    <p className="text-[12.5px] text-slate-500 mt-3">
-                      Bank details are sent to you directly rather than published here — usually the
-                      same day.
-                    </p>
-                  </>
+                  <RazorpayCheckoutButton
+                    track={item.track}
+                    level={item.level}
+                    ratio={ratio}
+                    paymentLink=""
+                    courseName={item.courseName}
+                    accentColor={accent}
+                    className="btn-tactile btn-tactile-primary w-full h-14 text-[15px]"
+                    // Server-priced. The client never sends an amount, so a
+                    // tampered request cannot change what is charged.
+                    orderBody={item.orderBody}
+                  />
                 )}
               </div>
-            )}
-          </div>
-        </div>
 
-        {/* ── what they are buying ─────────────────────────────────────── */}
-        <div
-          className="card card--feature lg:sticky lg:top-24"
-          style={{ ['--accent' as string]: item.accent }}
-        >
-          <div className="flex items-center justify-between gap-2 mb-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Your enrolment
-            </p>
-            {/* Coding tracks are sold in dollars only. */}
-            {item.kind === 'school' && <CurrencySwitch />}
-          </div>
-
-          <p className="text-xl font-bold text-slate-900 leading-snug">{item.tagline}</p>
-          <p className="text-[14px] text-slate-600 mt-1">
-            {item.scopeLabel}
-            {item.classes > 0 && ` · ${item.classes} classes`} ·{' '}
-            {ratio === '1:1' ? 'One to one' : 'Small batch of 4'}
-          </p>
-
-          <div className="card-meta">
-            <div className="flex items-baseline justify-between gap-3 mb-1">
-              <span className="text-[14px] text-slate-600">Due today</span>
-              <span className="text-2xl font-bold text-slate-900 tabular-nums">
-                {item.perPaymentFormatted}
-              </span>
-            </div>
-
-            {/* The total sits next to the instalment, never instead of it. A
-                parent who discovers the full figure later feels misled, and
-                they are right to. */}
-            <div className="flex items-baseline justify-between gap-3 text-[13.5px] text-slate-500">
-              <span>
-                {item.payments > 1 ? `${item.payments} payments in total` : 'One payment'}
-              </span>
-              <span className="tabular-nums">{item.lifetimeFormatted}</span>
-            </div>
-
-            {item.savingLabel && (
-              <p className="text-[13px] font-bold text-emerald-700 mt-2">
-                {item.savingLabel} versus paying monthly
+              <p className="mt-4 flex items-center justify-center gap-1.5 text-[11.5px] text-slate-500">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                {method === 'bank' ? 'You will get a reference to quote with your transfer' : 'Payments are processed securely by Razorpay'}
               </p>
-            )}
-          </div>
+            </div>
 
-          {item.currency === 'INR' && (
-            <p className="text-[12.5px] text-slate-600 mt-3 leading-[1.6]">
-              Rupee price for families in India, GST included. Pay by UPI, card or net banking.
-            </p>
-          )}
-          <p className="text-[12.5px] text-slate-500 mt-4 leading-[1.6]">
-            We find a batch that fits your timings before your first class. If nothing suits, you
-            get a full refund.
-          </p>
-        </div>
+            <div className="px-5 sm:px-6 py-4 bg-slate-50 border-t border-slate-100 space-y-2">
+              {item.currency === 'INR' && (
+                <p className="text-[12px] text-slate-600 leading-[1.6]">
+                  Rupee price for families in India, GST included.
+                </p>
+              )}
+              <p className="text-[12px] text-slate-500 leading-[1.6]">
+                We find a batch that fits your timings before your first class. If nothing suits, you get a full refund.
+              </p>
+            </div>
+          </div>
+        </aside>
       </div>
     </div>
   );

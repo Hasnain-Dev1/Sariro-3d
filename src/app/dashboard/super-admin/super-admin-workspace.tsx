@@ -7,7 +7,7 @@ import {
   DollarSign, Loader2, AlertCircle, CheckCircle2, XCircle,
   Lock, Trophy, ArrowRight, X, Video, Copy, ShieldCheck, Link as LinkIcon,
   FolderOpen, Rocket, Calendar, Mail, Phone, Coins, ChevronDown,
-  UserCheck, Search, Download, LogIn,
+  UserCheck, Search, Download, LogIn, Landmark,
 } from 'lucide-react';
 import ManualTrialBooking from '@/components/dashboard/manual-trial-booking';
 import SystemHealthPanel from '@/components/dashboard/system-health-panel';
@@ -33,6 +33,7 @@ import type { WorkspaceKey } from '@/lib/ops/workspaces';
 import CertificatesPanel from '@/components/dashboard/certificates-panel';
 import PricingWorkbench from '@/components/dashboard/pricing/pricing-workbench';
 import PaymentLinksSection from '@/components/dashboard/payment-link-panel';
+import BankAccountsPanel from '@/components/dashboard/bank-accounts-panel';
 import GstSummaryPanel from '@/components/dashboard/gst-summary-panel';
 import { useAuth } from '@/components/auth/auth-provider';
 import { TRACKS, COURSES, RAZORPAY_LINKS, RAZORPAY_LINKS_PREMIUM } from '@/lib/sariro-data';
@@ -1029,6 +1030,11 @@ function SuperAdminDashboardInner({ workspace }: { workspace: WorkspaceKey }) {
             on WhatsApp. */}
         <OpsSection id="payment-links" icon={CoinsIcon}>
           <PaymentLinksSection staff />
+        </OpsSection>
+
+        {/* The accounts checkout's bank-transfer page lists, by country. */}
+        <OpsSection id="bank-accounts" icon={Landmark}>
+          <BankAccountsPanel />
         </OpsSection>
 
         {/* Razorpay payment links */}

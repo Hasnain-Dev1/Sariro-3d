@@ -203,16 +203,15 @@ export function formatE164(raw: string | null | undefined): string {
 }
 
 /**
- * Can we send this country an SMS?
+ * Can we send this country a verification code?
  *
- * apitxt.com delivers to India. Everywhere else the code is generated, the
- * request is accepted and nothing ever arrives — so the product must know the
- * difference rather than showing a foreign customer a code box that can never
- * be satisfied. Seven of the sixteen numbers on the live database are outside
- * India today, including a family with an active enrolment.
+ * Codes go on WhatsApp (lib/phone/otp.ts), which reaches every country we
+ * list — so every listed country can be, and must be, verified. It used to be
+ * India only, when codes went by SMS and nothing sent abroad ever arrived.
+ * Kept as one function so the day a country cannot be reached, every form and
+ * route follows from here.
  */
-export const smsReachable = (countryCode: string | null | undefined) =>
-  (countryCode ?? '').trim().toUpperCase() === 'IN';
+export const codeReachable = (countryCode: string | null | undefined) => !!countryByCode(countryCode);
 
 /**
  * A guess at the visitor's country, for the picker's initial value only.

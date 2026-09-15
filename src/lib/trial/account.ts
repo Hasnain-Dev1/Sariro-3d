@@ -4,6 +4,7 @@ import { TRIAL_HOME } from '@/lib/dashboard/trial-only';
 import { sendEmail } from '@/lib/email/hostinger';
 import { gradeTag } from '@/lib/grade/tag';
 import { findAccountByEmail, findAuthUserByEmail } from '@/lib/account/email-identity';
+import { applyAccountPhone } from '@/lib/phone/account-phone';
 
 /**
  * SARIRO — the account a free class comes with
@@ -106,6 +107,15 @@ export async function resolveTrialAccount(
     if (proved && input.timezone) {
       const { error } = await admin.from('profiles').update({ timezone: input.timezone }).eq('id', id);
       if (error) console.warn('[trial-account] could not remember the time zone:', error.message);
+    }
+    /* The number they booked with becomes the account's — by the one rule for
+       that (lib/phone/account-phone.ts): a first number or a first proof is
+       saved, a verified number is only replaced by another proved one and at
+       most weekly, and the sales records follow. Again only for a proved
+       identity. A refusal keeps the account's number and books anyway. */
+    if (proved) {
+      const phone = await applyAccountPhone(admin, id, { phone: input.phone, countryCode: input.countryCode, verified: input.phoneProved });
+      if (!phone.ok) console.warn('[trial-account] kept the account’s number:', phone.error);
     }
     return { ok: true, studentId: id, created: false, mayAutoSignIn: proved, password: null, signInEmail: accountEmail };
   };

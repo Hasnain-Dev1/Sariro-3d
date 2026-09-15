@@ -17,8 +17,7 @@ describe('decidePhoneTrust — the founder’s rule', () => {
     );
   });
 
-  test('the account number counts even though it was never flagged verified', () => {
-    // Most older accounts: the number is on the profile, phone_verified is false.
+  test('the account number counts in any spelling once it is verified', () => {
     assert.equal(decidePhoneTrust(PHONE, { ...none, emailProved: true, accountPhones: ['+91 9709123454'] }).trusted, true);
   });
 
@@ -68,6 +67,8 @@ function fakeAdmin(db: {
   freshCode?: boolean | 'error';
   emailProved?: boolean;
   accountPhones?: string[];
+  /** On the account, but never verified — older accounts, typed and not proved. */
+  unverifiedAccountPhones?: string[];
   verifiedCodes?: string[];
   verifiedProfiles?: string[];
 }) {
@@ -83,8 +84,17 @@ function fakeAdmin(db: {
       limit: async () => {
         calls.push(table);
         // The account that owns the email (lib/account/email-identity.ts), then its phone.
-        if (table === 'profiles' && 'email' in filters) return { data: db.accountPhones?.length ? [{ id: 'acct', email: 'parent@example.com' }] : [], error: null };
-        if (table === 'profiles' && 'id' in filters) return { data: (db.accountPhones ?? []).map((phone) => ({ phone })), error: null };
+        const onAccount = (db.accountPhones?.length ?? 0) + (db.unverifiedAccountPhones?.length ?? 0) > 0;
+        if (table === 'profiles' && 'email' in filters) return { data: onAccount ? [{ id: 'acct', email: 'parent@example.com' }] : [], error: null };
+        if (table === 'profiles' && 'id' in filters) {
+          return {
+            data: [
+              ...(db.accountPhones ?? []).map((phone) => ({ phone, phone_verified: true })),
+              ...(db.unverifiedAccountPhones ?? []).map((phone) => ({ phone, phone_verified: false })),
+            ],
+            error: null,
+          };
+        }
         if (table === 'profiles') {
           const hit = (filters.phone as string[]).some((p) => (db.verifiedProfiles ?? []).includes(p));
           return { data: hit ? [{ id: 'x' }] : [], error: null };
@@ -122,6 +132,12 @@ describe('loadPhoneTrust', () => {
   test('the number already on the proved account', async () => {
     const { client } = fakeAdmin({ emailProved: true, accountPhones: ['9709123454'] });
     assert.deepEqual(await loadPhoneTrust(client, input), { trusted: true, why: 'account_number' });
+  });
+
+  test('a number typed on the account but never proved needs its one code', async () => {
+    // The founder's rule: every account proves its phone at least once.
+    const { client } = fakeAdmin({ emailProved: true, unverifiedAccountPhones: ['9709123454'] });
+    assert.deepEqual(await loadPhoneTrust(client, input), { trusted: false });
   });
 
   test('a number a code was verified for before', async () => {

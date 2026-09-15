@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   DollarSign, TrendingUp, CheckCircle2, Clock, X, Award, Coins, ArrowRight, Plane, Layers, ShieldAlert,
-  Receipt, ScrollText, Banknote, Calculator, FileText, Inbox, BatteryLow, ClipboardList, CalendarClock,
+  Receipt, ScrollText, Banknote, Calculator, FileText, Inbox, BatteryLow, ClipboardList, CalendarClock, Landmark,
 } from 'lucide-react';
 import DashboardToast, { useDashboardToast } from '@/components/dashboard/dashboard-toast';
 import { createClient } from '@/lib/supabase/client';
@@ -26,6 +26,7 @@ import LowCreditPanel from '@/components/dashboard/low-credit-panel';
 import CertificatesPanel from '@/components/dashboard/certificates-panel';
 import PricingWorkbench from '@/components/dashboard/pricing/pricing-workbench';
 import PaymentLinksSection from '@/components/dashboard/payment-link-panel';
+import BankAccountsPanel from '@/components/dashboard/bank-accounts-panel';
 import GstSummaryPanel from '@/components/dashboard/gst-summary-panel';
 import TodayQueue from '@/components/ops/today-queue';
 import { useAttention } from '@/components/ops/attention-provider';
@@ -503,6 +504,11 @@ function HrDashboardInner({ workspace }: { workspace: WorkspaceKey }) {
             floor as an exception; the link is flagged when it does. */}
         <OpsSection id="payment-links" icon={Banknote}>
           <PaymentLinksSection staff />
+        </OpsSection>
+
+        {/* The accounts checkout's bank-transfer page lists, by country. */}
+        <OpsSection id="bank-accounts" icon={Landmark}>
+          <BankAccountsPanel />
         </OpsSection>
 
         {/* Minimum prices, the seller price ladder, and the website's own prices. */}

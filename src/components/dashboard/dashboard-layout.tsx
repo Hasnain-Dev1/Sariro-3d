@@ -23,6 +23,7 @@ import {
 } from '@/lib/dashboard/notifications-data';
 import PriorityMessageAlert from '@/components/dashboard/priority-message-alert';
 import RewardTheme from '@/components/dashboard/reward-theme';
+import PhoneGate from '@/components/auth/phone-gate';
 import { AttentionProvider, useAttention } from '@/components/ops/attention-provider';
 import CommandBar, { openCommandBar } from '@/components/ops/command-bar';
 import { WORKSPACE_ICON } from '@/components/ops/workspace-chrome';
@@ -864,13 +865,20 @@ function AuthGate({ children }: { children: ReactNode }) {
 
   /* What is waiting on this person is counted once for the whole page — the
      Today queue, the sidebar badges and the command bar all read the same
-     numbers — and ⌘K reaches anything. */
-  return (
+     numbers — and ⌘K reaches anything.
+
+     Behind the once-only phone check (lib/phone/gate.ts): everything under
+     /dashboard already passes through it in app/dashboard/layout.tsx, which
+     also covers the pages that do not use this shell. Settings lives outside
+     /dashboard, so it is checked here. */
+  const workspace = (
     <AttentionProvider role={role}>
       {shell}
       <CommandBar role={role} nav={getNavForRole(role)} sections={isWorkspaceRole(role) ? PLACES[role] : undefined} />
     </AttentionProvider>
   );
+  if (pathname === '/dashboard' || pathname.startsWith('/dashboard/')) return workspace;
+  return <PhoneGate fallback={<LoadingGate />}>{workspace}</PhoneGate>;
 }
 
 /* ───── Exported layout ───── */

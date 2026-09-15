@@ -1,20 +1,108 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Mail, Phone, Save, Loader2, CheckCircle2, Globe, GraduationCap } from 'lucide-react';
+import { User, Mail, Save, Loader2, CheckCircle2, Globe, GraduationCap, MessageCircle, ShieldCheck, AlertCircle } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import { useAuth } from '@/components/auth/auth-provider';
 import { createClient } from '@/lib/supabase/client';
 import { TRACKS } from '@/lib/sariro-data';
 import AvailabilityEditor from '@/components/dashboard/availability-editor';
 import TeacherRoomEditor from '@/components/dashboard/teacher-room-editor';
+import AccountPhoneVerify from '@/components/auth/account-phone-verify';
+import { formatE164 } from '@/lib/phone/countries';
+import { changeDateLabel, nextChangeAt } from '@/lib/phone/account-phone';
+
+/**
+ * The account's WhatsApp number. Read-only here: it changes only by proving
+ * the new number with a WhatsApp code, at most once a week — the rules live in
+ * /api/account/phone, and the database refuses any other write
+ * (scripts/phone-change-guard.sql).
+ */
+function PhoneSection() {
+  const { profile, refreshProfile } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const phone = profile?.phone?.trim() || null;
+  const verified = !!phone && profile?.phone_verified === true;
+  const lockedUntil = verified ? nextChangeAt(profile?.phone_changed_at ?? null) : null;
+
+  return (
+    <div>
+      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
+        WhatsApp number
+      </label>
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 min-h-[44px] py-2">
+        <MessageCircle className="w-4 h-4 text-slate-400 shrink-0" />
+        <span className="text-sm font-semibold text-slate-800 tabular-nums" style={{ fontFamily: 'var(--font-inter)' }}>
+          {phone ? formatE164(phone) : 'Not added yet'}
+        </span>
+        {phone && (verified ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10.5px] font-bold text-emerald-700">
+            <ShieldCheck className="w-3 h-3" /> Verified
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10.5px] font-bold text-amber-800">
+            <AlertCircle className="w-3 h-3" /> Not verified
+          </span>
+        ))}
+        {!open && (
+          <button
+            type="button"
+            onClick={() => { setOpen(true); setSaved(false); }}
+            disabled={!!lockedUntil}
+            className="ml-auto text-[12px] font-bold text-blue-600 hover:text-blue-700 disabled:text-slate-400 disabled:cursor-not-allowed"
+            style={{ fontFamily: 'var(--font-grotesk)' }}
+          >
+            {!phone ? 'Add number' : verified ? 'Change number' : 'Verify number'}
+          </button>
+        )}
+      </div>
+
+      {lockedUntil && !open && (
+        <p className="text-[11px] text-slate-500 mt-1.5">
+          A number can be changed once a week. You can change yours again on {changeDateLabel(lockedUntil)}.
+        </p>
+      )}
+      {saved && !open && (
+        <p className="text-[11px] text-emerald-700 font-semibold mt-1.5">Your number is saved, and our team will use it from now on.</p>
+      )}
+      {!open && !lockedUntil && !saved && (
+        <p className="text-[11px] text-slate-500 mt-1.5">
+          Changing it needs a code on WhatsApp to the new number, and can be done once a week.
+        </p>
+      )}
+
+      {open && (
+        <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+          <AccountPhoneVerify
+            initialPhone={verified ? null : phone}
+            initialCountry={verified ? null : profile?.phone_country_code}
+            onDone={async () => {
+              await refreshProfile();
+              setOpen(false);
+              setSaved(true);
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="mt-3 text-[12px] font-bold text-slate-500 hover:text-slate-900"
+            style={{ fontFamily: 'var(--font-grotesk)' }}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function SettingsInner() {
   const { user, profile, refreshProfile } = useAuth();
   const supabase = createClient();
 
   const [fullName, setFullName] = useState(profile?.full_name || '');
-  const [phone, setPhone] = useState(profile?.phone || '');
   const [timezone, setTimezone] = useState(profile?.timezone || '');
   const [track, setTrack] = useState(profile?.track || '');
   const [saving, setSaving] = useState(false);
@@ -25,7 +113,6 @@ function SettingsInner() {
   useEffect(() => {
     if (profile) {
       setFullName(profile.full_name || '');
-      setPhone(profile.phone || '');
       setTimezone(profile.timezone || '');
       setTrack(profile.track || '');
     }
@@ -43,8 +130,8 @@ function SettingsInner() {
     try {
       // Never send full_name when the name is admin-locked — it's also enforced
       // server-side by a DB trigger, but omitting it avoids a pointless error.
+      /* Never the phone: it changes only through a WhatsApp code (PhoneSection). */
       const patch: Record<string, unknown> = {
-        phone,
         timezone: timezone || null,
         track: track || null,
       };
@@ -146,26 +233,8 @@ function SettingsInner() {
             </div>
           </div>
 
-          {/* Phone */}
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5" style={{ fontFamily: 'var(--font-grotesk)' }}>
-              Phone
-            </label>
-            <div className="relative">
-              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+1 (415) 555-0142"
-                className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                style={{ fontFamily: 'var(--font-inter)' }}
-              />
-            </div>
-            <p className="text-[11px] text-slate-500 mt-1.5">
-              Used by your mentor and the admin team to schedule classes. No automated SMS — we'll reach out personally.
-            </p>
-          </div>
+          {/* WhatsApp number — proved, never typed straight in */}
+          <PhoneSection />
 
           {/* Timezone */}
           <div>

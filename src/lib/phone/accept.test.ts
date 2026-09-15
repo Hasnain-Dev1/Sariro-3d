@@ -62,15 +62,15 @@ describe('numbers from everywhere else', () => {
     assert.equal(r.e164.startsWith('+44'), true);
   });
 
-  test('but it is never treated as verified', () => {
-    assert.equal(ok(acceptPhone('7700900123', 'GB')).canVerify, false);
-    assert.equal(ok(acceptPhone('501234567', 'AE')).canVerify, false);
-    assert.equal(ok(acceptPhone('81234567', 'SG')).canVerify, false);
+  test('and it is sent a WhatsApp code like any other', () => {
+    assert.equal(ok(acceptPhone('7700900123', 'GB')).canVerify, true);
+    assert.equal(ok(acceptPhone('501234567', 'AE')).canVerify, true);
+    assert.equal(ok(acceptPhone('81234567', 'SG')).canVerify, true);
   });
 
-  test('only India can be sent a code', () => {
+  test('every country must be proved, not India alone', () => {
     assert.equal(verificationRequired(ok(acceptPhone('9876543210', 'IN'))), true);
-    assert.equal(verificationRequired(ok(acceptPhone('7700900123', 'GB'))), false);
+    assert.equal(verificationRequired(ok(acceptPhone('7700900123', 'GB'))), true);
   });
 
   test('a UK trunk zero comes off too', () => {
@@ -103,16 +103,16 @@ describe('the country', () => {
 });
 
 describe('the property that matters', () => {
-  /* canVerify true means "self-book will sign somebody in on this". It must
-     be true for exactly one country, and never as a side effect of the number
-     itself looking Indian. */
-  test('a ten-digit Indian-looking number under a foreign country is NOT verifiable', () => {
+  /* canVerify true means "a code must be read back before this number counts".
+     The code goes to the number in the country that was CHOSEN — never to the
+     Indian number the same digits would be. */
+  test('a ten-digit Indian-looking number under a foreign country is proved on its own country’s number', () => {
     /* Nepal, because it also takes ten digits — so the number is byte-for-byte
        something that would be a valid Indian mobile, and only the chosen
-       country separates them. That is exactly the case that must not leak a
-       session. */
+       country separates them. The code must go to +977, or proving it would
+       prove somebody else's phone. */
     const r = ok(acceptPhone('9876543210', 'NP'));
-    assert.equal(r.canVerify, false);
+    assert.equal(r.canVerify, true);
     assert.equal(r.e164, '+9779876543210');
   });
 

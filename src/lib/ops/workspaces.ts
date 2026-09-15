@@ -174,6 +174,7 @@ export const SECTIONS = {
     { id: 'gst', workspace: 'finance', label: 'GST summary', keywords: 'gst tax output input credit itc filing return cgst sgst igst payable' },
     { id: 'profitability', workspace: 'finance', label: 'Pricing & profitability', keywords: 'pricing price calculator profit profitability margin minimum floor seller offer gst cac website dollar plan mix' },
     { id: 'payment-links', workspace: 'finance', label: 'Rupee payment links', keywords: 'payment link razorpay upi rupee inr india whatsapp send pay' },
+    { id: 'bank-accounts', workspace: 'finance', label: 'Bank accounts', keywords: 'bank account transfer ifsc swift iban upi country checkout wire' },
     { id: 'pricing', workspace: 'finance', label: 'Coding course payment pages', keywords: 'pricing razorpay payment pages tier coding static' },
 
     { id: 'risk', workspace: 'quality', label: 'Students & batches at risk', keywords: 'risk drifting slipping batch trouble attention' },
@@ -225,6 +226,7 @@ export const SECTIONS = {
     { id: 'ledger', workspace: 'sales', label: 'Sales & refunds', keywords: 'sales refunds ledger revenue renewal' },
     { id: 'gst', workspace: 'sales', label: 'GST summary', keywords: 'gst tax output input credit itc filing return cgst sgst igst payable' },
     { id: 'payment-links', workspace: 'sales', label: 'Rupee payment links', keywords: 'payment link razorpay upi rupee inr india whatsapp send pay' },
+    { id: 'bank-accounts', workspace: 'sales', label: 'Bank accounts', keywords: 'bank account transfer ifsc swift iban upi country checkout wire' },
     { id: 'pricing', workspace: 'sales', label: 'Pricing & profitability', keywords: 'pricing price calculator profit margin floor seller website' },
   ],
   teacher: [

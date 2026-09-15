@@ -22,6 +22,10 @@ export interface Profile {
   role: string | null;
   email_verified: boolean;
   phone_verified: boolean;
+  /** ISO country the number belongs to, e.g. 'IN'. */
+  phone_country_code?: string | null;
+  /** When the number was last replaced (scripts/phone-change-guard.sql). */
+  phone_changed_at?: string | null;
   profile_completed: boolean;
   is_student: boolean;
   is_teacher: boolean;

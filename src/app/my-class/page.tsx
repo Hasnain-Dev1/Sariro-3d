@@ -1,8 +1,14 @@
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 import { createServerClientHelper, createServiceClient } from '@/lib/supabase/server';
 import { loadTrialPageState } from '@/lib/trial/page-state';
 import { trialCertificateFor } from '@/lib/trial/certificate';
 import MyClassView from './my-class-view';
+import PhoneGate from '@/components/auth/phone-gate';
+import { readAccountPhone } from '@/lib/phone/account-phone';
+import { phoneGate } from '@/lib/phone/gate';
+import { smsConfigured } from '@/lib/phone/otp';
+import { isVerifiedImpersonation, IMPERSONATOR_COOKIE } from '@/lib/auth/impersonation';
 
 /**
  * SARIRO — /my-class
@@ -50,7 +56,11 @@ export default async function MyClassPage({
      session above is what proves who they are; this is only how their rows are
      fetched, and it cannot be tripped up by an RLS policy written later. */
   const admin = createServiceClient();
-  const { profile, enrolled, trial } = await loadTrialPageState(admin, user.id);
+  const [{ profile, enrolled, trial }, phone, cookieJar] = await Promise.all([
+    loadTrialPageState(admin, user.id),
+    readAccountPhone(admin, user.id),
+    cookies(),
+  ]);
 
   /* A student who has since enrolled belongs on the real dashboard. Without
      this they would be stranded here after paying, which is the worst possible
@@ -71,7 +81,7 @@ export default async function MyClassPage({
     if (cert.ok) certificateUrl = `/certificate/trial/${trial.id}`;
   }
 
-  return (
+  const view = (
     <MyClassView
       trial={trial}
       firstName={firstName}
@@ -79,5 +89,37 @@ export default async function MyClassPage({
       welcomeEmail={welcomeEmail}
       certificateUrl={certificateUrl}
     />
+  );
+
+  /* The once-only phone check (lib/phone/gate.ts) — decided here, so a family
+     whose number is already proved (everyone who booked through the form in
+     India) still gets their class in the first paint. Only an account that
+     still owes the check waits for the browser to show it. */
+  const gate = phone
+    ? phoneGate({
+        profileLoaded: true,
+        phone: phone.phone,
+        phoneVerified: phone.verified,
+        countryCode: phone.countryCode,
+        status: phone.verified
+          ? null
+          : {
+              impersonating: await isVerifiedImpersonation(cookieJar.get(IMPERSONATOR_COOKIE)?.value, admin, user.id),
+              smsAvailable: smsConfigured(),
+            },
+      })
+    : 'verify';
+  if (gate === 'allow') return view;
+
+  return (
+    <PhoneGate
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+          <div className="w-10 h-10 border-3 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
+        </div>
+      }
+    >
+      {view}
+    </PhoneGate>
   );
 }

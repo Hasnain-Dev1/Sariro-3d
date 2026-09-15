@@ -5,16 +5,17 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, User, Mail, Loader2, Sparkles, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/components/auth/auth-provider';
 import { createClient } from '@/lib/supabase/client';
-import PhoneField, { phoneFieldE164, phoneFieldProblem } from '@/components/forms/phone-field';
-import { splitE164, guessCountry, DEFAULT_COUNTRY } from '@/lib/phone/countries';
 
 /* ===============================================================
    ProfileCompletionModal
    - Auto-shows when user is logged in but profile_completed = false
    - Asks for missing fields based on provider:
-     • Google:   email ✓, name ✓, phone ✗ → ask phone only
-     • GitHub:   email ✓ (usually), name ⚠️ → ask name + phone (if missing)
-     • Email:    email ✓, name ✗, phone ✗ → ask name + phone
+     • GitHub:   email ✓ (usually), name ⚠️ → ask name
+     • Email:    email ✓, name ✗ → ask name
+   - NOT the phone. A number is only ever saved by proving it, through
+     /api/account/phone — the dashboard asks for it once (PhoneGate), and the
+     trial booking form proves it there. A box here that saved it straight to
+     the profile is exactly what scripts/phone-change-guard.sql now refuses.
    - Non-dismissable until filled (or "Skip for now" — sets a session flag)
    - On submit → UPDATE profiles SET ... profile_completed = true
 =============================================================== */
@@ -27,11 +28,6 @@ export default function ProfileCompletionModal() {
 
   const [open, setOpen] = useState(false);
   const [fullName, setFullName] = useState('');
-  /* Country and number are separate state, because they are separate facts —
-     the dialling code says which network to ring and nothing about where the
-     person lives. See lib/phone/countries.ts for the bug that taught us. */
-  const [phone, setPhone] = useState({ country: DEFAULT_COUNTRY, national: '' });
-  const [phoneTouched, setPhoneTouched] = useState(false);
   const [emailOverride, setEmailOverride] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +35,6 @@ export default function ProfileCompletionModal() {
 
   /* Determine which fields are missing */
   const missingName = !profile?.full_name;
-  const missingPhone = !profile?.phone;
   const missingEmail = !profile?.email;
   /* Only asked of an account with no sign-in email at all. When there is one,
      the profile copies it — letting the box be edited is how a profile ends up
@@ -68,24 +63,13 @@ export default function ProfileCompletionModal() {
     }
 
     // Only show if there's actually something missing
-    if (missingName || missingPhone || missingEmail) {
+    if (missingName || missingEmail) {
       // Pre-fill from profile / user metadata
       setFullName(profile.full_name || user.user_metadata?.full_name || user.user_metadata?.name || '');
-      /* Seed from whatever is already stored, split back into its two parts so
-         the picker opens on the right country. Falls back to a guess from the
-         browser's timezone — which seeds the control and is never itself
-         stored. */
-      const existing = profile.phone || user.user_metadata?.phone || '';
-      const split = splitE164(existing);
-      setPhone({
-        country: split.country?.code
-          ?? guessCountry(Intl.DateTimeFormat().resolvedOptions().timeZone),
-        national: split.national || '',
-      });
       setEmailOverride(profile.email || user.email || '');
       setOpen(true);
     }
-  }, [loading, user, profile, missingName, missingPhone, missingEmail]);
+  }, [loading, user, profile, missingName, missingEmail]);
 
   /* ---------- Body scroll lock (same as chat bubble + syllabus modal) ---------- */
   useEffect(() => {
@@ -130,14 +114,6 @@ export default function ProfileCompletionModal() {
       setError('Please enter your full name.');
       return;
     }
-    if (missingPhone) {
-      setPhoneTouched(true);
-      const problem = phoneFieldProblem(phone);
-      if (problem) {
-        setError(problem);
-        return;
-      }
-    }
     if (needsEmailOverride && !emailOverride.trim()) {
       setError('Please enter your email address.');
       return;
@@ -153,12 +129,6 @@ export default function ProfileCompletionModal() {
         profile_completed: true,
       };
       if (missingName) updates.full_name = fullName.trim();
-      if (missingPhone) {
-        // Canonical E.164, with the trunk prefix stripped — `+91 09876543210`
-        // is a number that rings nothing.
-        updates.phone = phoneFieldE164(phone);
-        updates.phone_country_code = phone.country;
-      }
       if (needsEmailOverride) updates.email = emailOverride.trim().toLowerCase();
       else if (missingEmail && user?.email) updates.email = user.email.trim().toLowerCase();
 
@@ -319,17 +289,6 @@ export default function ProfileCompletionModal() {
                       </div>
                     )}
 
-                    {/* Phone — shown only if missing */}
-                    {missingPhone && (
-                      <PhoneField
-                        id="profile-phone"
-                        value={phone}
-                        onChange={(v) => { setPhone(v); setPhoneTouched(true); }}
-                        showProblem={phoneTouched}
-                        required
-                        noteSmsReach
-                      />
-                    )}
 
                     {error && (
                       <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">

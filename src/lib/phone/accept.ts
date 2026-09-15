@@ -8,30 +8,19 @@
  * people would be turned away by the public booking form today with "We need
  * an Indian mobile number we can reach you on."
  *
- * ── Verified and allowed are two different questions ────────────────────────
- * apitxt.com delivers SMS to India and nowhere else. Everywhere else a code is
- * generated, the request is accepted, and nothing ever arrives — so demanding
- * verification abroad is demanding something impossible.
- *
- * The rule is therefore:
- *
- *   India        — verification REQUIRED. The code reaches them, so a number
- *                  nobody proved is a number somebody else typed.
- *   Elsewhere    — accepted UNVERIFIED, and recorded as such. A seller ringing
- *                  them will find out soon enough, and a family we cannot text
- *                  is still a family who wants a class.
- *
- * `smsReachable()` is the one place that distinction lives, so the day a
- * second country becomes reachable this rule follows automatically.
+ * ── Every country is verified ───────────────────────────────────────────────
+ * Codes go on WhatsApp (lib/phone/otp.ts), which reaches a family anywhere, so
+ * since 15 Sep 2026 every accepted number must be proved — not India alone, as
+ * when codes went by SMS and nothing sent abroad arrived. `codeReachable()` is
+ * the one place that decision lives.
  *
  * ── Why not just accept everything ──────────────────────────────────────────
- * An unverified Indian number is an account-takeover vector: type somebody
- * else's mobile, and the routes that sign a caller in would hand over their
- * session. Abroad there is no code to skip, so there is no gate to defeat —
- * the risk is different in kind, not merely in degree.
+ * An unverified number is an account-takeover vector: type somebody else's
+ * mobile, and the routes that sign a caller in would hand over their session.
+ * A code read back is what closes that.
  */
 
-import { checkNational, toE164, smsReachable, countryByCode, stripTrunkPrefix, DEFAULT_COUNTRY } from '@/lib/phone/countries';
+import { checkNational, toE164, codeReachable, countryByCode, stripTrunkPrefix, DEFAULT_COUNTRY } from '@/lib/phone/countries';
 
 export interface AcceptedPhone {
   ok: true;
@@ -91,7 +80,7 @@ export function acceptPhone(
   const e164 = toE164(code, national);
   if (!e164) return { ok: false, problem: 'That does not look like a phone number.' };
 
-  return { ok: true, e164, countryCode: code, national, canVerify: smsReachable(code) };
+  return { ok: true, e164, countryCode: code, national, canVerify: codeReachable(code) };
 }
 
 /**
@@ -105,6 +94,6 @@ export function verificationRequired(phone: AcceptedPhone): boolean {
   return phone.canVerify;
 }
 
-/** What to tell somebody we cannot text. Warm, and honest about why. */
-export const UNVERIFIABLE_NOTICE =
-  'We can only send verification codes to Indian numbers at the moment, so we will confirm yours when we ring you.';
+/** What a number field says about where the code goes. */
+export const WHATSAPP_CODE_NOTICE =
+  'We send your verification code on WhatsApp, so enter the number your WhatsApp account uses.';

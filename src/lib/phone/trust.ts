@@ -11,10 +11,16 @@ import { findAccountByEmail } from '@/lib/account/email-identity';
  * The rule, from the founder:
  *
  *   1. The email is proved first, and it is the account.
- *   2. If that account already has a number, that number is used — no code.
+ *   2. If that account already has a VERIFIED number, that number is used —
+ *      no code.
  *   3. Otherwise, if the number they type has been verified with us before,
  *      it is trusted — no code.
- *   4. Only a new email with a new number is sent a code.
+ *   4. Everything else is sent a code — once. After that it is rule 2 or 3.
+ *
+ * Rule 2 used to trust any number on the account, verified or not. The
+ * founder's policy (15 Sep 2026) is that every account proves its phone at
+ * least once — the number is how we know a user is genuine — so a number that
+ * was only ever typed pays for its one code, and never again.
  *
  * ── Why rules 2 and 3 need the email proved ─────────────────────────────────
  * Without it, anybody could type a known number and skip the code — and the
@@ -36,7 +42,7 @@ import { findAccountByEmail } from '@/lib/account/email-identity';
 export type TrustReason =
   /** A code was verified for this number within the hour. */
   | 'fresh_code'
-  /** The number already on the account this proved email belongs to. */
+  /** The verified number already on the account this proved email belongs to. */
   | 'account_number'
   /** Verified with us before — on a profile, or through a code. */
   | 'verified_before';
@@ -82,7 +88,8 @@ export interface TrustFacts {
   freshCode: boolean;
   /** email_is_verified(): the address was proved within the hour. */
   emailProved: boolean;
-  /** The numbers on the account(s) that proved email belongs to. */
+  /** The VERIFIED numbers on the account that proved email belongs to. A number
+      that was only ever typed is not here — it has not been proved once yet. */
   accountPhones: readonly (string | null)[];
   /** Verified with us before, by any route. */
   verifiedBefore: boolean;
@@ -131,8 +138,8 @@ export async function loadPhoneTrust(
   const ownerId = await findAccountByEmail(admin, email);
   const [account, codes, profiles] = await Promise.all([
     ownerId
-      ? admin.from('profiles').select('phone').eq('id', ownerId).limit(1)
-      : Promise.resolve({ data: [] as { phone: string | null }[], error: null }),
+      ? admin.from('profiles').select('phone, phone_verified').eq('id', ownerId).limit(1)
+      : Promise.resolve({ data: [] as { phone: string | null; phone_verified: boolean | null }[], error: null }),
     admin.from('phone_verifications').select('phone').eq('phone', input.phone).not('verified_at', 'is', null).limit(1),
     admin.from('profiles').select('id').in('phone', spellings).eq('phone_verified', true).limit(1),
   ]);
@@ -140,7 +147,9 @@ export async function loadPhoneTrust(
   return decidePhoneTrust(input.phone, {
     freshCode: false,
     emailProved: true,
-    accountPhones: account.error ? [] : (account.data ?? []).map((r) => r.phone as string | null),
+    accountPhones: account.error
+      ? []
+      : (account.data ?? []).filter((r) => r.phone_verified === true).map((r) => r.phone as string | null),
     verifiedBefore:
       (!codes.error && (codes.data?.length ?? 0) > 0) ||
       (!profiles.error && (profiles.data?.length ?? 0) > 0),
