@@ -5,8 +5,8 @@ import { Printer, AlertCircle, Info, FileCheck, Loader2 } from 'lucide-react';
 import InvoiceDocument, { type InvoiceData } from '@/components/dashboard/invoice-document';
 import { CURRENCIES, COUNTRIES, INDIAN_STATES, OTHER_COUNTRY } from '@/lib/invoice/company';
 import {
-  gstAvailable, paymentSummary, gatewayFee, formatMoney,
-  type PaymentType, type FeeMode,
+  gstAvailable, paymentSummary, gatewayFee, formatMoney, grossAmount, calculateInvoice,
+  type PaymentType, type FeeMode, type GstMode,
 } from '@/lib/invoice/calculate';
 import { issueInvoice, type SaleType } from '@/lib/invoice/records';
 
@@ -95,6 +95,9 @@ export default function InvoiceGenerator({ onIssued }: { onIssued?: () => void }
   const [price, setPrice] = useState('');
   const [currencyCode, setCurrencyCode] = useState('INR');
   const [includeGst, setIncludeGst] = useState(true);
+  /* Is the typed amount already GST-inclusive, or before GST? Exclusive adds
+     18% on top; either way the invoice shows the GST. See grossAmount(). */
+  const [gstMode, setGstMode] = useState<GstMode>('inclusive');
   const [paymentStatus, setPaymentStatus] = useState<'Paid' | 'Pending'>('Paid');
   const [paymentReference, setPaymentReference] = useState('');
   /* A parent pays half now and half later. `price` stays "what is being paid
@@ -127,6 +130,13 @@ export default function InvoiceGenerator({ onIssued }: { onIssued?: () => void }
 
   const isIndia = gstAvailable(effectiveCountry);
   const currency = CURRENCIES.find((c) => c.code === currencyCode) ?? CURRENCIES[0];
+  const gstOn = isIndia && includeGst;
+  /* Every amount typed, turned into what the customer pays. In exclusive mode
+     each one — this payment, the course fees, what was already paid — was typed
+     before GST, so each gets GST added; mixing the two would make "balance due"
+     compare a gross figure with a net one. */
+  const gross = (typed: string) => grossAmount(Number(typed) || 0, gstMode, gstOn);
+  const grossPrice = gross(price);
 
   const data: InvoiceData = useMemo(() => ({
     invoiceNumber: issuedNumber ?? PROVISIONAL_NUMBER,
@@ -143,10 +153,12 @@ export default function InvoiceGenerator({ onIssued }: { onIssued?: () => void }
     courseName,
     courseDescription,
     paymentType,
-    courseTotal: Number(courseTotal) || 0,
-    previouslyPaid: Number(previouslyPaid) || 0,
+    courseTotal: grossAmount(Number(courseTotal) || 0, gstMode, gstOn),
+    previouslyPaid: grossAmount(Number(previouslyPaid) || 0, gstMode, gstOn),
     transactionId: transactionId.trim(),
-    price: Number(price) || 0,
+    // What the customer pays. Stored this way whichever mode it was typed in,
+    // so a saved invoice redraws exactly as it was issued.
+    price: grossAmount(Number(price) || 0, gstMode, gstOn),
     currencyCode: currency.code,
     currencySymbol: currency.symbol,
     // The calculation ignores this outside India, but keeping the flag honest
@@ -159,20 +171,21 @@ export default function InvoiceGenerator({ onIssued }: { onIssued?: () => void }
     effectiveState, customerStateCode, customerEmail, customerPhone, courseName,
     courseDescription, price, currency, includeGst, paymentStatus, paymentReference,
     paymentType, courseTotal, previouslyPaid, transactionId,
-    isIndia,
+    isIndia, gstMode, gstOn,
   ]);
 
   /* Shown under the amount so the person raising it can see the arithmetic
      before the parent does. */
   const schedule = paymentSummary({
     paymentType,
-    courseTotal: Number(courseTotal) || 0,
-    previouslyPaid: Number(previouslyPaid) || 0,
-    amountNow: Number(price) || 0,
+    courseTotal: gross(courseTotal),
+    previouslyPaid: gross(previouslyPaid),
+    amountNow: grossPrice,
   });
+  const tax = calculateInvoice({ price: grossPrice, country: effectiveCountry, includeGst: gstOn, customerStateCode });
 
   const fee = gatewayFee({
-    total: Number(price) || 0,
+    total: grossPrice,
     mode: feeMode,
     value: Number(feeValue) || 0,
   });
@@ -238,7 +251,7 @@ export default function InvoiceGenerator({ onIssued }: { onIssued?: () => void }
     setPaymentType('full'); setCourseTotal(''); setPreviouslyPaid('');
     // Cleared deliberately: carrying a transaction id into the next invoice is
     // how the same payment gets billed twice.
-    setTransactionId(''); setSaleType('new');
+    setTransactionId(''); setSaleType('new'); setGstMode('inclusive');
     setFeeMode('percent'); setFeeValue('');
     setInvoiceDate(todayISO());
   };
@@ -374,12 +387,16 @@ export default function InvoiceGenerator({ onIssued }: { onIssued?: () => void }
 
             <div className="grid grid-cols-[1fr_110px] gap-2">
               <Field
-                label={paymentType === 'installment' ? 'Paying now' : 'Price the customer pays'}
+                label={
+                  gstOn && gstMode === 'exclusive'
+                    ? (paymentType === 'installment' ? 'Paying now, before GST' : 'Price before GST')
+                    : (paymentType === 'installment' ? 'Paying now' : 'Price the customer pays')
+                }
                 required
               >
                 <input type="number" min={0} step="0.01" value={price}
                   onChange={(e) => setPrice(e.target.value)}
-                  className={inputCls} style={inputStyle} placeholder="11800" />
+                  className={inputCls} style={inputStyle} placeholder={gstOn && gstMode === 'exclusive' ? '10000' : '11800'} />
               </Field>
               <Field label="Currency" required>
                 <select value={currencyCode} onChange={(e) => setCurrencyCode(e.target.value)}
@@ -412,7 +429,7 @@ export default function InvoiceGenerator({ onIssued }: { onIssued?: () => void }
                 )}
                 {isIndia && includeGst && (
                   <p className="text-[11px] text-slate-400 mt-1.5 leading-[1.5]">
-                    GST is charged on the {currency.symbol}{(Number(price) || 0).toFixed(2)} being paid
+                    GST is charged on the {currency.symbol}{grossPrice.toFixed(2)} being paid
                     now — not on the course total.
                   </p>
                 )}
@@ -423,18 +440,54 @@ export default function InvoiceGenerator({ onIssued }: { onIssued?: () => void }
           <Section title="Tax">
             {isIndia ? (
               <>
-                <label className="flex items-start gap-2.5 cursor-pointer">
-                  <input type="checkbox" checked={includeGst}
-                    onChange={(e) => setIncludeGst(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 accent-blue-600" />
-                  <span className="text-[13px] text-slate-700 leading-[1.5]">
-                    <span className="font-semibold">Price includes 18% GST</span><br />
-                    <span className="text-slate-500">
-                      GST is taken out of the price you entered — never added on top.
-                      The customer still pays exactly what you typed.
-                    </span>
-                  </span>
-                </label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {([
+                    ['inclusive', 'GST inclusive'],
+                    ['exclusive', 'GST exclusive'],
+                    ['none', 'No GST'],
+                  ] as const).map(([value, label]) => {
+                    const active = value === 'none' ? !includeGst : includeGst && gstMode === value;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => {
+                          if (value === 'none') { setIncludeGst(false); return; }
+                          setIncludeGst(true);
+                          setGstMode(value);
+                        }}
+                        className={`min-h-[40px] rounded-lg border px-1.5 text-[12.5px] font-semibold transition-colors ${
+                          active ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[12px] text-slate-500 leading-[1.55]">
+                  {!includeGst
+                    ? 'No tax section on the invoice. The customer pays exactly what you typed.'
+                    : gstMode === 'inclusive'
+                      ? 'The price you typed already contains 18% GST. It is taken out and shown — the customer pays exactly what you typed.'
+                      : 'The price you typed is before tax. 18% GST is added on top and shown on the invoice.'}
+                </p>
+                {includeGst && grossPrice > 0 && (
+                  <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5 text-[12.5px] leading-[1.7]">
+                    <div className="flex justify-between text-slate-600">
+                      <span>Taxable amount</span>
+                      <span className="tabular-nums font-semibold text-slate-900">{asMoney(tax.taxable)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span>GST (18%)</span>
+                      <span className="tabular-nums font-semibold text-slate-900">{asMoney(tax.totalTax)}</span>
+                    </div>
+                    <div className="flex justify-between pt-1.5 mt-1 border-t border-slate-200">
+                      <span className="font-bold text-slate-700">Customer pays</span>
+                      <span className="tabular-nums font-extrabold text-slate-900">{asMoney(tax.total)}</span>
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <p className="text-[12.5px] text-slate-500 leading-[1.6] flex items-start gap-2">
@@ -510,7 +563,7 @@ export default function InvoiceGenerator({ onIssued }: { onIssued?: () => void }
               <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5 text-[12.5px] leading-[1.7]">
                 <div className="flex justify-between text-slate-600">
                   <span>Customer pays</span>
-                  <span className="tabular-nums font-semibold text-slate-900">{asMoney(Number(price) || 0)}</span>
+                  <span className="tabular-nums font-semibold text-slate-900">{asMoney(grossPrice)}</span>
                 </div>
                 <div className="flex justify-between text-slate-600">
                   <span>Gateway keeps ({fee.percent}%)</span>
@@ -521,7 +574,7 @@ export default function InvoiceGenerator({ onIssued }: { onIssued?: () => void }
                   <span className="tabular-nums font-extrabold text-slate-900">{asMoney(fee.netReceived)}</span>
                 </div>
                 <p className="text-[11px] text-slate-400 mt-1.5 leading-[1.5]">
-                  Kept off the customer&rsquo;s invoice — they paid {asMoney(Number(price) || 0)}, and
+                  Kept off the customer&rsquo;s invoice — they paid {asMoney(grossPrice)}, and
                   GST is charged on that.
                 </p>
               </div>

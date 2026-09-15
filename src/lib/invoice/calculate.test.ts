@@ -1,7 +1,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  calculateInvoice, formatMoney, gstAvailable, paymentSummary, gatewayFee, GST_RATE,
+  calculateInvoice, formatMoney, gstAvailable, paymentSummary, gatewayFee, grossAmount, GST_RATE,
 } from './calculate';
 
 /**
@@ -313,5 +313,42 @@ describe('the shape of the tax, whatever the rate is set to', () => {
   test('the two halves always add back to the whole tax', () => {
     const t = at('19');
     assert.equal(t.taxLines[0].amount + t.taxLines[1].amount, t.totalTax);
+  });
+});
+
+describe('GST inclusive or exclusive', () => {
+  test('inclusive: ₹11,800 typed is ₹11,800 paid, ₹1,800 of it GST', () => {
+    const gross = grossAmount(11800, 'inclusive', true);
+    assert.equal(gross, 11800);
+    const r = calculateInvoice({ price: gross, country: 'India', includeGst: true });
+    assert.equal(r.taxable, 10000);
+    assert.equal(r.totalTax, 1800);
+  });
+
+  test('exclusive: ₹10,000 typed gets 18% added — ₹11,800 paid, GST shown', () => {
+    const gross = grossAmount(10000, 'exclusive', true);
+    assert.equal(gross, 11800);
+    const r = calculateInvoice({ price: gross, country: 'India', includeGst: true });
+    assert.equal(r.taxable, 10000, 'the taxable amount is exactly what was typed');
+    assert.equal(r.totalTax, 1800);
+    assert.equal(r.showsTax, true);
+  });
+
+  test('exclusive never loses a paisa: the typed amount comes back as the taxable amount', () => {
+    for (let paise = 1; paise <= 500000; paise += 37) {
+      const typed = paise / 100;
+      const r = calculateInvoice({ price: grossAmount(typed, 'exclusive', true), country: 'India', includeGst: true });
+      assert.equal(r.taxable, typed, `typed ${typed}`);
+    }
+  });
+
+  test('no GST adds nothing, whichever mode was left selected', () => {
+    assert.equal(grossAmount(300, 'exclusive', false), 300);
+    assert.equal(grossAmount(300, 'inclusive', false), 300);
+  });
+
+  test('nonsense typed is nothing, not NaN on a customer’s invoice', () => {
+    assert.equal(grossAmount(NaN, 'exclusive', true), 0);
+    assert.equal(grossAmount(-5, 'exclusive', true), 0);
   });
 });

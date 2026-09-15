@@ -146,6 +146,34 @@ export function calculateInvoice(input: InvoiceInput): InvoiceTotals {
   };
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   GST inclusive or GST exclusive (15 Sep 2026)
+   ══════════════════════════════════════════════════════════════════════════
+   Everything above treats the entered price as what the customer pays, with
+   GST inside it. HR also quotes prices BEFORE tax ("₹10,000 plus GST"), and
+   typing 11,800 by hand is where mistakes come from. So the form asks which
+   it is, and turns the typed figure into what the customer pays:
+
+     inclusive   typed 11,800  →  pays 11,800  (taxable 10,000 + GST 1,800)
+     exclusive   typed 10,000  →  pays 11,800  (taxable 10,000 + GST 1,800)
+
+   The invoice itself is still worked out from what the customer pays, by
+   calculateInvoice() — one code path, and a stored invoice redraws the same
+   whichever way it was typed. Nothing is lost by storing the gross figure:
+   rounding 10,000 × 1.18 to the paisa and extracting GST again always returns
+   the typed amount exactly (the error is under half a paisa after ÷ 1.18),
+   which the tests check across thousands of prices.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+export type GstMode = 'inclusive' | 'exclusive';
+
+/** What the customer pays for a typed amount. Only adds GST when it applies. */
+export function grossAmount(entered: number, mode: GstMode, gstApplies: boolean): number {
+  const n = Number.isFinite(entered) && entered > 0 ? entered : 0;
+  if (!gstApplies || mode === 'inclusive') return round2(n);
+  return round2(n * (1 + GST_RATE));
+}
+
 /**
  * Money, in the invoice's own currency.
  *
