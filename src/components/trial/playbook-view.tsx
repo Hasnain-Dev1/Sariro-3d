@@ -8,10 +8,11 @@ import {
 import { trialSubjects } from '@/lib/trial/subjects';
 import { gradeTag } from '@/lib/grade/tag';
 import {
-  playbookFor, rankPaths, warmUpsFor, bandOf, BAND_LABEL, LEVEL_LABEL,
+  playbookFor, rankPaths, warmUpsFor, bandOf, startingLevel, BAND_LABEL, LEVEL_LABEL,
   type Level, type Path, type Step, type TrialIntake,
 } from '@/lib/trial/playbooks';
 import SoundLab from '@/components/speaking/sound-lab';
+import { FEELING } from '@/lib/trial/intake';
 
 /**
  * SARIRO — the trial playbook, open in class
@@ -62,7 +63,10 @@ export default function PlaybookView() {
   const [grade, setGrade] = useState<number | null>(null);
   const [child, setChild] = useState<string | null>(null);
   const [booking, setBooking] = useState<string | null>(null);
+  const [student, setStudent] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  /* What the family said on /my-class before the class (components/trial/trial-prep.tsx). */
+  const [family, setFamily] = useState<{ state: 'none' | 'loading' | 'off' | 'empty' | 'ready'; intake: TrialIntake | null }>({ state: 'none', intake: null });
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
@@ -72,8 +76,25 @@ export default function PlaybookView() {
     if (Number.isInteger(g) && g >= 1 && g <= 14) setGrade(g);
     setChild(q.get('child'));
     setBooking(q.get('booking'));
+    setStudent(q.get('student'));
     setReady(true);
   }, []);
+
+  useEffect(() => {
+    if (!booking || !student) return;
+    let live = true;
+    setFamily({ state: 'loading', intake: null });
+    fetch(`/api/trial/intake?bookingId=${encodeURIComponent(booking)}&studentId=${encodeURIComponent(student)}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (!live) return;
+        if (!j?.ok) setFamily({ state: 'empty', intake: null });
+        else if (j.configured === false) setFamily({ state: 'off', intake: null });
+        else setFamily({ state: j.intake ? 'ready' : 'empty', intake: (j.intake as TrialIntake | null) ?? null });
+      })
+      .catch(() => { if (live) setFamily({ state: 'empty', intake: null }); });
+    return () => { live = false; };
+  }, [booking, student]);
 
   const playbook = playbookFor(subject)!;
   const storageKey = `sariro:playbook:${booking ?? 'practice'}:${subject}`;
@@ -91,8 +112,18 @@ export default function PlaybookView() {
   const diagLevel: Level | undefined = diagLevels.length
     ? SCORE_LEVEL[Math.round(diagLevels.reduce((n, l) => n + LEVEL_SCORE[l], 0) / diagLevels.length)]
     : undefined;
-  const intake: TrialIntake = { experience: diagLevel ?? saved.experience, interests: saved.interests };
-  const level: Level = intake.experience ?? 'some';
+  /* What the teacher heard beats what they chose, which beats what the family
+     said. Interests add up: the family's, plus any the teacher spotted. */
+  const fam = family.intake;
+  const intake: TrialIntake = {
+    experience: diagLevel ?? saved.experience ?? fam?.experience,
+    interests: [...new Set([...(fam?.interests ?? []), ...saved.interests])],
+    warmUp: diagLevel || saved.experience ? undefined : fam?.warmUp,
+  };
+  /* The same starting level the path ranking uses — including the nudge a
+     perfect (or empty) warm-up gives — so the note and the reasons agree. */
+  const level: Level = startingLevel(intake);
+  const nudged = !!intake.warmUp && level !== (intake.experience ?? 'some');
 
   const ranked = rankPaths(playbook, { grade, intake });
   const chosen: Path = playbook.paths.find((p) => p.id === saved.pathId) ?? ranked[0].path;
@@ -207,6 +238,7 @@ export default function PlaybookView() {
       {/* ── Who is this ──────────────────────────────────────────────────── */}
       <section className="grid gap-4 lg:grid-cols-2">
         <Card icon={<Sparkles className="w-4 h-4" />} title="What you know before class" tone="sky">
+          {family.state !== 'none' && <FamilyAnswers state={family.state} intake={family.intake} playbook={playbook} child={child} />}
           <p className="text-[12.5px] font-bold uppercase tracking-wider text-slate-400 mb-2">Experience</p>
           <div className="flex flex-wrap gap-2">
             {playbook.intake.experience.map((e) => (
@@ -265,7 +297,8 @@ export default function PlaybookView() {
           <p className="mt-4 rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-[13px] text-slate-700">
             <Target className="inline w-4 h-4 mr-1 text-emerald-600" />
             Pitch this class at: <strong>{LEVEL_LABEL[level]}</strong>
-            {diagLevel ? ' (from what you heard)' : saved.experience ? ' (from what you know)' : ' (nothing known yet)'}
+            {diagLevel ? ' (from what you heard)' : saved.experience ? ' (from what you know)' : fam?.experience ? ' (from what the family said)' : ' (nothing known yet)'}
+            {nudged && intake.warmUp ? ` — moved by a ${intake.warmUp.correct}/${intake.warmUp.total} warm-up` : ''}
           </p>
         </Card>
       </section>
@@ -368,6 +401,36 @@ export default function PlaybookView() {
 }
 
 /* ── Pieces ──────────────────────────────────────────────────────────────── */
+
+function FamilyAnswers({
+  state, intake, playbook, child,
+}: {
+  state: 'loading' | 'off' | 'empty' | 'ready';
+  intake: TrialIntake | null;
+  playbook: NonNullable<ReturnType<typeof playbookFor>>;
+  child: string | null;
+}) {
+  const who = child ?? 'The family';
+  if (state === 'loading') return <div className="mb-4 h-20 rounded-xl bg-slate-100 animate-pulse" />;
+  if (state === 'off') return <p className="mb-4 rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-[12.5px] text-slate-500">Family prep is not switched on yet — run scripts/trial-intake.sql.</p>;
+  if (state === 'empty' || !intake) return <p className="mb-4 rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-[12.5px] text-slate-500">{who} has not done the class prep yet. Ask the questions below in the first minutes.</p>;
+  const exp = playbook.intake.experience.find((e) => e.id === intake.experience);
+  const liked = playbook.intake.interests.filter((i) => intake.interests?.includes(i.id));
+  const feel = intake.feeling ? FEELING[intake.feeling] : null;
+  return (
+    <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50/60 p-3">
+      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-blue-700">{who} told us before class</p>
+      <div className="mt-2 grid gap-1.5 text-[13px] text-slate-800">
+        {exp && <p><span className="text-slate-500">Experience: </span><strong>{exp.label}</strong></p>}
+        {liked.length > 0 && <p><span className="text-slate-500">Likes: </span>{liked.map((i) => `${i.emoji} ${i.label}`).join(' · ')}</p>}
+        {feel && <p><span className="text-slate-500">Feeling: </span>{feel.emoji} {feel.label}{intake.feeling! <= 2 ? ' — start gently' : ''}</p>}
+        {intake.warmUp && <p><span className="text-slate-500">Warm-up: </span><strong>{intake.warmUp.correct}/{intake.warmUp.total}</strong></p>}
+        <p><span className="text-slate-500">Microphone: </span>{intake.micOk ? '✓ tested and working' : 'not tested — check it first'}</p>
+        {intake.question && <p className="rounded-lg bg-white border border-blue-100 px-2.5 py-1.5"><span className="text-slate-500">Their question: </span>“{intake.question}”</p>}
+      </div>
+    </div>
+  );
+}
 
 const TONES = {
   sky: 'text-sky-700 bg-sky-50',

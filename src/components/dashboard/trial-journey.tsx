@@ -12,6 +12,7 @@ import { subjectLabel } from '@/lib/trial/subjects';
 import { gradeTag } from '@/lib/grade/tag';
 import FlipCountdown from '@/components/dashboard/flip-countdown';
 import AddToCalendar from '@/components/dashboard/add-to-calendar';
+import TrialPrep from '@/components/trial/trial-prep';
 
 /**
  * SARIRO — what a child sees before their first class, and after it
@@ -267,6 +268,17 @@ export default function TrialJourney({
             </p>
           )}
         </div>
+
+        {/* Three small steps before class — about the child, a sound check and
+            a warm-up — sent to the teacher's trial playbook so the class starts
+            on the right path. See components/trial/trial-prep.tsx. */}
+        <TrialPrep
+          bookingId={trial.id}
+          subject={trial.subject}
+          grade={trial.grade}
+          firstName={firstName}
+          teacherName={trial.teacher_name}
+        />
 
         {/* The reason to be on time, said where they are looking. */}
         <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex gap-3">
