@@ -52,7 +52,7 @@ const AD = 'admin' as const;
 const TE = 'teacher' as const;
 const SE = 'seller' as const;
 const ST = 'student' as const;
-const HR = '/dashboard/hr';
+const HR = 'hr' as const;
 
 /** The jobs, per role. A dialog is `?do=`, a section is its workspace address. */
 const ACTIONS: Record<QueueRole, Action[]> = {
@@ -63,7 +63,7 @@ const ACTIONS: Record<QueueRole, Action[]> = {
     { label: 'Pricing calculator', hint: 'Minimum prices, seller floors, website prices', href: sectionHref(SA, 'profitability'), keywords: 'pricing price calculator profit margin floor minimum seller website' },
     { label: 'Book a trial class', hint: 'Into a teacher’s open hours', href: actionHref(SA, 'classes', 'book-trial'), keywords: 'book trial free class demo' },
     { label: 'Change a batch schedule', hint: 'New days and times, a start date or a break', href: actionHref(SA, 'classes', 'change-schedule'), keywords: 'reschedule batch days times break holiday' },
-    { label: 'Manage users & roles', hint: 'Change a role or sign in as someone', href: actionHref(SA, 'people', 'users'), keywords: 'users roles staff impersonate sign in as' },
+    { label: 'Manage users & roles', hint: 'Change a role, sign in as someone, block or unblock', href: actionHref(SA, 'people', 'users'), keywords: 'users roles staff impersonate sign in as block unblock offboard ban remove access' },
     { label: 'Assign a teacher', hint: 'Reporting admin and HR for a teacher', href: actionHref(SA, 'people', 'assign-teacher'), keywords: 'assign teacher admin hr manager reporting' },
     { label: 'Assign a seller', hint: 'Reporting admin and HR for a seller', href: actionHref(SA, 'people', 'assign-seller'), keywords: 'assign seller admin hr manager reporting' },
     { label: 'Teachers & courses', hint: 'Put teachers on courses', href: actionHref(SA, 'classes', 'teachers'), keywords: 'teacher cohort course assign' },
@@ -94,16 +94,19 @@ const ACTIONS: Record<QueueRole, Action[]> = {
     { label: 'Support inbox', hint: 'Help requests from families', href: '/dashboard/admin/support', keywords: 'support inbox help ticket' },
   ],
   hr: [
-    { label: 'Generate an invoice', hint: 'Branded tax invoice', href: `${HR}?tab=invoices`, keywords: 'invoice generate bill gst' },
-    { label: 'Record a sale', hint: 'Punch a sale against its invoice', href: `${HR}?tab=sales`, keywords: 'sale record punch refund ledger' },
-    { label: 'Pricing calculator', hint: 'Minimum prices, seller floors, website prices', href: `${HR}?tab=pricing`, keywords: 'pricing price calculator profit margin floor minimum seller website' },
-    { label: 'Issue a certificate', hint: 'Find a student and issue or print a certificate', href: `${HR}?tab=certificates`, keywords: 'certificate issue print course complete' },
-    { label: 'Credit requests', hint: 'Approve or reject', href: `${HR}?tab=credit_requests`, keywords: 'credit request approve reject' },
-    { label: 'Teacher payments & leave', hint: 'Settle payouts, review leave', href: `${HR}?tab=payments`, keywords: 'payout settle pay leave teacher' },
-    { label: 'Incentives', hint: 'Approve incentive requests', href: `${HR}?tab=incentives`, keywords: 'incentive bonus approve' },
-    { label: 'Credits & tiers', hint: 'Adjust credits, set teacher tiers', href: `${HR}?tab=credits`, keywords: 'credits adjust tier teacher rate' },
-    { label: 'My teachers', hint: 'Roster and catch-up compliance', href: `${HR}?tab=my_teachers`, keywords: 'teachers roster catch up compliance' },
-    { label: 'Expenses', hint: 'Record what was spent', href: `${HR}?tab=expenses`, keywords: 'expense spend record' },
+    { label: 'Generate an invoice', hint: 'Branded tax invoice, GST inclusive or exclusive', href: sectionHref(HR, 'invoices'), keywords: 'invoice generate bill gst tax' },
+    { label: 'Record a sale', hint: 'Punch a sale against its invoice', href: sectionHref(HR, 'hr-sales'), keywords: 'sale record punch refund ledger' },
+    { label: 'Pricing calculator', hint: 'Minimum prices, seller floors, website prices', href: sectionHref(HR, 'pricing'), keywords: 'pricing price calculator profit margin floor minimum seller website' },
+    { label: 'Issue a certificate', hint: 'Find a student and issue or print a certificate', href: sectionHref(HR, 'certificates'), keywords: 'certificate issue print course complete' },
+    { label: 'Credit requests', hint: 'Approve or reject', href: sectionHref(HR, 'credit-requests'), keywords: 'credit request approve reject' },
+    { label: 'Settle teacher payouts', hint: 'Move each payout along to paid', href: sectionHref(HR, 'settlements'), keywords: 'payout settle pay teacher paid processing' },
+    { label: 'Review leave', hint: 'Approve or reject a teacher’s leave', href: sectionHref(HR, 'leave'), keywords: 'leave holiday absence approve reject teacher' },
+    { label: 'Incentives', hint: 'Approve incentive requests', href: sectionHref(HR, 'incentives'), keywords: 'incentive bonus approve' },
+    { label: 'Adjust a student’s credits', hint: 'Add or deduct, with a reason', href: sectionHref(HR, 'credit-adjust'), keywords: 'credits adjust add deduct balance' },
+    { label: 'Teacher tiers', hint: 'Set each teacher’s tier', href: sectionHref(HR, 'tiers'), keywords: 'tier teacher rate level pay' },
+    { label: 'My teachers', hint: 'Roster and catch-up compliance', href: sectionHref(HR, 'my-teachers'), keywords: 'teachers roster catch up compliance' },
+    { label: 'Expenses', hint: 'Record what was spent', href: sectionHref(HR, 'expenses'), keywords: 'expense spend record' },
+    { label: 'Earnings & sales report', hint: 'Teacher earnings and seller sales by month', href: actionHref(HR, 'pay', 'earnings-report'), keywords: 'earnings sales report month teacher seller' },
     { label: 'Doubt sessions', hint: 'Extra help sessions', href: '/dashboard/hr/doubt-sessions', keywords: 'doubt session help' },
     { label: 'Trial playbooks', hint: 'The plan teachers follow for every kind of trial', href: '/dashboard/teacher/trial-playbook', keywords: 'trial playbook lesson plan demo class activity' },
   ],

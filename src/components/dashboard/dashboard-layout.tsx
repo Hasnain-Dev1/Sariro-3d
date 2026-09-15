@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
-  Menu, X, LayoutDashboard, BookOpen, Settings,
+  Menu, X, BookOpen, Settings,
   LogOut, ChevronRight, Bell, Home as HomeIcon, GraduationCap,
   Users, ShieldCheck, DollarSign, ScrollText, ArrowLeft, Sparkles,
   Loader2, AlertTriangle, Trophy, LifeBuoy, HelpCircle, MessageSquare, Mic, Search, Command,
@@ -30,9 +30,8 @@ import {
   WORKSPACE_ORDER, placesFor, waitingAt, workspaceAt, workspaceHref, workspaceMeta, type WorkspaceKey, type WorkspaceRole,
 } from '@/lib/ops/workspaces';
 
-/* Every role has a Today queue and ⌘K; all but HR, whose dashboard is tabbed,
-   also have workspaces. */
-const isWorkspaceRole = (role: UserRole): role is WorkspaceRole => role !== 'hr';
+/* Every role has a Today queue, ⌘K and workspaces — HR's since 15 Sep 2026. */
+const isWorkspaceRole = (role: UserRole): role is WorkspaceRole => role in WORKSPACE_ORDER;
 
 /* ════════════════════════════════════════════════════════════════
    DashboardLayout
@@ -57,12 +56,18 @@ interface NavItem {
 const MESSAGES_NAV: NavItem = { href: '/dashboard/messages', label: 'Messages', icon: MessageSquare };
 
 
-const HR_NAV: NavItem[] = [
-  { href: '/dashboard/hr', label: 'Home', icon: LayoutDashboard },
-  MESSAGES_NAV,
-  { href: '/dashboard/hr/doubt-sessions', label: 'Doubt Sessions', icon: HelpCircle },
-  { href: '/settings', label: 'Settings', icon: Settings },
-];
+/* Today, Messages, then HR's workspaces — Teachers, Pay, Students, Sales. */
+const HR_NAV: NavItem[] = (() => {
+  const [today, ...workspaces] = workspaceNav('hr');
+  return [
+    today,
+    MESSAGES_NAV,
+    ...workspaces,
+    { href: '/dashboard/hr/doubt-sessions', label: 'Doubt Sessions', icon: HelpCircle, group: 'Pages' },
+    { href: '/dashboard/teacher/trial-playbook', label: 'Trial Playbooks', icon: Sparkles, group: 'Pages' },
+    { href: '/settings', label: 'Settings', icon: Settings, group: 'Pages' },
+  ];
+})();
 
 /* Today and Messages, then the workspaces (lib/ops/workspaces.ts), then the
    pages that are not workspaces. The first five are also the phone's bottom
@@ -160,6 +165,7 @@ const SUPER_ADMIN_NAV: NavItem[] = (() => {
 const PLACES: Record<WorkspaceRole, ReturnType<typeof placesFor>> = {
   super_admin: placesFor('super_admin'),
   admin: placesFor('admin'),
+  hr: placesFor('hr'),
   teacher: placesFor('teacher'),
   seller: placesFor('seller'),
   student: placesFor('student'),
@@ -761,10 +767,9 @@ function getRoleFromPath(pathname: string): UserRole | null {
      signed-in account. */
   if (pathname === '/dashboard/super-admin' || pathname.startsWith('/dashboard/super-admin/')) return 'super_admin';
   if (pathname === '/dashboard/admin' || pathname.startsWith('/dashboard/admin/')) return 'admin';
-  /* Only the workspaces for these three: /dashboard/teacher/trial-playbook is
+  /* Only the workspaces for these four: /dashboard/teacher/trial-playbook is
      opened by admins and HR too, and guards itself. */
-  for (const r of ['student', 'teacher', 'seller'] as const) if (workspaceAt(r, pathname)) return r;
-  if (pathname === '/dashboard/hr') return 'hr';
+  for (const r of ['student', 'teacher', 'seller', 'hr'] as const) if (workspaceAt(r, pathname)) return r;
   return null;
 }
 

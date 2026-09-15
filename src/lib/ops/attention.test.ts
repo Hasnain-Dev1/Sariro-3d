@@ -26,8 +26,8 @@ describe('the attention registry', () => {
     }
   });
 
-  test('HR is sent to its tabs; everyone else into their own dashboard', () => {
-    for (const key of sourcesFor('hr')) assert.match(ATTENTION[key].href.hr!, /^\/dashboard\/hr\?tab=/);
+  test('everyone, HR included, is sent into their own workspaces', () => {
+    for (const key of sourcesFor('hr')) assert.match(ATTENTION[key].href.hr!, /^\/dashboard\/hr\/[a-z]+#[a-z-]+$/);
     for (const key of sourcesFor('super_admin')) assert.match(ATTENTION[key].href.super_admin!, /^\/dashboard\/super-admin\/[a-z]+[#?]/);
     for (const key of sourcesFor('admin')) assert.match(ATTENTION[key].href.admin!, /^\/dashboard\/admin\/[a-z]+[#?]/);
     for (const role of ['teacher', 'seller', 'student'] as const) {
@@ -94,7 +94,7 @@ describe('summariseAttention', () => {
 
   test('each item carries the link for this role', () => {
     const s = summariseAttention('hr', { ...all('hr', 0), credit_requests: 4 });
-    assert.equal(s.items[0].href, '/dashboard/hr?tab=credit_requests');
+    assert.equal(s.items[0].href, '/dashboard/hr/students#credit-requests');
     assert.equal(s.items[0].title, '4 credit requests are waiting');
   });
 });

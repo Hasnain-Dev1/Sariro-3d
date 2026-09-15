@@ -27,7 +27,7 @@ const AD = 'admin' as const;
 const TE = 'teacher' as const;
 const SE = 'seller' as const;
 const ST = 'student' as const;
-const HR = '/dashboard/hr';
+const HRR = 'hr' as const;
 
 export type AttentionKey =
   | 'unresolved_classes'
@@ -111,7 +111,7 @@ export const ATTENTION: Record<AttentionKey, AttentionSpec> = {
     severity: 'urgent',
     icon: 'calendar-clock',
     accent: '#EA580C',
-    href: { super_admin: sectionHref(SA, 'catchup-overdue'), admin: sectionHref(AD, 'catchup-overdue'), hr: `${HR}?tab=my_teachers` },
+    href: { super_admin: sectionHref(SA, 'catchup-overdue'), admin: sectionHref(AD, 'catchup-overdue'), hr: sectionHref(HRR, 'catchup-compliance') },
     keywords: 'catch up catchup overdue make up session teacher',
   },
   unrecorded_invoices: {
@@ -121,7 +121,7 @@ export const ATTENTION: Record<AttentionKey, AttentionSpec> = {
     severity: 'urgent',
     icon: 'receipt',
     accent: '#B45309',
-    href: { super_admin: sectionHref(SA, 'unrecorded-invoices'), hr: `${HR}?tab=sales` },
+    href: { super_admin: sectionHref(SA, 'unrecorded-invoices'), hr: sectionHref(HRR, 'unrecorded-invoices') },
     keywords: 'invoice unrecorded sale ledger books reconcile',
   },
   approvals: {
@@ -153,7 +153,7 @@ export const ATTENTION: Record<AttentionKey, AttentionSpec> = {
     severity: 'today',
     icon: 'coins',
     accent: '#CA8A04',
-    href: { super_admin: sectionHref(SA, 'credit-requests'), hr: `${HR}?tab=credit_requests` },
+    href: { super_admin: sectionHref(SA, 'credit-requests'), hr: sectionHref(HRR, 'credit-requests') },
     keywords: 'credit request approve reject top up',
   },
   expenses_pending: {
@@ -173,7 +173,7 @@ export const ATTENTION: Record<AttentionKey, AttentionSpec> = {
     severity: 'today',
     icon: 'shield',
     accent: '#BE185D',
-    href: { super_admin: sectionHref(SA, 'chat-policy'), admin: sectionHref(AD, 'chat-policy'), hr: `${HR}?tab=policy` },
+    href: { super_admin: sectionHref(SA, 'chat-policy'), admin: sectionHref(AD, 'chat-policy'), hr: sectionHref(HRR, 'chat-policy') },
     keywords: 'chat policy flag contact details phone review',
   },
   trial_grades: {
@@ -195,7 +195,7 @@ export const ATTENTION: Record<AttentionKey, AttentionSpec> = {
     accent: '#16A34A',
     /* A teacher sees the students in their own batches (the route scopes it),
        because they are the one placed to mention it in class. */
-    href: { super_admin: sectionHref(SA, 'low-credits'), hr: `${HR}?tab=credits`, teacher: sectionHref(TE, 'low-credits') },
+    href: { super_admin: sectionHref(SA, 'low-credits'), hr: sectionHref(HRR, 'low-credits'), teacher: sectionHref(TE, 'low-credits') },
     keywords: 'low credits running out renew churn top up',
   },
   leave_requests: {
@@ -205,7 +205,7 @@ export const ATTENTION: Record<AttentionKey, AttentionSpec> = {
     severity: 'today',
     icon: 'plane',
     accent: '#0EA5E9',
-    href: { hr: `${HR}?tab=payments` },
+    href: { hr: sectionHref(HRR, 'leave') },
     keywords: 'leave request teacher holiday absence cover',
   },
   incentive_requests: {
@@ -215,7 +215,7 @@ export const ATTENTION: Record<AttentionKey, AttentionSpec> = {
     severity: 'today',
     icon: 'award',
     accent: '#9333EA',
-    href: { hr: `${HR}?tab=incentives` },
+    href: { hr: sectionHref(HRR, 'incentives') },
     keywords: 'incentive request approve bonus teacher',
   },
   unsettled_payouts: {
@@ -225,7 +225,7 @@ export const ATTENTION: Record<AttentionKey, AttentionSpec> = {
     severity: 'watch',
     icon: 'banknote',
     accent: '#059669',
-    href: { hr: `${HR}?tab=payments` },
+    href: { hr: sectionHref(HRR, 'settlements') },
     keywords: 'payout settle teacher earnings pay',
   },
 

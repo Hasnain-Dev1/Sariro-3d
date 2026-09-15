@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import {
   ArrowRight, CheckCircle2, Sun, CalendarRange, Users, TrendingUp, Landmark, ShieldCheck, Wallet, Sprout,
-  PhoneCall, Trophy, Compass, BadgeIndianRupee, type LucideIcon,
+  PhoneCall, Trophy, Compass, BadgeIndianRupee, GraduationCap, type LucideIcon,
 } from 'lucide-react';
 import {
   ROLE_COPY, WORKSPACE_ORDER, sectionsIn, waitingAt, workspaceHref, workspaceMeta,
@@ -40,6 +40,7 @@ export const WORKSPACE_ICON: Record<WorkspaceIcon, LucideIcon> = {
   progress: Trophy,
   explore: Compass,
   prices: BadgeIndianRupee,
+  teachers: GraduationCap,
 };
 
 function CountPill({ count, urgent, inverted = false }: { count: number; urgent: boolean; inverted?: boolean }) {

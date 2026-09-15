@@ -2,13 +2,13 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import {
-  SECTIONS, WORKSPACE_ORDER, ROLE_HOME, workspaceHref, workspaceAt, workspaceMeta, sectionHref, sectionsIn, placesFor,
+  SECTIONS, WORKSPACE_ORDER, ROLE_HOME, HR_LEGACY_TABS, workspaceHref, workspaceAt, workspaceMeta, sectionHref, sectionsIn, placesFor,
   pathOf, waitingAt, type WorkspaceRole, type SectionSpec,
 } from './workspaces';
 import { ATTENTION, sourcesFor } from './attention';
 import { commandsFor } from './commands';
 
-const ROLES: WorkspaceRole[] = ['super_admin', 'admin', 'teacher', 'seller', 'student'];
+const ROLES: WorkspaceRole[] = ['super_admin', 'admin', 'hr', 'teacher', 'seller', 'student'];
 
 /* The page each role's workspaces render from. Read as text: the registry is
    only worth trusting if the page it describes really places every section and
@@ -16,6 +16,7 @@ const ROLES: WorkspaceRole[] = ['super_admin', 'admin', 'teacher', 'seller', 'st
 const PAGE_FILE: Record<WorkspaceRole, string> = {
   super_admin: 'src/app/dashboard/super-admin/super-admin-workspace.tsx',
   admin: 'src/app/dashboard/admin/admin-workspace.tsx',
+  hr: 'src/app/dashboard/hr/hr-workspace.tsx',
   teacher: 'src/app/dashboard/teacher/teacher-workspace.tsx',
   seller: 'src/app/dashboard/seller/seller-workspace.tsx',
   student: 'src/app/dashboard/student/student-workspace.tsx',
@@ -133,7 +134,18 @@ describe('the workspace registry', () => {
     assert.equal(workspaceAt('seller', '/dashboard/seller/pay'), 'pay');
     assert.equal(workspaceMeta('seller', 'pay').label, 'Payout', 'the same key is named for its role');
     assert.throws(() => workspaceMeta('student', 'finance'));
+    assert.equal(sectionHref('hr', 'credit-requests'), '/dashboard/hr/students#credit-requests');
+    assert.equal(workspaceAt('hr', '/dashboard/hr/doubt-sessions'), null, 'doubt sessions stay a page of their own');
+    assert.equal(workspaceAt('hr', '/dashboard/hr/sales'), 'sales');
     for (const role of ROLES) assert.ok(ROLE_HOME[role].startsWith('/dashboard/'));
+  });
+
+  test('every old HR tab link lands on a real section', () => {
+    for (const [tab, href] of Object.entries(HR_LEGACY_TABS)) assertLands('hr', href, `?tab=${tab}`);
+    // The tabs the old page had, every one of them.
+    for (const tab of ['overview', 'my_teachers', 'incentives', 'payments', 'credits', 'tiers', 'enquiries', 'expenses', 'policy', 'credit_requests', 'invoices', 'sales', 'certificates', 'pricing']) {
+      assert.ok(HR_LEGACY_TABS[tab], `?tab=${tab} has nowhere to go`);
+    }
   });
 
   test('places for ⌘K skip Today and name their workspace', () => {

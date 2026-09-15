@@ -8,7 +8,8 @@
  * scores. And every panel on the page fetched its data on every visit.
  *
  * Now each role has workspaces — a teacher's Today, Classes, Students, Pay and
- * Growth; a student's Today, Classes, Progress, Credits and Explore — and each
+ * Growth; a student's Today, Classes, Progress, Credits and Explore; HR's
+ * Today, Teachers, Pay, Students and Sales — and each
  * is its own address. This file is the one list of which section lives in
  * which workspace. Everything that points at a section reads it: the Today
  * queue's buttons, the sidebar, ⌘K, and the section component itself, which
@@ -20,7 +21,7 @@
  * here is actually placed on its role's page.
  */
 
-export type WorkspaceRole = 'super_admin' | 'admin' | 'teacher' | 'seller' | 'student';
+export type WorkspaceRole = 'super_admin' | 'admin' | 'hr' | 'teacher' | 'seller' | 'student';
 
 export type WorkspaceKey =
   | 'today'
@@ -28,6 +29,8 @@ export type WorkspaceKey =
   | 'classes' | 'people' | 'sales' | 'finance' | 'quality'
   // teacher
   | 'students' | 'pay' | 'growth'
+  // hr
+  | 'teachers'
   // seller
   | 'leads' | 'trials' | 'prices'
   // student
@@ -35,7 +38,7 @@ export type WorkspaceKey =
 
 export type WorkspaceIcon =
   | 'today' | 'classes' | 'people' | 'sales' | 'finance' | 'quality'
-  | 'wallet' | 'growth' | 'trials' | 'progress' | 'explore' | 'prices';
+  | 'wallet' | 'growth' | 'trials' | 'progress' | 'explore' | 'prices' | 'teachers';
 
 export interface WorkspaceMeta {
   key: WorkspaceKey;
@@ -64,6 +67,13 @@ const STAFF_META: Partial<Record<WorkspaceKey, WorkspaceMeta>> = {
 export const WORKSPACE_META: Record<WorkspaceRole, Partial<Record<WorkspaceKey, WorkspaceMeta>>> = {
   super_admin: STAFF_META,
   admin: STAFF_META,
+  hr: {
+    today: meta('today', 'Today', 'today', '#0F172A', 'What is waiting on you, and this month in four numbers.'),
+    teachers: meta('teachers', 'Teachers', 'teachers', '#7C3AED', 'The teachers who report to you: leave, catch-ups, tiers and chat flags.'),
+    pay: meta('pay', 'Pay', 'wallet', '#059669', 'Teacher payouts, incentives and earnings — and what was spent.'),
+    students: meta('students', 'Students', 'people', '#2563EB', 'Credits, credit requests, certificates and what families have asked.'),
+    sales: meta('sales', 'Sales', 'sales', '#0891B2', 'Sales to invoice, the invoices themselves, the books and the prices.'),
+  },
   teacher: {
     today: meta('today', 'Today', 'today', '#0F172A', 'Your next class, and what is waiting on you.'),
     classes: meta('classes', 'Classes', 'classes', '#16A34A', 'Your timetable, the trials coming up, write-ups and the catch-ups you owe.'),
@@ -96,6 +106,7 @@ export function workspaceMeta(role: WorkspaceRole, key: WorkspaceKey): Workspace
 export const ROLE_HOME: Record<WorkspaceRole, string> = {
   super_admin: '/dashboard/super-admin',
   admin: '/dashboard/admin',
+  hr: '/dashboard/hr',
   teacher: '/dashboard/teacher',
   seller: '/dashboard/seller',
   student: '/dashboard/student',
@@ -105,6 +116,7 @@ export const ROLE_HOME: Record<WorkspaceRole, string> = {
 export const ROLE_COPY: Record<WorkspaceRole, { eyebrow: string; tilesTitle: string; tilesBlurb: string }> = {
   super_admin: { eyebrow: 'Super Admin · Workspace', tilesTitle: 'Workspaces', tilesBlurb: 'Everything else, one focused page each.' },
   admin: { eyebrow: 'Admin · Workspace', tilesTitle: 'Workspaces', tilesBlurb: 'Everything else, one focused page each.' },
+  hr: { eyebrow: 'HR · Workspace', tilesTitle: 'Workspaces', tilesBlurb: 'Teachers, pay, students and sales — one page each.' },
   teacher: { eyebrow: 'Teacher · Workspace', tilesTitle: 'Your workspaces', tilesBlurb: 'Everything else about your teaching, one page each.' },
   seller: { eyebrow: 'Seller · Workspace', tilesTitle: 'Your workspaces', tilesBlurb: 'Leads, trials, prices and pay, one page each.' },
   student: { eyebrow: 'My Sariro', tilesTitle: 'Your spaces', tilesBlurb: 'Everything else, one tap each.' },
@@ -114,6 +126,7 @@ export const ROLE_COPY: Record<WorkspaceRole, { eyebrow: string; tilesTitle: str
 export const WORKSPACE_ORDER: Record<WorkspaceRole, readonly WorkspaceKey[]> = {
   super_admin: ['today', 'classes', 'people', 'sales', 'finance', 'quality'],
   admin: ['today', 'classes', 'people', 'sales', 'quality'],
+  hr: ['today', 'teachers', 'pay', 'students', 'sales'],
   teacher: ['today', 'classes', 'students', 'pay', 'growth'],
   seller: ['today', 'leads', 'trials', 'prices', 'pay'],
   student: ['today', 'classes', 'progress', 'credits', 'explore'],
@@ -184,6 +197,32 @@ export const SECTIONS = {
     { id: 'monitoring', workspace: 'quality', label: 'Monitor a class', keywords: 'monitoring observe class score teacher' },
     { id: 'chat-policy', workspace: 'quality', label: 'Chat policy', keywords: 'chat policy flag contact details phone' },
   ],
+  hr: [
+    { id: 'summary', workspace: 'today', label: 'This month', keywords: 'stats pending payout settled incentives leave' },
+
+    { id: 'leave', workspace: 'teachers', label: 'Leave requests', keywords: 'leave request holiday absence approve reject cover' },
+    { id: 'my-teachers', workspace: 'teachers', label: 'My teachers', keywords: 'teachers roster reporting courses' },
+    { id: 'catchup-compliance', workspace: 'teachers', label: 'Catch-up compliance', keywords: 'catch up catchup overdue make up compliance' },
+    { id: 'tiers', workspace: 'teachers', label: 'Teacher tiers', keywords: 'tier rate teacher pay level' },
+    { id: 'chat-policy', workspace: 'teachers', label: 'Chat policy', keywords: 'chat policy flag contact details phone' },
+
+    { id: 'settlements', workspace: 'pay', label: 'Teacher payouts', keywords: 'payout settle settlement pipeline paid processing' },
+    { id: 'incentives', workspace: 'pay', label: 'Incentives', keywords: 'incentive bonus approve reject request' },
+    { id: 'earnings', workspace: 'pay', label: 'Recent earnings', keywords: 'earnings classes net penalty teacher pay' },
+    { id: 'expenses', workspace: 'pay', label: 'Expenses', keywords: 'expense spend record receipt' },
+
+    { id: 'credit-requests', workspace: 'students', label: 'Credit requests', keywords: 'credit request approve reject top up' },
+    { id: 'low-credits', workspace: 'students', label: 'Credits running low', keywords: 'low credits running out renew churn' },
+    { id: 'credit-adjust', workspace: 'students', label: 'Credit management', keywords: 'credits adjust add deduct balance student' },
+    { id: 'certificates', workspace: 'students', label: 'Certificates', keywords: 'certificate issue print course complete' },
+    { id: 'enquiries', workspace: 'students', label: 'Enquiries', keywords: 'enquiry contact bank transfer payment request message' },
+
+    { id: 'hr-sales', workspace: 'sales', label: 'Sales to invoice', keywords: 'sale confirmed punch seller invoice waiting' },
+    { id: 'invoices', workspace: 'sales', label: 'Generate an invoice', keywords: 'invoice generate bill gst tax' },
+    { id: 'unrecorded-invoices', workspace: 'sales', label: 'Invoices not in the books', keywords: 'invoice unrecorded reconcile ledger' },
+    { id: 'ledger', workspace: 'sales', label: 'Sales & refunds', keywords: 'sales refunds ledger revenue renewal' },
+    { id: 'pricing', workspace: 'sales', label: 'Pricing & profitability', keywords: 'pricing price calculator profit margin floor seller website' },
+  ],
   teacher: [
     { id: 'next-class', workspace: 'today', label: 'Next class', keywords: 'next class join now upcoming' },
     { id: 'totals', workspace: 'today', label: 'This week', keywords: 'stats classes hours students week' },
@@ -247,6 +286,28 @@ export function workspaceHref(role: WorkspaceRole, workspace: WorkspaceKey): str
 export function sectionSpec(role: WorkspaceRole, id: string): SectionSpec | undefined {
   return (SECTIONS[role] as readonly SectionSpec[]).find((s) => s.id === id);
 }
+
+/**
+ * HR's dashboard was tabs until 15 Sep 2026, and notifications, bookmarks and
+ * old ⌘K habits still say /dashboard/hr?tab=sales. Each old tab lands on the
+ * section that holds what it used to show.
+ */
+export const HR_LEGACY_TABS: Record<string, string> = {
+  overview: '/dashboard/hr',
+  my_teachers: '/dashboard/hr/teachers#my-teachers',
+  incentives: '/dashboard/hr/pay#incentives',
+  payments: '/dashboard/hr/pay#settlements',
+  credits: '/dashboard/hr/students#credit-adjust',
+  tiers: '/dashboard/hr/teachers#tiers',
+  enquiries: '/dashboard/hr/students#enquiries',
+  expenses: '/dashboard/hr/pay#expenses',
+  policy: '/dashboard/hr/teachers#chat-policy',
+  credit_requests: '/dashboard/hr/students#credit-requests',
+  invoices: '/dashboard/hr/sales#invoices',
+  sales: '/dashboard/hr/sales#hr-sales',
+  certificates: '/dashboard/hr/students#certificates',
+  pricing: '/dashboard/hr/sales#pricing',
+};
 
 /** The address of a section: its workspace page, scrolled to it. */
 export function sectionHref<R extends WorkspaceRole>(role: R, id: SectionId<R>): string {
