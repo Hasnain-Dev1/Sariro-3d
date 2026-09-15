@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, GraduationCap, Sparkles } from 'lucide-react';
+import { Menu, X, Sparkles } from 'lucide-react';
+import { SariroMark } from '@/components/brand/sariro-logo';
 import { NAV_LINKS, BRAND } from '@/lib/sariro-data';
 
 export default function Navbar3D() {
@@ -45,9 +46,7 @@ export default function Navbar3D() {
             >
               <div className="relative">
                 <div className="absolute inset-0 bg-blue-500 blur-lg opacity-40 group-hover:opacity-70 transition-opacity rounded-xl" />
-                <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-violet-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-                  <GraduationCap className="w-5 h-5 text-white" strokeWidth={2.5} />
-                </div>
+                <SariroMark size={36} priority className="shadow-lg shadow-blue-500/30" />
               </div>
               <div className="flex flex-col leading-none">
                 <span className="font-bold text-lg tracking-tight" style={{ fontFamily: 'var(--font-jakarta)' }}>

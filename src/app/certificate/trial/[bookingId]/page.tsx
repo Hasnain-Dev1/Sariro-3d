@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import Image from 'next/image';
+import { SariroMark } from '@/components/brand/sariro-logo';
 import { redirect } from 'next/navigation';
 import { Award, ArrowLeft } from 'lucide-react';
 import { createServerClientHelper, createServiceClient } from '@/lib/supabase/server';
@@ -111,7 +111,7 @@ export default async function TrialCertificatePage({
       >
         <div className="h-full border-[10px] border-double border-blue-900/80 m-3 rounded-xl flex flex-col items-center justify-center text-center px-10 py-8">
           <div className="flex items-center gap-2">
-            <Image src="/logo.svg" alt="Sariro" width={34} height={34} />
+            <SariroMark size={40} />
             <span className="text-2xl font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
               {BRAND.name}
             </span>

@@ -7,6 +7,7 @@ import dynamic from 'next/dynamic';
 import { useEffect, useState, useRef, ReactNode } from 'react';
 import { Menu, X, GraduationCap, Sparkles, Mail, LifeBuoy, Briefcase, Handshake, MapPin } from 'lucide-react';
 import { BRAND, EMAILS } from '@/lib/sariro-data';
+import { SariroMark } from '@/components/brand/sariro-logo';
 import { CustomCursor } from '@/components/sariro-3d/scroll-effects';
 import ChapterNav, { ScrollHueShift } from '@/components/sariro-3d/chapter-nav';
 import WhatsAppButton from '@/components/brand/whatsapp-button';
@@ -159,9 +160,7 @@ function BrandNavbar() {
             <Link href="/" className="flex items-center gap-2.5 group">
               <div className="relative">
                 <div className="absolute inset-0 bg-blue-500 blur-lg opacity-40 group-hover:opacity-70 transition-opacity rounded-xl" />
-                <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-violet-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-                  <GraduationCap className="w-5 h-5 text-white" strokeWidth={2.5} />
-                </div>
+                <SariroMark size={36} priority className="shadow-lg shadow-blue-500/30" />
               </div>
               <div className="flex flex-col leading-none">
                 <span className="font-bold text-lg tracking-tight text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
@@ -343,9 +342,7 @@ function BrandFooter() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 mb-12">
           <div className="lg:col-span-2 max-w-sm">
             <div className="flex items-center gap-2.5 mb-5">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-                <GraduationCap className="w-5 h-5 text-white" strokeWidth={2.5} />
-              </div>
+              <SariroMark size={40} className="shadow-lg shadow-blue-500/30 ring-1 ring-white/15" />
               <div>
                 <div className="font-extrabold text-xl text-white" style={{ fontFamily: 'var(--font-jakarta)' }}>
                   {BRAND.name}

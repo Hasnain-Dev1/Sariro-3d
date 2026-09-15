@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Award, Download, Loader2, AlertTriangle, ArrowLeft, Sparkles } from 'lucide-react';
 import BrandLayout from '@/components/brand/brand-layout';
+import { SariroMark } from '@/components/brand/sariro-logo';
 import { useAuth } from '@/components/auth/auth-provider';
 import type { CertificateData } from '@/lib/dashboard/student-data';
 
@@ -174,15 +175,13 @@ function CertificateCard({ data }: { data: CertificateData }) {
       <div className="relative px-6 sm:px-12 py-10 sm:py-14 text-center">
         {/* Brand header */}
         <div className="flex items-center justify-center gap-3 mb-2">
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-violet-600 flex items-center justify-center text-white font-extrabold shadow-md" style={{ fontFamily: 'var(--font-jakarta)' }}>
-            S
-          </div>
+          <SariroMark size={44} className="shadow-md" />
           <div className="text-left">
             <div className="text-xl font-extrabold text-slate-900 leading-tight" style={{ fontFamily: 'var(--font-jakarta)' }}>
               {data.brand_name}
             </div>
             <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500 font-semibold" style={{ fontFamily: 'var(--font-grotesk)' }}>
-              AI & Technology Education
+              Live Classes
             </div>
           </div>
         </div>

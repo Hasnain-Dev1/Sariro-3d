@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { GraduationCap, ArrowLeft, type LucideIcon } from 'lucide-react';
+import { ArrowLeft, type LucideIcon } from 'lucide-react';
 import { BRAND } from '@/lib/sariro-data';
+import { SariroMark } from '@/components/brand/sariro-logo';
 
 /* ═══════════════════════════════════════════════════════════════════════
    AuthShell — shared split-screen layout for sign-in / sign-up.
@@ -79,9 +80,7 @@ export default function AuthShell({
 
         {/* Logo */}
         <Link href="/" className="relative flex items-center gap-3 group w-fit">
-          <div className="w-11 h-11 rounded-xl bg-white/10 backdrop-blur border border-white/20 flex items-center justify-center">
-            <GraduationCap className="w-6 h-6 text-white" strokeWidth={2.4} />
-          </div>
+          <SariroMark size={44} priority className="ring-1 ring-white/20" />
           <div>
             <div className="font-extrabold text-xl text-white leading-none" style={{ fontFamily: 'var(--font-jakarta)' }}>
               {BRAND.name}
@@ -158,12 +157,7 @@ export default function AuthShell({
 
         {/* Compact brand header — mobile only (panel is hidden there) */}
         <Link href="/" className="lg:hidden flex items-center gap-2.5 mb-8 mt-8">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center shadow-md"
-            style={{ background: `linear-gradient(135deg, ${accent.from} 0%, ${accent.glow} 100%)` }}
-          >
-            <GraduationCap className="w-5 h-5 text-white" strokeWidth={2.5} />
-          </div>
+          <SariroMark size={40} className="shadow-md" />
           <div>
             <div className="font-extrabold text-lg text-slate-900 leading-none" style={{ fontFamily: 'var(--font-jakarta)' }}>
               {BRAND.name}

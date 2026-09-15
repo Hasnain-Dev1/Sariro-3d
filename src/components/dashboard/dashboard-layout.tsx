@@ -14,6 +14,7 @@ import { useAuth, getRole, type UserRole } from '@/components/auth/auth-provider
 import { createClient } from '@/lib/supabase/client';
 import { dashboardAccess, TRIAL_HOME } from '@/lib/dashboard/trial-only';
 import { BRAND } from '@/lib/sariro-data';
+import { SariroMark } from '@/components/brand/sariro-logo';
 import { useRealtime } from '@/lib/dashboard/use-realtime';
 import { alertPermission, requestAlertPermission, showAlert, type AlertPermission } from '@/lib/dashboard/alerts';
 import {
@@ -609,9 +610,7 @@ function DashboardTopbar({ onMenuClick }: { onMenuClick?: () => void }) {
         {/* Left: logo (back to home) + mobile menu toggle */}
         <div className="flex items-center gap-3">
           <Link href="/" className="flex items-center gap-2 group" aria-label="Back to home">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-violet-600 flex items-center justify-center text-white font-extrabold shadow-md group-hover:shadow-lg transition-shadow" style={{ fontFamily: 'var(--font-jakarta)' }}>
-              S
-            </div>
+            <SariroMark size={36} priority className="shadow-md group-hover:shadow-lg transition-shadow" />
             <span className="hidden sm:block text-lg font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>
               {BRAND.name}
             </span>

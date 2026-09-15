@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { ImageResponse } from 'next/og';
 
 /**
@@ -21,6 +23,19 @@ import { ImageResponse } from 'next/og';
  */
 
 export const OG_SIZE = { width: 1200, height: 630 };
+
+/**
+ * The real mark, as a data URI Satori can draw. These images are generated at
+ * build time, from the project root, so public/ is on disk; if it ever is not,
+ * the card falls back to the lettered chip rather than failing the build.
+ */
+function logoDataUri(): string | null {
+  try {
+    return `data:image/svg+xml;base64,${readFileSync(join(process.cwd(), 'public', 'logo.svg')).toString('base64')}`;
+  } catch {
+    return null;
+  }
+}
 export const OG_CONTENT_TYPE = 'image/svg';
 
 const ACCENT_COLORS: Record<string, string> = {
@@ -52,6 +67,7 @@ export function buildOgImage({
   footerRight,
 }: BrandFrameProps): ImageResponse {
   const accentHex = ACCENT_COLORS[accent] ?? '#F59E0B';
+  const logo = logoDataUri();
 
   return new ImageResponse(
     (
@@ -79,6 +95,9 @@ export function buildOgImage({
             marginBottom: '40px',
           }}
         >
+          {logo ? (
+            <img src={logo} width={72} height={72} alt="" style={{ borderRadius: '18px', border: '1px solid #334155' }} />
+          ) : (
           <div
             style={{
               display: 'flex',
@@ -104,6 +123,7 @@ export function buildOgImage({
               S
             </span>
           </div>
+          )}
           <span
             style={{
               display: 'flex',

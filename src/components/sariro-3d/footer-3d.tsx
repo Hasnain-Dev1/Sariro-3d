@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { GithubIcon, LinkedinIcon, XIcon, YoutubeIcon } from '@/components/icons/brand-icons';
 import { BRAND, FOOTER_LINKS, NAV_LINKS, EMAILS } from '@/lib/sariro-data';
+import { SariroMark } from '@/components/brand/sariro-logo';
 
 /* Map the icon name string from EMAILS data to a real icon component. */
 const EMAIL_ICONS: Record<string, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
@@ -57,9 +58,7 @@ export default function Footer3D() {
               viewport={{ once: true }}
               className="flex items-center gap-2.5 mb-5"
             >
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-                <GraduationCap className="w-5 h-5 text-white" strokeWidth={2.5} />
-              </div>
+              <SariroMark size={40} className="shadow-lg shadow-blue-500/30 ring-1 ring-white/15" />
               <div>
                 <div className="font-extrabold text-xl text-white" style={{ fontFamily: 'var(--font-jakarta)' }}>
                   {BRAND.name}
