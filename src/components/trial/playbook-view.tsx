@@ -12,6 +12,7 @@ import {
   type Level, type Path, type Step, type TrialIntake,
 } from '@/lib/trial/playbooks';
 import SoundLab from '@/components/speaking/sound-lab';
+import HeroPicker from '@/components/trial/hero-picker';
 import { FEELING } from '@/lib/trial/intake';
 
 /**
@@ -178,23 +179,21 @@ export default function PlaybookView() {
           <h1 className="mt-1 text-[2rem] sm:text-[2.4rem] font-extrabold leading-tight tracking-tight" style={{ fontFamily: 'var(--font-jakarta)' }}>{playbook.title}</h1>
           <p className="mt-1.5 text-[15px] text-white/75 max-w-2xl">{playbook.promise}</p>
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            <label className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 h-10 text-[13px] font-bold">
-              <Compass className="w-4 h-4 text-white/60" />
-              <select value={subject} onChange={(e) => setSubject(e.target.value)} className="bg-transparent outline-none text-white [&>option]:text-slate-900">
-                {[...new Set(subjects.map((s) => s.group))].map((g) => (
-                  <optgroup key={g} label={g}>
-                    {subjects.filter((s) => s.group === g).map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                  </optgroup>
-                ))}
-              </select>
-            </label>
-            <label className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 h-10 text-[13px] font-bold">
-              <Users className="w-4 h-4 text-white/60" />
-              <select value={grade ?? ''} onChange={(e) => setGrade(e.target.value ? Number(e.target.value) : null)} className="bg-transparent outline-none text-white [&>option]:text-slate-900">
-                <option value="">Grade not known</option>
-                {GRADES.map((g) => <option key={g} value={g}>{gradeTag(g)}</option>)}
-              </select>
-            </label>
+            <HeroPicker
+              icon={Compass}
+              label="Subject"
+              value={subject}
+              onChange={setSubject}
+              options={subjects.map((s) => ({ value: s.value, label: s.label, group: s.group }))}
+            />
+            <HeroPicker
+              icon={Users}
+              label="Grade"
+              value={grade === null ? '' : String(grade)}
+              onChange={(v) => setGrade(v ? Number(v) : null)}
+              searchable={false}
+              options={[{ value: '', label: 'Grade not known' }, ...GRADES.map((g) => ({ value: String(g), label: gradeTag(g) }))]}
+            />
             {band && <span className="rounded-full bg-white/10 px-3 py-1.5 text-[12px] font-semibold text-white/80">{BAND_LABEL[band]}</span>}
             <span className="rounded-full bg-white/10 px-3 py-1.5 text-[12px] font-semibold text-white/80">{playbook.paths.length} paths</span>
           </div>
