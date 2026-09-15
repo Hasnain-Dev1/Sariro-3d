@@ -86,6 +86,40 @@ describe('assembleTranscript', () => {
     assert.equal(assembleTranscript(undefined).display, '');
   });
 
+  test('Android restating the growing sentence gives the sentence once', () => {
+    // The screenshot from a tablet, 15 Sep 2026: "do do you know do you know
+    // do you know octopus…" — one result per growth step, each final.
+    const a = assembleTranscript(res(
+      ['do', true],
+      ['do you know', true],
+      ['do you know', true],
+      ['do you know octopus', true],
+      ['do you know octopus has three hearts', true],
+      ['do you know octopus has three hearts and today', false],
+    ));
+    assert.equal(a.final, 'do you know octopus has three hearts ');
+    assert.equal(a.display, 'do you know octopus has three hearts and today');
+  });
+
+  test('Android restating the whole session after a real second phrase', () => {
+    const a = assembleTranscript(res(
+      ['good morning', true],
+      ['today we will', true],
+      ['good morning today we will talk about bees', true],
+    ));
+    assert.equal(a.final, 'good morning today we will talk about bees ');
+  });
+
+  test('an interim guess that only repeats the finals adds nothing', () => {
+    const a = assembleTranscript(res(['octopus has three hearts', true], ['octopus has three hearts', false]));
+    assert.equal(a.display, 'octopus has three hearts ');
+  });
+
+  test('desktop phrases that do not overlap are still all kept', () => {
+    const a = assembleTranscript(res(['the moon', true], ['moves the tides', true], ['every day', false]));
+    assert.equal(a.display, 'the moon moves the tides every day');
+  });
+
   test('a malformed result is skipped rather than throwing mid-recording', () => {
     // A thrown error inside onresult kills the rest of the recording, and the
     // child finds out when they press stop and there is nothing there.

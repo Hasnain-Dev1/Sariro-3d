@@ -46,24 +46,67 @@ export interface Assembled {
   display: string;
 }
 
+/*
+ * ── Android says the whole sentence again, every time ───────────────────────
+ * Found on a tablet, 15 Sep 2026: a child said "do you know octopus has three
+ * hearts" and the box filled with "do do you know do you know do you know
+ * octopus do you know octopus has…". Chrome on Android, in continuous mode,
+ * does not send one result per phrase. It sends the SAME phrase over and over
+ * as it grows — "do", "do you know", "do you know octopus" — each one a
+ * separate result, often each one final. Joining them repeats every word as
+ * many times as the sentence grew.
+ *
+ * Desktop Chrome sends separate phrases, which must still be joined. So each
+ * result is compared with what came before it: a phrase that merely restates or
+ * extends the previous one replaces it; anything else is new and is added. A
+ * child genuinely saying the same word twice in a row, as two separate results,
+ * loses one — a far smaller error than a transcript ten times too long.
+ */
+const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+
+/** Add a phrase, unless it only restates — or grows — what is already there. */
+function fold(parts: string[], text: string): void {
+  const t = text.trim();
+  if (!t) return;
+  const n = norm(t);
+  const last = parts.length ? norm(parts[parts.length - 1]) : '';
+  if (last) {
+    // The same phrase again, or an earlier, shorter version of it.
+    if (n === last || last.startsWith(`${n} `)) return;
+    // The same phrase, grown.
+    if (n.startsWith(`${last} `)) { parts[parts.length - 1] = t; return; }
+  }
+  // Some Android builds restate the ENTIRE session so far, not just the last phrase.
+  const all = norm(parts.join(' '));
+  if (all && (n === all || all.startsWith(`${n} `))) return;
+  if (all && n.startsWith(`${all} `)) { parts.splice(0, parts.length, t); return; }
+  parts.push(t);
+}
+
 export function assembleTranscript(
   results: ArrayLike<ResultLike> | null | undefined,
   prior = ''
 ): Assembled {
-  let sessionFinal = '';
-  let interim = '';
+  const finals: string[] = [];
+  const interims: string[] = [];
 
   const n = results?.length ?? 0;
   for (let i = 0; i < n; i++) {
     const r = results![i];
     const text = r?.[0]?.transcript;
     if (typeof text !== 'string') continue;
-    if (r.isFinal) {
-      const t = text.trim();
-      if (t) sessionFinal += `${t} `;
-    } else {
-      interim += text;
-    }
+    fold(r.isFinal ? finals : interims, text);
+  }
+
+  const sessionFinal = finals.length ? `${finals.join(' ')} ` : '';
+  /* The guess still being made. On Android it usually restates the finals too,
+     so only the words beyond them are shown. */
+  let interim = interims.join(' ');
+  const settled = norm(finals.join(' '));
+  const guess = norm(interim);
+  if (settled && guess) {
+    if (guess === settled || settled.startsWith(`${guess} `) || settled.endsWith(` ${guess}`)) interim = '';
+    else if (guess.startsWith(`${settled} `)) interim = interim.trim().split(/\s+/).slice(settled.split(' ').length).join(' ');
   }
 
   /* One space between banked text and this session's, and never a leading
