@@ -488,7 +488,8 @@ export async function POST(req: NextRequest) {
          teacher's own room this column stayed NULL and the child's dashboard
          reached the join moment with nothing to join — which is how every
          trial booked before today ended up with no door. */
-      google_meet_url: body.meetUrl ?? teacher.meet_url ?? null,
+      // The teacher's own room first: one link for every class they teach.
+      google_meet_url: teacher.meet_url ?? body.meetUrl ?? null,
       lesson_name: 'Trial class',
     })
     .select('id')

@@ -31,8 +31,15 @@ test("a class with no room of its own borrows the teacher's", () => {
   assert.equal(s.trial?.google_meet_url, 'https://meet.example/teacher-room');
 });
 
-test('a class with its own room keeps it', () => {
+test('the teacher’s room wins over an older link copied onto the class', () => {
+  // One link per teacher, for every class: a teacher who changes their room
+  // must not leave a child at the old one.
   const s = mapRpcState({ profile: null, enrolled: 0, trial: { ...TRIAL, google_meet_url: 'https://meet.example/class' } });
+  assert.equal(s.trial?.google_meet_url, 'https://meet.example/teacher-room');
+});
+
+test('a class keeps its own link while its teacher has no room', () => {
+  const s = mapRpcState({ profile: null, enrolled: 0, trial: { ...TRIAL, teacher_meet_url: null, google_meet_url: 'https://meet.example/class' } });
   assert.equal(s.trial?.google_meet_url, 'https://meet.example/class');
 });
 

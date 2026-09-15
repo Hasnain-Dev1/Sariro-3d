@@ -10,6 +10,7 @@
 
 import { createClient } from '@/lib/supabase/client';
 import { getCourseSyllabus } from '@/lib/dashboard/student-data';
+import { classLink } from '@/lib/classes/class-link';
 
 export interface TeacherStats {
   classesThisWeek: number;
@@ -215,9 +216,15 @@ export async function fetchTeacherBookings(filter: 'upcoming' | 'past' | 'all' =
       query = query.lt('slot_start', now);
     }
 
-    const { data, error } = await query;
+    const [{ data, error }, { data: me }] = await Promise.all([
+      query,
+      /* The teacher's own room, which every one of their classes opens —
+         lib/classes/class-link.ts. */
+      supabase.from('profiles').select('meet_url').eq('id', userId).maybeSingle(),
+    ]);
     if (error) throw error;
     if (!data || data.length === 0) return [];
+    const myRoom = (me?.meet_url as string | null | undefined) ?? null;
 
     // Roster — fetch active students for every distinct cohort in this batch
     // of bookings, so each booking can show whose class it is.
@@ -355,7 +362,7 @@ export async function fetchTeacherBookings(filter: 'upcoming' | 'past' | 'all' =
         slot_start: b.slot_start,
         slot_end: b.slot_end,
         status: b.status,
-        google_meet_url: b.google_meet_url,
+        google_meet_url: classLink(myRoom, b.google_meet_url as string | null),
         cohort_track: (cohort?.track as string) ?? '',
         cohort_level: (cohort?.level as string) ?? '',
         cohort_ratio: (cohort?.ratio as string) ?? '',

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { TrialClass } from '@/components/dashboard/trial-journey';
+import { classLink } from '@/lib/classes/class-link';
 
 /**
  * SARIRO — everything /my-class needs, in as few round trips as possible.
@@ -55,9 +56,9 @@ export function mapRpcState(raw: RpcShape): Omit<TrialPageState, 'via'> {
           slot_start: t.slot_start,
           slot_end: t.slot_end,
           status: t.status,
-          /* Trials booked before their teacher set a room have no link of
-             their own; theirs works the moment the teacher fills it in. */
-          google_meet_url: t.google_meet_url ?? t.teacher_meet_url ?? null,
+          /* The teacher's own room first — change it once and every class
+             follows. See lib/classes/class-link.ts. */
+          google_meet_url: classLink(t.teacher_meet_url, t.google_meet_url),
           teacher_name: t.teacher_name ?? null,
           subject: t.trial_subject ?? null,
           grade: t.seat_grade ?? null,

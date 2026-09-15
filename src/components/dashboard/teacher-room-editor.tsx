@@ -67,8 +67,8 @@ export default function TeacherRoomEditor() {
       setSaved(j.meetUrl ?? null);
       setNote(
         j.backfilled > 0
-          ? `Saved. ${j.backfilled} upcoming ${j.backfilled === 1 ? 'class' : 'classes'} had no link and now ${j.backfilled === 1 ? 'does' : 'do'}.`
-          : 'Saved. Every class you teach from now on opens here.'
+          ? `Saved. ${j.backfilled} upcoming ${j.backfilled === 1 ? 'class now opens' : 'classes now open'} this room — trials and regular classes alike.`
+          : 'Saved. Every class you teach — trial or regular — opens here.'
       );
     } catch {
       setError('Could not reach the server. Check your connection and try again.');
@@ -89,9 +89,9 @@ export default function TeacherRoomEditor() {
         Your class room
       </h3>
       <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
-        The link your students click to join you. Paste your personal Google Meet, Zoom or Teams room —
-        the same one every time. <span className="font-semibold text-slate-700">Trial classes have no link
-        until you set this</span>, so a child booked in with you cannot get in.
+        The one link every class of yours opens — trial classes and regular classes alike. Paste your
+        personal Google Meet, Zoom or Teams room. <span className="font-semibold text-slate-700">Change it
+        here and every upcoming class changes with it</span>; you never need a separate link per class.
       </p>
 
       {loading ? (
@@ -131,7 +131,7 @@ export default function TeacherRoomEditor() {
           {!saved && !note && (
             <p className="mt-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 flex items-start gap-1.5">
               <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-              No room set. Any trial booked with you right now has no join button on the student&apos;s side.
+              No room set. Your classes open whatever link was copied onto them, and trials booked with you have no join button at all.
             </p>
           )}
         </>

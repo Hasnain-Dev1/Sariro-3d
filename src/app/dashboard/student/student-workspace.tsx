@@ -44,6 +44,7 @@ import TrialClassesSection from '@/components/dashboard/trial-classes-section';
 import PracticeProgress from '@/components/speaking/practice-progress';
 import ParentReportCard from '@/components/dashboard/parent-report-card';
 import { canPractise } from '@/lib/speaking/access';
+import { classLink } from '@/lib/classes/class-link';
 import TodayQueue from '@/components/ops/today-queue';
 import { WorkspaceProvider, OpsSection } from '@/components/ops/workspace';
 import { WorkspaceTabs, WorkspaceHeader, WorkspaceTiles, WorkspaceAction } from '@/components/ops/workspace-chrome';
@@ -1035,7 +1036,7 @@ function StudentDashboardInner({ workspace }: { workspace: WorkspaceKey }) {
                      link of their own. Falling back to the teacher's means an
                      already-booked child gets a join button the moment their
                      teacher fills the field in, without anybody re-booking. */
-                  google_meet_url: row.google_meet_url ?? teacher?.meet_url ?? null,
+                  google_meet_url: classLink(teacher?.meet_url, row.google_meet_url),
                   teacher_name: teacher?.full_name ?? null,
                   subject: row.trial_subject ?? null,
                   grade: seatGrade,

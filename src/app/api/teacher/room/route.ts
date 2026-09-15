@@ -119,44 +119,42 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'save_failed', message: upErr.message }, { status: 500 });
   }
 
-  /* Every upcoming class of theirs, not only the ones with no link.
+  /* Every upcoming class of theirs — trial AND regular — now opens this room.
      ────────────────────────────────────────────────────────────────────────
-     This used to fill blanks only. But a teacher who changes their room —
-     because the old link stopped working, or they moved from Meet to Zoom —
-     had a diary full of classes still pointing at a door that no longer
-     opens, and no way to know. "If a teacher at any time updates their link
-     it should update the link everywhere, in all the future trial classes
-     booked and the already booked ones, immediately."
+     The founder, 15 Sep 2026: "the teacher should be able to set their own
+     meeting link, and whether trial or regular class all will be using the
+     same link. If the teacher updates it, all class links change with it."
+     A teacher is never in two classes at once, so one room serves them all.
 
-     Trials only. A cohort class inherits its link from its cohort, which an
-     admin owns deliberately — a teacher redirecting a batch's permanent room
-     by editing their own profile is not a thing that should be possible. */
+     This used to reach trials only, leaving regular classes on the batch link
+     an admin had set. Now the teacher's room wins everywhere a Join button
+     reads its link (lib/classes/class-link.ts), and the stored link on every
+     upcoming class is rewritten here too, so every screen agrees. Blank links
+     and different links alike; a class already on this link is left alone. */
   let backfilled = 0;
   if (meetUrl) {
-    const { data: patched } = await admin
-      .from('bookings')
-      .update({ google_meet_url: meetUrl })
-      .eq('teacher_id', me)
-      .eq('is_trial', true)
-      .neq('status', 'cancelled')
-      .gt('slot_end', new Date().toISOString())
-      .neq('google_meet_url', meetUrl)
-      .select('id');
-    backfilled = (patched ?? []).length;
-
-    /* A non-trial class with no link at all still gets one — that is a gap
-       rather than a deliberate choice, and a student with no button is the
-       thing this whole feature exists to stop. */
-    const { data: alsoFilled } = await admin
-      .from('bookings')
-      .update({ google_meet_url: meetUrl })
-      .eq('teacher_id', me)
-      .neq('is_trial', true)
-      .is('google_meet_url', null)
-      .neq('status', 'cancelled')
-      .gt('slot_end', new Date().toISOString())
-      .select('id');
-    backfilled += (alsoFilled ?? []).length;
+    const now = new Date().toISOString();
+    const [{ data: changed }, { data: filled }] = await Promise.all([
+      admin
+        .from('bookings')
+        .update({ google_meet_url: meetUrl })
+        .eq('teacher_id', me)
+        .neq('status', 'cancelled')
+        .gt('slot_end', now)
+        .neq('google_meet_url', meetUrl)
+        .select('id'),
+      /* `neq` never matches NULL in SQL, so the classes with no link at all
+         are a second update of their own. */
+      admin
+        .from('bookings')
+        .update({ google_meet_url: meetUrl })
+        .eq('teacher_id', me)
+        .neq('status', 'cancelled')
+        .gt('slot_end', now)
+        .is('google_meet_url', null)
+        .select('id'),
+    ]);
+    backfilled = (changed ?? []).length + (filled ?? []).length;
   }
 
   return NextResponse.json({ ok: true, meetUrl, backfilled });

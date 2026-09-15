@@ -6,6 +6,7 @@ import { computeIncentive, readIncentiveConfig, baseSalary } from '@/lib/seller/
 import { monthWindow } from '@/lib/leads/seller-assignment';
 import type { ReminderRow } from '@/lib/seller/reminders';
 import { isMissingRelation, SELLER_SETUP_MESSAGE } from '@/lib/supabase/schema-gaps';
+import { classLink } from '@/lib/classes/class-link';
 
 /**
  * SARIRO — everything a seller needs before their first call of the day
@@ -148,10 +149,13 @@ export async function GET(req: NextRequest) {
       .filter((t): t is string => typeof t === 'string')
   )];
   const { data: teacherRows } = teacherIds.length
-    ? await actor.admin.from('profiles').select('id, full_name').in('id', teacherIds)
-    : { data: [] as { id: string; full_name: string | null }[] };
+    ? await actor.admin.from('profiles').select('id, full_name, meet_url').in('id', teacherIds)
+    : { data: [] as { id: string; full_name: string | null; meet_url: string | null }[] };
   const teacherName = new Map(
     ((teacherRows ?? []) as { id: string; full_name: string | null }[]).map((t) => [t.id, t.full_name])
+  );
+  const teacherRoom = new Map(
+    ((teacherRows ?? []) as { id: string; meet_url: string | null }[]).map((t) => [t.id, t.meet_url])
   );
   const feedbackByBooking = new Map<string, Record<string, unknown>[]>();
   for (const f of (feedbackRows ?? []) as Record<string, unknown>[]) {
@@ -189,7 +193,7 @@ export async function GET(req: NextRequest) {
             status: booking.status,
             subject: booking.trial_subject ?? lead.subject ?? null,
             teacher_name: teacherName.get(String(booking.teacher_id)) ?? null,
-            join_url: booking.google_meet_url ?? null,
+            join_url: classLink(teacherRoom.get(String(booking.teacher_id)), booking.google_meet_url as string | null),
           }
         : null,
       teacher_rating: teacherFeedback?.rating ?? null,

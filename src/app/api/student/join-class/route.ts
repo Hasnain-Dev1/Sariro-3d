@@ -3,6 +3,7 @@ import { createServerClientHelper, createServiceClient } from '@/lib/supabase/se
 import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import { joinWindow, JOIN_OPENS_MINUTES_BEFORE } from '@/lib/dashboard/join-window';
+import { classLink } from '@/lib/classes/class-link';
 
 /**
  * SARIRO — POST /api/student/join-class
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest) {
 
   const { data: booking } = await admin
     .from('bookings')
-    .select('id, cohort_id, status, google_meet_url, slot_start, slot_end')
+    .select('id, cohort_id, teacher_id, status, google_meet_url, slot_start, slot_end')
     .eq('id', body.booking_id)
     .maybeSingle();
   if (!booking) return NextResponse.json({ ok: false, error: 'not_found', message: 'Class not found.' }, { status: 404 });
@@ -119,12 +120,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Get the cohort's meet URL as a fallback if the booking itself has none.
-  let meetUrl = booking.google_meet_url;
-  if (!meetUrl) {
-    const { data: cohort } = await admin.from('cohorts').select('google_meet_url').eq('id', booking.cohort_id).maybeSingle();
-    meetUrl = cohort?.google_meet_url ?? null;
-  }
+  // The teacher's own room first, always — see lib/classes/class-link.ts.
+  const [{ data: teacher }, { data: cohort }] = await Promise.all([
+    booking.teacher_id
+      ? admin.from('profiles').select('meet_url').eq('id', booking.teacher_id).maybeSingle()
+      : Promise.resolve({ data: null as { meet_url: string | null } | null }),
+    admin.from('cohorts').select('google_meet_url').eq('id', booking.cohort_id).maybeSingle(),
+  ]);
+  const meetUrl = classLink(teacher?.meet_url, booking.google_meet_url, cohort?.google_meet_url);
 
   // Record presence — but never downgrade a status the teacher already set.
   const { data: existing } = await admin

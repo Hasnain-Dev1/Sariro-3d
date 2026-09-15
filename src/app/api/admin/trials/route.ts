@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { classLink } from '@/lib/classes/class-link';
 import { requireActor } from '@/lib/auth/actor';
 
 /**
@@ -95,12 +96,15 @@ export async function GET(req: NextRequest) {
       .in('booking_id', bookingIds)
       .limit(2000),
     teacherIds.length
-      ? actor.admin.from('profiles').select('id, full_name').in('id', teacherIds)
-      : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
+      ? actor.admin.from('profiles').select('id, full_name, meet_url').in('id', teacherIds)
+      : Promise.resolve({ data: [] as { id: string; full_name: string | null; meet_url: string | null }[] }),
   ]);
 
   const teacherName = new Map(
     ((teacherRows ?? []) as { id: string; full_name: string | null }[]).map((t) => [t.id, t.full_name])
+  );
+  const teacherRoom = new Map(
+    ((teacherRows ?? []) as { id: string; meet_url: string | null }[]).map((t) => [t.id, t.meet_url])
   );
 
   const by = <T,>(rows: T[] | null | undefined, key: (r: T) => string) => {
@@ -169,7 +173,7 @@ export async function GET(req: NextRequest) {
       slotEnd: b.slot_end,
       status: b.status,
       subject: b.trial_subject ?? null,
-      joinUrl: b.google_meet_url ?? null,
+      joinUrl: classLink(teacherRoom.get(String(b.teacher_id)), b.google_meet_url as string | null),
       finalisedAt: b.attendance_finalized_at ?? null,
       teacherName: teacherName.get(String(b.teacher_id)) ?? null,
       students,
