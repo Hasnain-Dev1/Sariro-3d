@@ -60,7 +60,9 @@ const ACTIONS: Record<QueueRole, Action[]> = {
     { label: 'Issue a certificate', hint: 'Find a student and issue or print a certificate', href: sectionHref(SA, 'certificates'), keywords: 'certificate issue print course complete' },
     { label: 'Decide past classes', hint: 'Mark whether classes happened', href: sectionHref(SA, 'decisions'), keywords: 'unresolved class happened no show attendance decide' },
     { label: 'Approve expenses', hint: 'Sign off what HR recorded', href: sectionHref(SA, 'expenses'), keywords: 'expense approve spend' },
+    { label: 'GST summary', hint: 'Output GST, input GST and what is payable', href: sectionHref(SA, 'gst'), keywords: 'gst tax output input credit itc filing return payable' },
     { label: 'Pricing calculator', hint: 'Minimum prices, seller floors, website prices', href: sectionHref(SA, 'profitability'), keywords: 'pricing price calculator profit margin floor minimum seller website' },
+    { label: 'Create a ₹ payment link', hint: 'For a family in India to pay by UPI', href: sectionHref(SA, 'payment-links'), keywords: 'payment link razorpay upi rupee inr india whatsapp' },
     { label: 'Book a trial class', hint: 'Into a teacher’s open hours', href: actionHref(SA, 'classes', 'book-trial'), keywords: 'book trial free class demo' },
     { label: 'Change a batch schedule', hint: 'New days and times, a start date or a break', href: actionHref(SA, 'classes', 'change-schedule'), keywords: 'reschedule batch days times break holiday' },
     { label: 'Manage users & roles', hint: 'Change a role, sign in as someone, block or unblock', href: actionHref(SA, 'people', 'users'), keywords: 'users roles staff impersonate sign in as block unblock offboard ban remove access' },
@@ -96,7 +98,9 @@ const ACTIONS: Record<QueueRole, Action[]> = {
   hr: [
     { label: 'Generate an invoice', hint: 'Branded tax invoice, GST inclusive or exclusive', href: sectionHref(HR, 'invoices'), keywords: 'invoice generate bill gst tax' },
     { label: 'Record a sale', hint: 'Punch a sale against its invoice', href: sectionHref(HR, 'hr-sales'), keywords: 'sale record punch refund ledger' },
+    { label: 'GST summary', hint: 'Output GST, input GST and what is payable', href: sectionHref(HR, 'gst'), keywords: 'gst tax output input credit itc filing return payable' },
     { label: 'Pricing calculator', hint: 'Minimum prices, seller floors, website prices', href: sectionHref(HR, 'pricing'), keywords: 'pricing price calculator profit margin floor minimum seller website' },
+    { label: 'Create a ₹ payment link', hint: 'For a family in India to pay by UPI', href: sectionHref(HR, 'payment-links'), keywords: 'payment link razorpay upi rupee inr india whatsapp' },
     { label: 'Issue a certificate', hint: 'Find a student and issue or print a certificate', href: sectionHref(HR, 'certificates'), keywords: 'certificate issue print course complete' },
     { label: 'Credit requests', hint: 'Approve or reject', href: sectionHref(HR, 'credit-requests'), keywords: 'credit request approve reject' },
     { label: 'Settle teacher payouts', hint: 'Move each payout along to paid', href: sectionHref(HR, 'settlements'), keywords: 'payout settle pay teacher paid processing' },
@@ -131,6 +135,7 @@ const ACTIONS: Record<QueueRole, Action[]> = {
     { label: 'Who to ring first', hint: 'Ranked by what the write-ups say', href: sectionHref(SE, 'signals'), keywords: 'signals write ups likely rank' },
     { label: 'Open trial seats', hint: 'Which grades can still join a class', href: sectionHref(SE, 'trial-grades'), keywords: 'trial grade seats full' },
     { label: 'Price list', hint: 'What to quote, the offers, the lowest you can go', href: sectionHref(SE, 'price-list'), keywords: 'price prices quote offer discount floor fee plan' },
+    { label: 'Create a ₹ payment link', hint: 'Send a family a UPI payment link on WhatsApp', href: sectionHref(SE, 'payment-links'), keywords: 'payment link razorpay upi rupee inr india whatsapp send' },
     { label: 'My payout', hint: 'Sales, incentive and what you are owed', href: sectionHref(SE, 'payout'), keywords: 'payout incentive commission money month' },
   ],
   student: [

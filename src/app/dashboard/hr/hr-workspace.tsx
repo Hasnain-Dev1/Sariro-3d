@@ -25,6 +25,8 @@ import HrSalesPanel from '@/components/dashboard/hr-sales-panel';
 import LowCreditPanel from '@/components/dashboard/low-credit-panel';
 import CertificatesPanel from '@/components/dashboard/certificates-panel';
 import PricingWorkbench from '@/components/dashboard/pricing/pricing-workbench';
+import PaymentLinksSection from '@/components/dashboard/payment-link-panel';
+import GstSummaryPanel from '@/components/dashboard/gst-summary-panel';
 import TodayQueue from '@/components/ops/today-queue';
 import { useAttention } from '@/components/ops/attention-provider';
 import { WorkspaceProvider, OpsSection, useShows, useOpsDo } from '@/components/ops/workspace';
@@ -489,6 +491,18 @@ function HrDashboardInner({ workspace }: { workspace: WorkspaceKey }) {
 
         <OpsSection id="ledger" icon={ScrollText}>
           <SalesLedgerPanel />
+        </OpsSection>
+
+        {/* Output GST on the invoices HR raises, input GST on the expenses HR
+            records, and what is left to pay — for filing. */}
+        <OpsSection id="gst" icon={Receipt}>
+          <GstSummaryPanel />
+        </OpsSection>
+
+        {/* A rupee link for a family in India to pay by UPI. HR may go below the
+            floor as an exception; the link is flagged when it does. */}
+        <OpsSection id="payment-links" icon={Banknote}>
+          <PaymentLinksSection staff />
         </OpsSection>
 
         {/* Minimum prices, the seller price ladder, and the website's own prices. */}

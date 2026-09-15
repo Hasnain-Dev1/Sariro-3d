@@ -13,6 +13,20 @@ import {
 import { downloadCsv as downloadExpensesCsv } from '@/lib/dashboard/sales-ledger';
 import DateRangeFilter from '@/components/dashboard/date-range-filter';
 import { resolveRange, dateInRange, type RangePreset, type DateRange } from '@/lib/dashboard/date-ranges';
+import { gstInside, isValidGstin } from '@/lib/finance/gst-summary';
+
+/* GST on a bill: none, a standard rate (worked out from the amount), or the
+   exact figure printed on it. The printed figure wins when they differ — a
+   bill can mix rates, and the accountant files what the bill says. */
+const GST_CHOICES = [
+  { value: 'none', label: 'No GST' },
+  { value: '5', label: '5%' },
+  { value: '12', label: '12%' },
+  { value: '18', label: '18%' },
+  { value: '28', label: '28%' },
+  { value: 'exact', label: 'Exact ₹' },
+] as const;
+type GstChoice = (typeof GST_CHOICES)[number]['value'];
 
 /**
  * SARIRO — the expense book
@@ -65,6 +79,17 @@ export default function ExpensesPanel({ canApprove = false }: { canApprove?: boo
   const [spentOn, setSpentOn] = useState(new Date().toISOString().slice(0, 10));
   const [documentUrl, setDocumentUrl] = useState('');
   const [reason, setReason] = useState('');
+  const [gstChoice, setGstChoice] = useState<GstChoice>('none');
+  const [gstExact, setGstExact] = useState('');
+  const [vendorGstin, setVendorGstin] = useState('');
+  const [billNumber, setBillNumber] = useState('');
+  const [itcClaimable, setItcClaimable] = useState(true);
+
+  const gstAmount = gstChoice === 'none'
+    ? 0
+    : gstChoice === 'exact'
+      ? Number(gstExact) || 0
+      : gstInside(Number(amount) || 0, Number(gstChoice));
 
   const load = useCallback(async () => {
     try {
@@ -79,6 +104,10 @@ export default function ExpensesPanel({ canApprove = false }: { canApprove?: boo
   }, [load]);
 
   const submit = async () => {
+    if (gstAmount > 0 && vendorGstin.trim() && !isValidGstin(vendorGstin)) {
+      setMsg('That GSTIN does not look right — it is 15 characters, like 19ABCDE1234F1Z5.');
+      return;
+    }
     setSaving(true);
     const res = await createExpense({
       title,
@@ -88,12 +117,19 @@ export default function ExpensesPanel({ canApprove = false }: { canApprove?: boo
       vendor,
       documentUrl,
       reason,
+      gstAmount,
+      gstRate: gstChoice === 'none' || gstChoice === 'exact' ? null : Number(gstChoice),
+      vendorGstin,
+      billNumber,
+      // No GSTIN on the bill means the credit cannot be claimed, whatever the box says.
+      itcClaimable: itcClaimable && !!vendorGstin.trim(),
     });
     setSaving(false);
     if (res.success) {
       setTitle(''); setAmount(''); setCategory(''); setVendor(''); setDocumentUrl(''); setReason('');
+      setGstChoice('none'); setGstExact(''); setVendorGstin(''); setBillNumber(''); setItcClaimable(true);
       setAdding(false);
-      setMsg(null);
+      setMsg(res.warning ?? null);
       void load();
     } else {
       setMsg(res.error ?? 'Could not save');
@@ -166,8 +202,10 @@ export default function ExpensesPanel({ canApprove = false }: { canApprove?: boo
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <Stat label="This month" value={formatRupees(data.thisMonthTotal)} />
+        {/* The GST on this month's approved bills that can be claimed back. */}
+        <Stat label="Input GST this month" value={formatRupees(data.inputGstThisMonth)} />
         <Stat label="Approved, all time" value={formatRupees(data.approvedTotal)} />
         <Stat label="Awaiting approval" value={formatRupees(data.pendingTotal)} tone="pending" />
         <Stat label="Pending items" value={String(data.pendingCount)} tone="pending" />
@@ -208,6 +246,64 @@ export default function ExpensesPanel({ canApprove = false }: { canApprove?: boo
               </div>
             ))}
           </div>
+          {/* ── GST on the bill — input tax we can claim back ─────────────── */}
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-3">
+            <div>
+              <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
+                GST on this bill (included in the amount)
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {GST_CHOICES.map((c) => (
+                  <button
+                    key={c.value}
+                    type="button"
+                    onClick={() => setGstChoice(c.value)}
+                    className={`min-h-[34px] px-3 rounded-lg border text-[12.5px] font-semibold ${
+                      gstChoice === c.value ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white text-slate-600'
+                    }`}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {gstChoice !== 'none' && (
+              <>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {gstChoice === 'exact' && (
+                    <div>
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">GST on the bill (₹)</label>
+                      <input type="number" min={0} step="0.01" value={gstExact} onChange={(e) => setGstExact(e.target.value)} placeholder="180"
+                        className="w-full min-h-[40px] rounded-lg border border-slate-300 bg-white px-3 text-[13.5px]" style={{ fontSize: '16px' }} />
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Supplier GSTIN</label>
+                    <input value={vendorGstin} onChange={(e) => setVendorGstin(e.target.value.toUpperCase())} placeholder="19ABCDE1234F1Z5" maxLength={15}
+                      className="w-full min-h-[40px] rounded-lg border border-slate-300 bg-white px-3 text-[13.5px] font-mono uppercase" style={{ fontSize: '16px' }} />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Bill number</label>
+                    <input value={billNumber} onChange={(e) => setBillNumber(e.target.value)} placeholder="INV-2291"
+                      className="w-full min-h-[40px] rounded-lg border border-slate-300 bg-white px-3 text-[13.5px]" style={{ fontSize: '16px' }} />
+                  </div>
+                </div>
+                <label className="flex items-start gap-2 text-[13px] text-slate-700">
+                  <input type="checkbox" checked={itcClaimable} onChange={(e) => setItcClaimable(e.target.checked)} className="mt-0.5 w-4 h-4 accent-blue-600" />
+                  <span>
+                    <span className="font-semibold">Claim this GST back</span> (input tax credit).{' '}
+                    <span className="text-slate-500">Untick for blocked credits such as food or personal use. Without a GSTIN it cannot be claimed.</span>
+                  </span>
+                </label>
+                <p className="text-[12.5px] text-slate-600">
+                  GST on this bill: <strong className="tabular-nums">{formatRupees(gstAmount)}</strong>
+                  {Number(amount) > 0 && <> of {formatRupees(Number(amount))}</>}
+                  {!vendorGstin.trim() && gstAmount > 0 && <span className="text-amber-700"> — add the GSTIN to claim it</span>}
+                </p>
+              </>
+            )}
+          </div>
+
           <div>
             <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
               Why
@@ -292,7 +388,17 @@ export default function ExpensesPanel({ canApprove = false }: { canApprove?: boo
                       {e.spent_on}
                       {e.category && ` · ${e.category}`}
                       {e.vendor && ` · ${e.vendor}`}
+                      {e.bill_number && ` · Bill ${e.bill_number}`}
                     </p>
+                    {Number(e.gst_amount ?? 0) > 0 && (
+                      <p className="text-[12px] mt-0.5">
+                        <span className={`font-bold ${e.itc_claimable === false ? 'text-slate-500' : 'text-emerald-700'}`}>
+                          GST {formatRupees(Number(e.gst_amount))}
+                          {e.itc_claimable === false ? ' · not claimable' : ' · input credit'}
+                        </span>
+                        {e.vendor_gstin && <span className="text-slate-400 font-mono"> · {e.vendor_gstin}</span>}
+                      </p>
+                    )}
                     {e.reason && (
                       <p className="text-[13px] text-slate-600 mt-1 leading-[1.55]">{e.reason}</p>
                     )}

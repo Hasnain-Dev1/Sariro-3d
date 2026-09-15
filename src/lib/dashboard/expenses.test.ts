@@ -67,8 +67,18 @@ describe('the filing export', () => {
   test('the bill link is a column, so filing is one download', () => {
     const csv = expensesToCsv([row()]);
     const [header, line] = csv.split('\r\n');
-    assert.equal(header.split(',').indexOf('Bill link'), 8);
+    assert.equal(header.split(',').indexOf('Bill link'), 13);
     assert.ok(line.includes('https://drive.google.com/file/d/1a2b3c/view'));
+  });
+
+  test('the GST on each bill is in the file, with the supplier GSTIN, for input tax credit', () => {
+    const csv = expensesToCsv([row({ amount: 1180, gst_amount: 180, gst_rate: 18, vendor_gstin: '19ABCDE1234F1Z5', bill_number: 'INV-77', itc_claimable: true })]);
+    const [header, line] = csv.split('\r\n');
+    const cols = header.split(',');
+    const cells = line.split(',');
+    assert.equal(cells[cols.indexOf('GST (INR)')], '180.00');
+    assert.equal(cells[cols.indexOf('Vendor GSTIN')], '19ABCDE1234F1Z5');
+    assert.equal(cells[cols.indexOf('Input credit')], 'Claimable');
   });
 
   test('a comma in a vendor name does not shift every column after it', () => {

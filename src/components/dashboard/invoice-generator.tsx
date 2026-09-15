@@ -479,7 +479,9 @@ export default function InvoiceGenerator({ onIssued }: { onIssued?: () => void }
                       <span className="tabular-nums font-semibold text-slate-900">{asMoney(tax.taxable)}</span>
                     </div>
                     <div className="flex justify-between text-slate-600">
-                      <span>GST (18%)</span>
+                      {/* GST on an invoice we issue is OUTPUT GST — what we owe on this
+                          sale. The GST summary adds these up against input GST. */}
+                      <span>Output GST (18%)</span>
                       <span className="tabular-nums font-semibold text-slate-900">{asMoney(tax.totalTax)}</span>
                     </div>
                     <div className="flex justify-between pt-1.5 mt-1 border-t border-slate-200">

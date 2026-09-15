@@ -2,8 +2,9 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { CalendarPlus, ListChecks, Users, GraduationCap, BadgeIndianRupee } from 'lucide-react';
+import { CalendarPlus, ListChecks, Users, GraduationCap, BadgeIndianRupee, Link2 } from 'lucide-react';
 import SellerPriceList from '@/components/dashboard/seller-price-list';
+import PaymentLinksSection from '@/components/dashboard/payment-link-panel';
 import { SellerLeads } from '@/app/dashboard/admin/seller-leads';
 import BookTrialModal from '@/components/dashboard/book-trial-modal';
 import LeadSignalsPanel from '@/components/dashboard/lead-signals-panel';
@@ -99,6 +100,12 @@ function SellerDashboardInner({ workspace }: { workspace: WorkspaceKey }) {
             calculator: public price, two offers, the floor. */}
         <OpsSection id="price-list" icon={BadgeIndianRupee}>
           <SellerPriceList />
+        </OpsSection>
+
+        {/* A rupee link for a family in India, sent on WhatsApp. Below the
+            floor is refused, the same as confirming a sale. */}
+        <OpsSection id="payment-links" icon={Link2}>
+          <PaymentLinksSection />
         </OpsSection>
 
         {/* ── Payout ── */}

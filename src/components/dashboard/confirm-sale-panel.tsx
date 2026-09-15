@@ -5,6 +5,7 @@ import { BadgeCheck, Loader2 } from 'lucide-react';
 import { PLAN_LABEL, PLAN_MONTHS, RATIOS, inr, isApproved, type PlanMonths, type Ratio } from '@/lib/pricing/economics';
 import { NumberField, Segmented } from '@/components/dashboard/pricing/fields';
 import { ApprovalBanner, floorOf, useSellerPrices } from '@/components/dashboard/seller-price-list';
+import { PaymentLinkCreator, type LinkCustomer } from '@/components/dashboard/payment-link-panel';
 
 /**
  * SARIRO — "they are buying": what, and for how much
@@ -20,13 +21,17 @@ import { ApprovalBanner, floorOf, useSellerPrices } from '@/components/dashboard
  */
 export default function ConfirmSalePanel({
   leadId,
+  customer,
   onDone,
   onCancel,
 }: {
   leadId: string;
+  /** The family, so a rupee payment link can be made for them from here. */
+  customer?: LinkCustomer;
   onDone: (message: string, ok: boolean) => void;
   onCancel: () => void;
 }) {
+  const [showLink, setShowLink] = useState(false);
   const { state, prices } = useSellerPrices();
   const [ratio, setRatio] = useState<Ratio>('1:4');
   const [months, setMonths] = useState<PlanMonths>(3);
@@ -99,8 +104,24 @@ export default function ConfirmSalePanel({
         >
           {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <BadgeCheck className="w-3 h-3" />} Send to HR
         </button>
+        {/* A family in India pays in rupees — by UPI from the link. */}
+        <button
+          type="button"
+          onClick={() => setShowLink((s) => !s)}
+          disabled={!approved}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-blue-200 bg-white text-blue-700 hover:bg-blue-50 disabled:opacity-40"
+        >
+          ₹ Payment link
+        </button>
         <button type="button" onClick={onCancel} className="px-2 py-1.5 text-xs font-bold text-slate-500 hover:text-slate-800">Cancel</button>
       </div>
+      {showLink && approved && price !== null && (
+        <PaymentLinkCreator
+          key={`${ratio}-${months}-${price}`}
+          customer={{ ...customer, leadId }}
+          preset={{ ratio, months, amount: price }}
+        />
+      )}
     </div>
   );
 }

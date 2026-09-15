@@ -32,6 +32,8 @@ import { WorkspaceTabs, WorkspaceHeader, WorkspaceTiles, WorkspaceAction } from 
 import type { WorkspaceKey } from '@/lib/ops/workspaces';
 import CertificatesPanel from '@/components/dashboard/certificates-panel';
 import PricingWorkbench from '@/components/dashboard/pricing/pricing-workbench';
+import PaymentLinksSection from '@/components/dashboard/payment-link-panel';
+import GstSummaryPanel from '@/components/dashboard/gst-summary-panel';
 import { useAuth } from '@/components/auth/auth-provider';
 import { TRACKS, COURSES, RAZORPAY_LINKS, RAZORPAY_LINKS_PREMIUM } from '@/lib/sariro-data';
 import { createClient } from '@/lib/supabase/client';
@@ -1011,10 +1013,22 @@ function SuperAdminDashboardInner({ workspace }: { workspace: WorkspaceKey }) {
           <ForecastPanel />
         </OpsSection>
 
+        {/* Output GST on our invoices, input GST on the bills we paid, and the
+            difference — for filing. */}
+        <OpsSection id="gst" icon={Receipt}>
+          <GstSummaryPanel />
+        </OpsSection>
+
         {/* The lowest safe price for every plan, the ladder sellers quote from,
             and the website's own prices. Same screen as HR's Pricing tab. */}
         <OpsSection id="profitability" icon={CalculatorIcon}>
           <PricingWorkbench />
+        </OpsSection>
+
+        {/* A rupee link for a family in India to pay by UPI, made here and sent
+            on WhatsApp. */}
+        <OpsSection id="payment-links" icon={CoinsIcon}>
+          <PaymentLinksSection staff />
         </OpsSection>
 
         {/* Razorpay payment links */}

@@ -171,8 +171,10 @@ export const SECTIONS = {
     { id: 'unrecorded-invoices', workspace: 'finance', label: 'Invoices not in the books', keywords: 'invoice unrecorded reconcile' },
     { id: 'ledger', workspace: 'finance', label: 'Sales & refunds', keywords: 'sales refunds ledger revenue report gst renewal' },
     { id: 'forecast', workspace: 'finance', label: 'Next month', keywords: 'forecast committed cost expected revenue' },
+    { id: 'gst', workspace: 'finance', label: 'GST summary', keywords: 'gst tax output input credit itc filing return cgst sgst igst payable' },
     { id: 'profitability', workspace: 'finance', label: 'Pricing & profitability', keywords: 'pricing price calculator profit profitability margin minimum floor seller offer gst cac website dollar plan mix' },
-    { id: 'pricing', workspace: 'finance', label: 'Payment links', keywords: 'pricing razorpay payment links tier' },
+    { id: 'payment-links', workspace: 'finance', label: 'Rupee payment links', keywords: 'payment link razorpay upi rupee inr india whatsapp send pay' },
+    { id: 'pricing', workspace: 'finance', label: 'Coding course payment pages', keywords: 'pricing razorpay payment pages tier coding static' },
 
     { id: 'risk', workspace: 'quality', label: 'Students & batches at risk', keywords: 'risk drifting slipping batch trouble attention' },
     { id: 'chat-policy', workspace: 'quality', label: 'Chat policy', keywords: 'chat policy flag contact details phone' },
@@ -221,6 +223,8 @@ export const SECTIONS = {
     { id: 'invoices', workspace: 'sales', label: 'Generate an invoice', keywords: 'invoice generate bill gst tax' },
     { id: 'unrecorded-invoices', workspace: 'sales', label: 'Invoices not in the books', keywords: 'invoice unrecorded reconcile ledger' },
     { id: 'ledger', workspace: 'sales', label: 'Sales & refunds', keywords: 'sales refunds ledger revenue renewal' },
+    { id: 'gst', workspace: 'sales', label: 'GST summary', keywords: 'gst tax output input credit itc filing return cgst sgst igst payable' },
+    { id: 'payment-links', workspace: 'sales', label: 'Rupee payment links', keywords: 'payment link razorpay upi rupee inr india whatsapp send pay' },
     { id: 'pricing', workspace: 'sales', label: 'Pricing & profitability', keywords: 'pricing price calculator profit margin floor seller website' },
   ],
   teacher: [
@@ -254,6 +258,7 @@ export const SECTIONS = {
     { id: 'trial-grades', workspace: 'trials', label: 'Open trial seats', keywords: 'trial grade seats class full band' },
 
     { id: 'price-list', workspace: 'prices', label: 'Price list', keywords: 'price prices fee plan quote offer discount floor lowest month year' },
+    { id: 'payment-links', workspace: 'prices', label: 'Payment links', keywords: 'payment link razorpay upi rupee inr india whatsapp send pay' },
 
     { id: 'payout', workspace: 'pay', label: 'Payout', keywords: 'payout incentive sales commission month settle earned' },
   ],

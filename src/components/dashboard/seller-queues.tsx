@@ -673,6 +673,7 @@ function LeadDetail({
         {confirming && lead.sale_stage !== 'ready_for_hr' && (
           <ConfirmSalePanel
             leadId={lead.id}
+            customer={{ name: lead.parent_name || lead.student_name, phone: lead.phone, phoneCountry: lead.phone_country_code, email: lead.email }}
             onCancel={() => setConfirming(false)}
             onDone={(text, ok) => {
               setMsg({ text, ok });

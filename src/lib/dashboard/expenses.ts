@@ -30,6 +30,13 @@ export interface Expense {
   payment_method: string | null;
   document_url: string | null;
   notes: string | null;
+  /** GST inside the bill, ₹. Absent until scripts/expense-gst.sql has run. */
+  gst_amount?: number | null;
+  gst_rate?: number | null;
+  vendor_gstin?: string | null;
+  bill_number?: string | null;
+  /** False for a blocked credit — recorded, never claimed. */
+  itc_claimable?: boolean | null;
   status: ExpenseStatus;
   approved_by: string | null;
   approved_at: string | null;
@@ -46,6 +53,8 @@ export interface ExpenseSummary {
   thisMonthTotal: number;
   /** Approved spend by category, largest first. */
   byCategory: { category: string; total: number }[];
+  /** GST on approved, claimable bills this calendar month — the input tax credit. */
+  inputGstThisMonth: number;
 }
 
 /** ₹, grouped Indian-style — 1,20,000 rather than 120,000. */
@@ -77,6 +86,9 @@ export async function fetchExpenses(limit = 200): Promise<ExpenseSummary> {
   }
 
   const sum = (rows: Expense[]) => rows.reduce((t, e) => t + Number(e.amount), 0);
+  const inputGstThisMonth = thisMonth
+    .filter((e) => e.itc_claimable !== false)
+    .reduce((t, e) => t + Number(e.gst_amount ?? 0), 0);
 
   return {
     expenses,
@@ -84,6 +96,7 @@ export async function fetchExpenses(limit = 200): Promise<ExpenseSummary> {
     pendingTotal: sum(pending),
     pendingCount: pending.length,
     thisMonthTotal: sum(thisMonth),
+    inputGstThisMonth: Math.round(inputGstThisMonth * 100) / 100,
     byCategory: [...cat.entries()]
       .map(([category, total]) => ({ category, total }))
       .sort((a, b) => b.total - a.total),
@@ -101,11 +114,17 @@ export interface ExpenseDraft {
   paymentMethod?: string;
   documentUrl?: string;
   notes?: string;
+  /** GST inside `amount`, ₹. */
+  gstAmount?: number;
+  gstRate?: number | null;
+  vendorGstin?: string;
+  billNumber?: string;
+  itcClaimable?: boolean;
 }
 
 export async function createExpense(
   draft: ExpenseDraft
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; warning?: string }> {
   const supabase = createClient();
   const {
     data: { user },
@@ -125,7 +144,12 @@ export async function createExpense(
     };
   }
 
-  const { error } = await supabase.from('expenses').insert({
+  const gst = Number(draft.gstAmount ?? 0);
+  if (!Number.isFinite(gst) || gst < 0 || gst > draft.amount) {
+    return { success: false, error: 'The GST on a bill cannot be more than the bill itself.' };
+  }
+
+  const base = {
     title: draft.title.trim().slice(0, 200),
     amount: draft.amount,
     spent_on: draft.spentOn || new Date().toISOString().slice(0, 10),
@@ -137,10 +161,30 @@ export async function createExpense(
     document_url: bill || null,
     notes: draft.notes?.trim() || null,
     created_by: user.id,
-  });
+  };
+  const gstFields = {
+    gst_amount: Math.round(gst * 100) / 100,
+    gst_rate: draft.gstRate ?? null,
+    vendor_gstin: draft.vendorGstin?.trim().toUpperCase() || null,
+    bill_number: draft.billNumber?.trim() || null,
+    itc_claimable: draft.itcClaimable ?? true,
+  };
 
-  if (error) return { success: false, error: error.message };
-  return { success: true };
+  const { error } = await supabase.from('expenses').insert({ ...base, ...gstFields });
+  if (!error) return { success: true };
+
+  /* Before scripts/expense-gst.sql has run the GST columns do not exist. The
+     expense itself still matters more than its GST, so it is saved without
+     them — and the person is told, rather than left believing the GST is in. */
+  if (/gst_amount|gst_rate|vendor_gstin|bill_number|itc_claimable|schema cache/i.test(error.message)) {
+    const retry = await supabase.from('expenses').insert(base);
+    if (retry.error) return { success: false, error: retry.error.message };
+    return {
+      success: true,
+      warning: gst > 0 ? 'The expense is saved, but its GST was not — run scripts/expense-gst.sql in Supabase so GST can be recorded.' : undefined,
+    };
+  }
+  return { success: false, error: error.message };
 }
 
 /**
@@ -189,8 +233,8 @@ export function isSafeBillLink(url: string): boolean {
  */
 export function expensesToCsv(rows: Expense[]): string {
   const headers = [
-    'Date', 'Title', 'Category', 'Paid to', 'Amount (INR)', 'Status',
-    'Payment method', 'Why', 'Bill link', 'Notes',
+    'Date', 'Title', 'Category', 'Paid to', 'Vendor GSTIN', 'Bill no.', 'Amount (INR)', 'GST (INR)', 'GST rate',
+    'Input credit', 'Status', 'Payment method', 'Why', 'Bill link', 'Notes',
   ];
 
   const cell = (v: unknown): string => {
@@ -201,8 +245,9 @@ export function expensesToCsv(rows: Expense[]): string {
   const lines = [headers.join(',')];
   for (const r of rows) {
     lines.push([
-      r.spent_on, r.title, r.category ?? '', r.vendor ?? '',
-      Number(r.amount).toFixed(2), r.status,
+      r.spent_on, r.title, r.category ?? '', r.vendor ?? '', r.vendor_gstin ?? '', r.bill_number ?? '',
+      Number(r.amount).toFixed(2), Number(r.gst_amount ?? 0).toFixed(2), r.gst_rate != null ? `${r.gst_rate}%` : '',
+      Number(r.gst_amount ?? 0) > 0 ? (r.itc_claimable === false ? 'Not claimable' : 'Claimable') : '', r.status,
       r.payment_method ?? '', r.reason ?? r.description ?? '',
       r.document_url ?? '', r.notes ?? '',
     ].map(cell).join(','));

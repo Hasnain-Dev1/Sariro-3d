@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  X, Loader2, RefreshCw, AlertCircle, FileText, Wallet, Clock, RotateCcw, TrendingUp, Receipt,
+  X, Loader2, RefreshCw, AlertCircle, FileText, Wallet, Clock, RotateCcw, TrendingUp, Receipt, Landmark,
 } from 'lucide-react';
 import { fetchSales, type SaleWithNames } from '@/lib/dashboard/sales-ledger';
 import DateRangeFilter from '@/components/dashboard/date-range-filter';
 import { resolveRange, dateInRange, inRange, type DateRange, type RangePreset } from '@/lib/dashboard/date-ranges';
 import { summarise, outstandingPlans, dueOnSale, type CurrencySummary } from '@/lib/finance/sales-report';
+import GstSummaryPanel from '@/components/dashboard/gst-summary-panel';
 
 /* ════════════════════════════════════════════════════════════════════════
    SalesEarningsReport — the company's money, for HR and super-admins.
@@ -112,6 +113,14 @@ export default function SalesEarningsReport({
             ) : (
               summaries.map((c) => <Figures key={c.currency} c={c} rangeLabel={range.label} multi={summaries.length > 1} />)
             )}
+
+            {/* ── GST for the same period ───────────────────────────────────
+                Output GST on our invoices, input GST on the bills we paid, and
+                the difference — what filing needs, without a spreadsheet. */}
+            <h4 className="mt-6 text-sm font-extrabold text-slate-700 mb-2 flex items-center gap-1.5" style={{ fontFamily: 'var(--font-jakarta)' }}>
+              <Landmark className="w-4 h-4 text-slate-400" /> GST · {range.label}
+            </h4>
+            <GstSummaryPanel range={range} />
 
             {/* ── Enrolled sales ────────────────────────────────────────── */}
             <h4 className="mt-6 text-sm font-extrabold text-slate-700 mb-2 flex items-center gap-1.5" style={{ fontFamily: 'var(--font-jakarta)' }}>
@@ -241,6 +250,7 @@ function Figures({ c, rangeLabel, multi }: { c: CurrencySummary; rangeLabel: str
         <Chip>{c.installments} on installments</Chip>
         <Chip>GST opted {c.gstOpted}</Chip>
         <Chip>GST not opted {c.gstNotOpted}</Chip>
+        {c.tax > 0 && <Chip>GST in these sales {money(c.symbol, c.tax)}</Chip>}
         {c.gatewayFees > 0 && <Chip>Gateway fees {money(c.symbol, c.gatewayFees)}</Chip>}
         <Chip>In the bank {money(c.symbol, c.realised)}</Chip>
       </div>
