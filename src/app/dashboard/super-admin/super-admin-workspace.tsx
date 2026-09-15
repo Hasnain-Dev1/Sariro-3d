@@ -21,7 +21,7 @@ import RiskPanel from '@/components/dashboard/risk-panel';
 import ForecastPanel from '@/components/dashboard/forecast-panel';
 import SalesLedgerPanel from '@/components/dashboard/sales-ledger-panel';
 import UnrecordedInvoicesPanel from '@/components/dashboard/unrecorded-invoices-panel';
-import { Receipt, ShieldAlert, Coins as CoinsIcon, HelpCircle, CalendarClock } from 'lucide-react';
+import { Receipt, ShieldAlert, Coins as CoinsIcon, HelpCircle, CalendarClock, Calculator as CalculatorIcon } from 'lucide-react';
 import UnresolvedClassesPanel from '@/components/dashboard/unresolved-classes-panel';
 import CatchUpOverduePanel from '@/components/dashboard/catchup-overdue-panel';
 import TrialGradesPanel from '@/components/dashboard/trial-grades-panel';
@@ -31,6 +31,7 @@ import { WorkspaceProvider, OpsSection, useShows, useOpsDo } from '@/components/
 import { WorkspaceTabs, WorkspaceHeader, WorkspaceTiles, WorkspaceAction } from '@/components/ops/workspace-chrome';
 import type { WorkspaceKey } from '@/lib/ops/workspaces';
 import CertificatesPanel from '@/components/dashboard/certificates-panel';
+import PricingWorkbench from '@/components/dashboard/pricing/pricing-workbench';
 import { useAuth } from '@/components/auth/auth-provider';
 import { TRACKS, COURSES, RAZORPAY_LINKS, RAZORPAY_LINKS_PREMIUM } from '@/lib/sariro-data';
 import { createClient } from '@/lib/supabase/client';
@@ -1008,6 +1009,12 @@ function SuperAdminDashboardInner({ workspace }: { workspace: WorkspaceKey }) {
             kept in separate blocks so one is never read as the other. */}
         <OpsSection id="forecast" icon={DollarSign}>
           <ForecastPanel />
+        </OpsSection>
+
+        {/* The lowest safe price for every plan, the ladder sellers quote from,
+            and the website's own prices. Same screen as HR's Pricing tab. */}
+        <OpsSection id="profitability" icon={CalculatorIcon}>
+          <PricingWorkbench />
         </OpsSection>
 
         {/* Razorpay payment links */}

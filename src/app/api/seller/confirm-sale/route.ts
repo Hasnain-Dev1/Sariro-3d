@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireActor, readJson } from '@/lib/auth/actor';
 import { recordEvent } from '@/lib/events/log';
 import { bestEffort } from '@/lib/supabase/best-effort';
+import { loadPriceBook } from '@/lib/pricing/price-book-store';
+import { NOT_APPROVED, PLAN_LABEL, isApproved, isPlanMonths, sellerFloor } from '@/lib/pricing/economics';
 
 /**
  * SARIRO — POST /api/seller/confirm-sale
@@ -32,6 +34,8 @@ interface Body {
   packageNote?: string;
   /** The figure quoted. HR raises the invoice from it, and may change it. */
   proposedAmount?: number;
+  /** Which plan it is for, so the figure can be checked against the price list. */
+  plan?: { ratio?: string; months?: number };
   website?: string;
 }
 
@@ -52,6 +56,26 @@ export async function POST(req: NextRequest) {
   const packageNote = (parsed.body.packageNote ?? '').trim();
   const proposed = Number(parsed.body.proposedAmount);
   const proposedAmount = Number.isFinite(proposed) && proposed > 0 ? proposed : null;
+
+  /* The price list is a rule, not a suggestion: a seller cannot send HR a
+     figure below the floor management set for that plan. Staff can, because
+     somebody has to be able to approve the exception. */
+  const planRatio = parsed.body.plan?.ratio === '1:1' ? '1:1' : parsed.body.plan?.ratio === '1:4' ? '1:4' : null;
+  const planMonths = parsed.body.plan?.months;
+  if (proposedAmount !== null && planRatio && isPlanMonths(planMonths) && !actor.isStaff) {
+    const { book } = await loadPriceBook(actor.admin);
+    const floor = sellerFloor(book.inputs, planRatio, planMonths, book.ladder[planRatio][planMonths]);
+    if (!isApproved(proposedAmount, floor)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'below_floor',
+          message: `${NOT_APPROVED}. The lowest for ${planRatio} · ${PLAN_LABEL[planMonths]} is ₹${floor.toLocaleString('en-IN')}.`,
+        },
+        { status: 422 }
+      );
+    }
+  }
 
   const { data: lead } = await actor.admin
     .from('student_leads')

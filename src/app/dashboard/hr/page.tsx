@@ -28,8 +28,9 @@ import LowCreditPanel from '@/components/dashboard/low-credit-panel';
 import TodayQueue from '@/components/ops/today-queue';
 import { useOpsTab } from '@/components/ops/go-to';
 import CertificatesPanel from '@/components/dashboard/certificates-panel';
+import PricingWorkbench from '@/components/dashboard/pricing/pricing-workbench';
 
-const HR_TABS = ['overview', 'my_teachers', 'incentives', 'payments', 'credits', 'tiers', 'enquiries', 'expenses', 'policy', 'credit_requests', 'invoices', 'sales', 'certificates'] as const;
+const HR_TABS = ['overview', 'my_teachers', 'incentives', 'payments', 'credits', 'tiers', 'enquiries', 'expenses', 'policy', 'credit_requests', 'invoices', 'sales', 'certificates', 'pricing'] as const;
 type HrTab = (typeof HR_TABS)[number];
 
 export default function HRDashboard() {
@@ -188,6 +189,7 @@ export default function HRDashboard() {
               { key: 'credit_requests', label: 'Credit Requests', badge: 0 },
               { key: 'invoices', label: 'Generate Invoice', badge: 0 },
               { key: 'sales', label: 'Sales & Refunds', badge: unrecorded },
+              { key: 'pricing', label: 'Pricing', badge: 0 },
               { key: 'certificates', label: 'Certificates', badge: 0 },
               { key: 'expenses', label: 'Expenses', badge: 0 },
               { key: 'policy', label: 'Chat Policy', badge: 0 },
@@ -283,6 +285,10 @@ export default function HRDashboard() {
               {/* Issue a course certificate when a course is finished, and
                   open any certificate to print for a family who asks. */}
               {activeTab === 'certificates' && <CertificatesPanel />}
+
+              {/* The pricing & profitability calculator: minimum prices, the
+                  seller price ladder, and the website's own prices. */}
+              {activeTab === 'pricing' && <PricingWorkbench />}
 
               {/* ─── OVERVIEW TAB ─── */}
               {activeTab === 'overview' && (

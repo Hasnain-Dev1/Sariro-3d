@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ArrowRight, Check, ClipboardList, GraduationCap, Users } from 'lucide-react';
 import { LESSONS_PER_GRADE } from '@/lib/school/curriculum';
 import { cadencePlans, formatPrice, perClassFor, perMonthFor } from '@/lib/school/pricing';
+import { useSitePrices } from '@/components/pricing/site-prices-provider';
 
 /**
  * SARIRO — school pricing on /pricing
@@ -43,6 +44,7 @@ const RATIOS = [
 ];
 
 export default function SchoolPricing() {
+  const sitePrices = useSitePrices();
   return (
     <section className="relative py-14 sm:py-20 bg-white border-t border-slate-100">
       <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -67,8 +69,8 @@ export default function SchoolPricing() {
 
         <div className="grid md:grid-cols-2 gap-4 mb-10">
           {RATIOS.map((r) => {
-            const perClass = perClassFor(r.ratio);
-            const perMonth = perMonthFor(r.ratio);
+            const perClass = perClassFor(r.ratio, sitePrices);
+            const perMonth = perMonthFor(r.ratio, sitePrices);
             return (
               <div
                 key={r.ratio}
@@ -124,7 +126,7 @@ export default function SchoolPricing() {
           </p>
 
           <div className="grid sm:grid-cols-3 gap-3">
-            {cadencePlans(LESSONS_PER_GRADE, '1:4').map((plan) => (
+            {cadencePlans(LESSONS_PER_GRADE, '1:4', sitePrices).map((plan) => (
               <div
                 key={plan.cadence}
                 className="rounded-xl border p-4"

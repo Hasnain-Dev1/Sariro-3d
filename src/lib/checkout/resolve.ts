@@ -7,7 +7,7 @@ import {
   getSubject,
   gradeGroupFor,
 } from '@/lib/school/curriculum';
-import { cadencePlans, formatPrice, type Cadence } from '@/lib/school/pricing';
+import { DEFAULT_SITE_PRICES, cadencePlans, formatPrice, type Cadence, type SitePrices } from '@/lib/school/pricing';
 
 /**
  * SARIRO — one checkout, every product
@@ -87,12 +87,17 @@ export interface CheckoutParams {
   cadence: Cadence;
 }
 
-export function resolveCheckoutItem(p: CheckoutParams): CheckoutItem | null {
+/**
+ * `prices` are the website's live prices. The checkout page passes the ones it
+ * has just fetched fresh, and create-order prices from a fresh read too, so the
+ * figure on the Pay button and the figure charged come from the same numbers.
+ */
+export function resolveCheckoutItem(p: CheckoutParams, prices: SitePrices = DEFAULT_SITE_PRICES): CheckoutItem | null {
   const codingId = (p.course ?? '').trim();
   if (codingId) return resolveCoding(codingId, p.ratio);
 
   const slug = (p.subject ?? p.focus ?? '').trim();
-  if (slug) return resolveSchool(slug, p);
+  if (slug) return resolveSchool(slug, p, prices);
 
   return null;
 }
@@ -129,7 +134,7 @@ function resolveCoding(courseId: string, ratio: LearningRatio): CheckoutItem | n
   };
 }
 
-function resolveSchool(slug: string, p: CheckoutParams): CheckoutItem | null {
+function resolveSchool(slug: string, p: CheckoutParams, prices: SitePrices): CheckoutItem | null {
   const subject = getSubject(slug);
   const focus = subject ? null : getSpecialisation(slug);
   if (!subject && !focus) return null;
@@ -139,7 +144,7 @@ function resolveSchool(slug: string, p: CheckoutParams): CheckoutItem | null {
   const grade = p.grade ? Number(p.grade) : null;
   const classes = isFocus || scope === 'grade' ? LESSONS_PER_GRADE : LESSONS_PER_GROUP;
 
-  const plan = cadencePlans(classes, p.ratio).find((c) => c.cadence === p.cadence);
+  const plan = cadencePlans(classes, p.ratio, prices).find((c) => c.cadence === p.cadence);
   if (!plan) return null;
 
   const group = grade ? gradeGroupFor(grade) : null;

@@ -2,7 +2,8 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { CalendarPlus, ListChecks, Users, GraduationCap } from 'lucide-react';
+import { CalendarPlus, ListChecks, Users, GraduationCap, BadgeIndianRupee } from 'lucide-react';
+import SellerPriceList from '@/components/dashboard/seller-price-list';
 import { SellerLeads } from '@/app/dashboard/admin/seller-leads';
 import BookTrialModal from '@/components/dashboard/book-trial-modal';
 import LeadSignalsPanel from '@/components/dashboard/lead-signals-panel';
@@ -92,6 +93,12 @@ function SellerDashboardInner({ workspace }: { workspace: WorkspaceKey }) {
             three seats. */}
         <OpsSection id="trial-grades" icon={GraduationCap}>
           <TrialGradesPanel />
+        </OpsSection>
+
+        {/* ── Prices ── The ladder HR and the super admin keep in the pricing
+            calculator: public price, two offers, the floor. */}
+        <OpsSection id="price-list" icon={BadgeIndianRupee}>
+          <SellerPriceList />
         </OpsSection>
 
         {/* ── Payout ── */}

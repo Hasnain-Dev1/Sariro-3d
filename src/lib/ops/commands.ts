@@ -60,6 +60,7 @@ const ACTIONS: Record<QueueRole, Action[]> = {
     { label: 'Issue a certificate', hint: 'Find a student and issue or print a certificate', href: sectionHref(SA, 'certificates'), keywords: 'certificate issue print course complete' },
     { label: 'Decide past classes', hint: 'Mark whether classes happened', href: sectionHref(SA, 'decisions'), keywords: 'unresolved class happened no show attendance decide' },
     { label: 'Approve expenses', hint: 'Sign off what HR recorded', href: sectionHref(SA, 'expenses'), keywords: 'expense approve spend' },
+    { label: 'Pricing calculator', hint: 'Minimum prices, seller floors, website prices', href: sectionHref(SA, 'profitability'), keywords: 'pricing price calculator profit margin floor minimum seller website' },
     { label: 'Book a trial class', hint: 'Into a teacher’s open hours', href: actionHref(SA, 'classes', 'book-trial'), keywords: 'book trial free class demo' },
     { label: 'Change a batch schedule', hint: 'New days and times, a start date or a break', href: actionHref(SA, 'classes', 'change-schedule'), keywords: 'reschedule batch days times break holiday' },
     { label: 'Manage users & roles', hint: 'Change a role or sign in as someone', href: actionHref(SA, 'people', 'users'), keywords: 'users roles staff impersonate sign in as' },
@@ -95,6 +96,7 @@ const ACTIONS: Record<QueueRole, Action[]> = {
   hr: [
     { label: 'Generate an invoice', hint: 'Branded tax invoice', href: `${HR}?tab=invoices`, keywords: 'invoice generate bill gst' },
     { label: 'Record a sale', hint: 'Punch a sale against its invoice', href: `${HR}?tab=sales`, keywords: 'sale record punch refund ledger' },
+    { label: 'Pricing calculator', hint: 'Minimum prices, seller floors, website prices', href: `${HR}?tab=pricing`, keywords: 'pricing price calculator profit margin floor minimum seller website' },
     { label: 'Issue a certificate', hint: 'Find a student and issue or print a certificate', href: `${HR}?tab=certificates`, keywords: 'certificate issue print course complete' },
     { label: 'Credit requests', hint: 'Approve or reject', href: `${HR}?tab=credit_requests`, keywords: 'credit request approve reject' },
     { label: 'Teacher payments & leave', hint: 'Settle payouts, review leave', href: `${HR}?tab=payments`, keywords: 'payout settle pay leave teacher' },
@@ -125,6 +127,7 @@ const ACTIONS: Record<QueueRole, Action[]> = {
     { label: 'Find a family', hint: 'Search every lead by name or number', href: sectionHref(SE, 'queues'), keywords: 'search find lead family name phone note reminder all leads' },
     { label: 'Who to ring first', hint: 'Ranked by what the write-ups say', href: sectionHref(SE, 'signals'), keywords: 'signals write ups likely rank' },
     { label: 'Open trial seats', hint: 'Which grades can still join a class', href: sectionHref(SE, 'trial-grades'), keywords: 'trial grade seats full' },
+    { label: 'Price list', hint: 'What to quote, the offers, the lowest you can go', href: sectionHref(SE, 'price-list'), keywords: 'price prices quote offer discount floor fee plan' },
     { label: 'My payout', hint: 'Sales, incentive and what you are owed', href: sectionHref(SE, 'payout'), keywords: 'payout incentive commission money month' },
   ],
   student: [

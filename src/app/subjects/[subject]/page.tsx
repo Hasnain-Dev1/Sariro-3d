@@ -14,6 +14,7 @@ import {
   getSubject,
 } from '@/lib/school/curriculum';
 import { cadencePlans, formatPrice, perMonthFor } from '@/lib/school/pricing';
+import { readSitePrices } from '@/lib/pricing/site-prices-server';
 import { DOMAINS } from '@/lib/capabilities/taxonomy';
 import { type GradeChoice, type ScopePrice } from '@/app/subjects/subject-picker';
 import SubjectPlan, { type GradePlan } from '@/app/subjects/subject-plan';
@@ -65,7 +66,9 @@ export default async function SubjectPage({ params }: Params) {
     g.grades.map((grade) => ({ grade, groupSlug: g.slug, groupLabel: g.label }))
   );
 
-  // Every price the picker can need, computed once at build time.
+  // Every price the picker can need, computed on the server from the live
+  // prices (refreshed when HR changes one).
+  const sitePrices = await readSitePrices();
   const prices: Record<string, ScopePrice> = {};
   for (const { grade } of grades) {
     const syllabus = buildGradeSyllabus(subject.slug, grade);
@@ -75,10 +78,10 @@ export default async function SubjectPage({ params }: Params) {
       prices[`${grade}:${scope}`] = {
         classes,
         months: classes / 4,
-        monthly: formatPrice(perMonthFor('1:4')),
+        monthly: formatPrice(perMonthFor('1:4', sitePrices)),
         lessons: syllabus.lessonCount * multiple,
         tests: syllabus.testCount * multiple,
-        plans: cadencePlans(classes, '1:4').map((p) => ({
+        plans: cadencePlans(classes, '1:4', sitePrices).map((p) => ({
           cadence: p.cadence,
           label: p.label,
           blurb: p.blurb,

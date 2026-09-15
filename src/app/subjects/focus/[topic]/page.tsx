@@ -12,6 +12,7 @@ import {
   getSpecialisation,
 } from '@/lib/school/curriculum';
 import { cadencePlans } from '@/lib/school/pricing';
+import { readSitePrices } from '@/lib/pricing/site-prices-server';
 import { DOMAINS } from '@/lib/capabilities/taxonomy';
 import CadenceChooser from '@/app/subjects/cadence-chooser';
 import SpeakingStages from '@/components/speaking/speaking-stages-section';
@@ -57,7 +58,7 @@ export default async function SpecialisationPage({ params }: Params) {
   // Specialisations use the same 48-slot shape as a grade year: 46 lessons,
   // a mid-course assessment and a final one.
   const syllabus = buildGradeSyllabus(spec.slug, 0);
-  const plans = cadencePlans(LESSONS_PER_GRADE, '1:4').map((p) => ({
+  const plans = cadencePlans(LESSONS_PER_GRADE, '1:4', await readSitePrices()).map((p) => ({
     cadence: p.cadence,
     label: p.label,
     blurb: p.blurb,

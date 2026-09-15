@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, CheckCircle2, CreditCard, Landmark, Loader2, Users } from 'lucide-react';
@@ -9,7 +9,8 @@ import { getBankDetails, transferReference } from '@/lib/checkout/bank-details';
 import { RazorpayCheckoutButton } from '@/components/auth/razorpay-checkout';
 import { resolveCheckoutItem } from '@/lib/checkout/resolve';
 import type { LearningRatio } from '@/lib/sariro-data';
-import { formatPrice, type Cadence } from '@/lib/school/pricing';
+import { formatPrice, type Cadence, type SitePrices } from '@/lib/school/pricing';
+import { useSitePrices } from '@/components/pricing/site-prices-provider';
 
 /**
  * SARIRO — the one checkout
@@ -53,6 +54,21 @@ export default function CheckoutClient() {
     (params.get('pay') as Cadence) || 'monthly'
   );
 
+  /* The page's prices can be up to five minutes old (they are cached with the
+     page). The amount charged never is — create-order reads them fresh — so
+     the checkout asks for the live figures too, and the Pay button always
+     shows what will actually be charged, even straight after HR changes it. */
+  const pagePrices = useSitePrices();
+  const [livePrices, setLivePrices] = useState<SitePrices>(pagePrices);
+  useEffect(() => {
+    let live = true;
+    fetch('/api/site-prices', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => { if (live && j?.ok && j.prices) setLivePrices(j.prices as SitePrices); })
+      .catch(() => { /* the page's prices stand */ });
+    return () => { live = false; };
+  }, []);
+
   const item = useMemo(
     () =>
       resolveCheckoutItem({
@@ -63,8 +79,8 @@ export default function CheckoutClient() {
         scope: params.get('scope'),
         ratio,
         cadence,
-      }),
-    [params, ratio, cadence]
+      }, livePrices),
+    [params, ratio, cadence, livePrices]
   );
 
   /**

@@ -5,12 +5,14 @@ import { useEffect, useRef, useState } from 'react';
 import { Check, Sparkles, Tag } from 'lucide-react';
 import { DISCOUNT_LABEL, DISCOUNT_DEADLINE, discountActive } from '@/lib/sariro-data';
 import Link from 'next/link';
-import { PRICE_PER_MONTH_GROUP, PRICE_PER_MONTH_ONE_TO_ONE, CURRENCY } from '@/lib/school/pricing';
+import { formatPrice } from '@/lib/school/pricing';
+import { useSitePrices } from '@/components/pricing/site-prices-provider';
 import { SplitText3D } from './scroll-effects';
 import CodingPricing from '@/components/home/coding-pricing';
 
 export default function Pricing3D() {
   const sectionRef = useRef<HTMLDivElement>(null);
+  const sitePrices = useSitePrices();
 
   /**
    * Set after mount, never during render.
@@ -158,13 +160,11 @@ export default function Pricing3D() {
                 className="text-4xl font-extrabold text-slate-900 leading-none tabular-nums"
                 style={{ fontFamily: 'var(--font-jakarta)' }}
               >
-                {CURRENCY}
-                {PRICE_PER_MONTH_GROUP}
+                {formatPrice(sitePrices.groupMonthly)}
                 <span className="text-base font-bold text-slate-500"> /month</span>
               </p>
               <p className="text-[13px] text-slate-500 mt-1.5 tabular-nums">
-                One to one: {CURRENCY}
-                {PRICE_PER_MONTH_ONE_TO_ONE}/month
+                One to one: {formatPrice(sitePrices.oneToOneMonthly)}/month
               </p>
               <Link
                 href="/courses"

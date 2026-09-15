@@ -15,6 +15,7 @@ import {
   getSubject,
 } from '@/lib/school/curriculum';
 import { cadencePlans } from '@/lib/school/pricing';
+import { readSitePrices } from '@/lib/pricing/site-prices-server';
 import { rateLimit, rateLimitedResponse, getClientIp, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -202,7 +203,10 @@ async function handlePost(req: NextRequest) {
     // subject can be bought as a whole three-year group.
     const classes = isFocus || scope === 'grade' ? LESSONS_PER_GRADE : LESSONS_PER_GROUP;
 
-    const plan = cadencePlans(classes, ratio).find((p) => p.cadence === cadence);
+    // Priced from a FRESH read of the live prices — never a cached figure. HR
+    // can change them at any time, and the checkout page fetches them fresh
+    // too, so what the parent was shown is what this charges.
+    const plan = cadencePlans(classes, ratio, await readSitePrices({ fresh: true })).find((p) => p.cadence === cadence);
     if (!plan) {
       return NextResponse.json(
         { ok: false, error: 'unknown_cadence' },

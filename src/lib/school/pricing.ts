@@ -35,6 +35,15 @@
  * A parent shown $399 leaves. A parent shown "$39.99 a month" listens. Both are
  * true; only one gets read. `startingAtLine()` is what belongs on a card, and
  * the total belongs further down, next to what paying it saves.
+ *
+ * ── HR can change these without a deploy (15 Sep 2026) ────────────────────
+ * The constants below are the DEFAULTS. The live figures — the two monthly
+ * prices and the two plan discounts — are `SitePrices`, stored in app_settings
+ * and edited from the pricing calculator by HR or the super admin
+ * (lib/pricing/site-prices.ts). Every function here takes them as its last
+ * argument and falls back to the defaults, so the page a parent reads and the
+ * amount create-order charges are worked out by the same arithmetic from the
+ * same four numbers.
  */
 
 export const CURRENCY = '$';
@@ -57,12 +66,31 @@ export const PRICE_PER_MONTH_ONE_TO_ONE = 59.99;
 
 export type Ratio = '1:4' | '1:1';
 
-export function perClassFor(ratio: Ratio): number {
-  return ratio === '1:1' ? PRICE_PER_CLASS_ONE_TO_ONE : PRICE_PER_CLASS_GROUP;
+/** The four numbers the whole public price list is derived from. Discounts are percent. */
+export interface SitePrices {
+  groupMonthly: number;
+  oneToOneMonthly: number;
+  quarterlyDiscount: number;
+  fullDiscount: number;
 }
 
-export function perMonthFor(ratio: Ratio): number {
-  return ratio === '1:1' ? PRICE_PER_MONTH_ONE_TO_ONE : PRICE_PER_MONTH_GROUP;
+export const DEFAULT_SITE_PRICES: SitePrices = {
+  groupMonthly: PRICE_PER_MONTH_GROUP,
+  oneToOneMonthly: PRICE_PER_MONTH_ONE_TO_ONE,
+  quarterlyDiscount: 5,
+  fullDiscount: 15,
+};
+
+/**
+ * A month's price over its four classes, down to the cent: $39.99 → $9.99,
+ * $59.99 → $14.99. Down, like every other rounding here but the monthly .99.
+ */
+export function perClassFor(ratio: Ratio, prices: SitePrices = DEFAULT_SITE_PRICES): number {
+  return Math.floor((perMonthFor(ratio, prices) / CLASSES_PER_MONTH) * 100 + 1e-9) / 100;
+}
+
+export function perMonthFor(ratio: Ratio, prices: SitePrices = DEFAULT_SITE_PRICES): number {
+  return ratio === '1:1' ? prices.oneToOneMonthly : prices.groupMonthly;
 }
 
 /**
@@ -99,12 +127,12 @@ export interface Bundle {
  * and save" is a claim that dies to a calculator — and a parent weighing a $399
  * cheque against $39.99 a month will absolutely do that arithmetic.
  */
-export function priceBundle(classes: number, ratio: Ratio = '1:4'): Bundle {
-  const perClass = perClassFor(ratio);
+export function priceBundle(classes: number, ratio: Ratio = '1:4', prices: SitePrices = DEFAULT_SITE_PRICES): Bundle {
+  const perClass = perClassFor(ratio, prices);
   const rawTotal = perClass * classes;
   const total = roundDownTo9(rawTotal);
   const months = classes / CLASSES_PER_MONTH;
-  const monthlyEquivalent = Math.round(perMonthFor(ratio) * months * 100) / 100;
+  const monthlyEquivalent = Math.round(perMonthFor(ratio, prices) * months * 100) / 100;
 
   return {
     classes,
@@ -129,8 +157,8 @@ export function formatPrice(amount: number): string {
 }
 
 /** The line for a card, an ad, or a seller's opening sentence. */
-export function startingAtLine(ratio: Ratio = '1:4'): string {
-  return `Starts at just ${formatPrice(perMonthFor(ratio))} a month`;
+export function startingAtLine(ratio: Ratio = '1:4', prices: SitePrices = DEFAULT_SITE_PRICES): string {
+  return `Starts at just ${formatPrice(perMonthFor(ratio, prices))} a month`;
 }
 
 export type Cadence = 'monthly' | 'quarterly' | 'full';
@@ -180,19 +208,19 @@ export interface CadencePlan {
  * price. That comparison is one a parent can verify with a calculator, which is
  * the only kind worth printing.
  */
-export function cadencePlans(classes: number, ratio: Ratio = '1:4'): CadencePlan[] {
+export function cadencePlans(classes: number, ratio: Ratio = '1:4', prices: SitePrices = DEFAULT_SITE_PRICES): CadencePlan[] {
   const months = classes / CLASSES_PER_MONTH;
-  const monthly = perMonthFor(ratio);
+  const monthly = perMonthFor(ratio, prices);
   const monthlyLifetime = Math.round(monthly * months * 100) / 100;
 
-  // Quarterly: 5% off the whole course, collected three months at a time.
+  // Quarterly: 5% off the whole course by default, collected three months at a time.
   const quarters = Math.ceil(months / MONTHS_PER_QUARTER);
-  const quarterlyLifetimeRaw = monthlyLifetime * (1 - CADENCE_DISCOUNT.quarterly);
+  const quarterlyLifetimeRaw = monthlyLifetime * (1 - prices.quarterlyDiscount / 100);
   const perQuarter = roundDownTo9(quarterlyLifetimeRaw / quarters);
   const quarterlyLifetime = perQuarter * quarters;
 
-  // Full: 15% off, one payment, rounded down to land on a 9.
-  const fullTotal = roundDownTo9(monthlyLifetime * (1 - CADENCE_DISCOUNT.full));
+  // Full: 15% off by default, one payment, rounded down to land on a 9.
+  const fullTotal = roundDownTo9(monthlyLifetime * (1 - prices.fullDiscount / 100));
 
   const saving = (total: number) => Math.round((monthlyLifetime - total) * 100) / 100;
 
@@ -220,8 +248,8 @@ export function cadencePlans(classes: number, ratio: Ratio = '1:4'): CadencePlan
       lifetimeTotal: quarterlyLifetime,
       lifetimeFormatted: formatPrice(quarterlyLifetime),
       saving: saving(quarterlyLifetime),
-      savingLabel: `Save ${formatPrice(saving(quarterlyLifetime))}`,
-      discountPercent: 5,
+      savingLabel: saving(quarterlyLifetime) > 0 ? `Save ${formatPrice(saving(quarterlyLifetime))}` : null,
+      discountPercent: prices.quarterlyDiscount,
     },
     {
       cadence: 'full',
@@ -233,8 +261,8 @@ export function cadencePlans(classes: number, ratio: Ratio = '1:4'): CadencePlan
       lifetimeTotal: fullTotal,
       lifetimeFormatted: formatPrice(fullTotal),
       saving: saving(fullTotal),
-      savingLabel: `Save ${formatPrice(saving(fullTotal))}`,
-      discountPercent: 15,
+      savingLabel: saving(fullTotal) > 0 ? `Save ${formatPrice(saving(fullTotal))}` : null,
+      discountPercent: prices.fullDiscount,
     },
   ];
 }
@@ -257,9 +285,9 @@ export interface PaymentPlan {
  * customer can verify: what the same classes cost month by month. An anchor
  * they can check beats one they might catch.
  */
-export function paymentPlans(classes: number, ratio: Ratio = '1:4'): PaymentPlan[] {
-  const bundle = priceBundle(classes, ratio);
-  const monthly = perMonthFor(ratio);
+export function paymentPlans(classes: number, ratio: Ratio = '1:4', prices: SitePrices = DEFAULT_SITE_PRICES): PaymentPlan[] {
+  const bundle = priceBundle(classes, ratio, prices);
+  const monthly = perMonthFor(ratio, prices);
 
   return [
     {

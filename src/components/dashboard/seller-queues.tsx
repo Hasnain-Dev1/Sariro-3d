@@ -11,6 +11,7 @@ import { pct, type MetricWindows } from '@/lib/seller/metrics';
 import { inr, type IncentiveBreakdown } from '@/lib/seller/incentives';
 import { STAGE_LABELS, STAGE_COLORS, isLeadStage } from '@/lib/dashboard/leads-data';
 import { gradeTag, gradeName } from '@/lib/grade/tag';
+import ConfirmSalePanel from '@/components/dashboard/confirm-sale-panel';
 
 /**
  * SARIRO — the seller's morning, on one screen
@@ -437,6 +438,7 @@ function LeadDetail({
   const [exact, setExact] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   const loadNotes = useCallback(async () => {
     try {
@@ -497,21 +499,6 @@ function LeadDetail({
     onChanged();
   };
 
-  const confirmSale = async () => {
-    setBusy(true);
-    try {
-      const res = await fetch('/api/seller/confirm-sale', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ leadId: lead.id }),
-      });
-      const json = await res.json();
-      setMsg({ text: json?.ok ? 'Sent to HR to invoice.' : (json?.message ?? 'That did not work.'), ok: !!json?.ok });
-      if (json?.ok) onChanged();
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const pending = reminders.filter((r) => r.status === 'pending');
 
@@ -663,9 +650,9 @@ function LeadDetail({
             {remindIn || exact ? 'Save note & reminder' : 'Save note'}
           </button>
 
-          {lead.stage !== 'enrolled' && lead.sale_stage !== 'ready_for_hr' && lead.sale_stage !== 'punched' && (
+          {lead.stage !== 'enrolled' && lead.sale_stage !== 'ready_for_hr' && lead.sale_stage !== 'punched' && !confirming && (
             <button
-              onClick={() => void confirmSale()}
+              onClick={() => { setMsg(null); setConfirming(true); }}
               disabled={busy}
               className="px-3 py-1.5 text-xs font-bold rounded-lg border border-green-300 bg-green-50 text-green-800 hover:bg-green-100 flex items-center gap-1.5 disabled:opacity-50"
             >
@@ -680,6 +667,19 @@ function LeadDetail({
 
           {msg && <span className={`text-[11px] ${msg.ok ? 'text-green-700' : 'text-rose-700'}`}>{msg.text}</span>}
         </div>
+
+        {/* The plan and the agreed price, checked against the price list before
+            it can reach HR. */}
+        {confirming && lead.sale_stage !== 'ready_for_hr' && (
+          <ConfirmSalePanel
+            leadId={lead.id}
+            onCancel={() => setConfirming(false)}
+            onDone={(text, ok) => {
+              setMsg({ text, ok });
+              if (ok) { setConfirming(false); onChanged(); }
+            }}
+          />
+        )}
       </div>
 
       {/* The logbook — never overwritten */}

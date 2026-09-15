@@ -29,13 +29,13 @@ export type WorkspaceKey =
   // teacher
   | 'students' | 'pay' | 'growth'
   // seller
-  | 'leads' | 'trials'
+  | 'leads' | 'trials' | 'prices'
   // student
   | 'progress' | 'credits' | 'explore';
 
 export type WorkspaceIcon =
   | 'today' | 'classes' | 'people' | 'sales' | 'finance' | 'quality'
-  | 'wallet' | 'growth' | 'trials' | 'progress' | 'explore';
+  | 'wallet' | 'growth' | 'trials' | 'progress' | 'explore' | 'prices';
 
 export interface WorkspaceMeta {
   key: WorkspaceKey;
@@ -75,6 +75,7 @@ export const WORKSPACE_META: Record<WorkspaceRole, Partial<Record<WorkspaceKey, 
     today: meta('today', 'Today', 'today', '#0F172A', 'The calls that matter today.'),
     leads: meta('leads', 'Leads', 'sales', '#0891B2', 'Every family you are working with, in the order to ring them.'),
     trials: meta('trials', 'Trials', 'trials', '#7C3AED', 'Book a trial class and see which grades still have seats.'),
+    prices: meta('prices', 'Prices', 'prices', '#B45309', 'What to quote for every plan, the offers you may make, and the lowest you can go.'),
     pay: meta('pay', 'Payout', 'wallet', '#059669', 'Your sales, your incentive and what you are owed this month.'),
   },
   student: {
@@ -105,7 +106,7 @@ export const ROLE_COPY: Record<WorkspaceRole, { eyebrow: string; tilesTitle: str
   super_admin: { eyebrow: 'Super Admin · Workspace', tilesTitle: 'Workspaces', tilesBlurb: 'Everything else, one focused page each.' },
   admin: { eyebrow: 'Admin · Workspace', tilesTitle: 'Workspaces', tilesBlurb: 'Everything else, one focused page each.' },
   teacher: { eyebrow: 'Teacher · Workspace', tilesTitle: 'Your workspaces', tilesBlurb: 'Everything else about your teaching, one page each.' },
-  seller: { eyebrow: 'Seller · Workspace', tilesTitle: 'Your workspaces', tilesBlurb: 'Leads, trials and pay, one page each.' },
+  seller: { eyebrow: 'Seller · Workspace', tilesTitle: 'Your workspaces', tilesBlurb: 'Leads, trials, prices and pay, one page each.' },
   student: { eyebrow: 'My Sariro', tilesTitle: 'Your spaces', tilesBlurb: 'Everything else, one tap each.' },
 };
 
@@ -114,7 +115,7 @@ export const WORKSPACE_ORDER: Record<WorkspaceRole, readonly WorkspaceKey[]> = {
   super_admin: ['today', 'classes', 'people', 'sales', 'finance', 'quality'],
   admin: ['today', 'classes', 'people', 'sales', 'quality'],
   teacher: ['today', 'classes', 'students', 'pay', 'growth'],
-  seller: ['today', 'leads', 'trials', 'pay'],
+  seller: ['today', 'leads', 'trials', 'prices', 'pay'],
   student: ['today', 'classes', 'progress', 'credits', 'explore'],
 };
 
@@ -157,6 +158,7 @@ export const SECTIONS = {
     { id: 'unrecorded-invoices', workspace: 'finance', label: 'Invoices not in the books', keywords: 'invoice unrecorded reconcile' },
     { id: 'ledger', workspace: 'finance', label: 'Sales & refunds', keywords: 'sales refunds ledger revenue report gst renewal' },
     { id: 'forecast', workspace: 'finance', label: 'Next month', keywords: 'forecast committed cost expected revenue' },
+    { id: 'profitability', workspace: 'finance', label: 'Pricing & profitability', keywords: 'pricing price calculator profit profitability margin minimum floor seller offer gst cac website dollar plan mix' },
     { id: 'pricing', workspace: 'finance', label: 'Payment links', keywords: 'pricing razorpay payment links tier' },
 
     { id: 'risk', workspace: 'quality', label: 'Students & batches at risk', keywords: 'risk drifting slipping batch trouble attention' },
@@ -211,6 +213,8 @@ export const SECTIONS = {
     { id: 'all-leads', workspace: 'leads', label: 'All my leads', keywords: 'leads pipeline stage family search' },
 
     { id: 'trial-grades', workspace: 'trials', label: 'Open trial seats', keywords: 'trial grade seats class full band' },
+
+    { id: 'price-list', workspace: 'prices', label: 'Price list', keywords: 'price prices fee plan quote offer discount floor lowest month year' },
 
     { id: 'payout', workspace: 'pay', label: 'Payout', keywords: 'payout incentive sales commission month settle earned' },
   ],
