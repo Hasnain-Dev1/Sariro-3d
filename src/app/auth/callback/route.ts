@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { isSupabaseConfigured, createServerClientHelper } from '@/lib/supabase/server';
+import { BLOCKED_PATH, isBlockedAuthError } from '@/lib/auth/blocked';
 
 /* ===============================================================
    /auth/callback — OAuth redirect handler
@@ -44,6 +45,12 @@ export async function GET(request: Request) {
     );
   }
 
+  /* A blocked account signing in with Google or GitHub is refused by Supabase
+     before it ever reaches us; say why rather than show the raw refusal. */
+  if (isBlockedAuthError(errorParam) || isBlockedAuthError(requestUrl.searchParams.get('error_description'))) {
+    return NextResponse.redirect(new URL(BLOCKED_PATH, requestUrl.origin));
+  }
+
   // If there's an error in the query string, redirect to sign-in with the error
   if (errorParam) {
     return NextResponse.redirect(
@@ -64,6 +71,7 @@ export async function GET(request: Request) {
       const { error } = await supabase.auth.exchangeCodeForSession(code);
       if (error) {
         console.error('[auth/callback] exchange error:', error.message);
+        if (isBlockedAuthError(error)) return NextResponse.redirect(new URL(BLOCKED_PATH, requestUrl.origin));
         /* A reset that fails to exchange is NOT a sign-in problem, and dumping
            a raw Supabase string on the sign-in page told a locked-out parent
            nothing they could act on. The commonest cause is asking on a laptop

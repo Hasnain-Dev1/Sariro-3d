@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
+import { BLOCKED_PATH, isBlockedAuthError, isBlockedUser } from '@/lib/auth/blocked';
 
 /* ===============================================================
    AuthProvider — wraps the app, exposes useAuth() hook.
@@ -119,6 +120,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
   }, [supabase]);
 
+  /* A super admin can block an account (lib/auth/blocked.ts). The session a
+     browser already holds keeps working until it expires, so every load asks
+     the auth server — not the cached session — whether this account is still
+     allowed in, and sends a blocked one to the page that says why. A failed
+     check (offline, a slow network) is not a block and changes nothing. */
+  const checkBlocked = useCallback(async () => {
+    if (typeof window === 'undefined' || window.location.pathname === BLOCKED_PATH) return;
+    try {
+      const { data, error } = await supabase.auth.getUser();
+      if (isBlockedAuthError(error) || isBlockedUser(data?.user)) {
+        await supabase.auth.signOut().catch(() => {});
+        window.location.replace(BLOCKED_PATH);
+      }
+    } catch { /* not a block */ }
+  }, [supabase]);
+
   useEffect(() => {
     let subscription: { unsubscribe: () => void } | null = null;
 
@@ -128,6 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
+          void checkBlocked();
           fetchProfile(session.user.id).finally(() => setLoading(false));
         } else {
           // Defer setState via microtask to satisfy react-hooks/set-state-in-effect lint
@@ -164,7 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.warn('[auth] unsubscribe error:', err);
       }
     };
-  }, [supabase, fetchProfile]);
+  }, [supabase, fetchProfile, checkBlocked]);
 
   return (
     <AuthContext.Provider

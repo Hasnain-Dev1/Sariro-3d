@@ -30,6 +30,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createServerClientHelper, createServiceClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
+import { BLOCKED_MESSAGE, isBlockedUser } from '@/lib/auth/blocked';
 
 export type ActorRole = 'super_admin' | 'admin' | 'hr' | 'seller' | 'teacher' | 'student';
 
@@ -104,6 +105,16 @@ export async function requireActor(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return { ok: false, response: NextResponse.json({ ok: false, error: 'unauthenticated' }, { status: 401 }) };
+  }
+
+  /* Blocked by a super admin (lib/auth/blocked.ts). getUser() above reads the
+     auth server, not the session cookie, so this holds for a session issued
+     before the block. */
+  if (isBlockedUser(user)) {
+    return {
+      ok: false,
+      response: NextResponse.json({ ok: false, error: 'account_blocked', message: BLOCKED_MESSAGE }, { status: 403 }),
+    };
   }
 
   /* Read through the CALLER'S OWN session, not the service client. A role read

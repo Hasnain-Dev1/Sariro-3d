@@ -5,6 +5,7 @@ import { Loader2, Mail, AlertCircle, ArrowLeft, KeyRound } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { cooldownFor, recordSend, cooldownSeconds, SEND_COOLDOWN_MS } from '@/lib/auth/send-cooldown';
 import { shouldAutoSubmit } from '@/lib/phone/india';
+import { BLOCKED_MESSAGE, isBlockedAuthError } from '@/lib/auth/blocked';
 
 /**
  * SARIRO — signing in with a code sent to your email
@@ -100,7 +101,9 @@ export default function EmailCodeSignIn({
          an account. A form that answers that is a way of testing a list of
          addresses for which ones are Sariro customers. So a missing user looks
          exactly like a sent code — and the code simply never arrives. */
-      if (/signups not allowed|user not found|not found/i.test(m)) {
+      if (isBlockedAuthError(err)) {
+        setError(BLOCKED_MESSAGE);
+      } else if (/signups not allowed|user not found|not found/i.test(m)) {
         recordSend(address);
         setWaitMs(SEND_COOLDOWN_MS);
         setStage('sent');
@@ -161,7 +164,9 @@ export default function EmailCodeSignIn({
 
         const m = err instanceof Error ? err.message : '';
         setError(
-          /expired/i.test(m)
+          isBlockedAuthError(err)
+            ? BLOCKED_MESSAGE
+            : /expired/i.test(m)
             ? 'That code has expired. Ask for a new one.'
             : 'That code is not right. Check it and try again.'
         );

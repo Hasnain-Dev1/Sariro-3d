@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Search, Download, X, Loader2, Users, Phone, LogIn,
+  Search, Download, X, Loader2, Users, Phone, LogIn, Ban, LockOpen,
 } from 'lucide-react';
 import {
   fetchUsers, updateUserRole, exportUsersCSV,
@@ -19,6 +19,7 @@ import { UnknownBadge } from '@/components/dashboard/unknown-contact';
    - Filter by role
    - Change user role (dropdown)
    - Sign in as user (impersonation)
+   - Block / unblock a user (super admin only — offboarding)
    - Export CSV
    ════════════════════════════════════════════════════════════════════════ */
 
@@ -39,6 +40,54 @@ export function UserManagementModal({
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [busyUserId, setBusyUserId] = useState<string | null>(null);
+  /* Who is blocked, from the auth server (api/admin/users/block). Super admin
+     only, so this stays empty and the controls stay hidden for an admin. */
+  const [blocked, setBlocked] = useState<Map<string, string | null>>(new Map());
+  const [confirmBlockId, setConfirmBlockId] = useState<string | null>(null);
+  const [blockReason, setBlockReason] = useState('');
+
+  useEffect(() => {
+    if (!open || !canManageStaff) return;
+    let cancelled = false;
+    fetch('/api/admin/users/block', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled || !j?.ok) return;
+        setBlocked(new Map((j.blocked as { id: string; reason: string | null }[]).map((b) => [b.id, b.reason])));
+      })
+      .catch(() => { /* the list simply shows nobody as blocked */ });
+    return () => { cancelled = true; };
+  }, [open, canManageStaff]);
+
+  const setBlock = async (userId: string, userName: string, block: boolean) => {
+    if (!block && !confirm(`Unblock ${userName}? They will be able to sign in again straight away.`)) return;
+    setBusyUserId(userId);
+    try {
+      const res = await fetch('/api/admin/users/block', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, blocked: block, reason: block ? blockReason.trim() || undefined : undefined }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setBlocked((prev) => {
+          const next = new Map(prev);
+          if (block) next.set(userId, blockReason.trim() || null);
+          else next.delete(userId);
+          return next;
+        });
+        setConfirmBlockId(null);
+        setBlockReason('');
+        onToast('success', block ? `${userName} is blocked and signed out of Sariro` : `${userName} can sign in again`);
+      } else {
+        onToast('error', data.message || data.error || 'That did not work');
+      }
+    } catch {
+      onToast('error', 'Network error — nothing changed');
+    } finally {
+      setBusyUserId(null);
+    }
+  };
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchInput), 300);
@@ -221,11 +270,10 @@ export function UserManagementModal({
                 users.map((u) => {
                   const displayName = u.full_name || u.email || 'Unknown user';
                   const initial = displayName.charAt(0).toUpperCase();
+                  const isBlocked = blocked.has(u.id);
                   return (
-                    <div
-                      key={u.id}
-                      className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-slate-200 hover:bg-slate-50"
-                    >
+                    <div key={u.id} className={`rounded-xl border ${isBlocked ? 'border-rose-200 bg-rose-50/40' : 'border-slate-100 hover:border-slate-200 hover:bg-slate-50'}`}>
+                    <div className="flex items-center gap-3 p-3">
                       <div
                         className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center shrink-0"
                         aria-hidden="true"
@@ -253,6 +301,11 @@ export function UserManagementModal({
                             )}
                           </div>
                           <div className="text-xs text-slate-500 truncate">{u.email || '—'}</div>
+                          {isBlocked && (
+                            <div className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-extrabold uppercase tracking-wide text-rose-700" title={blocked.get(u.id) ?? undefined}>
+                              <Ban className="w-3 h-3" /> Blocked{blocked.get(u.id) ? ` · ${blocked.get(u.id)}` : ''}
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center gap-3 text-xs text-slate-500 sm:justify-end flex-wrap">
                           <span
@@ -298,6 +351,58 @@ export function UserManagementModal({
                         )}
                         <span className="hidden sm:inline">Sign in as</span>
                       </button>
+                      {/* Block / unblock — super admins, never on another super admin. */}
+                      {canManageStaff && u.role !== 'super_admin' && !u.is_super_admin && (
+                        isBlocked ? (
+                          <button
+                            onClick={() => void setBlock(u.id, displayName, false)}
+                            disabled={busyUserId === u.id}
+                            title={`Unblock ${displayName}`}
+                            className="h-9 px-2 rounded-lg bg-green-50 hover:bg-green-100 text-green-700 text-xs font-bold flex items-center gap-1 transition-colors disabled:opacity-50"
+                            style={{ fontFamily: 'var(--font-grotesk)' }}
+                          >
+                            <LockOpen className="w-3 h-3" />
+                            <span className="hidden sm:inline">Unblock</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => { setConfirmBlockId(confirmBlockId === u.id ? null : u.id); setBlockReason(''); }}
+                            disabled={busyUserId === u.id}
+                            title={`Block ${displayName}`}
+                            className="h-9 px-2 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold flex items-center gap-1 transition-colors disabled:opacity-50"
+                            style={{ fontFamily: 'var(--font-grotesk)' }}
+                          >
+                            <Ban className="w-3 h-3" />
+                            <span className="hidden sm:inline">Block</span>
+                          </button>
+                        )
+                      )}
+                    </div>
+                    {confirmBlockId === u.id && !isBlocked && (
+                      <div className="mx-3 mb-3 rounded-lg border border-rose-200 bg-white p-3 space-y-2">
+                        <p className="text-[12.5px] text-slate-700 leading-snug">
+                          <strong className="text-slate-900">Block {displayName}?</strong> They are signed out and cannot sign in again,
+                          by any method, until you unblock them. They will be told to check with support.
+                        </p>
+                        <input
+                          value={blockReason}
+                          onChange={(e) => setBlockReason(e.target.value)}
+                          maxLength={300}
+                          placeholder="Reason, for the record (optional) — e.g. left the company"
+                          className="w-full h-9 rounded-lg border border-slate-200 px-2.5 text-[13px] outline-none focus:border-rose-400"
+                        />
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => void setBlock(u.id, displayName, true)}
+                            disabled={busyUserId === u.id}
+                            className="h-9 px-3 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-1.5 disabled:opacity-50"
+                          >
+                            {busyUserId === u.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Ban className="w-3 h-3" />} Block account
+                          </button>
+                          <button onClick={() => setConfirmBlockId(null)} className="h-9 px-2 text-xs font-bold text-slate-500 hover:text-slate-800">Cancel</button>
+                        </div>
+                      </div>
+                    )}
                     </div>
                   );
                 })

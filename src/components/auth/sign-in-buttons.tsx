@@ -11,6 +11,7 @@ import {
   cooldownFor, recordSend, cooldownSeconds, SEND_COOLDOWN_MS,
 } from '@/lib/auth/send-cooldown';
 import { MIN_LENGTH, checkPassword } from '@/lib/auth/password';
+import { authErrorText } from '@/lib/auth/blocked';
 import EmailCodeSignIn from './email-code-sign-in';
 import { isBlockedEmail, BLOCKED_EMAIL_MESSAGE } from '@/lib/email/disposable';
 
@@ -71,7 +72,7 @@ export default function SignInButtons({
       if (error) throw error;
       // OAuth redirect happens automatically
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'GitHub sign-in failed');
+      setError(authErrorText(err, 'GitHub sign-in failed'));
       setSubmitting(false);
     }
   };
@@ -158,7 +159,7 @@ export default function SignInButtons({
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Authentication failed');
+      setError(authErrorText(err, 'Authentication failed'));
     } finally {
       setSubmitting(false);
     }
@@ -172,7 +173,7 @@ export default function SignInButtons({
           showButton
           buttonText={mode === 'signup' ? 'signup_with' : 'signin_with'}
           onSuccess={onSuccess}
-          onError={(err) => setError(err)}
+          onError={(err) => setError(authErrorText(err, 'Google sign-in failed'))}
         />
       </div>
 
