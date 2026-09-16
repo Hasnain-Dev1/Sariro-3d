@@ -252,7 +252,8 @@ export async function POST(req: NextRequest) {
     const eligible = teachersFor(
       subject,
       (approvals ?? []) as { teacher_id: string; track: string | null; level: string | null }[],
-      [teacher.id as string]
+      [teacher.id as string],
+      grade
     );
     const canTake = teacherCanTake({
       subjectOk: eligible.has(teacher.id as string),

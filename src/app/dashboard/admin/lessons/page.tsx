@@ -18,6 +18,7 @@ import { isEffectivelyEmpty } from '@/lib/lessons/content-state';
 import SpeakingLessonView from '@/components/speaking/speaking-lesson-view';
 import { getSpeakingLesson } from '@/lib/speaking/modules';
 import { allLessonCourses, flattenCourseLessons, type OrderedLesson } from '@/lib/dashboard/lessons-data';
+import { bandOfCourseId, isSpeakingCourseId } from '@/lib/speaking/bands';
 
 interface PageRow { module_num: number; lesson_index: number; html_content: string; title: string | null }
 
@@ -41,7 +42,7 @@ export default function AdminLessonsPage() {
      is no HTML to edit — and until now no way for anyone but an enrolled
      student to look at it. Nobody is enrolled in it yet, which meant the whole
      course was written and unreachable. */
-  const codeAuthored = courseId === 'public-speaking-focus';
+  const codeAuthored = isSpeakingCourseId(courseId);
   const [pages, setPages] = useState<Map<string, PageRow>>(new Map());
   const [loading, setLoading] = useState(false);
   const [seeding, setSeeding] = useState(false);
@@ -244,7 +245,7 @@ export default function AdminLessonsPage() {
                       Preview — authored in <code className="bg-slate-100 px-1 rounded">lib/speaking/modules</code>, not editable here
                     </p>
                     <div className="max-h-[70vh] overflow-y-auto pr-1">
-                      <SpeakingLessonView lesson={written} />
+                      <SpeakingLessonView lesson={written} stage={bandOfCourseId(courseId) ?? undefined} />
                     </div>
                   </>
                 ) : (

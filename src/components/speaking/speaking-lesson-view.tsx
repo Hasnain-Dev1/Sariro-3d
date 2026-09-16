@@ -175,7 +175,7 @@ export default function SpeakingLessonView({ lesson: base, stage: forced }: { le
       <section className="space-y-2">
         <SectionLabel icon={<ListChecks className="w-4 h-4" />}>Before you move on</SectionLabel>
         <ul className="space-y-1.5">
-          {(junior ? JUNIOR_CHECK : lesson.selfCheck).map((c, i) => (
+          {(stage === 'foundation' ? JUNIOR_CHECK : lesson.selfCheck).map((c, i) => (
             <li key={i} className="flex gap-2 text-[14px] text-slate-600 leading-[1.7]">
               <span className="text-slate-300 shrink-0">•</span>
               <span>{c}</span>

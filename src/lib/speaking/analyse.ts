@@ -59,6 +59,9 @@ export interface SpeechSample {
  */
 const SILENCE_RATIO = 0.12;
 
+/** RMS at the loudest frame below which a recording is too faint to measure. */
+export const TOO_QUIET_PEAK = 0.02;
+
 /** Shorter than this is the gap between words, not a pause. */
 export const PAUSE_MS = 300;
 
@@ -531,9 +534,11 @@ export function analyseSpeech(sample: SpeechSample): SpeechReport {
        * reasoned from how RMS behaves, not measured from students.
        */
       monotone: loud.length > 0 && variation < 0.12,
-      // A tenth of full scale at the loudest point is somebody too far from the
-      // microphone to be measured, not somebody speaking softly.
-      tooQuiet: peak > 0 && peak < 0.1,
+      /* Barely above the noise floor even at the loudest moment: nobody near
+         the microphone. It was a tenth of full scale, which phones rarely
+         reach at all — Android's own processing keeps normal speech at a few
+         hundredths — so ordinary speakers were told to move closer. */
+      tooQuiet: peak > 0 && peak < TOO_QUIET_PEAK,
     },
     ...(sample.reference
       ? (() => {

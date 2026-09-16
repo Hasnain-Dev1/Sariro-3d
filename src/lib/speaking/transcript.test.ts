@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { assembleTranscript, type ResultLike } from './transcript';
+import { assembleTranscript, joinSessions, type ResultLike } from './transcript';
 
 /**
  * SARIRO — the bug that inflated every number in the report
@@ -58,6 +58,20 @@ describe('assembleTranscript', () => {
     const banked = assembleTranscript(res(['before the pause', true])).final;
     const after = assembleTranscript(res(['after the pause', true]), banked);
     assert.equal(after.final, 'before the pause after the pause ');
+  });
+
+  test('a restarted session that opens with the end of the last one does not say it twice', () => {
+    // Android, 16 Sep 2026: "…has three hearts" banked, then a new session
+    // began "three hearts and blue blood".
+    const banked = 'do you know an octopus has three hearts';
+    const after = assembleTranscript(res(['three hearts and blue blood', true]), banked);
+    assert.equal(after.final, 'do you know an octopus has three hearts and blue blood ');
+    assert.equal(joinSessions('I said hello', 'hello'), 'I said hello');
+  });
+
+  test('one shared word at the seam is real speech, and stays', () => {
+    assert.equal(joinSessions('she picked up the', 'the cat'), 'she picked up the the cat');
+    assert.equal(joinSessions('Octopus has three hearts.', 'Hearts pump blue blood'), 'Octopus has three hearts. Hearts pump blue blood');
   });
 
   test('banking twice does not smear the join', () => {

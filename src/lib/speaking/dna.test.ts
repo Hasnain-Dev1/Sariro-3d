@@ -9,7 +9,7 @@ const FRAME = 50;
 function take(opts: { words: number; seconds: number; extra?: string; quiet?: boolean; pitchSwing?: number }) {
   const frames = Math.round((opts.seconds * 1000) / FRAME);
   const loud = opts.quiet ? 0.01 : 0.25;
-  const levels = Array.from({ length: frames }, (_, i) => (i % 100 < 12 ? loud * 0.02 : loud + (i % 9) * 0.01));
+  const levels = Array.from({ length: frames }, (_, i) => (i % 100 < 12 ? loud * 0.02 : loud + (i % 9) * (opts.quiet ? 0.001 : 0.01)));
   const pitches = levels.map((l, i) => (l < loud * 0.1 ? null : 180 * 2 ** (((opts.pitchSwing ?? 6) * Math.sin(i / 11)) / 12)));
   const transcript = Array.from({ length: opts.words }, (_, i) => `word${i}`).join(' ') + (opts.extra ?? '');
   const report = analyseSpeech({ transcript, durationMs: opts.seconds * 1000, levels, frameMs: FRAME });

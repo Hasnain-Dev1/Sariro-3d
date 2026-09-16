@@ -65,7 +65,9 @@ describe('homework', () => {
     assert.ok(homeworkFor(l).some((m) => m.kind === 'sound' && m.pattern === 'q'));
   });
 
-  const hw = homeworkFor(lessons[0]);
+  /* Grades 7–9's marks: speak 65, listen and write 70. The arithmetic below is
+     written against them; the older bands ask more (see stages.test.ts). */
+  const hw = homeworkFor(lessons[0], 'middle');
   const speak = hw.find((m) => m.kind === 'speak')!;
 
   test('passing needs the tries AND a passing score', () => {
@@ -169,9 +171,9 @@ describe('questState', () => {
   });
 
   test('clearing a level earns its missions, stars, the clear bonus, badges and effort', () => {
-    const hw = homeworkFor(lessons[0]);
+    const hw = homeworkFor(lessons[0], 'middle');
     const attempts = hw.flatMap((m) => clear(m, '2026-09-14', 80));
-    const s = questState(attempts, lessons, { now, offsetMinutes: IST });
+    const s = questState(attempts, lessons, { now, offsetMinutes: IST, stage: 'middle' });
     assert.equal(s.levelsCleared, 1);
     const missionXp = hw.reduce((n, m) => n + m.xp + 2 * XP.starBonus, 0);
     const effort = Math.min(XP.attemptDailyCap, attempts.length * XP.attempt) + XP.activeDay;

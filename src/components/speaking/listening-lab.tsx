@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Ear, Play, Square, RotateCcw, Keyboard, Mic } from 'lucide-react';
 import { analyseListening, type ListeningReport } from '@/lib/speaking/listening';
 import { diagnoseMic, micMessage } from '@/lib/speaking/mic';
 import { assembleTranscript } from '@/lib/speaking/transcript';
 import { logAttempt } from '@/lib/speaking/practice-log';
 import { listeningMetrics } from '@/lib/speaking/progress';
-import { PASSAGES, passageById } from '@/lib/speaking/passages';
+import { PASSAGES, type Passage } from '@/lib/speaking/passages';
 import { dealFromStorage } from '@/lib/speaking/passages/deck';
 
 /**
@@ -54,25 +54,31 @@ interface RecognitionLike {
    single sentences here, and every visit started on the first. A lesson can
    still hand in its own passage, which always wins. */
 const LISTEN_DECK = 'sariro.practice.listening';
-const PASSAGE_IDS = PASSAGES.map((p) => p.id);
 
 export default function ListeningLab({
   passage,
   drillId,
   onLogged,
+  library = PASSAGES,
+  deckKey = LISTEN_DECK,
 }: {
   passage?: string;
   /** What the attempt is logged under — a homework mission id, so it counts toward that mission. */
   drillId?: string;
   onLogged?: () => void;
+  /** The passages to deal from — each Public Speaking band has its own, sized to the reader. */
+  library?: readonly Passage[];
+  /** Where this library's deck is remembered on the device, so bands do not share one. */
+  deckKey?: string;
 }) {
+  const ids = useMemo(() => library.map((p) => p.id), [library]);
   /* Dealt after mount, because the deck lives in this device's storage and the
      first render has to match the server's. */
   const [passageId, setPassageId] = useState<string | null>(null);
   useEffect(() => {
-    if (!passage) setPassageId(dealFromStorage(LISTEN_DECK, PASSAGE_IDS));
-  }, [passage]);
-  const dealt = passageById(passageId);
+    if (!passage) setPassageId(dealFromStorage(deckKey, ids));
+  }, [passage, deckKey, ids]);
+  const dealt = library.find((p) => p.id === passageId) ?? null;
   const source = passage ?? dealt?.text ?? '';
 
   const [rate, setRate] = useState(1);
@@ -176,7 +182,7 @@ export default function ListeningLab({
     logged.current = null;
   };
 
-  const next = () => { reset(); setPassageId(dealFromStorage(LISTEN_DECK, PASSAGE_IDS)); };
+  const next = () => { reset(); setPassageId(dealFromStorage(deckKey, ids)); };
 
   const tone = (kind: 'good' | 'watch' | 'fix') =>
     kind === 'good' ? 'bg-green-50 border-green-200 text-green-900'
@@ -196,7 +202,7 @@ export default function ListeningLab({
           </p>
           {!passage && dealt && (
             <p className="text-[11px] text-slate-400 mt-1">
-              <span className="font-bold text-slate-600">{dealt.title}</span> · {dealt.topic} · about a minute · {PASSAGES.length} passages
+              <span className="font-bold text-slate-600">{dealt.title}</span> · {dealt.topic} · {library.length} passages
             </p>
           )}
         </div>

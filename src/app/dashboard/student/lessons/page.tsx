@@ -17,8 +17,10 @@ import { useAuth } from '@/components/auth/auth-provider';
 import { TRACKS } from '@/lib/sariro-data';
 import { lessonCourseIdFor, allLessonCourses } from '@/lib/dashboard/lessons-data';
 import { LessonsViewer } from '@/components/dashboard/lessons-viewer';
+import { activeSpeakingBand } from '@/lib/speaking/access';
+import { bandForGrade, bandOfLevel, isSpeakingTrack } from '@/lib/speaking/bands';
 
-interface Enrollment { id: string; track: string; level: string; status: string }
+interface Enrollment { id: string; track: string; level: string; status: string; created_at: string | null }
 
 /* Was a COURSES lookup, which returned null for every school subject and every
    focus course — so a child enrolled in Mathematics Grade 7 or Public Speaking
@@ -26,7 +28,8 @@ interface Enrollment { id: string; track: string; level: string; status: string 
 const courseIdFor = lessonCourseIdFor;
 
 export default function StudentLessonsPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
+  const grade = profile?.grade ?? null;
   const supabase = createClient();
 
   const [loading, setLoading] = useState(true);
@@ -40,11 +43,15 @@ export default function StudentLessonsPage() {
     (async () => {
       const { data } = await supabase
         .from('enrollments')
-        .select('id, track, level, status')
+        .select('id, track, level, status, created_at')
         .eq('user_id', user.id)
         .in('status', ['active', 'completed']);
       if (cancelled) return;
-      const rows = (data ?? []) as Enrollment[];
+      /* Public Speaking: only the current band's course. Enrolling in the next
+         band replaces the last one here, as it does in the practice room. */
+      const all = (data ?? []) as Enrollment[];
+      const band = activeSpeakingBand(all, grade);
+      const rows = all.filter((r) => !isSpeakingTrack(r.track) || (bandOfLevel(r.level) ?? bandForGrade(grade)) === band);
       setEnrollments(rows);
       // Honor ?course= if present and enrolled, else first with a known page.
       const param = new URLSearchParams(window.location.search).get('course');
@@ -53,7 +60,7 @@ export default function StudentLessonsPage() {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [user, authLoading, supabase]);
+  }, [user, authLoading, supabase, grade]);
 
   /* Titles come from the shared catalogue, which knows all three kinds. The
      COURSES lookup here asserted non-null and would have been undefined for

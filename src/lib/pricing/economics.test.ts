@@ -186,8 +186,15 @@ describe('the seller ladder', () => {
     assert.ok(ladderWarnings(I(), '1:4', 6, e).includes('manual_floor_below_minimum'));
   });
 
-  test('today’s 1:1 monthly price sits below its own floor, and says so', () => {
-    assert.ok(ladderWarnings(I(), '1:1', 1, DEFAULT_LADDER['1:1'][1]).includes('public_below_floor'));
+  test('without a set minimum, today’s 1:1 monthly price sits below its calculated floor, and says so', () => {
+    assert.ok(ladderWarnings(I(), '1:1', 1, { ...DEFAULT_LADDER['1:1'][1], manualFloor: null }).includes('public_below_floor'));
+  });
+
+  test('sellers get the founder’s minimums, not the calculated floor (16 Sep 2026)', () => {
+    const list = sellerPriceList(I(), DEFAULT_LADDER);
+    const floors = (ratio: '1:4' | '1:1') => list[ratio].map((p) => [p.months, p.publicPrice, p.floor]);
+    assert.deepEqual(floors('1:4'), [[1, 3_000, 2_500], [3, 7_999, 6_499], [6, 14_999, 11_499], [12, 26_999, 20_999], [36, 64_999, 56_499]]);
+    assert.deepEqual(floors('1:1'), [[1, 3_500, 3_500], [3, 9_499, 8_499], [6, 17_999, 15_599], [12, 32_999, 29_999], [36, 89_999, 86_999]]);
   });
 
   test('a seller never receives costs or the maths minimum, and never an offer below the floor', () => {

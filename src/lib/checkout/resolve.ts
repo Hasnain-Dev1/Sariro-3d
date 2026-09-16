@@ -9,6 +9,7 @@ import {
 } from '@/lib/school/curriculum';
 import { DEFAULT_SITE_PRICES, cadencePlans, formatPrice, type Cadence, type SitePrices } from '@/lib/school/pricing';
 import { inrCadencePlans, type DisplayCurrency, type InrPlanPrices } from '@/lib/pricing/inr-site';
+import { BAND_LABEL, bandForGrade, bandLevel, bandOfLevel, isSpeakingTrack, type SpeakingBand } from '@/lib/speaking/bands';
 
 /**
  * SARIRO — one checkout, every product
@@ -79,6 +80,14 @@ export interface CheckoutItem {
   courseName: string;
   track: string;
   level: string;
+  /**
+   * Public Speaking only: which of its five courses (lib/speaking/bands.ts).
+   * Null for everything else — and null for Public Speaking until the buyer
+   * picks one, which the page must ask for before it takes a payment.
+   */
+  band: SpeakingBand | null;
+  /** Public Speaking is five courses, so this item is not payable without a band. */
+  needsBand: boolean;
 }
 
 export interface CheckoutParams {
@@ -92,6 +101,8 @@ export interface CheckoutParams {
   scope?: string | null;
   ratio: LearningRatio;
   cadence: Cadence;
+  /** Public Speaking: `?band=middle`. Falls back to the band of `grade`. */
+  band?: string | null;
 }
 
 /**
@@ -143,6 +154,8 @@ function resolveCoding(courseId: string, ratio: LearningRatio): CheckoutItem | n
     courseName: course.title,
     track: course.trackId ?? course.id,
     level: course.level,
+    band: null,
+    needsBand: false,
   };
 }
 
@@ -171,11 +184,20 @@ function resolveSchool(
   if (!plan) return null;
 
   const group = grade ? gradeGroupFor(grade) : null;
-  const scopeLabel = isFocus
-    ? 'Focus course'
-    : scope === 'group'
-      ? (group?.label ?? 'Full grade group')
-      : `Grade ${grade}`;
+  /* Public Speaking is five courses, one per age band. The band comes from
+     `?band=`, or from the grade when a page sent one; otherwise the buyer
+     picks it on the checkout before paying. */
+  const speaking = isFocus && isSpeakingTrack(slug);
+  const band: SpeakingBand | null = speaking
+    ? (bandOfLevel(`band-${(p.band ?? '').trim().toLowerCase()}`) ?? (grade ? bandForGrade(grade) : null))
+    : null;
+  const scopeLabel = speaking
+    ? (band ? BAND_LABEL[band] : 'Choose an age group')
+    : isFocus
+      ? 'Focus course'
+      : scope === 'group'
+        ? (group?.label ?? 'Full grade group')
+        : `Grade ${grade}`;
 
   const name = (subject ?? focus)!.name;
   const tagline = (subject ?? focus)!.tagline;
@@ -206,10 +228,13 @@ function resolveSchool(
       cadence: p.cadence,
       ratio: p.ratio,
       currency,
+      ...(speaking ? { band } : {}),
     },
     courseName: `${name} — ${scopeLabel}`,
     track: slug,
-    level: isFocus ? 'focus' : scope === 'group' ? `group-${grade ?? ''}` : `grade-${grade ?? ''}`,
+    level: speaking && band ? bandLevel(band) : isFocus ? 'focus' : scope === 'group' ? `group-${grade ?? ''}` : `grade-${grade ?? ''}`,
+    band,
+    needsBand: speaking,
   };
 }
 

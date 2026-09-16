@@ -127,6 +127,13 @@ describe('the whole catalogue', () => {
     }
   });
 
+  test('Public Speaking is listed as its five band courses, each with the full syllabus', () => {
+    const ps = all.filter((c) => c.id.startsWith('public-speaking-'));
+    assert.deepEqual(ps.map((c) => c.id), ['public-speaking-foundation', 'public-speaking-primary', 'public-speaking-middle', 'public-speaking-senior', 'public-speaking-adult']);
+    assert.equal(lessonCourseIdFor('public-speaking', 'band-senior'), 'public-speaking-senior');
+    assert.equal(flattenCourseLessons('public-speaking-senior').length, flattenCourseLessons('public-speaking-focus').length);
+  });
+
   test('no duplicate ids — a duplicate would overwrite pages', () => {
     assert.equal(new Set(all.map((c) => c.id)).size, all.length);
   });

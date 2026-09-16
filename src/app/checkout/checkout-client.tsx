@@ -14,6 +14,17 @@ import { useDisplayCurrency, useInrPrices, useSitePrices } from '@/components/pr
 import CurrencySwitch from '@/components/pricing/currency-switch';
 import { useAuth } from '@/components/auth/auth-provider';
 import { INR_PHONE_MESSAGE, isIndianPhone, type InrPlanPrices } from '@/lib/pricing/inr-site';
+import { BAND_LABEL, BAND_ORDER } from '@/lib/speaking/bands';
+
+/* What each Public Speaking course is, in a line. Kept here rather than
+   importing the stage data, which carries every junior lesson with it. */
+const BAND_DETAIL: Record<(typeof BAND_ORDER)[number], string> = {
+  foundation: 'Show and tell, big clear voices, first stories.',
+  primary: 'Hooks, reasons and stories — speaking up in class.',
+  middle: 'Structure, nerves, debate and persuasion.',
+  senior: 'Interviews, vivas, debates and speeches that count.',
+  adult: 'Meetings, presentations, interviews and camera.',
+};
 
 /**
  * SARIRO — the one checkout
@@ -142,6 +153,9 @@ export default function CheckoutClient() {
   const [ratio, setRatio] = useState<LearningRatio>(
     params.get('ratio') === '1:1' ? '1:1' : '1:4'
   );
+  /* Public Speaking is five courses, one per age band; empty until chosen, or
+     until a page sends `?band=` (or a grade the band can be read from). */
+  const [band, setBand] = useState<string>(params.get('band') ?? '');
   const [cadence, setCadence] = useState<Cadence>(
     (params.get('pay') as Cadence) || 'monthly'
   );
@@ -178,6 +192,7 @@ export default function CheckoutClient() {
       focus: params.get('focus'),
       grade: params.get('grade'),
       scope: params.get('scope'),
+      band,
     };
     const at = (r: LearningRatio, c: Cadence): CheckoutItem | null =>
       resolveCheckoutItem({ ...base, ratio: r, cadence: c }, livePrices, { currency, inr: liveInr });
@@ -186,7 +201,7 @@ export default function CheckoutClient() {
       ratios: { '1:4': at('1:4', cadence), '1:1': at('1:1', cadence) } as Record<LearningRatio, CheckoutItem | null>,
       cadences: Object.fromEntries(CADENCES.map((c) => [c.value, at(ratio, c.value)])) as Record<Cadence, CheckoutItem | null>,
     };
-  }, [params, ratio, cadence, livePrices, currency, liveInr]);
+  }, [params, ratio, cadence, livePrices, currency, liveInr, band]);
   const item = priced.item;
 
   if (!item) {
@@ -216,6 +231,15 @@ export default function CheckoutClient() {
   transferQuery.set('ratio', ratio);
   transferQuery.set('pay', cadence);
   transferQuery.set('currency', item.currency);
+  if (item.band) transferQuery.set('band', item.band);
+  const bandMissing = item.needsBand && !item.band;
+
+  /* Step numbers follow what this product actually asks. */
+  let step = 0;
+  const nBand = item.needsBand ? ++step : 0;
+  const nRatio = ++step;
+  const nCadence = item.offersCadence ? ++step : 0;
+  const nMethod = ++step;
   const bankHref = `/checkout/bank-transfer?${transferQuery.toString()}`;
 
   const needsIndianNumber = method === 'card' && item.currency === 'INR' && !!user && !isIndianPhone(profile?.phone);
@@ -250,7 +274,25 @@ export default function CheckoutClient() {
       <div className="mt-8 grid lg:grid-cols-[1fr_380px] gap-6 items-start">
         <div className="space-y-5 min-w-0">
           {/* ── 1. class size ─────────────────────────────────────────── */}
-          <Step n={1} title="How would you like to learn?">
+          {/* ── 0. which Public Speaking course ────────────────────────── */}
+          {item.needsBand && (
+            <Step n={nBand} title="Which age group?" hint="Each age group is its own course, taught its own way.">
+              <div className="grid sm:grid-cols-2 gap-3">
+                {BAND_ORDER.map((b) => (
+                  <Choice
+                    key={b}
+                    selected={item.band === b}
+                    onClick={() => setBand(b)}
+                    accent={accent}
+                    title={BAND_LABEL[b]}
+                    detail={BAND_DETAIL[b]}
+                  />
+                ))}
+              </div>
+            </Step>
+          )}
+
+          <Step n={nRatio} title="How would you like to learn?">
             <div className="grid sm:grid-cols-2 gap-3">
               {(['1:4', '1:1'] as const).map((r) => (
                 <Choice
@@ -270,7 +312,7 @@ export default function CheckoutClient() {
 
           {/* ── 2. cadence, only where it is real ─────────────────────── */}
           {item.offersCadence && (
-            <Step n={2} title="How would you like to spread it?" hint="Same classes, whichever you pick.">
+            <Step n={nCadence} title="How would you like to spread it?" hint="Same classes, whichever you pick.">
               <div className="grid sm:grid-cols-3 gap-3">
                 {CADENCES.map((c) => {
                   const option = priced.cadences[c.value];
@@ -292,7 +334,7 @@ export default function CheckoutClient() {
           )}
 
           {/* ── 3. payment method ─────────────────────────────────────── */}
-          <Step n={item.offersCadence ? 3 : 2} title="How would you like to pay?">
+          <Step n={nMethod} title="How would you like to pay?">
             <div className="grid sm:grid-cols-2 gap-3">
               <Choice
                 selected={method === 'card'}
@@ -367,7 +409,11 @@ export default function CheckoutClient() {
               )}
 
               <div className="mt-5">
-                {method === 'bank' ? (
+                {bandMissing ? (
+                  <button type="button" disabled className="btn-tactile btn-tactile-light w-full h-14 text-[15px] opacity-70 cursor-not-allowed">
+                    Choose an age group above
+                  </button>
+                ) : method === 'bank' ? (
                   <Link href={bankHref} className="btn-tactile btn-tactile-primary w-full h-14 text-[15px]">
                     <Landmark className="w-5 h-5" /> See bank details <ArrowRight className="w-5 h-5" />
                   </Link>

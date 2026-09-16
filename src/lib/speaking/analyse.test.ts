@@ -226,10 +226,19 @@ describe('delivery', () => {
    * to say so rather than reporting confident nonsense.
    */
   test('a recording too quiet to measure says so first', () => {
-    const faint = Array.from({ length: 200 }, () => 0.03);
+    const faint = Array.from({ length: 200 }, () => 0.012);
     const r = analyseSpeech(sample({ transcript: 'good evening everyone and thank you very much for coming here tonight I want to talk to you about something that matters', durationMs: 10_000, levels: faint }));
     assert.equal(r.delivery.tooQuiet, true);
     assert.equal(r.notes.find((n) => n.kind === 'fix')?.text.includes('very quiet'), true);
+  });
+});
+
+describe('a phone’s normal speaking level is not "too quiet"', () => {
+  test('peaks of a few hundredths are ordinary speech on Android, and are measured', () => {
+    const phone = Array.from({ length: 200 }, (_, i) => (i % 10 < 7 ? 0.04 + (i % 7) * 0.004 : 0.004));
+    const r = analyseSpeech(sample({ transcript: 'good evening everyone and thank you very much for coming here tonight I want to talk to you about something that matters', durationMs: 10_000, levels: phone }));
+    assert.equal(r.delivery.tooQuiet, false);
+    assert.ok(!r.notes.some((n) => /very quiet/.test(n.text)));
   });
 });
 

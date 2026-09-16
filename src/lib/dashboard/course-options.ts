@@ -9,6 +9,7 @@
 
 import { TRACKS } from '@/lib/sariro-data';
 import { SCHOOL_SUBJECTS, SPECIALISATIONS, GRADE_GROUPS } from '@/lib/school/curriculum';
+import { BAND_LABEL, BAND_ORDER, bandLevel, bandOfLevel, isSpeakingTrack } from '@/lib/speaking/bands';
 
 /**
  * SARIRO — the catalogue, in one place
@@ -33,6 +34,8 @@ import { SCHOOL_SUBJECTS, SPECIALISATIONS, GRADE_GROUPS } from '@/lib/school/cur
  *   level  beginner | intermediate | advanced | elementary   coding
  *          grade-1 … grade-12                                one school year
  *          focus                                             a specialisation
+ *          band-foundation … band-adult                      a Public Speaking age band
+ *                                                            (lib/speaking/bands.ts)
  *
  * Matches purchase_intents and cohorts, so a cohort and the order that filled
  * it describe the same product.
@@ -79,14 +82,31 @@ export function suitsGrades(track: string): string | null {
   return SPECIALISATIONS.find((s) => s.slug === track)?.suitsGrades ?? null;
 }
 
+/**
+ * The levels a course can be taken at, for a level picker.
+ * Public Speaking is five courses, one per age band; every other focus course
+ * has the single level `focus`.
+ */
+export function levelsFor(family: CourseFamily | null, track: string): CourseOption[] {
+  if (family === 'coding') return CODING_LEVELS.map((l) => ({ value: l, label: `${l.charAt(0).toUpperCase()}${l.slice(1)}` }));
+  if (family === 'school') return gradesFor(family, track).map((g) => ({ value: `grade-${g}`, label: `Grade ${g}` }));
+  if (family === 'focus') {
+    return isSpeakingTrack(track)
+      ? BAND_ORDER.map((b) => ({ value: bandLevel(b), label: BAND_LABEL[b] }))
+      : [{ value: 'focus', label: 'Focus course' }];
+  }
+  return [];
+}
+
 /** The level value to store, given the family and what was picked. */
 export function levelValue(family: CourseFamily, picked: string): string {
-  return family === 'focus' ? 'focus' : picked;
+  if (family !== 'focus') return picked;
+  return bandOfLevel(picked) ? picked.toLowerCase() : 'focus';
 }
 
 /** Which family a stored (track, level) pair belongs to. */
 export function familyOf(track: string, level: string): CourseFamily {
-  if (level === 'focus' || SPECIALISATIONS.some((s) => s.slug === track)) return 'focus';
+  if (level === 'focus' || bandOfLevel(level) || SPECIALISATIONS.some((s) => s.slug === track)) return 'focus';
   if (level.startsWith('grade-') || level.startsWith('group-')) return 'school';
   return 'coding';
 }
@@ -96,7 +116,10 @@ export function describeCourse(track: string, level: string): string {
   const family = familyOf(track, level);
   const name = optionsFor(family).find((o) => o.value === track)?.label ?? track;
 
-  if (family === 'focus') return `${name} · focus course`;
+  if (family === 'focus') {
+    const band = bandOfLevel(level);
+    return band ? `${name} · ${BAND_LABEL[band]}` : `${name} · focus course`;
+  }
   if (family === 'school') {
     const n = level.replace(/^(grade|group)-/, '');
     return level.startsWith('group-') ? `${name} · Group ${n}` : `${name} · Grade ${n}`;
@@ -154,6 +177,14 @@ export function checkCourse(track: string, level: string): CourseCheck {
   }
 
   if (family === 'focus') {
+    /* Public Speaking is sold as five age-band courses; a new enrolment, batch
+       or approval names its band. Rows saved as `focus` before that still
+       read back — this is the check on what is WRITTEN. */
+    if (isSpeakingTrack(t)) {
+      return bandOfLevel(l)
+        ? { ok: true, code: 'ok', message: '' }
+        : { ok: false, code: 'invalid_level', message: 'Choose the Public Speaking age band: Grades 1–3, 4–6, 7–9, 10–12, or UG, PG & professionals.' };
+    }
     return l === 'focus'
       ? { ok: true, code: 'ok', message: '' }
       : { ok: false, code: 'invalid_level', message: 'A focus course has one level.' };

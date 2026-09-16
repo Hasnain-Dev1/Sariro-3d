@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireActor, readJson } from '@/lib/auth/actor';
 import { rateLimit, rateLimitedResponse, getClientIp } from '@/lib/rate-limit';
 import { acceptPhone } from '@/lib/phone/accept';
-
 import { smsConfigured } from '@/lib/phone/otp';
 import { loadPhoneTrust } from '@/lib/phone/trust';
 import { sendPhoneCode, checkPhoneCode, otpPhoneFrom } from '@/lib/phone/otp-flow';

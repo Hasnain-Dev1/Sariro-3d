@@ -24,6 +24,7 @@ import {
   SCHOOL_SUBJECTS, SPECIALISATIONS, GRADE_GROUPS, buildGradeSyllabus,
 } from '@/lib/school/curriculum';
 import { lessonName as extractLessonName } from '@/lib/capstones';
+import { BAND_ORDER, SPEAKING_TRACK_SLUG, bandCourseName, bandOfCourseId, bandOfLevel, isSpeakingTrack, speakingCourseId } from '@/lib/speaking/bands';
 
 /* ───────────────────────────── Types ───────────────────────────── */
 
@@ -182,6 +183,9 @@ export function canViewLesson(
 export function parseSchoolCourseId(
   courseId: string
 ): { subjectSlug: string; grade: number } | null {
+  /* A Public Speaking band course — `public-speaking-middle`. One syllabus for
+     all five; the band decides which version of each lesson is read. */
+  if (bandOfCourseId(courseId)) return { subjectSlug: SPEAKING_TRACK_SLUG, grade: 0 };
   const focus = /^(.+)-focus$/.exec(courseId);
   if (focus && SPECIALISATIONS.some((s) => s.slug === focus[1])) {
     // Specialisations have no grade. buildGradeSyllabus keys them at 0, and
@@ -217,6 +221,9 @@ export function lessonCourseIdFor(track: string, level: string): string | null {
     (c) => c.trackId === track && c.level.toLowerCase() === lvl
   );
   if (coding) return coding.id;
+
+  const band = bandOfLevel(lvl);
+  if (band && isSpeakingTrack(track)) return speakingCourseId(band);
 
   if (lvl === 'focus' && SPECIALISATIONS.some((s) => s.slug === track)) {
     return `${track}-focus`;
@@ -268,6 +275,11 @@ export function allLessonCourses(): { id: string; title: string; family: 'coding
   }
 
   for (const s of SPECIALISATIONS) {
+    // Public Speaking is five courses, one per age band (lib/speaking/bands.ts).
+    if (isSpeakingTrack(s.slug)) {
+      for (const b of BAND_ORDER) out.push({ id: speakingCourseId(b), title: bandCourseName(b), family: 'focus' });
+      continue;
+    }
     out.push({ id: `${s.slug}-focus`, title: `${s.name} · focus course`, family: 'focus' });
   }
 

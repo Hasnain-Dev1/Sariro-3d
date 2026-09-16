@@ -22,6 +22,7 @@ import { StructuredLessonView } from '@/components/dashboard/structured-lesson-v
 import SpeakingLessonView from '@/components/speaking/speaking-lesson-view';
 import { getSpeakingLesson } from '@/lib/speaking/modules';
 import type { SpeakingLesson } from '@/lib/speaking/lesson';
+import { bandOfCourseId, isSpeakingCourseId } from '@/lib/speaking/bands';
 import type { StructuredLesson } from '@/lib/curriculum/types';
 
 interface LessonRow {
@@ -98,7 +99,7 @@ export function LessonsViewer({ courseId }: { courseId: string }) {
     setContentError(null); setMissingFor(null);
 
     // Public Speaking renders its own way, from the codebase, no fetch.
-    if (courseId === 'public-speaking-focus') {
+    if (isSpeakingCourseId(courseId)) {
       const written = getSpeakingLesson(l.module_num, l.lesson_index);
       if (written) { setSpeaking(written); return; }
       setMissingFor(l);
@@ -222,7 +223,10 @@ export function LessonsViewer({ courseId }: { courseId: string }) {
             </p>
           </div>
         ) : speaking ? (
-          <SpeakingLessonView lesson={speaking} />
+          /* A band course shows its own band's version of the lesson, whatever
+             the grade on the profile says — the course bought is the course
+             taught. The old single course still follows the learner's grade. */
+          <SpeakingLessonView lesson={speaking} stage={bandOfCourseId(courseId) ?? undefined} />
         ) : structured ? (
           <StructuredLessonView lesson={structured} />
         ) : content ? (

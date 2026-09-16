@@ -68,11 +68,16 @@ export const LOG_KIND: Record<MissionKind, PracticeKind> = {
 const words = (s: string | undefined) => (s ?? '').trim().split(/\s+/).filter(Boolean).length;
 
 /**
- * The bar, by stage. The same mission (same id, same record) asks less of a
- * six-year-old: fewer tries, a gentler pass mark, a lower "we heard words"
- * floor for a slower reader — and no writing at all for Sprouts, who are
- * learning to write sentences in school, not scripts. A child who moves up a
- * stage keeps every try; the missions simply ask more from then on.
+ * The bar, by band. Younger learners get fewer tries, gentler pass marks, a
+ * lower "we heard words" floor for a slower reader — and no writing at all for
+ * Grades 1–3, who are learning to write sentences in school, not scripts. The
+ * older bands ask more of each attempt and longer writing.
+ *
+ * ── Each band keeps its own record (16 Sep 2026) ────────────────────────────
+ * Public Speaking is five courses, each with its own lessons, so each band's
+ * missions have their own ids: a learner who moves from Grades 4–6 to 7–9
+ * starts the new course's quest fresh rather than finding levels "cleared" by
+ * drills they never did. The earlier course's record stays in the table.
  */
 interface StageRules {
   speak: [number, number];
@@ -85,10 +90,28 @@ interface StageRules {
 
 export const STAGE_RULES: Record<Stage, StageRules> = {
   foundation: { speak: [2, 55], stretch: [1, 55], listen: [2, 60], write: null, sound: [2, 60], heardWpm: 25 },
-  primary: { speak: [3, 60], stretch: [2, 65], listen: [2, 65], write: { attempts: 1, pass: 65, words: 25 }, sound: [2, 70], heardWpm: 30 },
-  middle: { speak: [3, 65], stretch: [2, 70], listen: [2, 70], write: { attempts: 1, pass: 70, words: 40 }, sound: [2, 75], heardWpm: 40 },
-  senior: { speak: [3, 65], stretch: [2, 70], listen: [2, 70], write: { attempts: 1, pass: 70, words: 40 }, sound: [2, 75], heardWpm: 40 },
-  adult: { speak: [3, 65], stretch: [2, 70], listen: [2, 70], write: { attempts: 1, pass: 70, words: 40 }, sound: [2, 75], heardWpm: 40 },
+  primary: { speak: [3, 60], stretch: [2, 65], listen: [2, 65], write: { attempts: 1, pass: 65, words: 30 }, sound: [2, 70], heardWpm: 30 },
+  middle: { speak: [3, 65], stretch: [2, 70], listen: [2, 70], write: { attempts: 1, pass: 70, words: 50 }, sound: [2, 75], heardWpm: 40 },
+  senior: { speak: [3, 70], stretch: [2, 75], listen: [2, 75], write: { attempts: 1, pass: 75, words: 70 }, sound: [2, 80], heardWpm: 45 },
+  adult: { speak: [3, 70], stretch: [2, 75], listen: [2, 75], write: { attempts: 1, pass: 75, words: 80 }, sound: [2, 80], heardWpm: 50 },
+};
+
+/** What the writing mission is called and how much it asks for, by band. */
+const WRITE_ASK: Record<Stage, string> = {
+  foundation: '',
+  primary: '3 or 4 sentences',
+  middle: 'a short paragraph',
+  senior: 'a structured outline in full sentences',
+  adult: 'your talking points in full sentences',
+};
+
+/** How the listening mission is introduced, by band. */
+const LISTEN_BRIEF: Record<Stage, string> = {
+  foundation: 'Listen to the sentence, then say it back or type it. Listen with your whole brain!',
+  primary: 'Listen to the line from today’s lesson, then say it back or type it exactly. Good speakers are good listeners first.',
+  middle: 'Listen to the line from today’s lesson, then type or say exactly what you heard. Great speakers are great listeners first.',
+  senior: 'Hear the key line once and give it back word for word — the same skill as answering the exact question an examiner or interviewer asked.',
+  adult: 'Hear the key line once and give it back exactly — precise listening is how you answer the question that was actually asked in a meeting or interview.',
 };
 
 const tries = (n: number) => (n === 1 ? 'One try' : `${['', 'One', 'Two', 'Three', 'Four', 'Five'][n] ?? n} tries`);
@@ -98,7 +121,7 @@ export function homeworkFor(base: SpeakingLesson, stage: Stage = 'senior'): Miss
   const lesson = stageLesson(base, stage);
   const rules = STAGE_RULES[stage];
   const heard: MetricGoal = { key: 'wpm', min: rules.heardWpm, label: 'your words were heard' };
-  const id = (slug: string) => `hw:${lesson.key}:${slug}`;
+  const id = (slug: string) => `hw:${stage}:${lesson.key}:${slug}`;
   const main = lesson.drills[0];
   const stretch = lesson.drills[1] ?? lesson.extraDrills?.[0] ?? main;
   const listenText = lesson.model && words(lesson.model.text) >= 12 ? lesson.model.text : lesson.oneLine;
@@ -112,22 +135,21 @@ export function homeworkFor(base: SpeakingLesson, stage: Stage = 'senior'): Miss
     },
     {
       id: id('listen'), kind: 'listen', title: 'Hear it once, give it back',
-      brief: stage === 'foundation'
-        ? 'Listen to the sentence, then say it back or type it. Listen with your whole brain!'
-        : 'Listen to the line from today’s lesson, then type or say exactly what you heard. Great speakers are great listeners first.',
+      brief: LISTEN_BRIEF[stage],
       attempts: rules.listen[0], pass: rules.listen[1], xp: 30,
       passage: listenText,
     },
   ];
 
   if (rules.write) {
-    const sentences = stage === 'primary' ? '3 or 4 sentences' : '4 to 6 sentences';
     missions.push({
       id: id('write'), kind: 'write', title: 'Write it before you say it',
-      brief: `Plan “${stretch.title}” on paper first: ${sentences} of what you will actually say. Then say it in the next mission.`,
+      brief: lesson.writePrompt
+        ? `${lesson.writePrompt} Write ${WRITE_ASK[stage]} — then say it in the next mission.`
+        : `Plan “${stretch.title}” on paper first: ${WRITE_ASK[stage]} of what you will actually say. Then say it in the next mission.`,
       attempts: rules.write.attempts, pass: rules.write.pass,
       goal: { key: 'words', min: rules.write.words, label: `at least ${rules.write.words} words` }, xp: 30,
-      prompt: `Write what you will say for “${stretch.title}”. ${stretch.brief}`,
+      prompt: lesson.writePrompt ?? `Write what you will say for “${stretch.title}”. ${stretch.brief}`,
     });
   }
 
@@ -154,35 +176,59 @@ export function homeworkFor(base: SpeakingLesson, stage: Stage = 'senior'): Miss
   return missions;
 }
 
-/** The showcase at an assessment slot: one performance, one listen, and a script from Explorers up. */
+/**
+ * What each band performs at the showcases. Grades 1–3 perform without a
+ * script; every other band writes first. The task is the band's real world:
+ * a class talk, a debate opening, a competition or campaign speech, a pitch.
+ */
+const SHOWCASE_TASK: Record<Stage, { mid: string; long: string; midWords: number; longWords: number; midSeconds: number; longSeconds: number; midPass: number; longPass: number }> = {
+  foundation: { mid: '', long: '', midWords: 0, longWords: 0, midSeconds: 45, longSeconds: 60, midPass: 60, longPass: 60 },
+  primary: {
+    mid: 'A one-minute talk: a hook, three reasons with signpost words, and a mic-drop ending.',
+    long: 'Your big speech about something you care about: a hook, a story, three reasons and a strong ending.',
+    midWords: 60, longWords: 90, midSeconds: 60, longSeconds: 90, midPass: 65, longPass: 65,
+  },
+  middle: {
+    mid: 'A ninety-second class talk on something you care about: an opening that earns attention, three signposted points, an ending that lands.',
+    long: 'A two-minute persuasive speech built around a true story about you: opening, the story, three reasons, the ask, the ending.',
+    midWords: 110, longWords: 170, midSeconds: 90, longSeconds: 120, midPass: 70, longPass: 75,
+  },
+  senior: {
+    mid: 'A ninety-second debate or competition opening: a thesis in one sentence, two distinct arguments and a decisive close.',
+    long: 'A two-and-a-half-minute speech for a competition or school leadership campaign: a story, three arguments, the strongest objection answered, a close that lands.',
+    midWords: 130, longWords: 220, midSeconds: 90, longSeconds: 150, midPass: 75, longPass: 80,
+  },
+  adult: {
+    mid: 'A ninety-second pitch or project update: the answer first, three supporting points and a clear ask.',
+    long: 'A three-minute talk you could give at work or in a seminar: a governing thought, a story with a turn, the strongest objection answered and a specific close.',
+    midWords: 140, longWords: 260, midSeconds: 90, longSeconds: 180, midPass: 75, longPass: 80,
+  },
+};
+
+/** The showcase at an assessment slot: one performance, one listen, and a script from Grades 4–6 up. */
 export function showcaseMissions(showcase: Showcase, stage: Stage = 'senior'): Mission[] {
-  const id = (slug: string) => `hw:showcase:${showcase.slot}:${slug}`;
+  const id = (slug: string) => `hw:${stage}:showcase:${showcase.slot}:${slug}`;
   const long = showcase.slot === 48;
   const junior = stage === 'foundation' || stage === 'primary';
+  const task = SHOWCASE_TASK[stage];
 
   const write: Mission | null = stage === 'foundation' ? null : {
     id: id('write'), kind: 'write', title: 'Write the script',
-    brief: junior
-      ? long
-        ? 'Your big speech about something you care about: a hook, a story, three reasons and a strong ending.'
-        : 'A one-minute talk: a hook, three reasons with signpost words, and a mic-drop ending.'
-      : long
-        ? 'A persuasive two-minute talk built around a true story about you. Opening, the story, three reasons, the ask, the ending.'
-        : 'A ninety-second talk on something you care about: an opening that earns attention, three signposted points, an ending that lands.',
-    attempts: 1, pass: junior ? 65 : 75,
-    goal: (() => { const min = junior ? (long ? 80 : 60) : long ? 180 : 120; return { key: 'words', min, label: `at least ${min} words` }; })(),
+    brief: long ? task.long : task.mid,
+    attempts: 1, pass: long ? task.longPass : task.midPass,
+    goal: (() => { const min = long ? task.longWords : task.midWords; return { key: 'words', min, label: `at least ${min} words` }; })(),
     xp: 80,
     prompt: long ? 'Write your Grand Stage speech.' : 'Write your Mid-Course Stage talk.',
   };
 
-  const seconds = stage === 'foundation' ? (long ? 60 : 45) : junior ? (long ? 90 : 60) : long ? 120 : 90;
+  const seconds = long ? task.longSeconds : task.midSeconds;
   const perform: Mission = {
     id: id('speak'), kind: 'speak', title: long ? 'The Grand Stage performance' : 'The Mid-Course performance',
     brief: junior
       ? `Your showcase! Stand tall, look at the camera, and give your ${seconds}-second talk. Three tries — your best one counts.`
-      : `${showcase.brief} Standing, to camera, from key words only. Three tries — your best one counts.`,
+      : `${long ? task.long : task.mid} Standing, to camera, from key words only. Three tries — your best one counts.`,
     attempts: 3,
-    pass: stage === 'foundation' ? 60 : junior ? 65 : long ? 80 : 75,
+    pass: long ? task.longPass : task.midPass,
     goal: { key: 'fillersPerMin', max: junior ? 6 : 4, label: `no more than ${junior ? 6 : 4} filler words a minute` },
     xp: 200,
     drill: { id: id('speak'), title: showcase.name, brief: showcase.brief, targetSeconds: seconds },

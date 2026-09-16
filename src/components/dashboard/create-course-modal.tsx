@@ -10,6 +10,8 @@ import {
   optionsFor, gradesFor, suitsGrades, levelValue, describeCourse,
   type CourseFamily,
 } from '@/lib/dashboard/course-options';
+import { bandOfLevel, isSpeakingTrack } from '@/lib/speaking/bands';
+import SpeakingBandPicker from '@/components/dashboard/speaking-band-picker';
 
 /**
  * SARIRO — New Course
@@ -79,6 +81,8 @@ export default function CreateCourseModal({
   const readyLabel = useMemo(() => {
     if (!family || !track) return null;
     if (family !== 'focus' && !level) return null;
+    // Public Speaking is five courses; a batch belongs to one of them.
+    if (family === 'focus' && isSpeakingTrack(track) && !bandOfLevel(level)) return null;
     return `${describeCourse(track, levelValue(family, level))} · ${ratio}`;
   }, [family, track, level, ratio]);
 
@@ -86,6 +90,10 @@ export default function CreateCourseModal({
     if (!family || !track) return;
     const finalLevel = levelValue(family, level);
     if (!finalLevel) return;
+    if (family === 'focus' && isSpeakingTrack(track) && !bandOfLevel(finalLevel)) {
+      setError('Pick the Public Speaking age band — each band is its own course.');
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
@@ -231,7 +239,11 @@ export default function CreateCourseModal({
                   </div>
                 )}
 
-                {track && family === 'focus' && (
+                {track && family === 'focus' && isSpeakingTrack(track) && (
+                  <SpeakingBandPicker value={level} onChange={setLevel} />
+                )}
+
+                {track && family === 'focus' && !isSpeakingTrack(track) && (
                   <p className="text-[12.5px] text-slate-500 leading-[1.55] bg-slate-50 rounded-lg px-3 py-2.5">
                     A focus course is 48 classes on one topic, not tied to a grade.
                     {suitsGrades(track) ? ` Usually suits ${suitsGrades(track)}.` : ''}

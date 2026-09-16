@@ -20,6 +20,7 @@ import { readInrSitePrices, readSitePrices } from '@/lib/pricing/site-prices-ser
 import { rateLimit, rateLimitedResponse, getClientIp, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { bandLevel, bandOfLevel, isSpeakingTrack } from '@/lib/speaking/bands';
 
 /**
  * SARIRO — POST /api/razorpay/create-order
@@ -171,6 +172,8 @@ async function handlePost(req: NextRequest) {
     cadence?: 'monthly' | 'quarterly' | 'full';
     /** 'INR' for a family in India paying the rupee price list. School courses only. */
     currency?: string;
+    /** Public Speaking: which of its five age-band courses (lib/speaking/bands.ts). */
+    band?: string;
   };
   try {
     body = await req.json();
@@ -242,6 +245,18 @@ async function handlePost(req: NextRequest) {
     // product, so a school order stores itself there in a readable form.
     track = subjectSlug;
     level = isFocus ? 'focus' : scope === 'group' ? `group-${body.grade ?? ''}` : `grade-${body.grade ?? ''}`;
+    /* Public Speaking is five courses; an order for it names its band, or it
+       would enrol a child into none of them. */
+    if (isFocus && isSpeakingTrack(subjectSlug)) {
+      const band = bandOfLevel(`band-${String(body.band ?? '').trim().toLowerCase()}`);
+      if (!band) {
+        return NextResponse.json(
+          { ok: false, error: 'choose_band', message: 'Choose the age group for Public Speaking before paying.' },
+          { status: 400 }
+        );
+      }
+      level = bandLevel(band);
+    }
   } else {
     track = (body.track || '').trim();
     level = normalizeLevel(body.level || '');

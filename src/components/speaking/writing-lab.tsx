@@ -39,7 +39,10 @@ export default function WritingLab({
   drillId,
   minWords = 60,
   onLogged,
+  prompts = PROMPTS,
 }: {
+  /** The prompts "Another" cycles through — each Public Speaking band has its own. */
+  prompts?: readonly string[];
   prompt?: string;
   /** What the draft is logged under — a homework mission id, so it counts toward that mission. */
   drillId?: string;
@@ -49,7 +52,7 @@ export default function WritingLab({
   const [text, setText] = useState('');
   const [saved, setSaved] = useState(false);
   const [promptIndex, setPromptIndex] = useState(0);
-  const task = prompt ?? PROMPTS[promptIndex];
+  const task = prompt ?? prompts[promptIndex % Math.max(1, prompts.length)] ?? PROMPTS[0];
 
   const report = useMemo(() => analyseWriting(text), [text]);
   const enough = report.words >= minWords;
@@ -71,7 +74,7 @@ export default function WritingLab({
         </div>
         {!prompt && (
           <button
-            onClick={() => { setPromptIndex((i) => (i + 1) % PROMPTS.length); }}
+            onClick={() => { setPromptIndex((i) => (i + 1) % Math.max(1, prompts.length)); }}
             className="shrink-0 h-8 px-2.5 rounded-lg border border-slate-200 text-[11px] font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-1"
             style={{ fontFamily: 'var(--font-grotesk)' }}
           >

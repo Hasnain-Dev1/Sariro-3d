@@ -9,6 +9,7 @@ import { SHOWCASES } from '@/lib/speaking/quest/worlds';
 import { useAttempts } from './use-attempts';
 import { createClient } from '@/lib/supabase/client';
 import { stageFor, STAGES, type Stage } from '@/lib/speaking/stages';
+import { activeSpeakingBand } from '@/lib/speaking/access';
 import { KIND_META } from './homework-panel';
 
 /**
@@ -25,12 +26,20 @@ export default function QuestRecord({ userId, name }: { userId: string; name: st
   const [clock, setClock] = useState<{ now: number; offset: number } | null>(null);
   useEffect(() => { setClock({ now: Date.now(), offset: new Date().getTimezoneOffset() }); }, []);
 
-  /* The learner's stage decides the pass marks their missions were set at. */
+  /* The learner's band decides which course's missions these are — the band of
+     their current Public Speaking enrolment, or their grade's band without one. */
   const [stage, setStage] = useState<Stage | null>(null);
   useEffect(() => {
     let live = true;
-    createClient().from('profiles').select('grade').eq('id', userId).maybeSingle()
-      .then(({ data }) => { if (live) setStage(stageFor((data?.grade as number | null | undefined) ?? null)); });
+    const sb = createClient();
+    Promise.all([
+      sb.from('profiles').select('grade').eq('id', userId).maybeSingle(),
+      sb.from('enrollments').select('track, status, level, created_at').eq('user_id', userId),
+    ]).then(([me, enr]) => {
+      if (!live) return;
+      const grade = (me.data?.grade as number | null | undefined) ?? null;
+      setStage(activeSpeakingBand((enr.data ?? []) as { track: string; status: string; level: string | null; created_at: string | null }[], grade) ?? stageFor(grade));
+    });
     return () => { live = false; };
   }, [userId]);
 

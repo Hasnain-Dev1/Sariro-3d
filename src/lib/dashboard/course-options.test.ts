@@ -2,7 +2,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   optionsFor, gradesFor, familyOf, describeCourse, levelValue, ALL_GRADES,
-  checkCourse, CODING_LEVELS,
+  checkCourse, CODING_LEVELS, levelsFor,
 } from './course-options';
 
 /**
@@ -113,7 +113,17 @@ describe('the courses the company actually sells', () => {
   });
 
   test('focus courses are valid', () => {
-    assert.equal(checkCourse('public-speaking', 'focus').ok, true);
+    assert.equal(checkCourse('mechanics', 'focus').ok, true);
+  });
+
+  test('Public Speaking is five courses: a band is required, and every band is valid', () => {
+    const bands = levelsFor('focus', 'public-speaking');
+    assert.deepEqual(bands.map((b) => b.label), ['Grades 1–3', 'Grades 4–6', 'Grades 7–9', 'Grades 10–12', 'UG, PG & professionals']);
+    for (const b of bands) assert.equal(checkCourse('public-speaking', b.value).ok, true, b.value);
+    assert.equal(checkCourse('public-speaking', 'focus').ok, false);
+    assert.equal(levelValue('focus', 'band-senior'), 'band-senior');
+    assert.equal(familyOf('public-speaking', 'band-adult'), 'focus');
+    assert.equal(describeCourse('public-speaking', 'band-middle'), 'Public Speaking · Grades 7–9');
   });
 
   test('coding tracks are valid, lowercase', () => {
@@ -145,7 +155,9 @@ describe('the courses the company actually sells', () => {
       }
     }
     for (const o of optionsFor('focus')) {
-      assert.equal(checkCourse(o.value, 'focus').ok, true, `${o.value}/focus was refused`);
+      for (const l of levelsFor('focus', o.value)) {
+        assert.equal(checkCourse(o.value, l.value).ok, true, `${o.value}/${l.value} was refused`);
+      }
     }
     for (const o of optionsFor('coding')) {
       assert.equal(checkCourse(o.value, 'beginner').ok, true, `${o.value}/beginner was refused`);

@@ -29,7 +29,7 @@ export const BAND_LABEL: Record<Band, string> = {
   primary: 'Grades 4–6',
   middle: 'Grades 7–9',
   senior: 'Grades 10–12',
-  adult: 'College & adults',
+  adult: 'UG, PG & professionals',
 };
 
 export const LEVEL_LABEL: Record<Level, string> = {

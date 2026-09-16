@@ -12,7 +12,7 @@ import {
 } from '@/lib/dashboard/teacher-assignments-data';
 import { TRACKS } from '@/lib/sariro-data';
 import {
-  COURSE_FAMILIES, CODING_LEVELS, optionsFor, gradesFor, levelValue,
+  COURSE_FAMILIES, CODING_LEVELS, optionsFor, gradesFor, levelValue, levelsFor,
   describeCourse, type CourseFamily,
 } from '@/lib/dashboard/course-options';
 import CapabilityChips from '@/components/dashboard/capability-chips';
@@ -129,7 +129,7 @@ function TeacherAssignmentRow({
 
   const levelChoices =
     family === 'coding' ? [...CODING_LEVELS]
-    : family === 'focus' ? ['focus']
+    : family === 'focus' ? levelsFor('focus', newTrack).map((o) => o.value)
     : gradesFor(family, newTrack).map((g) => `grade-${g}`);
 
   const pickFamily = (f: CourseFamily) => {
@@ -138,7 +138,7 @@ function TeacherAssignmentRow({
     setNewTrack(firstTrack);
     setNewLevel(
       f === 'coding' ? 'beginner'
-      : f === 'focus' ? 'focus'
+      : f === 'focus' ? (levelsFor('focus', firstTrack)[0]?.value ?? 'focus')
       : `grade-${gradesFor(f, firstTrack)[0] ?? 1}`
     );
   };
@@ -285,6 +285,8 @@ function TeacherAssignmentRow({
                 // A school subject is not taught for every grade — Chemistry
                 // starts at 7 — so the grade has to follow the subject.
                 if (family === 'school') setNewLevel(`grade-${gradesFor(family, t)[0] ?? 1}`);
+                // Public Speaking is approved band by band — five courses.
+                if (family === 'focus') setNewLevel(levelsFor('focus', t)[0]?.value ?? 'focus');
               }}
               disabled={busy}
               className="flex-1 min-w-0 min-h-[40px] rounded-lg border border-slate-300 px-2 py-1 text-xs text-slate-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
@@ -297,13 +299,13 @@ function TeacherAssignmentRow({
             <select
               value={newLevel}
               onChange={(e) => setNewLevel(e.target.value)}
-              disabled={busy || family === 'focus'}
+              disabled={busy || levelChoices.length < 2}
               className="min-h-[40px] rounded-lg border border-slate-300 px-2 py-1 text-xs text-slate-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-60"
               style={{ fontFamily: 'var(--font-inter)' }}
             >
               {levelChoices.map((l) => (
                 <option key={l} value={l}>
-                  {l.startsWith('grade-') ? `Grade ${l.slice(6)}` : l}
+                  {l.startsWith('grade-') ? `Grade ${l.slice(6)}` : levelsFor(family, newTrack).find((o) => o.value === l)?.label ?? l}
                 </option>
               ))}
             </select>

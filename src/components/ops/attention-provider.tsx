@@ -85,7 +85,7 @@ interface Learner {
   grade: number | null;
   status: string | null;
   balance: number;
-  enrolments: { track: string; status: string; cohort_id: string | null }[];
+  enrolments: { track: string; status: string; cohort_id: string | null; level: string | null; created_at: string | null }[];
 }
 
 const learner = (once: Once) =>
@@ -93,7 +93,7 @@ const learner = (once: Once) =>
     const id = await signedInId();
     const sb = createClient();
     const [enr, cr, me] = await Promise.all([
-      sb.from('enrollments').select('track, status, cohort_id').eq('user_id', id),
+      sb.from('enrollments').select('track, status, cohort_id, level, created_at').eq('user_id', id),
       sb.from('credits').select('balance').eq('user_id', id).maybeSingle(),
       sb.from('profiles').select('grade, student_status').eq('id', id).maybeSingle(),
     ]);
@@ -177,14 +177,15 @@ const FETCHERS: Record<AttentionKey, Fetcher> = {
   speaking_missions: async (once) => {
     const l = await learner(once);
     if (!canPractise(l.enrolments)) return 0;
-    const [{ allSpeakingLessons }, { questState }, { stageFor }, attempts] = await Promise.all([
+    const [{ allSpeakingLessons }, { questState }, { activeSpeakingBand }, attempts] = await Promise.all([
       import('@/lib/speaking/modules'),
       import('@/lib/speaking/quest/engine'),
-      import('@/lib/speaking/stages'),
+      import('@/lib/speaking/access'),
       fetchAttempts(l.id, { limit: 3000, sounds: true }),
     ]);
+    // The band of their current Public Speaking course, not only their grade.
     const state = questState(attempts, allSpeakingLessons(), {
-      now: Date.now(), offsetMinutes: new Date().getTimezoneOffset(), stage: stageFor(l.grade),
+      now: Date.now(), offsetMinutes: new Date().getTimezoneOffset(), stage: activeSpeakingBand(l.enrolments, l.grade) ?? 'middle',
     });
     return speakingWaiting(state);
   },

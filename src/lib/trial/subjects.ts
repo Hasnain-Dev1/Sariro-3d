@@ -4,6 +4,7 @@
    route can return anything. That has happened twice on this project. */
 
 import { optionsFor, type CourseOption } from '@/lib/dashboard/course-options';
+import { bandForGrade, bandOfLevel, isSpeakingTrack } from '@/lib/speaking/bands';
 
 /**
  * SARIRO — what a family can ask for a trial in, and who can teach it
@@ -131,7 +132,9 @@ export interface TeacherSubjectRow {
 export function teachersFor(
   subject: string | null | undefined,
   rows: readonly TeacherSubjectRow[],
-  allTeacherIds: readonly string[]
+  allTeacherIds: readonly string[],
+  /** The child's grade. Public Speaking is five band courses, approved band by band. */
+  grade?: number | null
 ): Set<string> {
   const wanted = (subject ?? '').trim();
   if (!wanted) return new Set(allTeacherIds);
@@ -140,11 +143,21 @@ export function teachersFor(
      is approval to take the coding trial. */
   const tracks = new Set(tracksFor(wanted).map((t) => t.toLowerCase()));
 
+  /* Public Speaking: a teacher approved for Grades 1–3 is not thereby approved
+     for a Grade 11 trial. A band approval covers its own band; an approval from
+     before the bands (level `focus`) still covers every age. */
+  const wantedBand = isSpeakingTrack(wanted) && grade !== null && grade !== undefined && Number.isFinite(grade)
+    ? bandForGrade(grade)
+    : null;
+
   const eligible = new Set<string>();
   for (const r of rows) {
-    if (tracks.has((r.track ?? '').trim().toLowerCase())) {
-      eligible.add(r.teacher_id);
+    if (!tracks.has((r.track ?? '').trim().toLowerCase())) continue;
+    if (wantedBand) {
+      const approved = bandOfLevel(r.level);
+      if (approved && approved !== wantedBand) continue;
     }
+    eligible.add(r.teacher_id);
   }
   return eligible;
 }

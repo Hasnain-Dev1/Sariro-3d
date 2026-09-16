@@ -45,6 +45,19 @@ describe('coding is one trial, not a syllabus', () => {
     assert.equal(eligible.size, 0, 'the loosening stops at the family boundary');
   });
 
+  test('Public Speaking trials go to teachers approved for the child’s age band', () => {
+    const rows = [
+      { teacher_id: 'young', track: 'public-speaking', level: 'band-foundation' },
+      { teacher_id: 'senior', track: 'public-speaking', level: 'band-senior' },
+      { teacher_id: 'legacy', track: 'public-speaking', level: 'focus' },
+    ];
+    const ids = ['young', 'senior', 'legacy'];
+    assert.deepEqual([...teachersFor('public-speaking', rows, ids, 2)].sort(), ['legacy', 'young']);
+    assert.deepEqual([...teachersFor('public-speaking', rows, ids, 11)].sort(), ['legacy', 'senior']);
+    // No grade given: every Public Speaking teacher, as before.
+    assert.equal(teachersFor('public-speaking', rows, ids).size, 3);
+  });
+
   test('a trial booked before the change still reads as a real course', () => {
     const oneTrack = tracksFor(CODING_TRIAL)[0];
     assert.notEqual(subjectLabel(oneTrack), oneTrack, 'old bookings must not show a raw slug');

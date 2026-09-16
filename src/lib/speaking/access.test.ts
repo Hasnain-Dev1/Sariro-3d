@@ -54,6 +54,32 @@ describe('practiceAccess', () => {
     assert.equal(canPractise([en('  Public-Speaking ', 'ACTIVE')]), true);
   });
 
+  test('the room belongs to one band course, and says which', () => {
+    const a = practiceAccess([{ track: SPEAKING_TRACK, status: 'active', level: 'band-primary', created_at: '2026-06-01T00:00:00Z' }]);
+    assert.equal(a.band, 'primary');
+    assert.equal(a.courseName, 'Public Speaking · Grades 4–6');
+  });
+
+  test('enrolling in the next band replaces the room with that band — the older one is not offered', () => {
+    const a = practiceAccess([
+      { track: SPEAKING_TRACK, status: 'active', level: 'band-foundation', created_at: '2026-01-10T00:00:00Z' },
+      { track: SPEAKING_TRACK, status: 'active', level: 'band-primary', created_at: '2026-09-16T00:00:00Z' },
+    ]);
+    assert.equal(a.band, 'primary');
+  });
+
+  test('a dropped newer band does not replace an active one', () => {
+    const a = practiceAccess([
+      { track: SPEAKING_TRACK, status: 'active', level: 'band-middle', created_at: '2026-01-10T00:00:00Z' },
+      { track: SPEAKING_TRACK, status: 'dropped', level: 'band-senior', created_at: '2026-09-16T00:00:00Z' },
+    ]);
+    assert.equal(a.band, 'middle');
+  });
+
+  test('an enrolment from before the bands follows the grade, as it always did', () => {
+    assert.equal(practiceAccess([{ track: SPEAKING_TRACK, status: 'active', level: 'focus' }], 11).band, 'senior');
+  });
+
   test('a track that merely contains the words does not count', () => {
     // Guards against a substring match creeping in later.
     assert.equal(canPractise([en('public-speaking-for-teachers', 'active')]), false);

@@ -42,6 +42,8 @@ import CreateCourseModal from '@/components/dashboard/create-course-modal';
 import {
   COURSE_FAMILIES, CODING_LEVELS, optionsFor, gradesFor, type CourseFamily,
 } from '@/lib/dashboard/course-options';
+import { isSpeakingTrack } from '@/lib/speaking/bands';
+import SpeakingBandPicker from '@/components/dashboard/speaking-band-picker';
 import { COUNTRIES } from '@/lib/invoice/company';
 import { contactIdentity, canAssignCourse } from '@/lib/contact/reachability';
 import { UnknownBadge } from '@/components/dashboard/unknown-contact';
@@ -1085,8 +1087,9 @@ function ManualEnrollModal({
       return;
     }
     if (!level) {
-      // A school subject with no grade chosen would enrol them into nothing.
-      setError('Pick a grade for this subject.');
+      // A school subject with no grade chosen would enrol them into nothing —
+      // and Public Speaking with no band is none of its five courses.
+      setError(family === 'focus' ? 'Pick the Public Speaking age band.' : 'Pick a grade for this subject.');
       return;
     }
     setSubmitting(true);
@@ -1199,7 +1202,7 @@ function ManualEnrollModal({
                         setFamily(f.key);
                         const first = optionsFor(f.key)[0]?.value ?? '';
                         setTrack(first);
-                        setLevel(f.key === 'focus' ? 'focus' : f.key === 'coding' ? 'beginner' : '');
+                        setLevel(f.key === 'focus' ? (isSpeakingTrack(first) ? '' : 'focus') : f.key === 'coding' ? 'beginner' : '');
                       }}
                       disabled={submitting}
                       className={`h-11 rounded-xl text-xs font-bold border-2 transition-colors disabled:opacity-50 ${
@@ -1219,7 +1222,11 @@ function ManualEnrollModal({
                 </label>
                 <select
                   value={track}
-                  onChange={(e) => { setTrack(e.target.value); if (family === 'school') setLevel(''); }}
+                  onChange={(e) => {
+                    setTrack(e.target.value);
+                    if (family === 'school') setLevel('');
+                    if (family === 'focus') setLevel(isSpeakingTrack(e.target.value) ? '' : 'focus');
+                  }}
                   disabled={submitting}
                   className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                   style={{ fontFamily: 'var(--font-inter)' }}
@@ -1274,6 +1281,10 @@ function ManualEnrollModal({
                     ))}
                   </div>
                 </div>
+              )}
+
+              {family === 'focus' && isSpeakingTrack(track) && (
+                <SpeakingBandPicker value={level} onChange={setLevel} disabled={submitting} />
               )}
 
               {/* Ratio buttons */}

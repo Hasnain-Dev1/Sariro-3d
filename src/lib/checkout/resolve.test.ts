@@ -90,9 +90,25 @@ describe('school subjects and focus courses resolve', () => {
     for (const spec of SPECIALISATIONS) {
       const item = resolveCheckoutItem({ ...base, focus: spec.slug });
       assert.ok(item, `${spec.slug} did not resolve`);
-      assert.equal(item!.scopeLabel, 'Focus course');
+      assert.equal(item!.scopeLabel, spec.slug === 'public-speaking' ? 'Choose an age group' : 'Focus course');
       assert.equal(item!.classes, LESSONS_PER_GRADE);
     }
+  });
+
+  test('Public Speaking is bought as one of its five band courses', () => {
+    const none = resolveCheckoutItem({ ...base, focus: 'public-speaking' })!;
+    assert.equal(none.needsBand, true);
+    assert.equal(none.band, null);
+
+    const senior = resolveCheckoutItem({ ...base, focus: 'public-speaking', band: 'senior' })!;
+    assert.equal(senior.level, 'band-senior');
+    assert.equal(senior.scopeLabel, 'Grades 10–12');
+    assert.equal(senior.orderBody.band, 'senior');
+
+    // A page that only knows the grade still lands in the right course.
+    assert.equal(resolveCheckoutItem({ ...base, focus: 'public-speaking', grade: '5' })!.band, 'primary');
+    // Other focus courses are unchanged.
+    assert.equal(resolveCheckoutItem({ ...base, focus: 'calculus', band: 'senior' })!.needsBand, false);
   });
 
   test('a whole grade group is three grades of classes', () => {

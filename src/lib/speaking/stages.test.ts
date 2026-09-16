@@ -56,8 +56,8 @@ describe('the junior course', () => {
 describe('stageLesson', () => {
   const base = lessons.find((l) => l.number === 4)!;
 
-  test('juniors get the junior lesson under the same title, key and slot', () => {
-    const young = stageLesson(base, 'primary');
+  test('Grades 1–3 get the junior lesson under the same title, key and slot', () => {
+    const young = stageLesson(base, 'foundation');
     assert.equal(young.title, base.title);
     assert.equal(young.key, base.key);
     assert.equal(young.oneLine, juniorLesson(4)!.oneLine);
@@ -65,29 +65,45 @@ describe('stageLesson', () => {
     assert.deepEqual(young.extraDrills, []);
   });
 
-  test('Sprouts get shorter drills than Explorers', () => {
+  test('Sprouts get drills no longer than the junior originals', () => {
     const sprout = stageLesson(base, 'foundation').drills;
-    const explorer = stageLesson(base, 'primary').drills;
-    sprout.forEach((d, i) => assert.ok((d.targetSeconds ?? 0) <= (explorer[i].targetSeconds ?? 0)));
+    juniorLesson(4)!.drills.forEach((d, i) => assert.ok((sprout[i].targetSeconds ?? 0) <= (d.targetSeconds ?? 0)));
   });
 
-  test('from Grade 7 up, the full lesson, untouched', () => {
-    for (const s of ['middle', 'senior', 'adult'] as const) {
-      const l = stageLesson(base, s);
-      assert.equal(l.oneLine, base.oneLine);
-      assert.deepEqual(l.drills, base.drills);
-      assert.equal(l.homeTip, undefined);
+  test('every band teaches its own version of the lesson, under the same title, key and slot', () => {
+    const versions = STAGE_ORDER.map((s) => stageLesson(base, s));
+    for (const l of versions) {
+      assert.equal(l.title, base.title);
+      assert.equal(l.key, base.key);
     }
+    assert.equal(new Set(versions.map((l) => l.oneLine)).size, STAGE_ORDER.length, 'five bands, five different lessons');
+    assert.equal(new Set(versions.map((l) => l.drills[0].id)).size, STAGE_ORDER.length, 'and five different drills');
+    assert.ok(stageLesson(base, 'primary').homeTip, 'Grades 4–6 still get a tip for home');
+    assert.equal(stageLesson(base, 'adult').homeTip, undefined);
   });
 });
 
 describe('homework by stage', () => {
-  test('same mission ids at every stage, so a child who moves up keeps their record', () => {
+  test('each band keeps its own record: mission ids are scoped to the band course', () => {
     for (const l of lessons) {
-      const ids = (s: Parameters<typeof homeworkFor>[1]) => new Set(homeworkFor(l, s).map((m) => m.id));
-      const teen = ids('senior');
-      for (const s of STAGE_ORDER) for (const id of ids(s)) assert.ok(teen.has(id) || id.includes(':sound:'), `${id} at ${s} is not a teen mission id`);
+      const all = STAGE_ORDER.flatMap((s) => homeworkFor(l, s).map((m) => m.id));
+      assert.equal(new Set(all).size, all.length, `lesson ${l.number}: two bands share a mission id`);
+      for (const s of STAGE_ORDER) for (const m of homeworkFor(l, s)) assert.ok(m.id.startsWith(`hw:${s}:`), m.id);
     }
+  });
+
+  test('older bands are asked for more', () => {
+    const speak = (s: Parameters<typeof homeworkFor>[1]) => homeworkFor(lessons[0], s).find((m) => m.id.endsWith(':speak'))!;
+    assert.ok(speak('foundation').pass < speak('primary').pass);
+    assert.ok(speak('primary').pass < speak('middle').pass);
+    assert.ok(speak('middle').pass < speak('adult').pass);
+    const write = (s: Parameters<typeof homeworkFor>[1]) => homeworkFor(lessons[0], s).find((m) => m.kind === 'write')!.goal!.min!;
+    assert.ok(write('primary') < write('middle') && write('middle') < write('senior') && write('senior') <= write('adult'));
+  });
+
+  test('the writing mission uses the band lesson’s own prompt', () => {
+    const w = homeworkFor(lessons[0], 'adult').find((m) => m.kind === 'write')!;
+    assert.match(w.prompt ?? '', /work or college/);
   });
 
   test('Sprouts: no writing, fewer tries, gentler marks', () => {
@@ -100,7 +116,7 @@ describe('homework by stage', () => {
 
   test('Explorers write, but less', () => {
     const w = homeworkFor(lessons[0], 'primary').find((m) => m.kind === 'write')!;
-    assert.equal(w.goal?.min, 25);
+    assert.equal(w.goal?.min, 30);
   });
 
   test('showcases: Sprouts perform without a script; everyone performs', () => {

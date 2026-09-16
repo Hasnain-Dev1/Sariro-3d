@@ -421,12 +421,32 @@ export interface LadderEntry {
 
 export type Ladder = Record<Ratio, Record<PlanMonths, LadderEntry>>;
 
-const entry = (publicPrice: number): LadderEntry => ({ publicPrice, offer1: null, offer2: null, manualFloor: null });
+const entry = (publicPrice: number, manualFloor: number | null = null): LadderEntry => ({
+  publicPrice, offer1: null, offer2: null, manualFloor,
+});
 
-/** The founder's current public prices, 15 Sep 2026. */
+/**
+ * The founder's public prices and the seller minimums he approved, 16 Sep 2026.
+ *
+ * The minimums are set floors, not the buffered maths minimum: the calculated
+ * floor had sellers at ₹2,999 on a ₹3,000 batch month, which is no room at all.
+ * His approximate contribution at each minimum, for whoever changes these:
+ *
+ *   1:4   1 mo ₹2,500 (~₹76 in the acquisition month)   3 mo ₹6,499 (~₹555/student/month)
+ *         6 mo ₹11,499 (~₹538)   1 yr ₹20,999 (~₹495)   3 yr ₹56,499 (~₹409)
+ *   1:1   1 mo ₹3,500 (~₹199 in the acquisition month)   3 mo ₹8,499 (~₹403)
+ *         6 mo ₹15,599 (~₹400)   1 yr ₹29,999 (~₹412)   3 yr ₹86,999 (~₹406)
+ *
+ * A 1:1 month has no discount: its minimum is its public price. HR can change
+ * any of these in Pricing & profitability; a saved price book replaces them.
+ */
 export const DEFAULT_LADDER: Ladder = {
-  '1:4': { 1: entry(3_000), 3: entry(7_999), 6: entry(14_999), 12: entry(26_999), 36: entry(64_999) },
-  '1:1': { 1: entry(3_500), 3: entry(9_499), 6: entry(17_999), 12: entry(32_999), 36: entry(89_999) },
+  '1:4': {
+    1: entry(3_000, 2_500), 3: entry(7_999, 6_499), 6: entry(14_999, 11_499), 12: entry(26_999, 20_999), 36: entry(64_999, 56_499),
+  },
+  '1:1': {
+    1: entry(3_500, 3_500), 3: entry(9_499, 8_499), 6: entry(17_999, 15_599), 12: entry(32_999, 29_999), 36: entry(89_999, 86_999),
+  },
 };
 
 /** The lowest price a seller may agree: the manager's floor, or the buffered minimum. */

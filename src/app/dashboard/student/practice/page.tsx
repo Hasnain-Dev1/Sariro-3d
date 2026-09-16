@@ -1,22 +1,23 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Mic, Ear, PenLine, ArrowLeft, Lock, Loader2, ArrowRight, Shuffle, BookOpen, AudioLines, Map as MapIcon } from 'lucide-react';
+import { Mic, Ear, PenLine, ArrowLeft, Lock, Loader2, ArrowRight, Shuffle, BookOpen, AudioLines, Map as MapIcon, GraduationCap } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/components/auth/auth-provider';
 import { practiceAccess, SPEAKING_TRACK, type PracticeAccess } from '@/lib/speaking/access';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
-import SpeakingLab, { type Drill } from '@/components/speaking/speaking-lab';
+import SpeakingLab from '@/components/speaking/speaking-lab';
 import ListeningLab from '@/components/speaking/listening-lab';
 import WritingLab from '@/components/speaking/writing-lab';
 import SoundLab from '@/components/speaking/sound-lab';
 import VoiceQuest from '@/components/speaking/quest/voice-quest';
 import PracticeProgress from '@/components/speaking/practice-progress';
-import { PASSAGES, passageById, readingSeconds } from '@/lib/speaking/passages';
+import { readingSeconds } from '@/lib/speaking/passages';
 import { dealFromStorage } from '@/lib/speaking/passages/deck';
-import { PROMPTS } from '@/lib/speaking/voice-check';
+import { passageIn, practiceFor } from '@/lib/speaking/practice/band-practice';
+import { STAGES } from '@/lib/speaking/stages';
 
 /**
  * SARIRO — the practice room
@@ -36,35 +37,10 @@ import { PROMPTS } from '@/lib/speaking/voice-check';
  */
 
 /* Which passage and which topic each drill is on, remembered on this device so
-   the next visit carries on through the library rather than starting again. */
-const READ_DECK = 'sariro.practice.read-aloud';
-const TOPIC_DECK = 'sariro.practice.free-60';
-const PASSAGE_IDS = PASSAGES.map((p) => p.id);
-const PROMPT_IDS = PROMPTS.map((p) => p.id);
-
-const SPEAKING_DRILLS: Drill[] = [
-  {
-    id: 'free-60',
-    title: 'Sixty seconds, no notes',
-    brief: 'Talk about the topic below for a minute — or anything else you know well. Do not plan it. The point is to hear what your unplanned speech actually sounds like.',
-    targetSeconds: 60,
-  },
-  {
-    /* The passage itself is dealt from the library when the drill is shown —
-       there were once exactly one of these, and a passage read five times
-       measures memory, not reading. */
-    id: 'read-aloud',
-    title: 'Read it as though you mean it',
-    brief: 'Read the passage aloud. The full stops and commas are where you breathe — let them be pauses rather than pushing straight through.',
-    targetSeconds: 60,
-  },
-  {
-    id: 'explain-hard',
-    title: 'Explain something difficult, simply',
-    brief: 'Explain something you understand to somebody who knows nothing about it. No jargon. If you need a word they would not know, define it as you go.',
-    targetSeconds: 90,
-  },
-];
+   the next visit carries on through the library rather than starting again.
+   One deck per band: moving up a band starts the new library from the top. */
+const readDeck = (band: string) => `sariro.practice.read-aloud.${band}`;
+const topicDeck = (band: string) => `sariro.practice.topic.${band}`;
 
 type Tab = 'quest' | 'speaking' | 'sounds' | 'listening' | 'writing';
 
@@ -155,21 +131,24 @@ function DealtBar({
 }
 
 export default function PracticePage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   /* null while the answer is unknown. Rendering the room and snatching it back
      a beat later is worse than a spinner. */
   const [access, setAccess] = useState<PracticeAccess | null>(null);
+  const grade = profile?.grade ?? null;
 
   useEffect(() => {
     if (!user) return;
     let live = true;
     (async () => {
       try {
+        /* Level and date too: the room is the band of the most recent Public
+           Speaking enrolment (lib/speaking/access.ts). */
         const { data } = await createClient()
           .from('enrollments')
-          .select('track, status')
+          .select('track, status, level, created_at')
           .eq('user_id', user.id);
-        if (live) setAccess(practiceAccess(data ?? []));
+        if (live) setAccess(practiceAccess(data ?? [], grade));
       } catch {
         // A failed read must not hand out the room. It also must not accuse
         // somebody of not being enrolled — the locked copy says what it is
@@ -178,7 +157,13 @@ export default function PracticePage() {
       }
     })();
     return () => { live = false; };
-  }, [user]);
+  }, [user, grade]);
+
+  /* The band's own room: drills, topics, passages, writing prompts, sounds. */
+  const band = access?.band ?? 'middle';
+  const practice = useMemo(() => practiceFor(band), [band]);
+  const passageIds = useMemo(() => practice.passages.map((p) => p.id), [practice]);
+  const topicIds = useMemo(() => practice.topics.map((p) => p.id), [practice]);
 
   const [tab, setTab] = useState<Tab>('quest');
   const [drill, setDrill] = useState(0);
@@ -193,11 +178,17 @@ export default function PracticePage() {
   const [passageId, setPassageId] = useState<string | null>(null);
   const [topicId, setTopicId] = useState<string | null>(null);
   useEffect(() => {
-    setPassageId(dealFromStorage(READ_DECK, PASSAGE_IDS));
-    setTopicId(dealFromStorage(TOPIC_DECK, PROMPT_IDS));
-  }, []);
-  const passage = passageById(passageId);
-  const topic = PROMPTS.find((p) => p.id === topicId) ?? null;
+    if (!access?.band) return;
+    setPassageId(dealFromStorage(readDeck(access.band), passageIds));
+    setTopicId(dealFromStorage(topicDeck(access.band), topicIds));
+    setDrill(0);
+  }, [access?.band, passageIds, topicIds]);
+  const passage = passageIn(practice, passageId);
+  const topic = practice.topics.find((p) => p.id === topicId) ?? null;
+  const current = practice.drills[Math.min(drill, practice.drills.length - 1)];
+  const stageMeta = STAGES[band];
+  /* Grades 1–3 do not write homework, so the writing tab is not theirs either. */
+  const tabs = practice.writingPrompts.length ? TABS : TABS.filter((t) => t.key !== 'writing');
 
   const active = TABS.find((t) => t.key === tab)!;
 
@@ -239,10 +230,21 @@ export default function PracticePage() {
               {active.blurb} Everything here runs on your own device — nothing is recorded, nothing is sent anywhere,
               and you can try as many times as you like.
             </p>
+            {/* Which course this room belongs to. Enrolling in the next band
+                replaces it with that band's room. */}
+            {access.courseName && (
+              <p
+                className="mt-3 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12.5px] font-bold"
+                style={{ borderColor: `${stageMeta.color}40`, background: `${stageMeta.color}10`, color: stageMeta.color, fontFamily: 'var(--font-grotesk)' }}
+              >
+                <GraduationCap className="w-4 h-4" />
+                <span aria-hidden>{stageMeta.emoji}</span> {access.courseName} · {stageMeta.name}
+              </p>
+            )}
           </motion.div>
 
-          <div className="grid grid-cols-5 gap-2 mb-6">
-            {TABS.map((t) => (
+          <div className={`grid ${tabs.length === 5 ? 'grid-cols-5' : 'grid-cols-4'} gap-2 mb-6`}>
+            {tabs.map((t) => (
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
@@ -262,7 +264,7 @@ export default function PracticePage() {
           {tab === 'speaking' && (
             <div className="space-y-4">
               <div className="flex flex-wrap gap-2">
-                {SPEAKING_DRILLS.map((d, i) => (
+                {practice.drills.map((d, i) => (
                   <button
                     key={d.id}
                     onClick={() => setDrill(i)}
@@ -275,46 +277,51 @@ export default function PracticePage() {
                   </button>
                 ))}
               </div>
-              {SPEAKING_DRILLS[drill].id === 'read-aloud' && passage && (
+              {current.kind === 'read' && passage && (
                 <DealtBar
                   icon={BookOpen}
                   label={passage.title}
-                  detail={`${passage.topic} · about ${Math.round(readingSeconds(passage) / 5) * 5} seconds · ${PASSAGES.length} passages`}
+                  detail={`${passage.topic} · about ${Math.max(10, Math.round(readingSeconds(passage) / 5) * 5)} seconds · ${practice.passages.length} passages`}
                   action="Another passage"
-                  onNext={() => setPassageId(dealFromStorage(READ_DECK, PASSAGE_IDS))}
+                  onNext={() => setPassageId(dealFromStorage(readDeck(band), passageIds))}
                 />
               )}
-              {SPEAKING_DRILLS[drill].id === 'free-60' && topic && (
+              {current.kind === 'free' && topic && (
                 <DealtBar
                   icon={Mic}
                   label={`${topic.emoji} ${topic.text}`}
-                  detail={`Your topic · ${PROMPTS.length} to choose from`}
+                  detail={`Your topic · ${practice.topics.length} to choose from`}
                   action="Another topic"
-                  onNext={() => setTopicId(dealFromStorage(TOPIC_DECK, PROMPT_IDS))}
+                  onNext={() => setTopicId(dealFromStorage(topicDeck(band), topicIds))}
                 />
               )}
               {/* Keyed so switching drills — or passages — starts a clean
                   recording rather than carrying the last one's into the next. */}
-              {SPEAKING_DRILLS[drill].id === 'read-aloud' ? (
+              {current.kind === 'read' ? (
                 passage ? (
                   <SpeakingLab
-                    key={`read-aloud-${passage.id}`}
-                    drill={{ ...SPEAKING_DRILLS[drill], passage: passage.text, targetSeconds: readingSeconds(passage) }}
+                    key={`${current.id}-${passage.id}`}
+                    drill={{ ...current, passage: passage.text, targetSeconds: Math.max(10, readingSeconds(passage)) }}
                     onLogged={noteLogged}
                   />
                 ) : null
               ) : (
-                <SpeakingLab key={`${SPEAKING_DRILLS[drill].id}-${topicId ?? ''}`} drill={SPEAKING_DRILLS[drill]} onLogged={noteLogged} />
+                <SpeakingLab key={`${current.id}-${topicId ?? ''}`} drill={current} onLogged={noteLogged} />
               )}
             </div>
           )}
 
-          {tab === 'quest' && <VoiceQuest />}
+          {/* The band's own quest: its lessons, homework and record. */}
+          {tab === 'quest' && <VoiceQuest stage={band} />}
 
           {/* Every pattern, with the passport of stamps across all of them. */}
-          {tab === 'sounds' && <SoundLab />}
-          {tab === 'listening' && <ListeningLab onLogged={noteLogged} />}
-          {tab === 'writing' && <WritingLab onLogged={noteLogged} />}
+          {tab === 'sounds' && <SoundLab key={band} simple={practice.simpleSounds} />}
+          {tab === 'listening' && (
+            <ListeningLab key={band} library={practice.passages} deckKey={`sariro.practice.listening.${band}`} onLogged={noteLogged} />
+          )}
+          {tab === 'writing' && practice.writingPrompts.length > 0 && (
+            <WritingLab key={band} prompts={practice.writingPrompts} onLogged={noteLogged} />
+          )}
 
           {/* Underneath the drill, not above it. Somebody who opened this page
               came to practise; the history is what they read afterwards. */}

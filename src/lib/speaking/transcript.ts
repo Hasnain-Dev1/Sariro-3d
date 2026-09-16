@@ -83,6 +83,35 @@ function fold(parts: string[], text: string): void {
   parts.push(t);
 }
 
+/*
+ * ── And a restarted session can start by saying the end of the last one ─────
+ * The recorder restarts recognition every time Chrome ends a session, which on
+ * Android is after almost every sentence. The new session sometimes opens with
+ * the last few words the old one already delivered — "…three hearts" banked,
+ * then "three hearts and blue blood" — and a plain join says them twice. So
+ * the words a new session repeats from the END of what was banked are dropped.
+ * Two words or more, or the whole of the new text: a single shared word at the
+ * seam ("…said the" / "the cat") is far more often real speech.
+ */
+const tokens = (s: string) => s.trim().split(/\s+/).filter(Boolean);
+const bare = (w: string) => w.toLowerCase().replace(/[^\p{L}\p{N}']/gu, '');
+
+export function joinSessions(prior: string, next: string): string {
+  const p = tokens(prior);
+  const n = tokens(next);
+  if (!n.length) return p.join(' ');
+  if (!p.length) return n.join(' ');
+  for (let k = Math.min(p.length, n.length); k >= 1; k--) {
+    if (k < 2 && k !== n.length) break;
+    let same = true;
+    for (let i = 0; i < k; i++) {
+      if (bare(p[p.length - k + i]) !== bare(n[i])) { same = false; break; }
+    }
+    if (same) return [...p, ...n.slice(k)].join(' ');
+  }
+  return [...p, ...n].join(' ');
+}
+
 export function assembleTranscript(
   results: ArrayLike<ResultLike> | null | undefined,
   prior = ''
@@ -114,8 +143,8 @@ export function assembleTranscript(
      splitters and looks like sloppy software in the panel. Trimmed at BOTH
      ends, not just the right: a `prior` of pure whitespace is truthy, and
      trimming only the end left exactly the leading space this avoids. */
-  const base = prior.trim();
-  const final = (base ? `${base} ` : '') + sessionFinal;
+  const joined = joinSessions(prior, sessionFinal);
+  const final = joined ? `${joined} ` : '';
   return {
     final,
     interim,

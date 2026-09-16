@@ -40,13 +40,14 @@ export default async function BankTransferPage({ searchParams }: { searchParams:
       scope: one(q.scope),
       ratio: one(q.ratio) === '1:1' ? '1:1' : '1:4',
       cadence: ((one(q.pay) as Cadence | null) ?? 'monthly'),
+      band: one(q.band),
     },
     prices,
     { currency: one(q.currency) === 'INR' ? 'INR' : 'USD', inr }
   );
 
   const query = new URLSearchParams();
-  for (const k of ['course', 'subject', 'focus', 'grade', 'scope', 'ratio', 'pay', 'currency']) {
+  for (const k of ['course', 'subject', 'focus', 'grade', 'scope', 'ratio', 'pay', 'currency', 'band']) {
     const v = one(q[k]);
     if (v) query.set(k, v);
   }

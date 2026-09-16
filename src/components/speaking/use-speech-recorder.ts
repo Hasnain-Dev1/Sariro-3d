@@ -151,6 +151,9 @@ export function useSpeechRecorder({
      OLD audio arriving and replacing nothing with the wrong thing. */
   const take = useRef(0);
   const finalText = useRef('');
+  /* Final AND interim: everything on screen. What is measured when recording
+     stops, and what is banked when a session ends — see stop() and onend. */
+  const displayText = useRef('');
   /* Everything heard in recognition sessions that have already ended. Chrome
      stops on its own after a few seconds of silence and we restart it; each
      restart gets an empty results list, so what came before has to live here. */
@@ -209,7 +212,15 @@ export function useSpeechRecorder({
     teardown();
     setState('done');
 
-    const text = finalText.current.trim();
+    /* What was on screen, not only what Chrome had marked final. Pressing Stop
+       ends recognition before it settles the last phrase, so the finals alone
+       dropped the last few seconds of every recording — a child who spoke for
+       thirty seconds was told it was "too short". The interim words were said;
+       the recogniser was simply still deciding how to spell them. */
+    const text = (displayText.current.trim().length >= finalText.current.trim().length
+      ? displayText.current
+      : finalText.current
+    ).trim();
     onStopRef.current({
       transcript: text,
       durationMs,
@@ -230,6 +241,7 @@ export function useSpeechRecorder({
     setError(null);
     setTranscript('');
     finalText.current = '';
+    displayText.current = '';
     priorSessions.current = '';
     levels.current = [];
     pitches.current = [];
@@ -241,7 +253,13 @@ export function useSpeechRecorder({
     setElapsed(0);
 
     try {
-      stream.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+      /* Noise suppression off, gain control on. Phone noise suppression treats
+         a steady speaking voice as something to turn down, which is how a child
+         speaking normally was told the recording was too quiet. Ideal values,
+         not exact ones, so a device that cannot honour them still records. */
+      stream.current = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true },
+      });
     } catch (err) {
       /* Three different refusals, and the fix is different for each — no
          microphone, a denied prompt, or a block from before that now denies
@@ -304,6 +322,7 @@ export function useSpeechRecorder({
     rec.onresult = (e) => {
       const out = assembleTranscript(e.results, priorSessions.current);
       finalText.current = out.final;
+      displayText.current = out.display;
       words.current = observeWords(words.current, out.display, Date.now() - startedAt.current);
       setTranscript(out.display);
     };
@@ -318,7 +337,12 @@ export function useSpeechRecorder({
          pausing to think is silence. Bank what this session heard, then start
          again while still recording. Read from a ref: this closure is created
          once, and the state it captured would still say 'idle'. */
-      priorSessions.current = finalText.current;
+      /* The whole session, interim words included: a session that ends is not
+         going to finalise them, and on Android sessions end after nearly every
+         sentence — banking only finals lost a phrase at each one. */
+      priorSessions.current = displayText.current.trim().length >= finalText.current.trim().length
+        ? displayText.current
+        : finalText.current;
       if (recording.current) { try { rec.start(); } catch { /* racing a stop */ } }
     };
     recognition.current = rec;

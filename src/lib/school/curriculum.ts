@@ -263,7 +263,7 @@ export const SPECIALISATIONS: Specialisation[] = [
     name: 'Public Speaking',
     tagline: 'Public Speaking & Presence',
     description:
-      'Standing up, being heard, and saying the thing you meant to say — from show and tell in Grade 1 to interviews in Grade 12 and meetings at work. One course, pitched to every age, and the skill no school actually teaches.',
+      'Standing up, being heard, and saying the thing you meant to say — from show and tell in Grade 1 to interviews in Grade 12 and meetings at work. Five courses, one for each age group, and the skill no school actually teaches.',
     suitsGrades: 'Grades 1–12 & adults',
     strands: ['speaking-and-presenting', 'argument-and-rhetoric', 'listening-and-dialogue', 'creativity'],
     accent: '#DB2777',

@@ -89,7 +89,8 @@ export async function GET(req: NextRequest) {
     const eligible = teachersFor(
       subject,
       (approvals ?? []) as { teacher_id: string; track: string | null; level: string | null }[],
-      bookable.map((t) => t.id as string)
+      bookable.map((t) => t.id as string),
+      grade
     );
     bookable = bookable.filter((t) =>
       eligible.has(t.id as string) &&

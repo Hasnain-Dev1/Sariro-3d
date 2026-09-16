@@ -9,6 +9,8 @@
 import 'server-only';
 import { createServerClientHelper, createServiceClient } from '@/lib/supabase/server';
 import { findCourseById, progressKey, type ViewerRole } from '@/lib/dashboard/lessons-data';
+import { bandOfCourseId, bandOfLevel, isSpeakingCourseId, SPEAKING_TRACK_SLUG } from '@/lib/speaking/bands';
+import { activeSpeakingBand } from '@/lib/speaking/access';
 
 export interface ViewerProgress {
   userId: string;
@@ -33,6 +35,31 @@ export async function resolveViewerProgress(courseId: string): Promise<ViewerPro
   const role: ViewerRole = isAdmin ? 'admin' : isTeacher ? 'teacher' : 'student';
 
   const completedKeys = new Set<string>();
+
+  /* Public Speaking is five band courses. A learner reads only the course of
+     their current band — the most recent enrolment — and a teacher only the
+     bands they are approved for (an approval from before the bands covers
+     all five). An admin reads everything. */
+  if (role !== 'admin' && isSpeakingCourseId(courseId)) {
+    const courseBand = bandOfCourseId(courseId);
+    if (role === 'student') {
+      const [{ data: enr }, { data: me }] = await Promise.all([
+        admin.from('enrollments').select('track, status, level, created_at')
+          .eq('user_id', user.id).eq('track', SPEAKING_TRACK_SLUG).in('status', ['active', 'completed']),
+        admin.from('profiles').select('grade').eq('id', user.id).maybeSingle(),
+      ]);
+      const rows = (enr ?? []) as { track: string; status: string; level: string | null; created_at: string | null }[];
+      const band = activeSpeakingBand(rows, (me?.grade as number | null | undefined) ?? null);
+      const authorized = !!band && (courseBand ? courseBand === band : rows.some((r) => (r.level ?? '').toLowerCase() === 'focus'));
+      return { userId: user.id, role, completedKeys, authorizedForCourse: authorized };
+    }
+    const { data: approvals } = await admin.from('teacher_course_assignments')
+      .select('level').eq('teacher_id', user.id).eq('track', SPEAKING_TRACK_SLUG);
+    const levels = ((approvals ?? []) as { level: string | null }[]).map((a) => (a.level ?? '').toLowerCase());
+    const authorized = levels.some((l) => l === 'focus' || !courseBand || bandOfLevel(l) === courseBand);
+    return { userId: user.id, role, completedKeys, authorizedForCourse: authorized };
+  }
+
   const course = findCourseById(courseId);
   if (role === 'admin' || !course) {
     return { userId: user.id, role, completedKeys, authorizedForCourse: true };
