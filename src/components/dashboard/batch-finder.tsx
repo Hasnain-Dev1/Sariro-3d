@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Loader2, RefreshCw, Search, UserPlus, Users, X } from 'lucide-react';
+import { openBatchControl } from '@/components/dashboard/batch-control';
 import {
   batchLessonAt, daysLabel, fitFor, freeSeats, matchesFilters, rankForStudent,
   type BatchSummary, type FinderFilters,
@@ -299,6 +300,13 @@ export default function BatchFinder({ onToast }: { onToast?: (msg: string, kind?
                       <p><span className="text-slate-500">Next class:</span> {when(b.nextClassAt, b.timezone)} · {b.remaining} left</p>
                       {b.studentNames.length > 0 && <p className="sm:col-span-2 text-slate-500 truncate">Students: {b.studentNames.join(', ')}</p>}
                     </div>
+                    {!student && (
+                      <div className="mt-2 flex justify-end">
+                        <button type="button" onClick={() => openBatchControl(b.cohortId)} className="inline-flex items-center gap-1 h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-[12px] font-bold text-slate-700">
+                          Manage teacher, times &amp; roster
+                        </button>
+                      </div>
+                    )}
                     {fit && (
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         {fit.clash ? (

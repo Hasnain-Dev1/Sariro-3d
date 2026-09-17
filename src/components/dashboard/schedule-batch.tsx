@@ -1,21 +1,30 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { X, CalendarClock, Loader2, Check, Globe } from 'lucide-react';
+import { X, CalendarClock, Loader2, Check, Globe, AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { generateOccurrences } from '@/lib/dashboard/schedule-generation';
 import { lessonsOf } from '@/lib/dashboard/lesson-plan';
+import { courseTitleOf } from '@/lib/dashboard/class-lesson';
+import { daysLabel, seatCapacity, type BatchSummary } from '@/lib/scheduling/batch-finder';
 import { gradeTag } from '@/lib/grade/tag';
+import SearchPicker, { type PickerFilter } from '@/components/dashboard/search-picker';
 
 /* ════════════════════════════════════════════════════════════════════════
    ScheduleBatchModal — admin/super-admin recurring class scheduler.
    Books a cohort onto a weekly cadence (1 or 2 days/week) and shows the
    chosen time live in the teacher's tz AND every enrolled kid's tz, so the
    person booking can coordinate both ends. Calls POST /api/admin/schedule.
+
+   Batch first, then teacher, each found by typing and filter chips rather than
+   scrolled for in a dropdown (founder, 17 Sep 2026: "later when we will have a
+   lot of batches and teachers it will be hard to scroll and find things").
    ════════════════════════════════════════════════════════════════════════ */
 
 interface Teacher { id: string; full_name: string | null; timezone: string | null }
-interface Cohort { id: string; track: string; level: string; ratio: string; status: string; batch_code: string | null }
+interface Cohort { id: string; track: string; level: string; ratio: string; status: string; batch_code: string | null; max_capacity?: number | null }
+/** A batch as the picker shows it: the cohort plus what the batch finder knows about it. */
+interface BatchOption extends Cohort { courseTitle: string; subject: string; summary: BatchSummary | null }
 interface Kid { id: string; full_name: string | null; timezone: string | null; grade: number | null }
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -72,12 +81,44 @@ export default function ScheduleBatchModal({
       if (adminId) tq = tq.eq('reporting_admin_id', adminId);
       const [tRes, cRes] = await Promise.all([
         tq.order('full_name'),
-        sb.from('cohorts').select('id, track, level, ratio, status, batch_code').in('status', ['gathering', 'ready', 'active']).order('created_at', { ascending: false }),
+        sb.from('cohorts').select('id, track, level, ratio, status, batch_code, max_capacity').in('status', ['gathering', 'ready', 'active']).order('created_at', { ascending: false }),
       ]);
       setTeachers((tRes.data ?? []) as Teacher[]);
       setCohorts((cRes.data ?? []) as Cohort[]);
     })();
   }, [open, adminId]);
+
+  /* Seats, teacher and whether each batch is already scheduled — for the filters.
+     Guidance only: without it the batches still list and schedule. */
+  const [summaries, setSummaries] = useState<Map<string, BatchSummary>>(new Map());
+  const [summariesLoaded, setSummariesLoaded] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    fetch('/api/admin/batch-finder', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => { if (!cancelled && j?.ok) setSummaries(new Map((j.batches as BatchSummary[]).map((b) => [b.cohortId, b]))); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setSummariesLoaded(true); });
+    return () => { cancelled = true; };
+  }, [open]);
+
+  const batchOptions = useMemo<BatchOption[]>(() => cohorts.map((c) => {
+    const courseTitle = courseTitleOf(c.track, c.level);
+    return { ...c, courseTitle, subject: courseTitle.split(' · ')[0], summary: summaries.get(c.id) ?? null };
+  }), [cohorts, summaries]);
+
+  const batchFilters = useMemo<PickerFilter<BatchOption>[]>(() => {
+    const uniq = (xs: string[]) => [...new Set(xs)].sort();
+    return [
+      { key: 'subject', label: 'Type', options: uniq(batchOptions.map((b) => b.subject)).map((v) => ({ value: v, label: v })), test: (b, v) => b.subject === v },
+      { key: 'course', label: 'Course', options: uniq(batchOptions.map((b) => b.courseTitle)).map((v) => ({ value: v, label: v.includes(' · ') ? v.split(' · ').slice(1).join(' · ') : v })), test: (b, v) => b.courseTitle === v },
+      // A batch with a schedule already gets a SECOND set of classes if scheduled again.
+      { key: 'scheduled', label: 'Schedule', initial: summariesLoaded && summaries.size ? 'no' : '', options: [{ value: 'no', label: 'Not scheduled yet' }, { value: 'yes', label: 'Already scheduled' }], test: (b, v) => (v === 'yes' ? !!b.summary?.scheduleId : !b.summary?.scheduleId) },
+      { key: 'ratio', label: 'Ratio', options: uniq(batchOptions.map((b) => b.ratio)).map((v) => ({ value: v, label: v })), test: (b, v) => b.ratio === v },
+      { key: 'status', label: 'Status', options: uniq(batchOptions.map((b) => b.status)).map((v) => ({ value: v, label: v[0].toUpperCase() + v.slice(1) })), test: (b, v) => b.status === v },
+    ];
+  }, [batchOptions, summaries, summariesLoaded]);
 
   // Load kids when a cohort is chosen.
   const loadKids = useCallback(async (cid: string) => {
@@ -110,10 +151,6 @@ export default function ScheduleBatchModal({
     return () => { cancelled = true; };
   }, [cohortId, cohorts]);
 
-  const visibleTeachers = useMemo(
-    () => (trainedTeacherIds ? teachers.filter((t) => trainedTeacherIds.has(t.id)) : teachers),
-    [teachers, trainedTeacherIds]
-  );
 
   /* §10 — how busy each teacher already is, shown BEFORE one is chosen.
      Conflicts were already refused at submit, which is correct and far too
@@ -146,6 +183,27 @@ export default function ScheduleBatchModal({
     if (!w) return 'no classes scheduled';
     return `${w.upcoming} ${w.upcoming === 1 ? 'class' : 'classes'} · ${w.batches} ${w.batches === 1 ? 'batch' : 'batches'} · ${w.students} ${w.students === 1 ? 'student' : 'students'}${w.nextSevenDays > 0 ? ` · ${w.nextSevenDays} this week` : ''}`;
   };
+
+  /* Everyone, trained for this batch first, then least busy this week. */
+  const teacherOptions = useMemo(
+    () => [...teachers].sort((a, b) =>
+      Number(!!trainedTeacherIds?.has(b.id)) - Number(!!trainedTeacherIds?.has(a.id)) ||
+      (workload.get(a.id)?.nextSevenDays ?? 0) - (workload.get(b.id)?.nextSevenDays ?? 0) ||
+      (a.full_name ?? '').localeCompare(b.full_name ?? '')),
+    [teachers, trainedTeacherIds, workload]
+  );
+  const teacherFilters = useMemo<PickerFilter<Teacher>[]>(() => {
+    const zones = [...new Set(teachers.map((t) => t.timezone).filter((z): z is string => !!z))].sort();
+    return [
+      ...(trainedTeacherIds ? [{
+        key: 'trained', label: 'Training', initial: 'yes',
+        options: [{ value: 'yes', label: 'Trained for this batch' }, { value: 'no', label: 'Not trained' }],
+        test: (t: Teacher, v: string) => (v === 'yes' ? trainedTeacherIds.has(t.id) : !trainedTeacherIds.has(t.id)),
+      }] : []),
+      { key: 'week', label: 'This week', options: [{ value: 'light', label: 'Up to 5 classes' }, { value: 'busy', label: 'More than 5' }], test: (t, v) => ((workload.get(t.id)?.nextSevenDays ?? 0) <= 5) === (v === 'light') },
+      ...(zones.length > 1 ? [{ key: 'tz', label: 'Time zone', options: zones.map((z) => ({ value: z, label: z })), test: (t: Teacher, v: string) => t.timezone === v }] : []),
+    ];
+  }, [teachers, trainedTeacherIds, workload]);
 
   // Clear a chosen teacher if they're no longer eligible for the new batch.
   useEffect(() => {
@@ -257,7 +315,7 @@ export default function ScheduleBatchModal({
 
   return (
     <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black/50" role="dialog" aria-modal="true">
-      <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-4 sm:p-6 shadow-xl">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-2">
             <CalendarClock className="w-5 h-5 text-blue-600" />
@@ -266,35 +324,69 @@ export default function ScheduleBatchModal({
           <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400" aria-label="Close"><X className="w-4 h-4" /></button>
         </div>
 
-        {/* Teacher + cohort */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-          <Field label="Teacher">
-            <select value={teacherId} onChange={(e) => setTeacherId(e.target.value)} className={selectCls}>
-              <option value="">Select teacher…</option>
-              {/* §10 — the workload sits in the option itself, so it is read at
-                  the moment of choosing rather than found out at submit. */}
-              {visibleTeachers.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.full_name || 'Unnamed'} — {workloadLabel(t.id)}
-                </option>
-              ))}
-            </select>
-            {teacherId && (
-              <p className="text-[11.5px] text-slate-500 mt-1 leading-[1.5]">
-                {teachers.find((t) => t.id === teacherId)?.timezone
-                  ? `${teachers.find((t) => t.id === teacherId)!.timezone} · `
-                  : ''}
-                Currently {workloadLabel(teacherId)}.
-              </p>
+        {/* Batch, then teacher — the batch decides who is trained to teach it. */}
+        <Field label="Batch">
+          <SearchPicker<BatchOption>
+            ariaLabel="Find a batch"
+            placeholder="Batch code, course or grade…"
+            items={batchOptions}
+            getId={(b) => b.id}
+            value={cohortId || null}
+            onChange={(id) => setCohortId(id ?? '')}
+            filters={batchFilters}
+            pageSize={20}
+            searchText={(b) => [b.batch_code, b.courseTitle, b.track, b.level, b.ratio, b.status, b.summary?.teacher?.name, ...(b.summary?.studentNames ?? [])].filter(Boolean).join(' ')}
+            emptyText="No batch matches. Clear a filter — a batch already scheduled is under Schedule: Already scheduled."
+            renderItem={(b) => (
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                  <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-slate-900 text-white tracking-wider">{b.batch_code ?? 'NO CODE'}</span>
+                  <span className="text-[13px] font-extrabold text-slate-900">{b.courseTitle}</span>
+                  <span className="text-[11px] font-bold text-slate-500">{b.ratio} · {b.status}</span>
+                  <span className="ml-auto text-[11px] font-bold text-slate-500">{b.summary ? b.summary.enrolled : '–'}/{b.summary ? b.summary.capacity : seatCapacity(b.ratio, b.max_capacity)} seats</span>
+                </div>
+                {b.summary?.scheduleId && (
+                  <p className="text-[11.5px] text-amber-700 mt-0.5 truncate">Scheduled: {daysLabel(b.summary.days)}{b.summary.teacher?.name ? ` with ${b.summary.teacher.name}` : ''}</p>
+                )}
+              </div>
             )}
-          </Field>
-          <Field label="Batch (cohort)">
-            <select value={cohortId} onChange={(e) => setCohortId(e.target.value)} className={selectCls}>
-              <option value="">Select batch…</option>
-              {cohorts.map((c) => <option key={c.id} value={c.id}>{c.batch_code ? `${c.batch_code} · ` : ''}{c.track} · {c.level} · {c.ratio}</option>)}
-            </select>
-          </Field>
-        </div>
+          />
+          {(() => {
+            const picked = batchOptions.find((b) => b.id === cohortId);
+            return picked?.summary?.scheduleId ? (
+              <p className="mt-1.5 flex items-start gap-1.5 text-[11.5px] leading-[1.5] text-amber-800">
+                <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                This batch already has classes ({daysLabel(picked.summary.days)}). Scheduling it again adds a second set. To change its teacher, days or roster, use Batch control in Classes.
+              </p>
+            ) : null;
+          })()}
+        </Field>
+
+        <Field label="Teacher">
+          <SearchPicker<Teacher>
+            ariaLabel="Find a teacher"
+            placeholder="Teacher name or time zone…"
+            items={teacherOptions}
+            getId={(t) => t.id}
+            value={teacherId || null}
+            onChange={(id) => setTeacherId(id ?? '')}
+            filters={teacherFilters}
+            pageSize={20}
+            searchText={(t) => [t.full_name, t.timezone].filter(Boolean).join(' ')}
+            emptyText={trainedTeacherIds ? 'Nobody matches. Is a teacher’s training for this course marked complete?' : 'No teacher matches.'}
+            disabledReason={(t) => (trainedTeacherIds && !trainedTeacherIds.has(t.id) ? 'Training for this course is not marked complete' : null)}
+            renderItem={(t) => (
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                <span className="text-[13px] font-bold text-slate-900">{t.full_name || 'Unnamed'}</span>
+                {t.timezone && <span className="text-[11.5px] text-slate-500">{t.timezone}</span>}
+                {trainedTeacherIds?.has(t.id) && <span className="text-[10.5px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">Trained</span>}
+                {/* §10 — the workload is read at the moment of choosing, not found out at submit. */}
+                <span className="basis-full text-[11.5px] text-slate-500">{workloadLabel(t.id)}</span>
+              </div>
+            )}
+          />
+          {!cohortId && <p className="text-[11.5px] text-slate-500 mt-1">Pick the batch first to see who is trained for it.</p>}
+        </Field>
 
         {/* Cadence */}
         <Field label="Classes per week">

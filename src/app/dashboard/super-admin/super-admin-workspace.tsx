@@ -67,6 +67,7 @@ import { LeadPipeline } from '@/app/dashboard/super-admin/lead-pipeline';
 import { useRealtime } from '@/lib/dashboard/use-realtime';
 import { describeChoice } from '@/lib/demo/learner-choice';
 import BatchFinder from '@/components/dashboard/batch-finder';
+import BatchControl from '@/components/dashboard/batch-control';
 
 /* ───── Helpers (shared with admin) ───── */
 function levelDisplay(level: string): string {
@@ -838,6 +839,11 @@ function SuperAdminDashboardInner({ workspace }: { workspace: WorkspaceKey }) {
         </OpsSection>
 
         {/* Placing a child: every open batch with seats, teacher, days and lesson, and the best fit for one child. */}
+        {/* One batch by code, course, teacher or child: change its teacher, days and times, or roster. */}
+        <OpsSection id="batch-control" bare>
+          <BatchControl onToast={toastFor} />
+        </OpsSection>
+
         <OpsSection id="batch-finder" bare>
           <BatchFinder onToast={toastFor} />
         </OpsSection>

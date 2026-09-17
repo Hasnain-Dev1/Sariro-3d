@@ -150,6 +150,7 @@ export const SECTIONS = {
     { id: 'catchup-overdue', workspace: 'classes', label: 'Overdue catch-ups', keywords: 'catch up catchup make up session overdue' },
     { id: 'trial-grades', workspace: 'classes', label: 'Trial seats with no grade', keywords: 'trial grade seat band' },
     { id: 'trials', workspace: 'classes', label: 'Trial management', keywords: 'trial free class funnel seller teacher feedback' },
+    { id: 'batch-control', workspace: 'classes', label: 'Batch control', keywords: 'batch control change teacher replace teacher reassign roster add kid remove kid student days times reschedule batch code search' },
     { id: 'batch-finder', workspace: 'classes', label: 'Batch finder', keywords: 'batch finder place student seat free full capacity lesson teacher trained waiting paused add kid filter find' },
     { id: 'cohorts', workspace: 'classes', label: 'Courses', keywords: 'course cohort batch status meet link' },
     { id: 'schedule', workspace: 'classes', label: 'Change a batch schedule', keywords: 'reschedule batch days times break' },
@@ -187,6 +188,7 @@ export const SECTIONS = {
 
     { id: 'decisions', workspace: 'classes', label: 'Classes needing a decision', keywords: 'unresolved class happened no show attendance decide' },
     { id: 'catchup-overdue', workspace: 'classes', label: 'Overdue catch-ups', keywords: 'catch up catchup make up session overdue' },
+    { id: 'batch-control', workspace: 'classes', label: 'Batch control', keywords: 'batch control change teacher replace teacher reassign roster add kid remove kid student days times reschedule batch code search' },
     { id: 'batch-finder', workspace: 'classes', label: 'Batch finder', keywords: 'batch finder place student seat free full capacity lesson teacher trained waiting paused add kid filter find' },
     { id: 'cohorts', workspace: 'classes', label: 'Courses', keywords: 'course cohort batch status meet link roster' },
     { id: 'catalog', workspace: 'classes', label: 'Catalog', keywords: 'catalog tracks levels' },

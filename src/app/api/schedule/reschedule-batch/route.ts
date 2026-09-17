@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
-import { generateOccurrences } from '@/lib/dashboard/schedule-generation';
-import { resolveActor, teacherHasConflict } from '@/lib/dashboard/schedule-ops-server';
-import { fillCourseSchedule } from '@/lib/dashboard/course-fill';
+import { resolveActor } from '@/lib/dashboard/schedule-ops-server';
+import { normaliseDays, rescheduleBatch } from '@/lib/scheduling/batch-ops';
 
 /**
  * SARIRO — POST /api/schedule/reschedule-batch
@@ -16,16 +15,12 @@ import { fillCourseSchedule } from '@/lib/dashboard/course-fill';
  * and that date — i.e. a break (e.g. the kid is away) — after which the new schedule
  * resumes. Teacher may reschedule their OWN batch; admins any.
  *
+ * The work itself lives in lib/scheduling/batch-ops.ts, shared with the admin's
+ * batch control (which can change the teacher at the same time).
+ *
  * Body: { scheduleId, days: [{day, time, durationMin?}], effectiveFrom? (YYYY-MM-DD) }
  */
 export const runtime = 'nodejs';
-
-const HM_RE = /^\d{1,2}:\d{2}(:\d{2})?$/;
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-/* Checked for clashes before anything changes; course-fill schedules the rest of the course after. */
-const HORIZON = 8;
-
-interface DayTime { day: number; time: string; durationMin?: number }
 
 export async function POST(req: NextRequest) {
   const csrfFail = assertSameOrigin(req);
@@ -38,112 +33,36 @@ export async function POST(req: NextRequest) {
   const rl = rateLimit({ key: `reschedule-batch:${actor.userId}`, limit: 15, windowMs: 60_000 });
   if (!rl.ok) return NextResponse.json({ ok: false, error: 'rate_limited' }, { status: 429 });
 
-  let body: { scheduleId?: string; days?: DayTime[]; effectiveFrom?: string };
+  let body: { scheduleId?: string; days?: unknown; effectiveFrom?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ ok: false, error: 'invalid_json' }, { status: 400 }); }
   if (!body.scheduleId) return NextResponse.json({ ok: false, error: 'bad_request' }, { status: 400 });
 
-  // "Apply from" date: new cadence starts here. Default = today. Cannot be in the
-  // past. A future date leaves a break between now and then.
-  const todayStr = new Date().toISOString().slice(0, 10);
-  let effectiveFrom = todayStr;
-  if (body.effectiveFrom) {
-    if (!DATE_RE.test(body.effectiveFrom) || Number.isNaN(Date.parse(body.effectiveFrom))) {
-      return NextResponse.json({ ok: false, error: 'bad_effective_from', message: 'Pick a valid start date.' }, { status: 400 });
-    }
-    effectiveFrom = body.effectiveFrom < todayStr ? todayStr : body.effectiveFrom;
-  }
-
-  // Normalize + validate the new per-day cadence (1–7 days/week, each with a time).
-  const errors: string[] = [];
-  const seen = new Set<number>();
-  const dayTimes: DayTime[] = [];
-  for (const d of body.days ?? []) {
-    const day = Number(d?.day); const time = String(d?.time ?? '');
-    if (!Number.isInteger(day) || day < 0 || day > 6) { errors.push(`invalid day ${d?.day}`); continue; }
-    if (!HM_RE.test(time)) { errors.push(`invalid time for day ${day}`); continue; }
-    if (seen.has(day)) continue;
-    seen.add(day);
-    const dur = Number(d?.durationMin);
-    dayTimes.push({ day, time, durationMin: dur > 0 ? dur : undefined });
-  }
-  if (dayTimes.length < 1 || dayTimes.length > 7) errors.push('Pick between one and seven weekdays, each with a time.');
-  if (errors.length) return NextResponse.json({ ok: false, error: 'validation_failed', errors }, { status: 400 });
-
-  dayTimes.sort((a, b) => a.day - b.day);
+  const days = normaliseDays(body.days);
+  if (!days.ok) return NextResponse.json({ ok: false, error: 'validation_failed', errors: [days.message], message: days.message }, { status: 400 });
 
   const admin = createServiceClient();
-  const { data: sched } = await admin.from('cohort_schedules')
-    .select('id, cohort_id, teacher_id, timezone, duration_min, start_date').eq('id', body.scheduleId).maybeSingle();
+  const { data: sched } = await admin.from('cohort_schedules').select('id, teacher_id').eq('id', body.scheduleId).maybeSingle();
   if (!sched) return NextResponse.json({ ok: false, error: 'not_found' }, { status: 404 });
   if (!actor.isAdmin && !(actor.isTeacher && sched.teacher_id === actor.userId)) {
     return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
   }
 
-  /* Never before the batch starts. A reschedule "from today" made a week
-     before the course begins used to put the first class before its start date. */
-  if (sched.start_date && effectiveFrom < sched.start_date) effectiveFrom = sched.start_date as string;
-
-  const daysOfWeek = dayTimes.map((d) => d.day);
-  const timeLocalFallback = dayTimes[0].time;
-  const perDay: Record<number, { time: string; durationMin?: number }> = {};
-  for (const d of dayTimes) perDay[d.day] = { time: d.time, durationMin: d.durationMin };
-
-  const nowIso = new Date().toISOString();
-
-  // Generate the new horizon FIRST (before any mutation) so we can check for
-  // teacher double-booking conflicts and reject cleanly, leaving nothing
-  // changed if the new cadence would overlap another of this teacher's classes.
-  const slots = generateOccurrences({
-    startDate: effectiveFrom, daysOfWeek, timeLocal: timeLocalFallback,
-    durationMin: sched.duration_min ?? 60, timezone: sched.timezone, perDay,
-  }, HORIZON);
-
-  for (const s of slots) {
-    if (await teacherHasConflict(admin, sched.teacher_id, s.slotStart, s.slotEnd, { excludeScheduleId: sched.id })) {
-      return NextResponse.json(
-        { ok: false, error: 'teacher_conflict', message: `The new schedule would overlap another class this teacher already has at ${new Date(s.slotStart).toLocaleString()}.` },
-        { status: 409 }
-      );
-    }
+  const result = await rescheduleBatch(admin, {
+    scheduleId: body.scheduleId,
+    days: days.days,
+    effectiveFrom: body.effectiveFrom ?? null,
+    actor: { userId: actor.userId, isAdmin: actor.isAdmin },
+  });
+  if (!result.ok) {
+    const { status, ...refusal } = result;
+    return NextResponse.json(refusal, { status });
   }
-
-  // 1. Update the recurring rule.
-  await admin.from('cohort_schedules').update({
-    days_of_week: daysOfWeek, time_local: timeLocalFallback,
-    classes_per_week: dayTimes.length, status: 'active', updated_at: nowIso,
-  }).eq('id', sched.id);
-
-  // 2. Replace the per-day time rows.
-  await admin.from('cohort_schedule_days').delete().eq('schedule_id', sched.id);
-  await admin.from('cohort_schedule_days').insert(dayTimes.map((d) => ({
-    schedule_id: sched.id, day_of_week: d.day, time_local: d.time, duration_min: d.durationMin ?? null,
-  })));
-
-  // 3. Cancel FUTURE scheduled bookings (past/completed untouched).
-  const { data: future } = await admin.from('bookings').select('id')
-    .eq('schedule_id', sched.id).eq('status', 'scheduled').gt('slot_start', nowIso);
-  if (future?.length) {
-    await admin.from('bookings').update({ status: 'cancelled', cancel_actor_role: actor.isAdmin ? 'admin' : 'teacher', cancel_type: 'admin', pay_status: 'zero', cancelled_at: nowIso, cancelled_by: actor.userId }).in('id', future.map((b) => b.id));
-  }
-
-  // 4. Insert the (already-generated + conflict-checked) horizon.
-  if (slots.length) {
-    await admin.from('bookings').insert(slots.map((s) => ({
-      cohort_id: sched.cohort_id, teacher_id: sched.teacher_id, schedule_id: sched.id,
-      slot_start: s.slotStart, slot_end: s.slotEnd, status: 'scheduled',
-    })));
-  }
-
-  /* The rest of the course on the new days, and every class labelled with its lesson. */
-  const filled = await fillCourseSchedule(admin, sched.id, { from: effectiveFrom });
-  if (!filled.ok) console.warn('[reschedule-batch] course fill:', filled.reason);
-
   return NextResponse.json({
     ok: true,
-    regenerated: slots.length + filled.added,
-    cancelled: future?.length ?? 0,
-    effectiveFrom,
-    ...(filled.skipped.length ? { skipped: filled.skipped } : {}),
+    regenerated: result.regenerated,
+    cancelled: result.cancelled,
+    effectiveFrom: result.effectiveFrom,
+    ...(result.skipped.length ? { skipped: result.skipped } : {}),
   });
 }
 

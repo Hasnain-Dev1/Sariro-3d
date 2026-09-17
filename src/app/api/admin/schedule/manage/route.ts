@@ -8,6 +8,7 @@ import { fillCourseSchedule } from '@/lib/dashboard/course-fill';
 import { recordAdminAction } from '@/lib/audit/log';
 import { canAssignCourse } from '@/lib/contact/reachability';
 import { seatCapacity } from '@/lib/scheduling/batch-finder';
+import { clashesAtCurrentTimes } from '@/lib/scheduling/batch-ops';
 import {
   creditGate, creditBlockMessage, type LearnerCredit,
 } from '@/lib/dashboard/schedule-credit-gate';
@@ -196,6 +197,14 @@ export async function POST(req: NextRequest) {
             .not('training_completed_at', 'is', null).maybeSingle();
           if (!trained) return NextResponse.json({ ok: false, error: 'teacher_not_trained', message: "That teacher's training for this course isn't complete." }, { status: 409 });
         }
+      }
+      // The new teacher has to be free at the batch's times (lib/scheduling/batch-ops.ts).
+      const { clashes } = await clashesAtCurrentTimes(admin, body.scheduleId, body.teacherId);
+      if (clashes.length) {
+        return NextResponse.json({
+          ok: false, error: 'teacher_conflict', clashes,
+          message: `This teacher is not free for ${clashes.length} of the batch's upcoming classes. Use Change teacher in Classes → Batch control to move the days and times with the teacher.`,
+        }, { status: 409 });
       }
       const { error: e1 } = await admin.from('cohort_schedules').update({ teacher_id: body.teacherId, status: 'active', updated_at: nowIso }).eq('id', body.scheduleId);
       if (e1) return NextResponse.json({ ok: false, error: 'update_failed', message: e1.message }, { status: 500 });
