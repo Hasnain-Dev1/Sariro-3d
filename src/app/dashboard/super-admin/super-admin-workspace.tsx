@@ -66,6 +66,7 @@ import { BatchRescheduleModal } from '@/components/dashboard/batch-reschedule-mo
 import { LeadPipeline } from '@/app/dashboard/super-admin/lead-pipeline';
 import { useRealtime } from '@/lib/dashboard/use-realtime';
 import { describeChoice } from '@/lib/demo/learner-choice';
+import BatchFinder from '@/components/dashboard/batch-finder';
 
 /* ───── Helpers (shared with admin) ───── */
 function levelDisplay(level: string): string {
@@ -834,6 +835,11 @@ function SuperAdminDashboardInner({ workspace }: { workspace: WorkspaceKey }) {
             child and no lead behind them, was not visible on any other screen. */}
         <OpsSection id="trials" bare>
           <TrialManagementPanel />
+        </OpsSection>
+
+        {/* Placing a child: every open batch with seats, teacher, days and lesson, and the best fit for one child. */}
+        <OpsSection id="batch-finder" bare>
+          <BatchFinder onToast={toastFor} />
         </OpsSection>
 
         <OpsSection id="cohorts" bare>

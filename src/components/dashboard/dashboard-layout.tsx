@@ -11,6 +11,7 @@ import {
   Loader2, AlertTriangle, Trophy, LifeBuoy, HelpCircle, MessageSquare, Mic, Search, Command,
 } from 'lucide-react';
 import { useAuth, getRole, type UserRole } from '@/components/auth/auth-provider';
+import UserAvatar, { avatarUrlFor } from '@/components/account/user-avatar';
 import { createClient } from '@/lib/supabase/client';
 import { dashboardAccess, TRIAL_HOME } from '@/lib/dashboard/trial-only';
 import { BRAND } from '@/lib/sariro-data';
@@ -216,7 +217,6 @@ function AvatarMenu() {
   }, [open]);
 
   if (!user) return null;
-  const initial = (profile?.full_name || user.email || '?').charAt(0).toUpperCase();
   const displayName = profile?.full_name || user.email?.split('@')[0] || 'there';
 
   return (
@@ -226,12 +226,7 @@ function AvatarMenu() {
         className="flex items-center gap-2 p-1 pr-2 sm:pr-3 rounded-full hover:bg-slate-100 transition-colors min-h-[44px]"
         aria-label="Account menu"
       >
-        <div
-          className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white font-extrabold text-sm shadow-md shrink-0"
-          style={{ fontFamily: 'var(--font-jakarta)' }}
-        >
-          {initial}
-        </div>
+        <UserAvatar url={avatarUrlFor(profile, user)} name={profile?.full_name || user.email} size={36} />
         <div className="hidden sm:block text-left">
           <div className="text-xs font-bold text-slate-900 leading-tight" style={{ fontFamily: 'var(--font-grotesk)' }}>
             {displayName.split(' ')[0]}

@@ -56,6 +56,7 @@ import { WorkspaceTabs, WorkspaceHeader, WorkspaceTiles, WorkspaceAction } from 
 import type { WorkspaceKey } from '@/lib/ops/workspaces';
 import { Link2, ShieldAlert } from 'lucide-react';
 import PaymentLinksSection from '@/components/dashboard/payment-link-panel';
+import BatchFinder from '@/components/dashboard/batch-finder';
 
 /* ───── Helpers ───── */
 function levelDisplay(level: string): string {
@@ -1667,6 +1668,11 @@ function AdminDashboardInner({ workspace }: { workspace: WorkspaceKey }) {
         </OpsSection>
 
         {/* Course management */}
+        {/* Placing a child: every open batch with seats, teacher, days and lesson, and the best fit for one child. */}
+        <OpsSection id="batch-finder" bare>
+          <BatchFinder onToast={(msg, kind) => handleToast(kind ?? 'success', msg)} />
+        </OpsSection>
+
         <OpsSection id="cohorts" bare>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
             <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2" style={{ fontFamily: 'var(--font-jakarta)' }}>

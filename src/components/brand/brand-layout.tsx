@@ -8,6 +8,7 @@ import { useEffect, useState, useRef, ReactNode } from 'react';
 import { Menu, X, GraduationCap, Sparkles, Mail, LifeBuoy, Briefcase, Handshake, MapPin } from 'lucide-react';
 import { BRAND, EMAILS } from '@/lib/sariro-data';
 import { SariroMark } from '@/components/brand/sariro-logo';
+import UserAvatar, { avatarUrlFor } from '@/components/account/user-avatar';
 import { CustomCursor } from '@/components/sariro-3d/scroll-effects';
 import ChapterNav, { ScrollHueShift } from '@/components/sariro-3d/chapter-nav';
 import WhatsAppButton from '@/components/brand/whatsapp-button';
@@ -592,7 +593,6 @@ function AuthNavButton({ mobile = false }: { mobile?: boolean }) {
   }
 
   // Logged in — show avatar with dropdown
-  const initial = (profile?.full_name || user.email || '?').charAt(0).toUpperCase();
   const displayName = profile?.full_name || user.email?.split('@')[0] || 'there';
 
   // Determine role-based menu items
@@ -662,12 +662,7 @@ function AuthNavButton({ mobile = false }: { mobile?: boolean }) {
         style={mobile ? { justifyContent: 'space-between', padding: '0.5rem 0' } : {}}
       >
         <div className="flex items-center gap-2">
-          <div
-            className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white font-extrabold text-sm shadow-md"
-            style={{ fontFamily: 'var(--font-jakarta)' }}
-          >
-            {initial}
-          </div>
+          <UserAvatar url={avatarUrlFor(profile, user)} name={profile?.full_name || user.email} size={36} shape="rounded" />
           {!mobile && (
             <span className="text-xs font-bold text-slate-700 hidden xl:inline" style={{ fontFamily: 'var(--font-grotesk)' }}>
               {displayName}

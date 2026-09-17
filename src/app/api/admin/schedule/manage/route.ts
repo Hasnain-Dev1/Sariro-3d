@@ -7,6 +7,7 @@ import { lessonsOf } from '@/lib/dashboard/lesson-plan';
 import { fillCourseSchedule } from '@/lib/dashboard/course-fill';
 import { recordAdminAction } from '@/lib/audit/log';
 import { canAssignCourse } from '@/lib/contact/reachability';
+import { seatCapacity } from '@/lib/scheduling/batch-finder';
 import {
   creditGate, creditBlockMessage, type LearnerCredit,
 } from '@/lib/dashboard/schedule-credit-gate';
@@ -121,6 +122,24 @@ async function backfillLessonProgressToBatch(
     .filter((l) => !have.has(`${l.module_num}::${l.lesson_name}`))
     .map((l) => ({ enrollment_id: opts.enrollmentId, module_num: l.module_num, lesson_name: l.lesson_name }));
   if (rows.length) await admin.from('lesson_progress').insert(rows);
+}
+
+/**
+ * The first upcoming class of this batch that overlaps a class the child already
+ * has in another batch — or null. Checked over the batch's next twelve classes.
+ */
+async function firstClash(admin: ReturnType<typeof createServiceClient>, studentId: string, cohortId: string): Promise<string | null> {
+  const nowIso = new Date().toISOString();
+  const { data: theirs } = await admin.from('enrollments').select('cohort_id').eq('user_id', studentId).eq('status', 'active').not('cohort_id', 'is', null);
+  const others = [...new Set((theirs ?? []).map((e) => e.cohort_id as string).filter((c) => c !== cohortId))];
+  if (!others.length) return null;
+  const [{ data: upcoming }, { data: busy }] = await Promise.all([
+    admin.from('bookings').select('slot_start, slot_end').eq('cohort_id', cohortId).eq('status', 'scheduled').gt('slot_end', nowIso).order('slot_start', { ascending: true }).limit(12),
+    admin.from('bookings').select('slot_start, slot_end').in('cohort_id', others).eq('status', 'scheduled').gt('slot_end', nowIso),
+  ]);
+  const t = (v: unknown) => Date.parse(String(v));
+  const hit = (upcoming ?? []).find((u) => (busy ?? []).some((b) => t(u.slot_start) < t(b.slot_end) && t(b.slot_start) < t(u.slot_end)));
+  return hit ? String(hit.slot_start) : null;
 }
 
 async function appendMakeups(admin: ReturnType<typeof createServiceClient>, scheduleId: string, n: number) {
@@ -312,8 +331,51 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const { data: cohort } = await admin.from('cohorts').select('track, level, ratio').eq('id', body.cohortId).maybeSingle();
+      const { data: cohort } = await admin.from('cohorts').select('track, level, ratio, max_capacity, batch_code').eq('id', body.cohortId).maybeSingle();
+      if (!cohort) return NextResponse.json({ ok: false, error: 'no_such_batch', message: 'That batch no longer exists.' }, { status: 404 });
       const { data: existing } = await admin.from('enrollments').select('id, status').eq('cohort_id', body.cohortId).eq('user_id', body.studentId).maybeSingle();
+
+      /* ── A seat, one batch per course, and no clash (17 Sep 2026) ─────────
+         Adding a child checked none of these: a 1:4 batch could take a fifth
+         child, a child could sit in two batches of the same course, and a
+         batch meeting when they already had another class went unnoticed. */
+      if (!existing || existing.status !== 'active') {
+        const { count: seated } = await admin.from('enrollments').select('id', { count: 'exact', head: true })
+          .eq('cohort_id', body.cohortId).eq('status', 'active');
+        const capacity = seatCapacity(cohort.ratio as string, cohort.max_capacity as number | null);
+        if ((seated ?? 0) >= capacity) {
+          return NextResponse.json({ ok: false, error: 'batch_full', message: `This batch is full (${seated}/${capacity}). Pick a batch with a free seat.` }, { status: 409 });
+        }
+        const { data: elsewhere } = await admin.from('enrollments').select('cohort_id')
+          .eq('user_id', body.studentId).eq('status', 'active').eq('track', cohort.track).eq('level', cohort.level)
+          .not('cohort_id', 'is', null).neq('cohort_id', body.cohortId).limit(1).maybeSingle();
+        if (elsewhere) {
+          const { data: other } = await admin.from('cohorts').select('batch_code').eq('id', elsewhere.cohort_id).maybeSingle();
+          return NextResponse.json({ ok: false, error: 'already_in_course', message: `${kid.full_name || 'This child'} is already in batch ${other?.batch_code ?? 'another batch'} of this course. Remove them there first.` }, { status: 409 });
+        }
+        const clash = await firstClash(admin, body.studentId, body.cohortId);
+        if (clash) {
+          return NextResponse.json({ ok: false, error: 'student_clash', message: `${kid.full_name || 'This child'} already has another class at ${new Date(clash).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' })} IST, when this batch meets.` }, { status: 409 });
+        }
+      }
+
+      /* A course paid for but not yet placed is this same seat — attach it rather than enrolling twice. */
+      if (!existing) {
+        const { data: unplaced } = await admin.from('enrollments').select('id')
+          .eq('user_id', body.studentId).eq('status', 'active').is('cohort_id', null)
+          .eq('track', cohort.track).eq('level', cohort.level).limit(1).maybeSingle();
+        if (unplaced) {
+          const { error: attachErr } = await admin.from('enrollments').update({ cohort_id: body.cohortId, ratio: cohort.ratio }).eq('id', unplaced.id);
+          if (attachErr) return NextResponse.json({ ok: false, error: 'enroll_failed', message: attachErr.message }, { status: 500 });
+          await backfillLessonProgressToBatch(admin, { cohortId: body.cohortId, enrollmentId: unplaced.id, track: cohort.track ?? null, level: cohort.level ?? null });
+          await recordAdminAction(admin, {
+            adminId, action: 'student_added_to_batch',
+            targetType: 'user', targetId: body.studentId,
+            metadata: { cohort_id: body.cohortId, enrollment_id: unplaced.id, placed_existing_enrollment: true },
+          });
+          return NextResponse.json({ ok: true, placed: true });
+        }
+      }
       if (existing) {
         if (existing.status !== 'active') await admin.from('enrollments').update({ status: 'active' }).eq('id', existing.id);
         // Catch the kid up to wherever the batch is (unlock prior lessons).

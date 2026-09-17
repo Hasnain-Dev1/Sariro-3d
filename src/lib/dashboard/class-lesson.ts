@@ -41,6 +41,8 @@ function lessonsCached(track: string, level: string): PlannedLesson[] {
 export function courseTitleOf(track: string, level: string): string {
   if (!titleCache) titleCache = new Map(allLessonCourses().map((c) => [c.id, c.title]));
   const id = lessonCourseIdFor(track, level);
+  // The single Public Speaking course from before the age groups (16 Sep 2026).
+  if (id === 'public-speaking-focus') return 'Public Speaking · no age group (old)';
   return (id && titleCache.get(id)) || `${getTrackName(track)} · ${level}`;
 }
 

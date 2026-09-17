@@ -9,6 +9,7 @@ import { TRACKS } from '@/lib/sariro-data';
 import AvailabilityEditor from '@/components/dashboard/availability-editor';
 import TeacherRoomEditor from '@/components/dashboard/teacher-room-editor';
 import AccountPhoneVerify from '@/components/auth/account-phone-verify';
+import AvatarEditor from '@/components/account/avatar-editor';
 import AutopayNotice from '@/components/account/autopay-notice';
 import { formatE164 } from '@/lib/phone/countries';
 import { changeDateLabel, nextChangeAt } from '@/lib/phone/account-phone';
@@ -178,20 +179,8 @@ function SettingsInner() {
         </motion.div>
 
         <div className="card-3d p-6 sm:p-8 space-y-5">
-          {/* Avatar + identity summary */}
-          <div className="flex items-center gap-4 pb-5 border-b border-slate-100">
-            {profile?.avatar_url ? (
-              <img src={profile.avatar_url} alt="Avatar" className="w-16 h-16 rounded-2xl object-cover" />
-            ) : (
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white font-extrabold text-xl" style={{ fontFamily: 'var(--font-jakarta)' }}>
-                {(fullName || user.email || '?').charAt(0).toUpperCase()}
-              </div>
-            )}
-            <div className="min-w-0">
-              <div className="text-sm font-bold text-slate-900 truncate">{fullName || 'Your name'}</div>
-              <div className="text-xs text-slate-500 truncate">{user.email}</div>
-            </div>
-          </div>
+          {/* Avatar + identity summary — tap the picture to change it */}
+          <AvatarEditor name={fullName} email={user.email} />
 
           {/* Full name */}
           <div>
