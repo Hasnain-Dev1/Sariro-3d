@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { lessonsOf, lessonForIndex, remainingFrom } from './lesson-plan';
+import { findLesson, lessonsOf, lessonForIndex, planCourseFill, remainingFrom } from './lesson-plan';
 
 /**
  * SARIRO — "let the scheduler choose which lesson to start from"
@@ -17,10 +17,9 @@ import { lessonsOf, lessonForIndex, remainingFrom } from './lesson-plan';
 /* A real course, so the tests break if the syllabus shape changes rather than
    passing against a fixture that no longer resembles it.
 
-   Deliberately a coding track: getCourseSyllabus only knows those. Public
-   Speaking's lessons live in lib/speaking/, which is why a scheduler picking
-   a start lesson for it gets an empty list and the picker hides itself — see
-   lessonsOf(). Worth knowing before somebody debugs that as a bug. */
+   A coding track here; school subjects and Public Speaking are checked below —
+   they had no lessons at all until 17 Sep 2026, so every one of their classes
+   was scheduled unlabelled. */
 const TRACK = 'agent';
 const LEVEL = 'intermediate';
 
@@ -109,5 +108,48 @@ describe('remainingFrom', () => {
 
   test('an unknown course is zero, not NaN', () => {
     assert.equal(remainingFrom('not-a-track', 'nope', 1), 0);
+  });
+});
+
+describe('every kind of course has its lessons', () => {
+  test('Public Speaking Grades 1–3: all 48 classes, showcases included, each findable again', () => {
+    const ps = lessonsOf('public-speaking', 'band-foundation');
+    assert.equal(ps.length, 48);
+    assert.equal(ps[0].name, 'Hello! This is me');
+    assert.equal(ps[0].courseId, 'public-speaking-foundation');
+    assert.equal(ps[23].name.includes('assessment'), true, 'slot 24 is a class too');
+    const found = findLesson(ps, ps[11].moduleNum, ps[11].name);
+    assert.equal(found?.number, 12);
+    assert.deepEqual([found?.module, found?.lessonIndex], [2, 5]);
+  });
+
+  test('a school subject has its 48 classes', () => {
+    assert.equal(lessonsOf('mathematics', 'grade-7').length, 48);
+  });
+});
+
+describe('planCourseFill', () => {
+  type C = { id: string; n: number | null };
+  const known = (c: C) => c.n;
+
+  test('an unlabelled batch of eight is numbered 1–8, and forty more are needed', () => {
+    const eight: C[] = Array.from({ length: 8 }, (_, i) => ({ id: String(i), n: null }));
+    const plan = planCourseFill(eight, 48, known);
+    assert.deepEqual(plan.stamps.map((s) => s.number), [1, 2, 3, 4, 5, 6, 7, 8]);
+    assert.equal(plan.toAdd, 40);
+  });
+
+  test('a batch that started at lesson 9 keeps its numbering', () => {
+    const plan = planCourseFill([{ id: 'a', n: 9 }, { id: 'b', n: null }], 48, known);
+    assert.deepEqual(plan.stamps.map((s) => s.number), [10]);
+    assert.equal(plan.lastNumber, 10);
+    assert.equal(plan.toAdd, 38);
+  });
+
+  test('a finished course needs nothing, and extra classes are left unlabelled', () => {
+    const many: C[] = Array.from({ length: 50 }, (_, i) => ({ id: String(i), n: null }));
+    const plan = planCourseFill(many, 48, known);
+    assert.equal(plan.toAdd, 0);
+    assert.equal(plan.stamps.length, 48);
   });
 });

@@ -4,6 +4,7 @@ import { rateLimit, getClientIp, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import { generateOccurrences } from '@/lib/dashboard/schedule-generation';
 import { resolveActor, teacherHasConflict } from '@/lib/dashboard/schedule-ops-server';
+import { fillCourseSchedule } from '@/lib/dashboard/course-fill';
 
 /**
  * SARIRO — POST /api/schedule/reschedule-batch
@@ -21,6 +22,7 @@ export const runtime = 'nodejs';
 
 const HM_RE = /^\d{1,2}:\d{2}(:\d{2})?$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+/* Checked for clashes before anything changes; course-fill schedules the rest of the course after. */
 const HORIZON = 8;
 
 interface DayTime { day: number; time: string; durationMin?: number }
@@ -77,6 +79,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
   }
 
+  /* Never before the batch starts. A reschedule "from today" made a week
+     before the course begins used to put the first class before its start date. */
+  if (sched.start_date && effectiveFrom < sched.start_date) effectiveFrom = sched.start_date as string;
+
   const daysOfWeek = dayTimes.map((d) => d.day);
   const timeLocalFallback = dayTimes[0].time;
   const perDay: Record<number, { time: string; durationMin?: number }> = {};
@@ -128,7 +134,17 @@ export async function POST(req: NextRequest) {
     })));
   }
 
-  return NextResponse.json({ ok: true, regenerated: slots.length, cancelled: future?.length ?? 0, effectiveFrom });
+  /* The rest of the course on the new days, and every class labelled with its lesson. */
+  const filled = await fillCourseSchedule(admin, sched.id, { from: effectiveFrom });
+  if (!filled.ok) console.warn('[reschedule-batch] course fill:', filled.reason);
+
+  return NextResponse.json({
+    ok: true,
+    regenerated: slots.length + filled.added,
+    cancelled: future?.length ?? 0,
+    effectiveFrom,
+    ...(filled.skipped.length ? { skipped: filled.skipped } : {}),
+  });
 }
 
 /** GET — list the caller's batches (teacher=own active schedules; admin=all active). */

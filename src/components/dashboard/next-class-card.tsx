@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { CalendarClock, Users, Video } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { BookOpen, CalendarClock, Users, Video } from 'lucide-react';
 import type { TeacherBookingRow } from '@/lib/dashboard/teacher-data';
-import { humanCountdown, joinWindow } from '@/lib/dashboard/join-window';
+import { humanCountdown, joinWindow, JOIN_OPENS_MINUTES_BEFORE } from '@/lib/dashboard/join-window';
+import { batchPositions, classLessonOf } from '@/lib/dashboard/class-lesson';
 
 /**
  * SARIRO — Teacher's next class
@@ -21,6 +23,11 @@ import { humanCountdown, joinWindow } from '@/lib/dashboard/join-window';
  * The batch code matters more than it looks. With 250 batches on the same
  * course, "Grade 8 Maths" identifies nothing — the code is the only thing a
  * teacher and an admin can say to each other out loud and mean the same class.
+ *
+ * Since 17 Sep 2026 it also says which lesson (number and name) and which course
+ * — the course name carries the age group or grade — with a button that opens
+ * that exact lesson, and Join appears only once the join window has opened,
+ * 10 minutes before the start. Before then, nobody can walk into the room early.
  */
 
 export default function NextClassCard({
@@ -30,15 +37,21 @@ export default function NextClassCard({
 }: {
   bookings: TeacherBookingRow[];
   timezone: string | null;
+  /** Shows the class in the schedule, where attendance, rescheduling and cancelling live. */
   onJoin: (booking: TeacherBookingRow) => void;
 }) {
   // Ticks so the countdown and the join window stay honest on a dashboard that
-  // is often left open all day. A minute is enough — nothing here is finer.
+  // is often left open all day.
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 60_000);
+    const id = setInterval(() => setNow(new Date()), 30_000);
     return () => clearInterval(id);
   }, []);
+  const [joining, setJoining] = useState(false);
+  const [joined, setJoined] = useState<string | null>(null);
+  const [joinError, setJoinError] = useState<string | null>(null);
+
+  const positions = useMemo(() => batchPositions(bookings), [bookings]);
 
   const next = bookings
     .filter((b) => b.status === 'scheduled')
@@ -63,6 +76,27 @@ export default function NextClassCard({
 
   const win = joinWindow(next.slot_start, next.slot_end ?? null, now);
   const open = win.state === 'open';
+  const lesson = next.is_trial ? null : classLessonOf(next, positions.get(next.id) ?? null);
+  const meetUrl = next.google_meet_url || next.cohort_meet_url;
+  const opensAt = win.opensAt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', ...(timezone ? { timeZone: timezone } : {}) });
+
+  /* The same start the calendar's Join makes: records the teacher's join time, then opens the room. */
+  const join = async () => {
+    if (!meetUrl) return;
+    setJoining(true);
+    setJoinError(null);
+    try {
+      const res = await fetch('/api/teacher/start-class', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: next.id }),
+      });
+      const json = await res.json();
+      if (!json.ok && json.error === 'too_early') { setJoinError(json.message); return; }
+      if (json.ok) setJoined(next.id);
+    } catch { /* recording the join must never stop the teacher getting in */ }
+    finally { setJoining(false); }
+    window.open(meetUrl, '_blank', 'noopener,noreferrer');
+  };
 
   return (
     <div className="card card--feature" style={{ ['--accent' as string]: '#16A34A' }}>
@@ -94,9 +128,15 @@ export default function NextClassCard({
         </span>
       </div>
 
-      <p className="text-[15px] text-slate-600">
-        {next.cohort_track} · {next.cohort_level} · {next.cohort_ratio}
+      {/* The course name carries the age group or grade — "Public Speaking · Grades 1–3". */}
+      <p className="text-[15px] font-semibold text-slate-700">
+        {lesson ? lesson.courseTitle : `${next.cohort_track} · ${next.cohort_level}`} · {next.cohort_ratio}
       </p>
+      {lesson?.number && (
+        <p className="mt-1 text-[16px] font-bold text-blue-800">
+          Lesson {lesson.number}{lesson.total ? ` of ${lesson.total}` : ''}{lesson.name ? ` · ${lesson.name}` : ''}
+        </p>
+      )}
 
       <div className="card-meta grid sm:grid-cols-2 gap-4">
         <div>
@@ -123,17 +163,39 @@ export default function NextClassCard({
         </div>
       </div>
 
-      {/* This takes the teacher to the class in their schedule, where the real
-          start control lives — it does not start the class itself, so it does
-          not claim to. A button that says "Start class" and only scrolls is the
-          same category of lie as a search that shows filtered-out results. */}
-      <button
-        onClick={() => onJoin(next)}
-        className="mt-5 inline-flex items-center justify-center gap-2 h-12 px-6 rounded-xl bg-green-600 hover:bg-green-700 text-white text-[15px] font-semibold transition-colors w-full sm:w-auto"
-      >
-        <Video className="w-4 h-4" />
-        {open ? 'Go to this class' : `Opens ${humanCountdown(win.msUntilOpen)} — view in schedule`}
-      </button>
+      <div className="mt-5 flex flex-wrap gap-2">
+        {/* Join exists only inside the window. Before it, the time it opens. */}
+        {open && meetUrl ? (
+          <button
+            onClick={() => void join()}
+            disabled={joining}
+            className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-xl bg-green-600 hover:bg-green-700 text-white text-[15px] font-semibold transition-colors w-full sm:w-auto disabled:opacity-60"
+          >
+            <Video className="w-4 h-4" />
+            {joined === next.id ? 'Joined — open the room again' : 'Join class'}
+          </button>
+        ) : (
+          <span className="inline-flex items-center justify-center gap-2 h-12 px-5 rounded-xl bg-slate-100 text-slate-500 text-[14px] font-semibold w-full sm:w-auto">
+            <Video className="w-4 h-4" />
+            {open ? 'No class link yet — ask your admin' : `Join opens at ${opensAt} (${JOIN_OPENS_MINUTES_BEFORE} min before)`}
+          </span>
+        )}
+        {lesson?.href && (
+          <Link
+            href={lesson.href}
+            className="inline-flex items-center justify-center gap-2 h-12 px-5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-[15px] font-semibold transition-colors w-full sm:w-auto"
+          >
+            <BookOpen className="w-4 h-4" /> View class details
+          </Link>
+        )}
+        <button
+          onClick={() => onJoin(next)}
+          className="inline-flex items-center justify-center h-12 px-3 text-[14px] font-semibold text-slate-500 hover:text-slate-800 w-full sm:w-auto"
+        >
+          See it in the schedule
+        </button>
+      </div>
+      {joinError && <p className="mt-2 text-[13px] font-semibold text-amber-700">{joinError}</p>}
     </div>
   );
 }

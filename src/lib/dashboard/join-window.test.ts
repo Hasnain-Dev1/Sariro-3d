@@ -31,13 +31,13 @@ const END = '2026-09-01T18:00:00.000Z';
 const atStartOffset = (mins: number) => new Date(Date.parse(START) + mins * 60_000);
 
 describe('joinWindow', () => {
-  test('the doors open exactly 15 minutes before, not 16', () => {
-    assert.equal(JOIN_OPENS_MINUTES_BEFORE, 15, 'the product promise is 15 minutes');
+  test('the doors open exactly 10 minutes before, not 11', () => {
+    assert.equal(JOIN_OPENS_MINUTES_BEFORE, 10, 'the founder, 17 Sep 2026: 10 minutes, for teachers and learners alike');
 
     // One minute before the window: still shut.
-    assert.equal(joinWindow(START, END, atStartOffset(-16)).state, 'too_early');
+    assert.equal(joinWindow(START, END, atStartOffset(-11)).state, 'too_early');
     // The moment it opens.
-    assert.equal(joinWindow(START, END, atStartOffset(-15)).state, 'open');
+    assert.equal(joinWindow(START, END, atStartOffset(-10)).state, 'open');
   });
 
   test('stays open through the class and the grace period', () => {
@@ -60,7 +60,7 @@ describe('joinWindow', () => {
   });
 
   test('msUntilOpen counts down and then stops at zero', () => {
-    assert.equal(joinWindow(START, END, atStartOffset(-45)).msUntilOpen, 30 * 60_000);
+    assert.equal(joinWindow(START, END, atStartOffset(-45)).msUntilOpen, 35 * 60_000);
     // Never negative — the countdown text reads straight off this.
     assert.equal(joinWindow(START, END, atStartOffset(10)).msUntilOpen, 0);
   });
@@ -75,8 +75,8 @@ describe('joinWindow', () => {
   });
 
   test('canJoinNow agrees with the window it wraps', () => {
-    assert.equal(canJoinNow(START, END, atStartOffset(-16)), false);
-    assert.equal(canJoinNow(START, END, atStartOffset(-15)), true);
+    assert.equal(canJoinNow(START, END, atStartOffset(-11)), false);
+    assert.equal(canJoinNow(START, END, atStartOffset(-10)), true);
     assert.equal(canJoinNow(START, END, atStartOffset(999)), false);
   });
 });

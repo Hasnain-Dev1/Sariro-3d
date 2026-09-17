@@ -3,7 +3,8 @@ import { createServerClientHelper, createServiceClient } from '@/lib/supabase/se
 import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import { generateOccurrences } from '@/lib/dashboard/schedule-generation';
-import { getCourseSyllabus } from '@/lib/dashboard/student-data';
+import { lessonsOf } from '@/lib/dashboard/lesson-plan';
+import { fillCourseSchedule } from '@/lib/dashboard/course-fill';
 import { recordAdminAction } from '@/lib/audit/log';
 import { canAssignCourse } from '@/lib/contact/reachability';
 import {
@@ -103,13 +104,7 @@ async function backfillLessonProgressToBatch(
   opts: { cohortId: string; enrollmentId: string; track: string | null; level: string | null }
 ) {
   if (!opts.track || !opts.level) return;
-  const syllabus = getCourseSyllabus(opts.track, opts.level);
-  const lessons: { module_num: string; lesson_name: string }[] = [];
-  for (const mod of syllabus.modules) {
-    for (const l of mod.lessons) {
-      lessons.push({ module_num: mod.num, lesson_name: typeof l === 'string' ? l : l.name });
-    }
-  }
+  const lessons = lessonsOf(opts.track, opts.level).map((l) => ({ module_num: l.moduleNum, lesson_name: l.name }));
   if (lessons.length === 0) return;
 
   const { count } = await admin.from('bookings')
@@ -192,6 +187,8 @@ export async function POST(req: NextRequest) {
       const { count } = await admin.from('bookings').select('id', { count: 'exact', head: true })
         .eq('schedule_id', body.scheduleId).eq('status', 'scheduled').gt('slot_start', nowIso);
       if ((count ?? 0) === 0) await appendMakeups(admin, body.scheduleId, 8);
+      // And the rest of the course, labelled.
+      await fillCourseSchedule(admin, body.scheduleId);
 
       await recordAdminAction(admin, {
         adminId, action: 'batch_teacher_changed',
@@ -200,6 +197,28 @@ export async function POST(req: NextRequest) {
       });
 
       return NextResponse.json({ ok: true });
+    }
+
+    case 'fill_course': {
+      /* A batch made before 17 Sep 2026 has eight classes, not its course.
+         Fills it: every missing class on its own days, each with its lesson. */
+      if (!body.scheduleId) return NextResponse.json({ ok: false, error: 'missing_params' }, { status: 400 });
+      const filled = await fillCourseSchedule(admin, body.scheduleId);
+      if (!filled.ok) {
+        const why: Record<string, string> = {
+          schedule_not_active: 'This batch is paused or has no teacher. Assign a teacher first.',
+          no_teacher: 'This batch has no teacher. Assign one first.',
+          no_days: 'This batch has no class days set. Use Change schedule first.',
+        };
+        return NextResponse.json({ ok: false, error: filled.reason, message: why[filled.reason ?? ''] ?? 'The course could not be scheduled.' }, { status: 409 });
+      }
+      await recordAdminAction(admin, {
+        adminId, action: 'batch_course_filled',
+        targetType: 'cohort_schedule', targetId: body.scheduleId,
+        metadata: { added: filled.added, stamped: filled.stamped, total: filled.total, skipped: filled.skipped.length },
+      });
+      const { ok: _ok, ...result } = filled;
+      return NextResponse.json({ ok: true, ...result });
     }
 
     case 'remove_teacher': {

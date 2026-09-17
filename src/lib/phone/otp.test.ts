@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { generateOtp, isOtpShaped, OTP_CHANNEL, OTP_LENGTH } from './otp';
+import { generateOtp, isOtpShaped, OTP_CHANNEL, OTP_LENGTH, providerAccepted, providerQuery, sendOtpWhatsApp } from './otp';
 
 /**
  * SARIRO — the code
@@ -76,5 +76,39 @@ describe('what a person is allowed to submit', () => {
 describe('the delivery channel', () => {
   test('every code goes on WhatsApp — the founder’s rule, not a setting', () => {
     assert.equal(OTP_CHANNEL, 'whatsapp');
+  });
+});
+
+/* ── apitxt: what is sent, and what counts as sent (17 Sep 2026) ─────────── */
+
+describe('the provider request', () => {
+  test('carries the dialling code as country — apitxt refuses a WhatsApp code without it', () => {
+    const q = providerQuery('916296914378', '042318', '91', 'k');
+    assert.equal(q.get('mobile'), '916296914378');
+    assert.equal(q.get('country'), '91', 'the dialling code, not the ISO code: IN is refused');
+    assert.equal(q.get('channel'), 'whatsapp');
+    assert.equal(q.get('otp'), '042318');
+    assert.equal(providerQuery('+977 980-1234567', '1', '+977', 'k').get('country'), '977');
+    assert.equal(providerQuery('+977 980-1234567', '1', '+977', 'k').get('mobile'), '9779801234567');
+  });
+
+  test('only a "success" reply counts as sent — an error with HTTP 200 does not', () => {
+    assert.equal(providerAccepted(true, '{"status":"success","message":"Whatsapp OTP Sent Successfully"}'), true);
+    assert.equal(providerAccepted(true, '{"status":"error","message":"Missing mobile"}'), false);
+    assert.equal(providerAccepted(false, '{"status":"error","message":"Missing parameter: country"}'), false);
+    assert.equal(providerAccepted(true, 'OK'), true, 'a non-JSON 2xx is judged by its status, as before');
+    assert.equal(providerAccepted(false, 'Bad gateway'), false);
+  });
+
+  test('a code is never sent without a dialling code', async () => {
+    const before = process.env.APITXT_AUTHKEY;
+    process.env.APITXT_AUTHKEY = 'test-key';
+    try {
+      const r = await sendOtpWhatsApp('916296914378', '123456', '');
+      assert.equal(r.sent, false);
+      assert.equal(r.reason, 'failed');
+    } finally {
+      if (before === undefined) delete process.env.APITXT_AUTHKEY; else process.env.APITXT_AUTHKEY = before;
+    }
   });
 });

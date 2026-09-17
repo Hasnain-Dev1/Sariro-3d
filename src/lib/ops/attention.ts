@@ -360,7 +360,7 @@ export const ATTENTION: Record<AttentionKey, AttentionSpec> = {
   class_today: {
     key: 'class_today',
     title: (n) => `${plural(n, 'class', 'classes')} today`,
-    why: 'The join button opens 15 minutes before — be there when your teacher arrives.',
+    why: 'The join button opens 10 minutes before — be there when your teacher arrives.',
     severity: 'today',
     icon: 'video',
     accent: '#16A34A',

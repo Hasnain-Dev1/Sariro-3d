@@ -36,6 +36,7 @@ export type AuditAction =
   | 'student_added_to_batch'
   | 'student_paused'
   | 'batch_teacher_changed'
+  | 'batch_course_filled'
   | 'batch_paused'
   | 'credit_adjusted'
   | 'invoice_issued'

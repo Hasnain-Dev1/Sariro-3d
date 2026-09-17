@@ -35,7 +35,7 @@
  *   - Responsive: chips show track name on desktop, just a dot on mobile
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, ChevronRight, Calendar as CalendarIcon,
@@ -45,7 +45,8 @@ import type { TeacherBookingRow } from '@/lib/dashboard/teacher-data';
 import { getTrackName } from '@/lib/dashboard/upsell-engine';
 import { TzBadge } from '@/components/dashboard/tz-badge';
 import Link from 'next/link';
-import { lessonCourseIdFor } from '@/lib/dashboard/lessons-data';
+import { batchPositions, classLessonOf } from '@/lib/dashboard/class-lesson';
+import { joinWindow, JOIN_OPENS_MINUTES_BEFORE } from '@/lib/dashboard/join-window';
 import { RescheduleModal } from '@/components/dashboard/reschedule-modal';
 import { CancelClassModal } from '@/components/dashboard/cancel-class-modal';
 
@@ -164,6 +165,15 @@ export function TeacherCalendar({ bookings, timezone, onSelectBooking, onChanged
   const [doubtBusyId, setDoubtBusyId] = useState<string | null>(null);
   const [doubtRequested, setDoubtRequested] = useState<Set<string>>(new Set());
   const [joinedIds, setJoinedIds] = useState<Set<string>>(new Set());
+  /* The clock the Join button is shown against. Ticks every 30 seconds, so a
+     calendar left open all day shows Join the moment the window opens. */
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  /* Each class's place in its batch — the lesson for a class not stamped yet. */
+  const positions = useMemo(() => batchPositions(bookings), [bookings]);
 
   const requestDoubt = useCallback(async (bookingId: string) => {
     setDoubtBusyId(bookingId);
@@ -180,9 +190,10 @@ export function TeacherCalendar({ bookings, timezone, onSelectBooking, onChanged
 
   // Join → records the join time (so the teacher is never falsely flagged
   // as a no-show/late-join once they've actually clicked in), then opens the
-  // meet link — same fix as the main schedule list's Join Meet. Only marks
-  // "Joined" on a confirmed success — a rejected too-early attempt (outside
-  // the 5-min window) must stay retryable, not get stuck disabled.
+  // meet link. The button only exists inside the join window (10 minutes
+  // before the start); if the server still says it is too early, the room does
+  // NOT open — it used to open regardless, which is how a teacher joined an
+  // hour early and a late join could never be caught.
   const handleJoin = useCallback(async (bookingId: string, meetUrl: string) => {
     try {
       const res = await fetch('/api/teacher/start-class', {
@@ -190,6 +201,7 @@ export function TeacherCalendar({ bookings, timezone, onSelectBooking, onChanged
         body: JSON.stringify({ bookingId }),
       });
       const json = await res.json();
+      if (!json.ok && json.error === 'too_early') { alert(json.message); return; }
       if (json.ok) setJoinedIds((prev) => new Set(prev).add(bookingId));
     } catch { /* a transient failure to record the join should never block joining */ }
     window.open(meetUrl, '_blank', 'noopener,noreferrer');
@@ -333,6 +345,7 @@ export function TeacherCalendar({ bookings, timezone, onSelectBooking, onChanged
               <div className="space-y-0.5">
                 {dayBookings.slice(0, 3).map(b => {
                   const colors = STATUS_COLORS[b.status] ?? STATUS_COLORS.scheduled;
+                  const lessonNo = b.is_trial ? null : classLessonOf(b, positions.get(b.id) ?? null).number;
                   return (
                     <div
                       key={b.id}
@@ -340,7 +353,7 @@ export function TeacherCalendar({ bookings, timezone, onSelectBooking, onChanged
                       style={{ fontFamily: 'var(--font-grotesk)' }}
                     >
                       <span className="hidden sm:inline">
-                        {formatTime(b.slot_start, timezone)} {getTrackName(b.cohort_track).split(' ')[0]}
+                        {formatTime(b.slot_start, timezone)} {lessonNo ? `L${lessonNo} · ` : ''}{getTrackName(b.cohort_track).split(' ')[0]}
                       </span>
                       <span className="sm:hidden">{formatTime(b.slot_start, timezone).replace(':00', '').replace(' ', '')}</span>
                     </div>
@@ -418,6 +431,9 @@ export function TeacherCalendar({ bookings, timezone, onSelectBooking, onChanged
               {detailBookings.map(b => {
                 const colors = STATUS_COLORS[b.status] ?? STATUS_COLORS.scheduled;
                 const meetUrl = b.google_meet_url || b.cohort_meet_url;
+                const lesson = b.is_trial ? null : classLessonOf(b, positions.get(b.id) ?? null);
+                const win = joinWindow(b.slot_start, b.slot_end ?? null, new Date(now));
+                const canJoin = b.status === 'scheduled' && win.state === 'open';
                 return (
                   <div
                     key={b.id}
@@ -426,8 +442,10 @@ export function TeacherCalendar({ bookings, timezone, onSelectBooking, onChanged
                     <div className={`w-1 h-10 rounded-full ${colors.dot}`} />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                        {/* The course's own name carries the age group or grade:
+                            "Public Speaking · Grades 1–3", "Mathematics · Grade 7". */}
                         <span className="text-sm font-bold text-slate-900 truncate" style={{ fontFamily: 'var(--font-jakarta)' }}>
-                          {getTrackName(b.cohort_track)}
+                          {lesson ? lesson.courseTitle : getTrackName(b.cohort_track)}
                         </span>
                         <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${colors.chip} border`} style={{ fontFamily: 'var(--font-grotesk)' }}>
                           {colors.label.toUpperCase()}
@@ -437,13 +455,15 @@ export function TeacherCalendar({ bookings, timezone, onSelectBooking, onChanged
                             {b.batch_code}
                           </span>
                         )}
-                        {/* Which lesson this class actually is, and a way to go
-                            and read it. A teacher looking at "Public Speaking,
-                            4pm" still has to work out which of forty-six
-                            lessons is due, and the answer was already on the
-                            booking — it just was not shown anywhere. */}
-                        <LessonPill booking={b} />
                       </div>
+                      {/* Which lesson this class actually is. A teacher looking at
+                          "Public Speaking, 4pm" had to work out which of forty-eight
+                          lessons was due. */}
+                      {lesson?.number && (
+                        <div className="text-[12px] font-bold text-blue-800 mb-0.5 truncate">
+                          Lesson {lesson.number}{lesson.total ? ` of ${lesson.total}` : ''}{lesson.name ? ` · ${lesson.name}` : ''}
+                        </div>
+                      )}
                       {b.student_names && b.student_names.length > 0 && (
                         <div className="text-[11px] font-bold text-slate-700 mb-0.5 truncate">
                           {b.student_names.join(', ')}
@@ -455,20 +475,40 @@ export function TeacherCalendar({ bookings, timezone, onSelectBooking, onChanged
                         <span className="text-slate-300">·</span>
                         <span>{formatDuration(b.slot_start, b.slot_end)}</span>
                         <span className="text-slate-300">·</span>
-                        <span>{levelDisplay(b.cohort_level)} {b.cohort_ratio}</span>
+                        <span>{lesson ? b.cohort_ratio : `${levelDisplay(b.cohort_level)} ${b.cohort_ratio}`}</span>
                         <TzBadge iso={b.slot_start} timezone={timezone} who="your time" />
                       </div>
                     </div>
-                    {meetUrl && (
+                    {/* The whole lesson, opened at this class — not the course's first page. */}
+                    {lesson?.href && (
+                      <Link
+                        href={lesson.href}
+                        className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold transition-colors"
+                        style={{ fontFamily: 'var(--font-grotesk)' }}
+                      >
+                        <BookOpen className="w-3 h-3" /> View class details
+                      </Link>
+                    )}
+                    {/* Join exists only once the window opens, 10 minutes before the start. */}
+                    {meetUrl && canJoin && (
                       <button
                         type="button"
                         onClick={() => handleJoin(b.id, meetUrl)}
                         disabled={joinedIds.has(b.id)}
-                        className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-green-50 hover:bg-green-100 text-green-700 text-[10px] font-bold transition-colors disabled:opacity-60"
+                        className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-[10px] font-bold transition-colors disabled:opacity-60"
                         style={{ fontFamily: 'var(--font-grotesk)' }}
                       >
-                        <Video className="w-3 h-3" /> {joinedIds.has(b.id) ? 'Joined ✓' : 'Join'}
+                        <Video className="w-3 h-3" /> {joinedIds.has(b.id) ? 'Joined ✓' : 'Join class'}
                       </button>
+                    )}
+                    {meetUrl && b.status === 'scheduled' && win.state === 'too_early' && (
+                      <span
+                        className="shrink-0 inline-flex items-center gap-1 px-2 py-1.5 rounded-lg bg-slate-50 text-slate-400 text-[10px] font-bold"
+                        style={{ fontFamily: 'var(--font-grotesk)' }}
+                        title={`Join opens ${JOIN_OPENS_MINUTES_BEFORE} minutes before the class`}
+                      >
+                        <Video className="w-3 h-3" /> Join opens {formatTime(win.opensAt.toISOString(), timezone)}
+                      </span>
                     )}
                     {/* The plan for this trial, opened for its first child. Every
                         child of a group trial has their own link under Trials
@@ -552,41 +592,3 @@ export function TeacherCalendar({ bookings, timezone, onSelectBooking, onChanged
   );
 }
 
-/**
- * "Lesson 12 · Signposting and transitions" — a link to the lesson page.
- *
- * module_num and lesson_name are stamped onto every booking by
- * assignLessonIdentity, so this is a read rather than a calculation. A class
- * whose cohort has run past the end of its syllabus has no lesson, and shows
- * nothing rather than a wrong number.
- */
-function LessonPill({ booking }: { booking: TeacherBookingRow }) {
-  if (!booking.lesson_name) return null;
-
-  const courseId = lessonCourseIdFor(booking.cohort_track, booking.cohort_level);
-  const label = booking.module_num
-    ? `M${Number(booking.module_num)} · ${booking.lesson_name}`
-    : booking.lesson_name;
-
-  // Without a course id there is no page to open, so it stays a label. Better
-  // than a link that lands nowhere.
-  if (!courseId) {
-    return (
-      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-50 text-blue-700 border border-blue-200 max-w-[220px] truncate">
-        {label}
-      </span>
-    );
-  }
-
-  return (
-    <Link
-      href={`/dashboard/teacher/lessons?course=${encodeURIComponent(courseId)}`}
-      onClick={(e) => e.stopPropagation()}
-      title={`Open ${booking.lesson_name}`}
-      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-colors max-w-[240px]"
-    >
-      <BookOpen className="w-2.5 h-2.5 shrink-0" />
-      <span className="truncate">{label}</span>
-    </Link>
-  );
-}

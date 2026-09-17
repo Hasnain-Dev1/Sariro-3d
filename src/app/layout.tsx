@@ -125,6 +125,8 @@ export default async function RootLayout({
             sariro.com. A CDN cannot rewrite it without rewriting the body.
             Full explanation in src/lib/security/csp.ts. */}
         <meta httpEquiv="Content-Security-Policy" content={CSP} />
+        {/* Facebook (Meta) domain verification for the Sariro page, 17 Sep 2026. */}
+        <meta name="facebook-domain-verification" content="14r0of2n6nkeox829flh5vc4yf06dg" />
       </head>
       <body
         className={`${inter.variable} ${jakarta.variable} ${grotesk.variable} antialiased`}

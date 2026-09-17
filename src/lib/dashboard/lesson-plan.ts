@@ -1,4 +1,4 @@
-import { getCourseSyllabus } from '@/lib/dashboard/student-data';
+import { flattenCourseLessons, lessonCourseIdFor } from '@/lib/dashboard/lessons-data';
 
 /**
  * SARIRO — which lesson a scheduled class is actually teaching
@@ -19,6 +19,13 @@ import { getCourseSyllabus } from '@/lib/dashboard/student-data';
  *
  * So the sequence is computed here from an explicit starting point, and the
  * scheduler picks it.
+ *
+ * ── Every kind of course (17 Sep 2026) ──────────────────────────────────────
+ * This read the coding catalogue only, so every school subject and all five
+ * Public Speaking courses had no lessons at all — and every one of their
+ * classes was scheduled with no lesson on it. It now reads the same flattened
+ * course the lesson pages use (lessons-data), which knows all three kinds, and
+ * keeps the assessment slots: a test is a class a teacher turns up to.
  */
 
 export interface PlannedLesson {
@@ -27,6 +34,10 @@ export interface PlannedLesson {
   /** Kept as a string because that is what bookings.module_num stores. */
   moduleNum: string;
   name: string;
+  /** Where the lesson page is: the course, the module number and the 0-based index in it. */
+  courseId: string;
+  module: number;
+  lessonIndex: number;
 }
 
 /**
@@ -37,18 +48,16 @@ export interface PlannedLesson {
  * lesson 1, and neither does anything else in this file.
  */
 export function lessonsOf(track: string, level: string): PlannedLesson[] {
-  const syllabus = getCourseSyllabus(track, level);
-  const out: PlannedLesson[] = [];
-  for (const mod of syllabus?.modules ?? []) {
-    for (const lesson of mod.lessons ?? []) {
-      out.push({
-        number: out.length + 1,
-        moduleNum: String(mod.num),
-        name: typeof lesson === 'string' ? lesson : lesson.name,
-      });
-    }
-  }
-  return out;
+  const courseId = lessonCourseIdFor(track, level);
+  if (!courseId) return [];
+  return flattenCourseLessons(courseId).map((l, i) => ({
+    number: i + 1,
+    moduleNum: l.module_str,
+    name: l.lesson_name,
+    courseId,
+    module: l.module_num,
+    lessonIndex: l.lesson_index,
+  }));
 }
 
 /**
@@ -76,6 +85,21 @@ export function lessonForIndex(
 }
 
 /**
+ * The lesson a booking was stamped with, found again in its course — so a class
+ * can say "Lesson 12" and open that lesson's page. Matched on the module and the
+ * name, because that is what a booking stores.
+ */
+export function findLesson(lessons: readonly PlannedLesson[], moduleNum: string | null | undefined, lessonName: string | null | undefined): PlannedLesson | null {
+  if (!lessonName) return null;
+  const mod = Number(moduleNum);
+  return (
+    lessons.find((l) => l.name === lessonName && (!Number.isFinite(mod) || mod === 0 || l.module === mod)) ??
+    lessons.find((l) => l.name === lessonName) ??
+    null
+  );
+}
+
+/**
  * How many of a course a run starting here would actually cover.
  *
  * Shown next to the picker so "start at lesson 9" is visibly a decision about
@@ -86,4 +110,30 @@ export function remainingFrom(track: string, level: string, startAt: number): nu
   if (total === 0) return 0;
   const start = Math.max(1, Math.min(total, Math.round(startAt || 1)));
   return total - start + 1;
+}
+
+/**
+ * What a batch still needs to teach the whole course.
+ *
+ * Walks the batch's real classes in date order. A class already stamped with a
+ * lesson sets the position (so a batch that started at lesson 9, or that a
+ * cancellation moved along, keeps its numbering); an unstamped class takes the
+ * next lesson. What is left after the last class is how many classes to add.
+ *
+ * `known` resolves a stamped class to its lesson number, or null when unstamped.
+ */
+export function planCourseFill<T>(
+  classes: readonly T[],
+  totalLessons: number,
+  known: (c: T) => number | null
+): { stamps: { item: T; number: number }[]; lastNumber: number; toAdd: number } {
+  let cursor = 0;
+  const stamps: { item: T; number: number }[] = [];
+  for (const c of classes) {
+    const n = known(c);
+    if (n !== null) { cursor = n; continue; }
+    cursor += 1;
+    if (cursor <= totalLessons) stamps.push({ item: c, number: cursor });
+  }
+  return { stamps, lastNumber: cursor, toAdd: Math.max(0, totalLessons - cursor) };
 }

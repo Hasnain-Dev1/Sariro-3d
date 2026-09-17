@@ -12,7 +12,7 @@ import { classLink } from '@/lib/classes/class-link';
  *
  * Lets an enrolled student join their own scheduled class.
  *
- * There IS a time window, and it is generous: doors open 15 minutes before the
+ * There IS a time window, and it is generous: doors open 10 minutes before the
  * start and stay open 20 minutes past the end. It exists not to penalise a
  * learner — lateness only ever costs the teacher — but because joining early
  * used to drop a child into an empty Meet, where they concluded nobody had come.

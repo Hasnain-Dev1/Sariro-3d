@@ -15,7 +15,7 @@
  *             next/upcoming) so the list doubles as a training tracker.
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Lock, Check, PlayCircle, ChevronRight, Loader2, BookOpen } from 'lucide-react';
 import { getStructuredCourse, getStructuredLesson } from '@/lib/curriculum';
 import { StructuredLessonView } from '@/components/dashboard/structured-lesson-view';
@@ -44,7 +44,11 @@ const ACCESS_BADGE: Record<string, { label: string; cls: string }> = {
   locked: { label: 'Locked', cls: 'bg-slate-100 text-slate-400 border-slate-200' },
 };
 
-export function LessonsViewer({ courseId }: { courseId: string }) {
+export function LessonsViewer({ courseId, initial = null }: {
+  courseId: string;
+  /** Open this lesson as soon as the list loads — a class's View class details. */
+  initial?: { module: number; index: number } | null;
+}) {
   const [lessons, setLessons] = useState<LessonRow[]>([]);
   const [title, setTitle] = useState('');
   const [loading, setLoading] = useState(true);
@@ -135,6 +139,22 @@ export function LessonsViewer({ courseId }: { courseId: string }) {
     }
   }, [courseId, structuredCourse]);
 
+  /* A teacher arriving from a class (View class details) lands on that lesson, not
+     the top of a forty-eight-lesson list. Once per course and lesson. */
+  const openedInitial = useRef<string | null>(null);
+  const readingRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!initial || loading || lessons.length === 0) return;
+    const want = `${courseId}:${initial.module}:${initial.index}`;
+    if (openedInitial.current === want) return;
+    const row = lessons.find((l) => l.module_num === initial.module && l.lesson_index === initial.index);
+    if (!row) return;
+    openedInitial.current = want;
+    Promise.resolve().then(() => openLesson(row)).then(() => {
+      readingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, [initial, loading, lessons, courseId, openLesson]);
+
   if (loading) {
     return <div className="flex items-center justify-center py-12 text-slate-400"><Loader2 className="w-5 h-5 animate-spin" /></div>;
   }
@@ -200,7 +220,7 @@ export function LessonsViewer({ courseId }: { courseId: string }) {
       </div>
 
       {/* Reading panel */}
-      <div className="card-3d p-6 min-h-[300px]">
+      <div ref={readingRef} className="card-3d p-6 min-h-[300px] scroll-mt-4">
         {contentLoading ? (
           <div className="flex items-center justify-center py-16 text-slate-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
         ) : contentError ? (

@@ -54,31 +54,60 @@ export const smsConfigured = () => !!process.env.APITXT_AUTHKEY;
 export const OTP_CHANNEL = 'whatsapp' as const;
 
 /**
- * Hand the code to apitxt.com, to be delivered on WhatsApp.
+ * The query apitxt.com is sent.
  *
  * `wireNumber` is the full international number without the plus —
- * `919876543210`, `9779801234567`.
+ * `919876543210`, `9779801234567` — and `dialCode` is its country's dialling
+ * code, digits only: `91`, `977`.
  *
- * ── Why the response is barely inspected ────────────────────────────────────
- * The provider documents three query parameters and an example, and nothing
- * about the response body. Rather than guess at a success shape and get it
- * wrong in a way that reports failures as sends, this treats a 2xx as accepted
- * and anything else as not, and records the body for the log.
- *
- * That is honest about what we actually know. If the provider later documents a
- * status field, this is the one place that changes.
+ * ── `country` (17 Sep 2026) ─────────────────────────────────────────────────
+ * apitxt started refusing every WhatsApp code without it — HTTP 400, "Missing
+ * parameter: country (required for WhatsApp OTP — used for per-country
+ * billing)" — before a code was even created. Nothing on our side changed, so
+ * every number in every country got "We could not send the code on WhatsApp".
+ * It takes the dialling code: `country=91` was checked against the live API and
+ * delivered; the ISO code `IN` is refused as missing.
  */
-export async function sendOtpWhatsApp(wireNumber: string, otp: string): Promise<SendResult> {
+export function providerQuery(wireNumber: string, otp: string, dialCode: string, authkey: string): URLSearchParams {
+  const q = new URLSearchParams();
+  q.set('authkey', authkey);
+  q.set('mobile', (wireNumber ?? '').replace(/\D/g, ''));
+  q.set('otp', otp);
+  q.set('channel', OTP_CHANNEL);
+  q.set('country', (dialCode ?? '').replace(/\D/g, ''));
+  return q;
+}
+
+/**
+ * Whether apitxt actually accepted the code.
+ *
+ * It answers JSON with a `status`: "success" when the message went, "error"
+ * otherwise — sometimes with HTTP 200 (`{"status":"error","message":"Missing
+ * mobile"}`). A 2xx alone used to count as sent, which would tell a parent a
+ * code was on its way when none was. A reply that is not JSON is judged by its
+ * HTTP status, as before.
+ */
+export function providerAccepted(httpOk: boolean, body: string): boolean {
+  if (!httpOk) return false;
+  try {
+    const json = JSON.parse(body) as { status?: unknown } | null;
+    if (json && typeof json === 'object' && 'status' in json) return String(json.status).toLowerCase() === 'success';
+  } catch { /* not JSON: the HTTP status is all we have */ }
+  return true;
+}
+
+/** Hand the code to apitxt.com, to be delivered on WhatsApp. */
+export async function sendOtpWhatsApp(wireNumber: string, otp: string, dialCode: string): Promise<SendResult> {
   const authkey = process.env.APITXT_AUTHKEY;
   if (!authkey) {
     return { sent: false, reason: 'not_configured', detail: 'APITXT_AUTHKEY is not set' };
   }
+  if (!(dialCode ?? '').replace(/\D/g, '')) {
+    return { sent: false, reason: 'failed', detail: 'no dialling code for this number' };
+  }
 
   const url = new URL('https://apitxt.com/api/sendOTP');
-  url.searchParams.set('authkey', authkey);
-  url.searchParams.set('mobile', wireNumber);
-  url.searchParams.set('otp', otp);
-  url.searchParams.set('channel', OTP_CHANNEL);
+  url.search = providerQuery(wireNumber, otp, dialCode, authkey).toString();
 
   try {
     // A hung provider must not hold the request open: the person is staring at
@@ -89,7 +118,7 @@ export async function sendOtpWhatsApp(wireNumber: string, otp: string): Promise<
       cache: 'no-store',
     });
     const body = (await res.text()).slice(0, 300);
-    if (!res.ok) return { sent: false, reason: 'failed', detail: `HTTP ${res.status}: ${body}` };
+    if (!providerAccepted(res.ok, body)) return { sent: false, reason: 'failed', detail: `HTTP ${res.status}: ${body}` };
     return { sent: true, detail: body };
   } catch (err) {
     return { sent: false, reason: 'failed', detail: err instanceof Error ? err.message : String(err) };

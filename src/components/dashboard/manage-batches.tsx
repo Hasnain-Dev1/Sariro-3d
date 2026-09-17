@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { X, Users, UserPlus, UserMinus, PauseCircle, Loader2, RefreshCw, CalendarClock } from 'lucide-react';
+import { X, Users, UserPlus, UserMinus, PauseCircle, Loader2, RefreshCw, CalendarClock, ListChecks } from 'lucide-react';
 import { contactIdentity } from '@/lib/contact/reachability';
 import { gradeTag } from '@/lib/grade/tag';
 import { createClient } from '@/lib/supabase/client';
@@ -95,14 +95,14 @@ export default function ManageBatchesModal({
     setKids((k) => ({ ...k, [cohortId]: (profs ?? []) as Person[] }));
   }, []);
 
-  const call = async (payload: Record<string, unknown>, okMsg: string) => {
+  const call = async (payload: Record<string, unknown>, okMsg: string | ((json: Record<string, unknown>) => string)) => {
     setBusy(true);
     try {
       const res = await fetch('/api/admin/schedule/manage', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
       });
       const json = await res.json();
-      if (json.ok) { onToast?.(okMsg); await load(); }
+      if (json.ok) { onToast?.(typeof okMsg === 'function' ? okMsg(json) : okMsg); await load(); }
       else onToast?.(json.message || json.error || 'Action failed', 'error');
     } catch { onToast?.('Network error', 'error'); }
     finally { setBusy(false); }
@@ -172,12 +172,24 @@ export default function ManageBatchesModal({
                 </div>
 
                 {/* Change schedule (days/times, apply-from date, break) */}
-                <div className="mb-2">
+                <div className="mb-2 flex flex-wrap gap-2">
                   <button
                     disabled={busy || s.status !== 'active'}
                     onClick={() => setChangeSchedId(s.id)}
                     className="inline-flex items-center gap-1.5 min-h-[36px] px-2.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold disabled:opacity-40">
                     <CalendarClock className="w-3.5 h-3.5" /> Change schedule
+                  </button>
+                  {/* Batches scheduled before 17 Sep 2026 got eight classes, not their course. */}
+                  <button
+                    disabled={busy || s.status !== 'active'}
+                    onClick={() => call({ action: 'fill_course', scheduleId: s.id }, (j) => {
+                      const added = Number(j.added ?? 0);
+                      const skipped = Array.isArray(j.skipped) ? j.skipped.length : 0;
+                      if (added === 0) return `The whole course is already scheduled (${j.total} classes).`;
+                      return `Added ${added} classes — all ${j.total} are scheduled, each with its lesson.${skipped ? ` ${skipped} date${skipped === 1 ? '' : 's'} skipped for a clash.` : ''}`;
+                    })}
+                    className="inline-flex items-center gap-1.5 min-h-[36px] px-2.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold disabled:opacity-40">
+                    <ListChecks className="w-3.5 h-3.5" /> Schedule the whole course
                   </button>
                 </div>
 

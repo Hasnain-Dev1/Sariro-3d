@@ -6,7 +6,7 @@ import { joinWindow, type JoinWindow } from './join-window';
 /**
  * SARIRO — the join window, live
  * =========================================================
- * `joinWindow()` already knew the rule: doors open 15 minutes before the start.
+ * `joinWindow()` already knew the rule: doors open 10 minutes before the start.
  * What nothing did was NOTICE the moment it became true.
  *
  * Every card computed its state once, during render, from a `Date` captured at

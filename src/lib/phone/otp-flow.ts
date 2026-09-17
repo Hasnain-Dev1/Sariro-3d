@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { acceptPhone, type AcceptedPhone } from '@/lib/phone/accept';
-import { splitE164 } from '@/lib/phone/countries';
+import { countryByCode, splitE164 } from '@/lib/phone/countries';
 import { generateOtp, isOtpShaped, sendOtpWhatsApp } from '@/lib/phone/otp';
 
 /**
@@ -96,7 +96,9 @@ export async function sendPhoneCode(admin: SupabaseClient, phone: OtpPhone, ip: 
     return { ok: false, status: 429, error: 'cooldown', retryAfter: wait, message: `Please wait ${wait} seconds before asking for another code.` };
   }
 
-  const result = await sendOtpWhatsApp(phone.wire, code);
+  // apitxt bills WhatsApp codes per country and refuses one without its dialling code.
+  const dial = countryByCode(phone.countryCode)?.dial ?? splitE164(phone.e164).country?.dial ?? '';
+  const result = await sendOtpWhatsApp(phone.wire, code, dial);
   if (!result.sent) {
     // The provider's own error belongs in the log, not in front of a parent.
     console.warn('[phone] sendOTP failed:', result.detail);

@@ -26,8 +26,15 @@
  * should be turned away.
  */
 
-/** Doors open this long before the scheduled start. */
-export const JOIN_OPENS_MINUTES_BEFORE = 15;
+/**
+ * Doors open this long before the scheduled start — for the learner AND the
+ * teacher (api/teacher/start-class), so neither waits in an empty room.
+ *
+ * 10 since 17 Sep 2026 (was 15): the founder's rule, the same as trials. A
+ * teacher joining earlier than this could not be told apart from one on time,
+ * which hid late joins and no-shows.
+ */
+export const JOIN_OPENS_MINUTES_BEFORE = 10;
 
 /**
  * How long after the scheduled END a learner can still get in.

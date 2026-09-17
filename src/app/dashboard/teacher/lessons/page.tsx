@@ -35,6 +35,8 @@ export default function TeacherLessonsPage() {
   const [loading, setLoading] = useState(true);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [activeCourse, setActiveCourse] = useState<string | null>(null);
+  /* From a class's View class details: ?course=…&module=…&index=… opens that lesson. */
+  const [initialLesson, setInitialLesson] = useState<{ course: string; module: number; index: number } | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -49,8 +51,14 @@ export default function TeacherLessonsPage() {
       const rows = (data ?? []) as Assignment[];
       setAssignments(rows);
       const available = rows.map((r) => courseIdFor(r.track, r.level)).filter(Boolean) as string[];
-      const param = new URLSearchParams(window.location.search).get('course');
+      const search = new URLSearchParams(window.location.search);
+      const param = search.get('course');
       setActiveCourse(param && available.includes(param) ? param : available[0] ?? null);
+      const mod = Number(search.get('module'));
+      const idx = Number(search.get('index'));
+      if (param && available.includes(param) && Number.isInteger(mod) && mod > 0 && Number.isInteger(idx) && idx >= 0) {
+        setInitialLesson({ course: param, module: mod, index: idx });
+      }
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -126,7 +134,13 @@ export default function TeacherLessonsPage() {
                 </button>
               ))}
             </div>
-            {activeCourse && <LessonsViewer courseId={activeCourse} />}
+            {activeCourse && (
+              <LessonsViewer
+                key={activeCourse}
+                courseId={activeCourse}
+                initial={initialLesson && initialLesson.course === activeCourse ? { module: initialLesson.module, index: initialLesson.index } : null}
+              />
+            )}
           </>
         )}
       </div>

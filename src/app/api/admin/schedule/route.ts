@@ -5,6 +5,7 @@ import { assertSameOrigin } from '@/lib/security/origin-check';
 import { generateOccurrences } from '@/lib/dashboard/schedule-generation';
 import { teacherHasConflict, cohortStudentConflicts, studentNamesFor } from '@/lib/dashboard/schedule-ops-server';
 import { lessonForIndex } from '@/lib/dashboard/lesson-plan';
+import { fillCourseSchedule } from '@/lib/dashboard/course-fill';
 import {
   creditGate, creditBlockMessage, creditShortMessage, type LearnerCredit,
 } from '@/lib/dashboard/schedule-credit-gate';
@@ -13,8 +14,10 @@ import {
  * SARIRO — POST /api/admin/schedule
  *
  * Admin/super-admin only. Creates a recurring cohort_schedules rule and
- * generates the first horizon of concrete bookings (exact UTC instants,
- * DST-correct) for that cohort + teacher.
+ * generates concrete bookings (exact UTC instants, DST-correct) for that
+ * cohort + teacher: the first eight are checked for clashes up front and
+ * refuse cleanly, then the rest of the course is filled in (course-fill.ts) —
+ * every class the course has, not the next eight.
  *
  * Body: {
  *   cohortId, teacherId, startDate ('YYYY-MM-DD'),
@@ -25,7 +28,8 @@ import {
 
 export const runtime = 'nodejs';
 
-const HORIZON_DEFAULT = 8; // generate ~8 upcoming classes; topped up later.
+/* Checked for clashes before anything is created; course-fill adds the rest of the course after. */
+const HORIZON_DEFAULT = 8;
 
 interface DayTime {
   day: number;          // 0=Sun..6=Sat
@@ -331,10 +335,17 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  /* The rest of the course. Eight classes used to be the whole batch: nothing
+     ever "topped up later", so a 48-class course stopped after two months. */
+  const filled = await fillCourseSchedule(admin, schedule.id);
+  if (!filled.ok) console.warn('[admin/schedule] course fill:', filled.reason);
+
   return NextResponse.json({
     ok: true,
     schedule_id: schedule.id,
-    generated: slots.length,
+    generated: slots.length + filled.added,
+    course_classes: filled.total,
+    ...(filled.skipped.length ? { skipped: filled.skipped } : {}),
     /* Set when somebody is scheduled for more classes than they hold credits
        for. Not a refusal — see the gate at 0a — but the admin should be told,
        because nothing downstream will ever mention it again. */

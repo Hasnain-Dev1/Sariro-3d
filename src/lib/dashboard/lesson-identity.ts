@@ -1,4 +1,4 @@
-import { getCourseSyllabus } from '@/lib/dashboard/student-data';
+import { lessonsOf } from '@/lib/dashboard/lesson-plan';
 import type { createServiceClient } from '@/lib/supabase/server';
 
 /**
@@ -43,15 +43,8 @@ export interface Lesson {
 
 /** The syllabus as a flat, ordered list — the order classes are taught in. */
 export function lessonsForCourse(track: string, level: string): Lesson[] {
-  const syllabus = getCourseSyllabus(track, level);
-  const out: Lesson[] = [];
-  for (const mod of syllabus.modules) {
-    for (const lesson of mod.lessons) {
-      const lessonName = typeof lesson === 'string' ? lesson : lesson.name;
-      out.push({ number: out.length + 1, moduleNum: mod.num, lessonName });
-    }
-  }
-  return out;
+  // Every kind of course — coding, school subjects and the Public Speaking bands.
+  return lessonsOf(track, level).map((l) => ({ number: l.number, moduleNum: l.moduleNum, lessonName: l.name }));
 }
 
 /** Statuses that occupy a place in the lesson order. */
