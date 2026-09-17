@@ -4,9 +4,9 @@ import { useMemo, useState } from 'react';
 import { Lightbulb, Quote, Mic, ListChecks, Plus, AudioLines, Home } from 'lucide-react';
 import SpeakingLab, { type Drill } from '@/components/speaking/speaking-lab';
 import SoundLab from '@/components/speaking/sound-lab';
-import type { SpeakingLesson } from '@/lib/speaking/lesson';
 import { homeworkFor, levelStatus } from '@/lib/speaking/quest/homework';
-import { stageLesson, STAGES, STAGE_ORDER, type Stage } from '@/lib/speaking/stages';
+import { STAGES, STAGE_ORDER, type Stage } from '@/lib/speaking/stages';
+import { speakingLessonAt, type StagedLesson } from '@/lib/speaking/courses';
 import HomeworkPanel from '@/components/speaking/quest/homework-panel';
 import { ArenaCard, LevelBadge, WarmUp } from '@/components/speaking/quest/level-parts';
 import { useAttempts } from '@/components/speaking/quest/use-attempts';
@@ -31,11 +31,11 @@ import { useLearnerStage } from '@/components/speaking/use-stage';
  * the skill is needed in real life, and ends with homework — missions with a
  * number of tries, a pass mark, stars and a record of every attempt.
  *
- * ── For every age ───────────────────────────────────────────────────────────
- * The learner's grade picks their stage (lib/speaking/stages.ts): a Grade 2
- * child reads the junior lesson with shorter drills and a tip for home; a
- * Grade 11 student reads the full one. A teacher picks the stage of the class
- * they are preparing.
+ * ── Five courses ────────────────────────────────────────────────────────────
+ * Each age group has its own course (lib/speaking/courses), so the lesson at a
+ * slot is a different lesson for each: a Grade 2 child meets Leo the Lion, a
+ * graduate meets the STAR interview answer. A member of staff can switch the
+ * age group to see what that course teaches at the same point.
  */
 
 const JUNIOR_CHECK = [
@@ -43,17 +43,21 @@ const JUNIOR_CHECK = [
   'What is one thing you will try to do better next time?',
 ];
 
-export default function SpeakingLessonView({ lesson: base, stage: forced }: { lesson: SpeakingLesson; stage?: Stage }) {
-  const { stage: mine, isLearner } = useLearnerStage();
+export default function SpeakingLessonView({ lesson: base, stage: forced }: { lesson: StagedLesson; stage?: Stage }) {
+  const { isLearner } = useLearnerStage();
   const [picked, setPicked] = useState<Stage | null>(null);
-  const stage = forced ?? picked ?? mine;
-  const lesson = useMemo(() => stageLesson(base, stage), [base, stage]);
-  const junior = STAGES[stage].junior;
+  const stage = forced ?? picked ?? base.stage;
+  // Another age group's course has a different lesson at this slot.
+  const lesson = useMemo(
+    () => (stage === base.stage ? base : speakingLessonAt(stage, base.moduleNum, base.lessonIndex) ?? base),
+    [base, stage]
+  );
+  const junior = STAGES[lesson.stage].junior;
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [showExtra, setShowExtra] = useState(false);
   const { attempts, afterLog } = useAttempts();
-  const missions = useMemo(() => homeworkFor(base, stage), [base, stage]);
+  const missions = useMemo(() => homeworkFor(lesson), [lesson]);
   const status = useMemo(() => (attempts ? levelStatus(missions, attempts) : null), [missions, attempts]);
 
   const extras = lesson.extraDrills ?? [];
@@ -109,7 +113,7 @@ export default function SpeakingLessonView({ lesson: base, stage: forced }: { le
       )}
 
       {/* ── The game the class plays, and where this is needed for real ── */}
-      <ArenaCard lesson={lesson} game={lesson.game} realWorld={lesson.realWorld} />
+      <ArenaCard lesson={lesson} />
 
       {/* ── The practice. The lesson. ── */}
       <section className="space-y-3">
@@ -175,7 +179,7 @@ export default function SpeakingLessonView({ lesson: base, stage: forced }: { le
       <section className="space-y-2">
         <SectionLabel icon={<ListChecks className="w-4 h-4" />}>Before you move on</SectionLabel>
         <ul className="space-y-1.5">
-          {(stage === 'foundation' ? JUNIOR_CHECK : lesson.selfCheck).map((c, i) => (
+          {(lesson.stage === 'foundation' ? [...lesson.selfCheck, ...JUNIOR_CHECK] : lesson.selfCheck).map((c, i) => (
             <li key={i} className="flex gap-2 text-[14px] text-slate-600 leading-[1.7]">
               <span className="text-slate-300 shrink-0">•</span>
               <span>{c}</span>

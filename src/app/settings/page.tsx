@@ -9,6 +9,7 @@ import { TRACKS } from '@/lib/sariro-data';
 import AvailabilityEditor from '@/components/dashboard/availability-editor';
 import TeacherRoomEditor from '@/components/dashboard/teacher-room-editor';
 import AccountPhoneVerify from '@/components/auth/account-phone-verify';
+import AutopayNotice from '@/components/account/autopay-notice';
 import { formatE164 } from '@/lib/phone/countries';
 import { changeDateLabel, nextChangeAt } from '@/lib/phone/account-phone';
 
@@ -235,6 +236,9 @@ function SettingsInner() {
 
           {/* WhatsApp number — proved, never typed straight in */}
           <PhoneSection />
+
+          {/* An autopay made for this account's email or phone: how to close or pause it. */}
+          <AutopayNotice />
 
           {/* Timezone */}
           <div>

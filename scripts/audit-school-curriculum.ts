@@ -190,7 +190,8 @@ for (const subject of SCHOOL_SUBJECTS) {
     for (const grade of group.grades) gradeKeys.push(`${subject.slug}:${grade}`);
   }
 }
-const focusKeys = SPECIALISATIONS.map((s) => `${s.slug}:0`);
+// Public Speaking's five syllabi live in lib/speaking/courses, not AUTHORED_TITLES.
+const focusKeys = SPECIALISATIONS.filter((s) => s.slug !== 'public-speaking').map((s) => `${s.slug}:0`);
 
 const done = gradeKeys.filter((k) => AUTHORED_TITLES[k]).length;
 const focusDone = focusKeys.filter((k) => AUTHORED_TITLES[k]).length;

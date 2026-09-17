@@ -1,9 +1,9 @@
 import type { Drill } from '@/components/speaking/speaking-lab';
-import type { SpeakingLesson } from '@/lib/speaking/lesson';
 import type { PracticeAttempt, PracticeKind } from '@/lib/speaking/progress';
 import { soundPattern } from '@/lib/speaking/sounds';
-import { stageLesson, type Stage } from '@/lib/speaking/stages';
-import { SHOWCASES, type Showcase } from './worlds';
+import type { Stage } from '@/lib/speaking/stages';
+import type { StagedLesson } from '@/lib/speaking/courses';
+import type { Showcase } from './worlds';
 
 /**
  * SARIRO — homework that knows whether it was done
@@ -73,11 +73,11 @@ const words = (s: string | undefined) => (s ?? '').trim().split(/\s+/).filter(Bo
  * Grades 1–3, who are learning to write sentences in school, not scripts. The
  * older bands ask more of each attempt and longer writing.
  *
- * ── Each band keeps its own record (16 Sep 2026) ────────────────────────────
- * Public Speaking is five courses, each with its own lessons, so each band's
- * missions have their own ids: a learner who moves from Grades 4–6 to 7–9
- * starts the new course's quest fresh rather than finding levels "cleared" by
- * drills they never did. The earlier course's record stays in the table.
+ * ── Each course keeps its own record ────────────────────────────────────────
+ * Public Speaking is five courses with five different syllabi, so a mission id
+ * names the course and the slot — `hw:<band>:<module>:<index>:<part>` — and a
+ * learner who moves from Grades 4–6 to 7–9 starts the new course's quest fresh.
+ * The earlier course's record stays in the table.
  */
 interface StageRules {
   speak: [number, number];
@@ -116,12 +116,12 @@ const LISTEN_BRIEF: Record<Stage, string> = {
 
 const tries = (n: number) => (n === 1 ? 'One try' : `${['', 'One', 'Two', 'Three', 'Four', 'Five'][n] ?? n} tries`);
 
-/** The homework for one lesson, as the learner's stage sees it. */
-export function homeworkFor(base: SpeakingLesson, stage: Stage = 'senior'): Mission[] {
-  const lesson = stageLesson(base, stage);
+/** The homework for one lesson of one course. */
+export function homeworkFor(lesson: StagedLesson): Mission[] {
+  const stage = lesson.stage;
   const rules = STAGE_RULES[stage];
   const heard: MetricGoal = { key: 'wpm', min: rules.heardWpm, label: 'your words were heard' };
-  const id = (slug: string) => `hw:${stage}:${lesson.key}:${slug}`;
+  const id = (slug: string) => `hw:${stage}:${lesson.moduleNum}:${lesson.lessonIndex}:${slug}`;
   const main = lesson.drills[0];
   const stretch = lesson.drills[1] ?? lesson.extraDrills?.[0] ?? main;
   const listenText = lesson.model && words(lesson.model.text) >= 12 ? lesson.model.text : lesson.oneLine;
@@ -178,30 +178,31 @@ export function homeworkFor(base: SpeakingLesson, stage: Stage = 'senior'): Miss
 
 /**
  * What each band performs at the showcases. Grades 1–3 perform without a
- * script; every other band writes first. The task is the band's real world:
- * a class talk, a debate opening, a competition or campaign speech, a pitch.
+ * script; every other band writes first. The task is the course's own
+ * showcase: a class presentation, a cause talk, an academic defence, a mock
+ * interview, a keynote.
  */
 const SHOWCASE_TASK: Record<Stage, { mid: string; long: string; midWords: number; longWords: number; midSeconds: number; longSeconds: number; midPass: number; longPass: number }> = {
   foundation: { mid: '', long: '', midWords: 0, longWords: 0, midSeconds: 45, longSeconds: 60, midPass: 60, longPass: 60 },
   primary: {
-    mid: 'A one-minute talk: a hook, three reasons with signpost words, and a mic-drop ending.',
-    long: 'Your big speech about something you care about: a hook, a story, three reasons and a strong ending.',
+    mid: 'Class Presentation Day: a one-minute project presentation with a hook, three signposted points and an ending that makes people clap.',
+    long: 'The Spotlight Speech: a speech about something or someone you care about, with a hook, a true story, three reasons and a memorable last line.',
     midWords: 60, longWords: 90, midSeconds: 60, longSeconds: 90, midPass: 65, longPass: 65,
   },
   middle: {
-    mid: 'A ninety-second class talk on something you care about: an opening that earns attention, three signposted points, an ending that lands.',
-    long: 'A two-minute persuasive speech built around a true story about you: opening, the story, three reasons, the ask, the ending.',
+    mid: 'The Class Talk: a ninety-second talk with a one-sentence message, an opener that grabs the class, three PREP points and a closer that sticks.',
+    long: 'The Main Stage Talk: a two-minute persuasive talk on a cause you care about, built on your own story, with evidence, the strongest objection answered and a call to action.',
     midWords: 110, longWords: 170, midSeconds: 90, longSeconds: 120, midPass: 70, longPass: 75,
   },
   senior: {
-    mid: 'A ninety-second debate or competition opening: a thesis in one sentence, two distinct arguments and a decisive close.',
-    long: 'A two-and-a-half-minute speech for a competition or school leadership campaign: a story, three arguments, the strongest objection answered, a close that lands.',
+    mid: 'The Academic Defence: a ninety-second presentation of a research question or project — thesis first, PEEL arguments with evidence and one limitation named.',
+    long: 'The Signature Talk: a two-and-a-half-minute TEDx-style talk — one idea through your own story, evidence, the strongest objection answered and a close with conviction.',
     midWords: 130, longWords: 220, midSeconds: 90, longSeconds: 150, midPass: 75, longPass: 80,
   },
   adult: {
-    mid: 'A ninety-second pitch or project update: the answer first, three supporting points and a clear ask.',
-    long: 'A three-minute talk you could give at work or in a seminar: a governing thought, a story with a turn, the strongest objection answered and a specific close.',
-    midWords: 140, longWords: 260, midSeconds: 90, longSeconds: 180, midPass: 75, longPass: 80,
+    mid: 'The Mock Interview: a tailored "tell me about yourself" followed by a STAR answer to "Tell me about a time you solved a difficult problem".',
+    long: 'The Keynote: a three-minute signature professional talk with a governing thought, a story with a turn, evidence, the strongest objection answered and a specific call to action.',
+    midWords: 140, longWords: 260, midSeconds: 120, longSeconds: 180, midPass: 75, longPass: 80,
   },
 };
 
@@ -218,15 +219,15 @@ export function showcaseMissions(showcase: Showcase, stage: Stage = 'senior'): M
     attempts: 1, pass: long ? task.longPass : task.midPass,
     goal: (() => { const min = long ? task.longWords : task.midWords; return { key: 'words', min, label: `at least ${min} words` }; })(),
     xp: 80,
-    prompt: long ? 'Write your Grand Stage speech.' : 'Write your Mid-Course Stage talk.',
+    prompt: `Write the script for ${showcase.name}.`,
   };
 
   const seconds = long ? task.longSeconds : task.midSeconds;
   const perform: Mission = {
-    id: id('speak'), kind: 'speak', title: long ? 'The Grand Stage performance' : 'The Mid-Course performance',
+    id: id('speak'), kind: 'speak', title: `${showcase.name}: the performance`,
     brief: junior
-      ? `Your showcase! Stand tall, look at the camera, and give your ${seconds}-second talk. Three tries — your best one counts.`
-      : `${long ? task.long : task.mid} Standing, to camera, from key words only. Three tries — your best one counts.`,
+      ? `${showcase.brief} Look at the camera and give your ${seconds}-second talk. Three tries — your best one counts.`
+      : `${long ? task.long : task.mid} To camera, from key words only. Three tries — your best one counts.`,
     attempts: 3,
     pass: long ? task.longPass : task.midPass,
     goal: { key: 'fillersPerMin', max: junior ? 6 : 4, label: `no more than ${junior ? 6 : 4} filler words a minute` },
@@ -248,9 +249,6 @@ export function showcaseMissions(showcase: Showcase, stage: Stage = 'senior'): M
   return write ? [write, perform, listen] : [perform, listen];
 }
 
-export function showcaseBySlot(slot: number): Showcase | null {
-  return SHOWCASES.find((s) => s.slot === slot) ?? null;
-}
 
 /* ── Did they do it? ─────────────────────────────────────────────────────── */
 

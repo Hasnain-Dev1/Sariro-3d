@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Flame, Lock, Sparkles, Star, Target, Trophy, Zap, CalendarDays, ChevronRight } from 'lucide-react';
-import { allSpeakingLessons } from '@/lib/speaking/modules';
+import { speakingLessons } from '@/lib/speaking/courses';
 import { homeworkFor, showcaseMissions } from '@/lib/speaking/quest/homework';
 import { questState, type QuestState } from '@/lib/speaking/quest/engine';
 import type { PracticeAttempt } from '@/lib/speaking/progress';
@@ -10,7 +10,7 @@ import { useAttempts } from './use-attempts';
 import HomeworkPanel, { MissionCard, StarRow } from './homework-panel';
 import { ArenaCard, LevelBadge, WarmUp } from './level-parts';
 import { useLearnerStage } from '@/components/speaking/use-stage';
-import { stageLesson, STAGES, type Stage } from '@/lib/speaking/stages';
+import { STAGES, type Stage } from '@/lib/speaking/stages';
 
 /**
  * SARIRO — Voice Quest
@@ -39,7 +39,7 @@ export default function VoiceQuest({ demo, stage: forced }: {
   const { stage: mine } = useLearnerStage();
   const stage = forced ?? mine;
   const stageMeta = STAGES[stage];
-  const lessons = useMemo(() => allSpeakingLessons(), []);
+  const lessons = useMemo(() => speakingLessons(stage), [stage]);
   const live = useAttempts();
   const attempts = demo ?? live.attempts;
   const afterLog = live.afterLog;
@@ -234,7 +234,7 @@ function Selected({ state, attempts, selection, afterLog, stage }: { state: Ques
   const found = state.worlds.flatMap((w) => w.levels).find((l) => l.lesson.key === selection.key);
   if (!found) return null;
   const { status } = found;
-  const lesson = stageLesson(found.lesson, stage);
+  const lesson = found.lesson;
   return (
     <section className="space-y-4" id="quest-level">
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
@@ -247,9 +247,9 @@ function Selected({ state, attempts, selection, afterLog, stage }: { state: Ques
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <WarmUp lesson={lesson} />
-        <ArenaCard lesson={lesson} game={lesson.game} realWorld={lesson.realWorld} />
+        <ArenaCard lesson={lesson} />
       </div>
-      <HomeworkPanel key={`${stage}:${lesson.key}`} missions={homeworkFor(found.lesson, stage)} attempts={attempts} onLogged={afterLog} title={`Level ${lesson.number} homework`} />
+      <HomeworkPanel key={`${stage}:${lesson.key}`} missions={homeworkFor(lesson)} attempts={attempts} onLogged={afterLog} title={`Level ${lesson.number} homework`} />
     </section>
   );
 }

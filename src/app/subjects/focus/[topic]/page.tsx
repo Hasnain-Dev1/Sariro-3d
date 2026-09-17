@@ -16,6 +16,10 @@ import { readSitePrices } from '@/lib/pricing/site-prices-server';
 import { DOMAINS } from '@/lib/capabilities/taxonomy';
 import CadenceChooser from '@/app/subjects/cadence-chooser';
 import SpeakingStages from '@/components/speaking/speaking-stages-section';
+import SpeakingSyllabusTabs from '@/components/speaking/speaking-syllabus-tabs';
+import { SPEAKING_COURSES, speakingSyllabus } from '@/lib/speaking/courses';
+import { STAGES, STAGE_ORDER } from '@/lib/speaking/stages';
+import type { GradeSyllabus } from '@/lib/school/curriculum';
 
 /**
  * SARIRO — /subjects/focus/[topic]
@@ -32,6 +36,21 @@ import SpeakingStages from '@/components/speaking/speaking-stages-section';
 
 interface Params {
   params: Promise<{ topic: string }>;
+}
+
+/** A syllabus in the shape the openable module list reads. */
+function outlineOf(syllabus: GradeSyllabus) {
+  return syllabus.modules.map((m) => {
+    const tests = m.lessons.filter((l) => l.kind === 'test').length;
+    return {
+      num: m.num,
+      title: m.title,
+      outcome: m.outcome,
+      lessons: m.lessons.length - tests,
+      tests,
+      items: m.lessons.map((l) => ({ number: l.number, title: l.title, isTest: l.kind === 'test' })),
+    };
+  });
 }
 
 const STRAND_NAMES = new Map(
@@ -57,7 +76,9 @@ export default async function SpecialisationPage({ params }: Params) {
   const accent = spec.accent;
   // Specialisations use the same 48-slot shape as a grade year: 46 lessons,
   // a mid-course assessment and a final one.
-  const syllabus = buildGradeSyllabus(spec.slug, 0);
+  // Public Speaking is five courses with five syllabi (lib/speaking/courses).
+  const speaking = spec.slug === 'public-speaking';
+  const syllabus = speaking ? speakingSyllabus('middle') : buildGradeSyllabus(spec.slug, 0);
   const plans = cadencePlans(LESSONS_PER_GRADE, '1:4', await readSitePrices()).map((p) => ({
     cadence: p.cadence,
     label: p.label,
@@ -135,24 +156,22 @@ export default async function SpecialisationPage({ params }: Params) {
               spend on Organic Chemistry still could not read a single lesson
               name. The markup lived here as its own copy, which is exactly why
               it missed the fix — it is a shared component now. */}
-          <ModuleOutline
-            accent={accent}
-            modules={syllabus.modules.map((m) => {
-              const tests = m.lessons.filter((l) => l.kind === 'test').length;
-              return {
-                num: m.num,
-                title: m.title,
-                outcome: m.outcome,
-                lessons: m.lessons.length - tests,
-                tests,
-                items: m.lessons.map((l) => ({
-                  number: l.number,
-                  title: l.title,
-                  isTest: l.kind === 'test',
-                })),
-              };
-            })}
-          />
+          {speaking ? (
+            <SpeakingSyllabusTabs
+              accent={accent}
+              tabs={STAGE_ORDER.map((s) => ({
+                key: s,
+                emoji: STAGES[s].emoji,
+                name: STAGES[s].name,
+                grades: STAGES[s].grades,
+                color: STAGES[s].color,
+                promise: SPEAKING_COURSES[s].promise,
+                modules: outlineOf(speakingSyllabus(s)),
+              }))}
+            />
+          ) : (
+            <ModuleOutline accent={accent} modules={outlineOf(syllabus)} />
+          )}
         </div>
       </section>
 

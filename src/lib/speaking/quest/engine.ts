@@ -1,9 +1,9 @@
-import type { SpeakingLesson } from '@/lib/speaking/lesson';
 import type { PracticeAttempt } from '@/lib/speaking/progress';
-import { PROMPTS } from '@/lib/speaking/voice-check';
 import { SOUND_PATTERNS } from '@/lib/speaking/sounds';
+import { BAND_PRACTICE } from '@/lib/speaking/practice/band-practice';
+import { showcasesFor, warmUpFor, worldsFor, type StagedLesson } from '@/lib/speaking/courses';
 import { homeworkFor, levelStatus, missionStatus, showcaseMissions, type LevelStatus, type Mission, type MissionStatus } from './homework';
-import { SHOWCASES, TWISTERS, WORLDS, type Showcase, type World } from './worlds';
+import type { Showcase, World } from './worlds';
 import type { Stage } from '@/lib/speaking/stages';
 
 /**
@@ -96,12 +96,25 @@ export interface Rank {
   progress: number;
 }
 
+/* And for college and work: a manager is not a "Whisperer" either. */
+const PRO_RANKS: { title: string; emoji: string }[] = [
+  { title: 'Starter', emoji: '🌱' },
+  { title: 'Contributor', emoji: '🗣️' },
+  { title: 'Clear Communicator', emoji: '🎯' },
+  { title: 'Presenter', emoji: '📊' },
+  { title: 'Storyteller', emoji: '📖' },
+  { title: 'Influencer', emoji: '🤝' },
+  { title: 'Leader', emoji: '🧭' },
+  { title: 'Keynote Speaker', emoji: '🎤' },
+  { title: 'Thought Leader', emoji: '🏆' },
+];
+
 export function rankFor(xp: number, stage: Stage = 'senior'): Rank {
   let i = 0;
   while (i + 1 < RANKS.length && xp >= RANKS[i + 1].xp) i++;
   const floor = RANKS[i].xp;
   const next = i + 1 < RANKS.length ? RANKS[i + 1].xp : null;
-  const name = stage === 'foundation' || stage === 'primary' ? JUNIOR_RANKS[i] : RANKS[i];
+  const name = stage === 'foundation' || stage === 'primary' ? JUNIOR_RANKS[i] : stage === 'adult' ? PRO_RANKS[i] : RANKS[i];
   return { level: i + 1, title: name.title, emoji: name.emoji, floor, next, progress: next === null ? 1 : (xp - floor) / (next - floor) };
 }
 
@@ -111,9 +124,10 @@ export function rankFor(xp: number, stage: Stage = 'senior'): Rank {
 const JUNIOR_SOUNDS = ['silent', 'oo', 'ea', 's-ending', 'th', 'q', 'ed', 'v-w'];
 
 /**
- * One short mission a day, the same for everybody on the same date, rotating
- * through speaking, sounds, listening, a twister and writing. It is what makes
- * opening the app on a day with no class worth doing — and it keeps the streak.
+ * One short mission a day, the same for everybody in a course on the same date,
+ * rotating through speaking, sounds, listening, a warm-up and writing. It is
+ * what makes opening the app on a day with no class worth doing — and it keeps
+ * the streak. Topics and warm-ups come from the learner's own course.
  */
 export function dailyQuest(key: string, stage: Stage = 'senior'): Mission {
   const n = dayNumber(key);
@@ -122,14 +136,15 @@ export function dailyQuest(key: string, stage: Stage = 'senior'): Mission {
   let kind = ((n % 5) + 5) % 5;
   // Sprouts do not get a writing quest: they get a sound round that day instead.
   if (kind === 4 && stage === 'foundation') kind = 1;
+  const topics = BAND_PRACTICE[stage].topics;
   switch (kind) {
     case 0: {
-      const prompt = PROMPTS[((n % PROMPTS.length) + PROMPTS.length) % PROMPTS.length];
+      const prompt = topics[((n % topics.length) + topics.length) % topics.length];
       const seconds = stage === 'foundation' ? 30 : stage === 'primary' ? 45 : 60;
       const maxUm = junior ? 4 : 2;
       return {
         id, kind: 'speak', title: junior ? 'The No-Um Challenge' : 'The Zero-Um Minute',
-        brief: `Talk for ${seconds} seconds: ${prompt.text} The challenge is not what you say — it is saying it with almost no “um”.`,
+        brief: `Talk for ${seconds} seconds on “${prompt.text}”. The challenge is not what you say — it is saying it with almost no “um”.`,
         attempts: 1, pass: junior ? 50 : 55, goal: { key: 'fillersPerMin', max: maxUm, label: `no more than ${maxUm} filler words a minute` }, xp: 60,
         drill: { id, title: junior ? 'The No-Um Challenge' : 'The Zero-Um Minute', brief: prompt.text, targetSeconds: seconds },
       };
@@ -145,7 +160,7 @@ export function dailyQuest(key: string, stage: Stage = 'senior'): Mission {
       return { id, kind: 'listen', title: 'Echo', brief: `${line.situation}: hear it once and give it back, word for word.`, attempts: 1, pass: junior ? 65 : 80, xp: 60, passage: line.line };
     }
     case 3: {
-      const t = TWISTERS[((n % TWISTERS.length) + TWISTERS.length) % TWISTERS.length];
+      const t = warmUpFor(stage, Math.abs(n) + 1);
       return {
         id, kind: 'speak', title: 'Twister Speed Run',
         brief: `Say it three times in your head, then record it once, clean: “${t.text}” (${t.focus})`,
@@ -154,11 +169,11 @@ export function dailyQuest(key: string, stage: Stage = 'senior'): Mission {
       };
     }
     default: {
-      const prompt = PROMPTS[((n * 3) % PROMPTS.length + PROMPTS.length) % PROMPTS.length];
+      const prompt = topics[((n * 3) % topics.length + topics.length) % topics.length];
       const minWords = junior ? 25 : 40;
       return {
         id, kind: 'write', title: 'Opening Line Lab',
-        brief: `Write the first ${junior ? '2 or 3' : '3 to 5'} sentences of a talk on: ${prompt.text} Make the first sentence impossible to ignore.`,
+        brief: `Write the first ${junior ? '2 or 3' : '3 to 5'} sentences of a talk on “${prompt.text}”. Make the first sentence impossible to ignore.`,
         attempts: 1, pass: junior ? 65 : 70, goal: { key: 'words', min: minWords, label: `at least ${minWords} words` }, xp: 60,
         prompt: `Write the opening of a talk on: ${prompt.text}`,
       };
@@ -180,7 +195,7 @@ export interface Badge {
 
 export interface WorldProgress {
   world: World;
-  levels: { lesson: SpeakingLesson; status: LevelStatus }[];
+  levels: { lesson: StagedLesson; status: LevelStatus }[];
   cleared: number;
   stars: number;
 }
@@ -223,7 +238,7 @@ const SOUND_ID = /(?:^|:)sound:([a-z-]+)$/;
 
 export function questState(
   attempts: readonly PracticeAttempt[],
-  lessons: readonly SpeakingLesson[],
+  lessons: readonly StagedLesson[],
   opts: { now?: number; offsetMinutes?: number; stage?: Stage } = {}
 ): QuestState {
   const now = opts.now ?? Date.now();
@@ -231,11 +246,12 @@ export function questState(
   const stage = opts.stage ?? 'senior';
   const todayKey = dayKey(now, offset);
 
-  const worlds: WorldProgress[] = WORLDS.map((world) => {
+  // A course's own map. Lessons from another course never land on it.
+  const worlds: WorldProgress[] = worldsFor(stage).map((world) => {
     const levels = lessons
-      .filter((l) => l.moduleNum === world.num)
+      .filter((l) => l.stage === stage && l.moduleNum === world.num)
       .sort((a, b) => a.number - b.number)
-      .map((lesson) => ({ lesson, status: levelStatus(homeworkFor(lesson, stage), attempts) }));
+      .map((lesson) => ({ lesson, status: levelStatus(homeworkFor(lesson), attempts) }));
     return {
       world,
       levels,
@@ -244,7 +260,7 @@ export function questState(
     };
   });
 
-  const showcases: ShowcaseProgress[] = SHOWCASES.map((showcase) => {
+  const showcases: ShowcaseProgress[] = showcasesFor(stage).map((showcase) => {
     const toward = worlds.filter((w) => showcase.worlds.includes(w.world.num)).reduce((n, w) => n + w.cleared, 0);
     return { showcase, toward, unlocked: toward >= showcase.unlockAfter, status: levelStatus(showcaseMissions(showcase, stage), attempts) };
   });
@@ -278,7 +294,7 @@ export function questState(
     { id: 'triple-threat', name: 'Triple Threat', emoji: '🎭', how: 'Pass a speaking, a listening and a writing mission.', earned: passedKinds.has('speak') && passedKinds.has('listen') && passedKinds.has('write') },
     { id: 'century', name: 'Century', emoji: '💯', how: 'Make a hundred attempts.', earned: attempts.length >= 100 },
     ...worlds.map((w) => ({ id: `world-${w.world.num}`, name: `${w.world.name} Cleared`, emoji: w.world.emoji, how: `Clear every level in ${w.world.name}.`, earned: w.levels.length > 0 && w.cleared === w.levels.length })),
-    ...showcases.map((s) => ({ id: `showcase-${s.showcase.slot}`, name: s.showcase.slot === 24 ? 'Mid-Course Star' : 'Grand Stage Legend', emoji: s.showcase.emoji, how: `Clear ${s.showcase.name}.`, earned: s.status.cleared })),
+    ...showcases.map((s) => ({ id: `showcase-${s.showcase.slot}`, name: `${s.showcase.name} Star`, emoji: s.showcase.emoji, how: `Clear ${s.showcase.name}.`, earned: s.status.cleared })),
   ];
 
   /* XP. */

@@ -20,7 +20,8 @@ import { readFileSync } from 'node:fs';
 import { allLessonCourses, flattenCourseLessons } from '@/lib/dashboard/lessons-data';
 import { getAllStructuredCourses } from '@/lib/curriculum';
 import { hasWrittenContent } from '@/lib/lessons/content-state';
-import { speakingWrittenCount } from '@/lib/speaking/modules';
+import { speakingWrittenCount } from '@/lib/speaking/courses';
+import { bandOfCourseId } from '@/lib/speaking/bands';
 
 const env: Record<string, string> = {};
 for (const line of readFileSync('.env', 'utf8').split(/\r?\n/)) {
@@ -67,7 +68,8 @@ for (const c of catalogue) {
 
   // Public Speaking is authored in the codebase with its own lesson shape,
   // the same way the structured coding courses are.
-  const speaking = c.id === 'public-speaking-focus' ? speakingWrittenCount() : undefined;
+  const band = bandOfCourseId(c.id);
+  const speaking = band ? speakingWrittenCount(band) : undefined;
 
   syllabusLessons += syl;
   writtenLessons += speaking ?? struct ?? page?.real ?? 0;

@@ -182,7 +182,8 @@ describe('buildGradeSyllabus', () => {
 
 describe('focus courses', () => {
   test('are keyed on grade 0 and build the same 48-slot shape', () => {
-    for (const spec of SPECIALISATIONS) {
+    // Public Speaking's five syllabi live with its lessons (lib/speaking/courses/courses.test.ts).
+    for (const spec of SPECIALISATIONS.filter((s) => s.slug !== 'public-speaking')) {
       const syl = buildGradeSyllabus(spec.slug, 0);
       assert.equal(syl.slotCount, LESSONS_PER_GRADE, spec.slug);
       assert.equal(syl.testCount, 2, spec.slug);
@@ -193,7 +194,7 @@ describe('focus courses', () => {
   test('every focus course is reachable by its own slug', () => {
     const slugs = SPECIALISATIONS.map((s) => s.slug);
     assert.equal(new Set(slugs).size, slugs.length, 'duplicate focus slug');
-    for (const slug of slugs) {
+    for (const slug of slugs.filter((s) => s !== 'public-speaking')) {
       assert.ok(AUTHORED_TITLES[`${slug}:0`], `${slug}: no authored titles`);
     }
   });

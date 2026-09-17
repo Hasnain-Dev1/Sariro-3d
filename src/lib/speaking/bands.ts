@@ -77,6 +77,14 @@ export function bandOfCourseId(courseId: string | null | undefined): SpeakingBan
   return BAND_ORDER.includes(b) ? b : null;
 }
 
+/**
+ * The course whose lessons a Public Speaking course id shows. The old single
+ * `public-speaking-focus` course (no enrolments left on it since the bands SQL)
+ * reads as Grades 7–9, the middle of the range.
+ */
+export const speakingBandOfCourse = (courseId: string | null | undefined): SpeakingBand =>
+  bandOfCourseId(courseId) ?? 'middle';
+
 /** Any Public Speaking lesson course, banded or the old single one. */
 export const isSpeakingCourseId = (courseId: string | null | undefined) =>
   !!bandOfCourseId(courseId) || (courseId ?? '').trim().toLowerCase() === `${SPEAKING_TRACK_SLUG}-focus`;

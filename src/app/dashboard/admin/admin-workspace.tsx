@@ -54,7 +54,8 @@ import TodayQueue from '@/components/ops/today-queue';
 import { WorkspaceProvider, OpsSection, useShows, useOpsDo } from '@/components/ops/workspace';
 import { WorkspaceTabs, WorkspaceHeader, WorkspaceTiles, WorkspaceAction } from '@/components/ops/workspace-chrome';
 import type { WorkspaceKey } from '@/lib/ops/workspaces';
-import { ShieldAlert } from 'lucide-react';
+import { Link2, ShieldAlert } from 'lucide-react';
+import PaymentLinksSection from '@/components/dashboard/payment-link-panel';
 
 /* ───── Helpers ───── */
 function levelDisplay(level: string): string {
@@ -1877,6 +1878,12 @@ function AdminDashboardInner({ workspace }: { workspace: WorkspaceKey }) {
               </button>
             </div>
           </div>
+        </OpsSection>
+
+        {/* Rupee payment links and autopay: an admin sees every link, who made it,
+            and is one of the two roles that can end an autopay. */}
+        <OpsSection id="payment-links" icon={Link2}>
+          <PaymentLinksSection staff />
         </OpsSection>
 
         {/* ── Quality ───────────────────────────────────────────────────── */}

@@ -1,14 +1,15 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PracticeAttempt } from '@/lib/speaking/progress';
-import { allSpeakingLessons } from '@/lib/speaking/modules';
+import { showcasesFor, speakingLessons, warmUpFor, worldsFor } from '@/lib/speaking/courses';
 import { soundPattern } from '@/lib/speaking/sounds';
-import { ARENA } from './arena';
-import { WORLDS, SHOWCASES, twisterFor } from './worlds';
 import { homeworkFor, missionStatus, levelStatus, showcaseMissions, goalMet, LOG_KIND, type Mission } from './homework';
 import { questState, streakOf, rankFor, dailyQuest, dayKey, XP } from './engine';
 
-const lessons = allSpeakingLessons();
+/* The default stage is Grades 10–12. Every course's own content is checked in
+   lib/speaking/courses/courses.test.ts. */
+const lessons = speakingLessons('senior');
+const middle = speakingLessons('middle');
 const IST = -330;
 const at = (iso: string) => iso;
 
@@ -20,24 +21,22 @@ function attempt(drillId: string, score: number, createdAt: string, metrics: Rec
 function clear(m: Mission, day: string, score = 80): PracticeAttempt[] {
   const metrics = m.goal ? { [m.goal.key]: m.goal.min ?? (m.goal.max !== undefined ? 0 : 0) } : {};
   if (m.goal?.key === 'wpm') metrics.wpm = 140;
-  if (m.goal?.key === 'words') metrics.words = 200;
+  if (m.goal?.key === 'words') metrics.words = 300;
   return Array.from({ length: m.attempts }, (_, i) => attempt(m.id, score, `${day}T10:0${i}:00Z`, metrics, LOG_KIND[m.kind]));
 }
 
 describe('the course as a map', () => {
   test('eight worlds, one per module', () => {
-    assert.deepEqual(WORLDS.map((w) => w.num), [1, 2, 3, 4, 5, 6, 7, 8]);
+    assert.deepEqual(worldsFor('senior').map((w) => w.num), [1, 2, 3, 4, 5, 6, 7, 8]);
   });
 
-  test('every lesson has a class game, and no game points at a lesson that does not exist', () => {
-    const numbers = new Set(lessons.map((l) => l.number));
-    for (const l of lessons) assert.ok(ARENA[l.number], `lesson ${l.number} “${l.title}” has no class game`);
-    for (const n of Object.keys(ARENA).map(Number)) assert.ok(numbers.has(n), `game for missing lesson ${n}`);
-    assert.ok(!ARENA[24] && !ARENA[48], 'the assessment slots are showcases, not lessons');
+  test('every lesson has a class game, and the showcase slots are not lessons', () => {
+    for (const l of lessons) assert.ok(l.game.how.length === 3 && l.game.realWorld, `lesson ${l.number} “${l.title}” has no class game`);
+    assert.ok(!lessons.some((l) => l.number === 24 || l.number === 48), 'the assessment slots are showcases, not lessons');
   });
 
-  test('every lesson has a warm-up twister', () => {
-    for (const l of lessons) assert.ok(twisterFor(l.number).text.length > 10);
+  test('every lesson has a warm-up', () => {
+    for (const l of lessons) assert.ok(warmUpFor(l.stage, l.number).text.length > 10);
   });
 });
 
@@ -61,13 +60,13 @@ describe('homework', () => {
   });
 
   test('a lesson with Sound Lab patterns gets a sound mission for each', () => {
-    const l = lessons.find((x) => x.soundLab?.includes('q'))!;
-    assert.ok(homeworkFor(l).some((m) => m.kind === 'sound' && m.pattern === 'q'));
+    const l = lessons.find((x) => (x.soundLab ?? []).length > 0)!;
+    for (const p of l.soundLab!) assert.ok(homeworkFor(l).some((m) => m.kind === 'sound' && m.pattern === p), p);
   });
 
   /* Grades 7–9's marks: speak 65, listen and write 70. The arithmetic below is
      written against them; the older bands ask more (see stages.test.ts). */
-  const hw = homeworkFor(lessons[0], 'middle');
+  const hw = homeworkFor(middle[0]);
   const speak = hw.find((m) => m.kind === 'speak')!;
 
   test('passing needs the tries AND a passing score', () => {
@@ -109,7 +108,7 @@ describe('homework', () => {
   });
 
   test('showcases have a performance with a filler ceiling', () => {
-    for (const s of SHOWCASES) {
+    for (const s of showcasesFor('senior')) {
       const perf = showcaseMissions(s).find((m) => m.kind === 'speak')!;
       assert.equal(perf.goal?.key, 'fillersPerMin');
     }
@@ -144,6 +143,7 @@ test('ranks', () => {
   assert.equal(rankFor(300).title, 'Voice');
   assert.equal(rankFor(50000).next, null);
   assert.ok(Math.abs(rankFor(550).progress - 0.5) < 1e-9);
+  assert.equal(rankFor(0, 'adult').title, 'Starter', 'professionals get their own rank names');
 });
 
 test('the daily quest is the same all day and rotates through kinds', () => {
@@ -170,10 +170,15 @@ describe('questState', () => {
     assert.ok(s.showcases.every((x) => !x.unlocked));
   });
 
+  test('another course’s lessons never land on this map', () => {
+    const s = questState([], [...lessons, ...middle], { now, offsetMinutes: IST, stage: 'senior' });
+    assert.equal(s.totalLevels, 46);
+  });
+
   test('clearing a level earns its missions, stars, the clear bonus, badges and effort', () => {
-    const hw = homeworkFor(lessons[0], 'middle');
+    const hw = homeworkFor(middle[0]);
     const attempts = hw.flatMap((m) => clear(m, '2026-09-14', 80));
-    const s = questState(attempts, lessons, { now, offsetMinutes: IST, stage: 'middle' });
+    const s = questState(attempts, middle, { now, offsetMinutes: IST, stage: 'middle' });
     assert.equal(s.levelsCleared, 1);
     const missionXp = hw.reduce((n, m) => n + m.xp + 2 * XP.starBonus, 0);
     const effort = Math.min(XP.attemptDailyCap, attempts.length * XP.attempt) + XP.activeDay;

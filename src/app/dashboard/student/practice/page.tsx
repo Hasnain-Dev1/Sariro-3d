@@ -290,8 +290,8 @@ export default function PracticePage() {
                 <DealtBar
                   icon={Mic}
                   label={`${topic.emoji} ${topic.text}`}
-                  detail={`Your topic · ${practice.topics.length} to choose from`}
-                  action="Another topic"
+                  detail={`Your ${practice.topicNoun} · ${practice.topics.length} to choose from`}
+                  action={`Another ${practice.topicNoun}`}
                   onNext={() => setTopicId(dealFromStorage(topicDeck(band), topicIds))}
                 />
               )}

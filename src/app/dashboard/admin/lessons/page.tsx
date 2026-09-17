@@ -16,9 +16,9 @@ import { createClient } from '@/lib/supabase/client';
 import { COURSES } from '@/lib/sariro-data';
 import { isEffectivelyEmpty } from '@/lib/lessons/content-state';
 import SpeakingLessonView from '@/components/speaking/speaking-lesson-view';
-import { getSpeakingLesson } from '@/lib/speaking/modules';
+import { speakingLessonAt } from '@/lib/speaking/courses';
 import { allLessonCourses, flattenCourseLessons, type OrderedLesson } from '@/lib/dashboard/lessons-data';
-import { bandOfCourseId, isSpeakingCourseId } from '@/lib/speaking/bands';
+import { speakingBandOfCourse, isSpeakingCourseId } from '@/lib/speaking/bands';
 
 interface PageRow { module_num: number; lesson_index: number; html_content: string; title: string | null }
 
@@ -59,11 +59,11 @@ export default function AdminLessonsPage() {
     () => ordered.filter((l) => {
       // A code-authored lesson is written whether or not lesson_pages has ever
       // heard of it. Counting rows would report Public Speaking as 0 of 48.
-      if (codeAuthored) return !!getSpeakingLesson(l.module_num, l.lesson_index);
+      if (codeAuthored) return !!speakingLessonAt(speakingBandOfCourse(courseId), l.module_num, l.lesson_index);
       const row = pages.get(`${l.module_num}:${l.lesson_index}`);
       return !!row && !isEffectivelyEmpty(row.html_content);
     }).length,
-    [ordered, pages, codeAuthored]
+    [ordered, pages, codeAuthored, courseId]
   );
 
   const loadPages = useCallback(async () => {
@@ -207,7 +207,7 @@ export default function AdminLessonsPage() {
                      came to look finished on this screen. */
                   const row = pages.get(key);
                   const written = codeAuthored
-                    ? !!getSpeakingLesson(l.module_num, l.lesson_index)
+                    ? !!speakingLessonAt(speakingBandOfCourse(courseId), l.module_num, l.lesson_index)
                     : !!row && !isEffectivelyEmpty(row.html_content);
                   const stub = !codeAuthored && !!row && !written;
                   return (
@@ -234,18 +234,19 @@ export default function AdminLessonsPage() {
           <div className="card-3d p-4">
             {activeKey && codeAuthored ? (
               /* The lesson as a student sees it, Speaking Lab and all. Read
-                 only: it lives in lib/speaking/modules, and an editor here
+                 only: it lives in lib/speaking/courses, and an editor here
                  would be a second source of truth for the same lesson. */
               (() => {
                 const [m, i] = activeKey.split(':').map(Number);
-                const written = getSpeakingLesson(m, i);
+                const band = speakingBandOfCourse(courseId);
+                const written = speakingLessonAt(band, m, i);
                 return written ? (
                   <>
                     <p className="text-[12px] font-bold text-slate-500 mb-3">
-                      Preview — authored in <code className="bg-slate-100 px-1 rounded">lib/speaking/modules</code>, not editable here
+                      Preview — authored in <code className="bg-slate-100 px-1 rounded">lib/speaking/courses/{band}</code>, not editable here
                     </p>
                     <div className="max-h-[70vh] overflow-y-auto pr-1">
-                      <SpeakingLessonView lesson={written} stage={bandOfCourseId(courseId) ?? undefined} />
+                      <SpeakingLessonView lesson={written} stage={band} />
                     </div>
                   </>
                 ) : (

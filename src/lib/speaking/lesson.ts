@@ -31,14 +31,14 @@ import type { Drill } from '@/components/speaking/speaking-lab';
  * a passage the student pastes in themselves.
  *
  * ── Where the slots come from ───────────────────────────────────────────────
- * The 48 class slots are laid out by buildGradeSyllabus in
- * lib/school/curriculum.ts: eight modules of six, with assessments at slots 24
+ * The 48 class slots are laid out by speakingSyllabus in
+ * lib/speaking/courses: eight modules of six, with showcases at slots 24
  * and 48. That is why modules 4 and 8 carry FIVE lessons — their sixth slot is
  * a test. 6×6 + 2×5 = 46 lessons.
  */
 
 export interface SpeakingLesson {
-  /** `public-speaking:0:<module>:<index>` — matches the curriculum's own key. */
+  /** `public-speaking:<band>:<module>:<index>` — the course's own syllabus key. */
   key: string;
   moduleNum: number;
   lessonIndex: number;
@@ -81,32 +81,4 @@ export interface SpeakingLesson {
    * a word wrong in public is the thing a student is afraid of.
    */
   soundLab?: string[];
-}
-
-export interface SpeakingModule {
-  num: number;
-  title: string;
-  outcome: string;
-  lessons: SpeakingLesson[];
-}
-
-/**
- * Build a lesson without repeating the key, module and index three times.
- * The key is derived, so it cannot drift from the numbers beside it.
- */
-export function lesson(
-  moduleNum: number,
-  lessonIndex: number,
-  number: number,
-  title: string,
-  rest: Omit<SpeakingLesson, 'key' | 'moduleNum' | 'lessonIndex' | 'number' | 'title'>
-): SpeakingLesson {
-  return {
-    key: `public-speaking:0:${moduleNum}:${lessonIndex}`,
-    moduleNum,
-    lessonIndex,
-    number,
-    title,
-    ...rest,
-  };
 }

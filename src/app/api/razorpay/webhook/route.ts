@@ -11,6 +11,9 @@ import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/
  *                          an enrollment (assigned to a gathering cohort,
  *                          auto-creating one if needed).
  *   - payment.failed    → marks the matching purchase_intent as 'expired'.
+ *   - subscription.*    → keeps an autopay link's status and payment count
+ *                          current in payment_links (17 Sep 2026).
+ *   - payment_link.*    → the same for a one-time link made from the dashboard.
  *
  * Uses the Supabase SERVICE-ROLE key — bypasses RLS so the webhook can
  * write enrollments on behalf of students. The service-role key must
@@ -236,6 +239,41 @@ async function handlePaymentFailed(
   return { ok: true };
 }
 
+/**
+ * A dashboard link's own record (payment_links, scripts/payment-links.sql):
+ * an autopay charged, halted, cancelled or completed; a one-time link paid or
+ * expired. Only the status and what was paid — nothing else about the row.
+ */
+async function recordLinkEvent(
+  supabase: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
+  event: string,
+  body: unknown
+): Promise<{ ok: boolean; reason?: string }> {
+  const p = ((body as { payload?: Record<string, { entity?: Record<string, unknown> }> })?.payload) ?? {};
+  const now = new Date().toISOString();
+
+  if (event.startsWith('subscription.')) {
+    const s = p.subscription?.entity;
+    if (!s?.id) return { ok: false, reason: 'no_subscription_entity' };
+    const { error } = await supabase
+      .from('payment_links')
+      .update({ status: String(s.status ?? 'unknown'), paid_count: Number(s.paid_count ?? 0), updated_at: now })
+      .eq('razorpay_id', String(s.id));
+    if (error) console.warn('[razorpay-webhook] autopay record failed:', error.code, error.message);
+    return error ? { ok: false, reason: 'db' } : { ok: true, reason: 'autopay_recorded' };
+  }
+
+  const l = p.payment_link?.entity;
+  if (!l?.id) return { ok: false, reason: 'no_payment_link_entity' };
+  const status = String(l.status ?? 'unknown');
+  const { error } = await supabase
+    .from('payment_links')
+    .update({ status, amount_paid_inr: Number(l.amount_paid ?? 0) / 100, paid_count: status === 'paid' ? 1 : 0, updated_at: now })
+    .eq('razorpay_id', String(l.id));
+  if (error) console.warn('[razorpay-webhook] link record failed:', error.code, error.message);
+  return error ? { ok: false, reason: 'db' } : { ok: true, reason: 'link_recorded' };
+}
+
 /* ─────────────────────── POST /api/razorpay/webhook ─────────────────────── */
 export async function POST(req: NextRequest) {
   const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
@@ -309,6 +347,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ received: true, ok: result.ok, reason: result.reason }, { status: 200 });
     }
 
+    if (event.startsWith('subscription.') || event.startsWith('payment_link.')) {
+      const result = await recordLinkEvent(supabase, event, body);
+      return NextResponse.json({ received: true, ok: result.ok, reason: result.reason }, { status: 200 });
+    }
+
     // Unhandled event — acknowledge so Razorpay doesn't retry forever
     return NextResponse.json({ received: true, ok: true, reason: `unhandled_event:${event}` }, { status: 200 });
   } catch (err) {
@@ -331,7 +374,7 @@ export async function GET() {
       webhookSecret: hasSecret ? 'set' : 'missing',
       serviceRoleKey: hasServiceKey ? 'set' : 'missing',
     },
-    events: ['payment.captured', 'payment.failed'],
+    events: ['payment.captured', 'payment.failed', 'subscription.*', 'payment_link.*'],
     endpoint: 'POST /api/razorpay/webhook',
   });
 }

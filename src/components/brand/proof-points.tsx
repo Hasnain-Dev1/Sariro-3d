@@ -36,7 +36,7 @@ import { BRAND } from '@/lib/sariro-data';
  * Sariro has things that are true AND checkable:
  *
  *   • the founder's record, already attributed elsewhere on the site
- *   • 2,530 lesson titles across 440 modules — published, and a visitor can
+ *   • 2,714 lesson titles across 472 modules — published, and a visitor can
  *     go and read them right now, which is the point of linking them
  *   • four learners to a class
  *   • the first class free
@@ -46,9 +46,9 @@ import { BRAND } from '@/lib/sariro-data';
  * worth more than a quote you cannot verify.
  */
 
-/** Counted from AUTHORED_TITLES on 2 Sep 2026; see the audit script. */
-const LESSON_TITLES = 2530;
-const MODULES = 440;
+/** Counted on 17 Sep 2026: AUTHORED_TITLES (2,484 in 432 modules) plus the five Public Speaking courses (230 in 40). */
+const LESSON_TITLES = 2714;
+const MODULES = 472;
 
 const POINTS = [
   {

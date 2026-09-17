@@ -3,9 +3,7 @@
 import { useState } from 'react';
 import { Flame, Gamepad2, Globe2, Volume2, Mic, X } from 'lucide-react';
 import SpeakingLab from '@/components/speaking/speaking-lab';
-import type { SpeakingLesson } from '@/lib/speaking/lesson';
-import { ARENA, type ArenaGame } from '@/lib/speaking/quest/arena';
-import { twisterFor, worldOf } from '@/lib/speaking/quest/worlds';
+import { warmUpFor, worldOf, type StagedLesson } from '@/lib/speaking/courses';
 import { StarRow } from './homework-panel';
 import type { Stars } from '@/lib/speaking/quest/homework';
 
@@ -14,8 +12,8 @@ import type { Stars } from '@/lib/speaking/quest/homework';
  * map, a tongue twister to start, and the game the class plays.
  */
 
-export function LevelBadge({ lesson, stars, cleared }: { lesson: SpeakingLesson; stars?: Stars; cleared?: boolean }) {
-  const world = worldOf(lesson.moduleNum);
+export function LevelBadge({ lesson, stars, cleared }: { lesson: StagedLesson; stars?: Stars; cleared?: boolean }) {
+  const world = worldOf(lesson.stage, lesson.moduleNum);
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-bold text-white" style={{ background: world.color, fontFamily: 'var(--font-grotesk)' }}>
@@ -30,8 +28,8 @@ export function LevelBadge({ lesson, stars, cleared }: { lesson: SpeakingLesson;
   );
 }
 
-export function WarmUp({ lesson }: { lesson: SpeakingLesson }) {
-  const t = twisterFor(lesson.number);
+export function WarmUp({ lesson }: { lesson: StagedLesson }) {
+  const t = warmUpFor(lesson.stage, lesson.number);
   const [open, setOpen] = useState(false);
   const hear = () => {
     try {
@@ -65,11 +63,10 @@ export function WarmUp({ lesson }: { lesson: SpeakingLesson }) {
   );
 }
 
-/** The class game. A stage can bring its own game and its own real-life moment (lib/speaking/stages.ts). */
-export function ArenaCard({ lesson, game: override, realWorld }: { lesson: SpeakingLesson; game?: ArenaGame; realWorld?: string }) {
-  const game = override ?? ARENA[lesson.number];
-  if (!game) return null;
-  const world = worldOf(lesson.moduleNum);
+/** The class game, and where the lesson's skill is needed in this learner's life. */
+export function ArenaCard({ lesson }: { lesson: StagedLesson }) {
+  const game = lesson.game;
+  const world = worldOf(lesson.stage, lesson.moduleNum);
   return (
     <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
       <div className="px-4 sm:px-5 py-4 text-white" style={{ background: `linear-gradient(120deg, ${world.color}, #0F172A)` }}>
@@ -90,7 +87,7 @@ export function ArenaCard({ lesson, game: override, realWorld }: { lesson: Speak
       </ol>
       <div className="mx-4 sm:mx-5 mb-4 rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2.5 flex items-start gap-2">
         <Globe2 className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-        <p className="text-[13px] text-slate-700"><span className="font-bold text-slate-900">In real life: </span>{realWorld ?? game.realWorld}</p>
+        <p className="text-[13px] text-slate-700"><span className="font-bold text-slate-900">In real life: </span>{lesson.realWorld}</p>
       </div>
     </div>
   );

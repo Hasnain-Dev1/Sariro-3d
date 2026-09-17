@@ -91,6 +91,8 @@ export interface ListedLink {
   createdAt: number;
   createdBy: string | null;
   leadId: string | null;
+  /** Everything written on the link when it was made (who, for whom, the plan). */
+  notes: Record<string, string>;
 }
 
 /** The links Sariro created, newest first. */
@@ -119,6 +121,7 @@ export async function listPaymentLinks(): Promise<LinkResult<ListedLink[]>> {
           createdAt: Number(l.created_at ?? 0),
           createdBy: notes.created_by ?? null,
           leadId: notes.lead_id || null,
+          notes,
         };
       })
       .sort((a, b) => b.createdAt - a.createdAt);

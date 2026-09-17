@@ -60,7 +60,7 @@ const SUBJECT_ICONS: Record<string, LucideIcon> = {
  * the page.
  *
  * So the cards show the real thing. The topics are pulled live from
- * AUTHORED_TITLES - the same 2,530-lesson curriculum the course pages and the
+ * AUTHORED_TITLES - the same school and focus curriculum the course pages and the
  * syllabus audit read. Nothing is written twice: rename a module in the
  * curriculum and this card follows, which also means it can never advertise a
  * topic that is not actually taught.

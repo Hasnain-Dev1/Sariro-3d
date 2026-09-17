@@ -173,7 +173,7 @@ export const SECTIONS = {
     { id: 'forecast', workspace: 'finance', label: 'Next month', keywords: 'forecast committed cost expected revenue' },
     { id: 'gst', workspace: 'finance', label: 'GST summary', keywords: 'gst tax output input credit itc filing return cgst sgst igst payable' },
     { id: 'profitability', workspace: 'finance', label: 'Pricing & profitability', keywords: 'pricing price calculator profit profitability margin minimum floor seller offer gst cac website dollar plan mix' },
-    { id: 'payment-links', workspace: 'finance', label: 'Rupee payment links', keywords: 'payment link razorpay upi rupee inr india whatsapp send pay' },
+    { id: 'payment-links', workspace: 'finance', label: 'Rupee payment links', keywords: 'payment link razorpay upi rupee inr india whatsapp send pay autopay subscription recurring' },
     { id: 'bank-accounts', workspace: 'finance', label: 'Bank accounts', keywords: 'bank account transfer ifsc swift iban upi country checkout wire' },
     { id: 'pricing', workspace: 'finance', label: 'Coding course payment pages', keywords: 'pricing razorpay payment pages tier coding static' },
 
@@ -196,6 +196,7 @@ export const SECTIONS = {
     { id: 'leads', workspace: 'sales', label: 'My leads', keywords: 'leads pipeline stage' },
     { id: 'demo-requests', workspace: 'sales', label: 'Demo class requests', keywords: 'demo request enquiry referral manual trial' },
     { id: 'revenue', workspace: 'sales', label: 'Revenue & exports', keywords: 'revenue payments export csv download' },
+    { id: 'payment-links', workspace: 'sales', label: 'Payment links & autopay', keywords: 'payment link razorpay upi rupee inr india whatsapp autopay subscription cancel recurring' },
 
     { id: 'monitoring', workspace: 'quality', label: 'Monitor a class', keywords: 'monitoring observe class score teacher' },
     { id: 'chat-policy', workspace: 'quality', label: 'Chat policy', keywords: 'chat policy flag contact details phone' },
@@ -225,7 +226,7 @@ export const SECTIONS = {
     { id: 'unrecorded-invoices', workspace: 'sales', label: 'Invoices not in the books', keywords: 'invoice unrecorded reconcile ledger' },
     { id: 'ledger', workspace: 'sales', label: 'Sales & refunds', keywords: 'sales refunds ledger revenue renewal' },
     { id: 'gst', workspace: 'sales', label: 'GST summary', keywords: 'gst tax output input credit itc filing return cgst sgst igst payable' },
-    { id: 'payment-links', workspace: 'sales', label: 'Rupee payment links', keywords: 'payment link razorpay upi rupee inr india whatsapp send pay' },
+    { id: 'payment-links', workspace: 'sales', label: 'Rupee payment links', keywords: 'payment link razorpay upi rupee inr india whatsapp send pay autopay subscription recurring' },
     { id: 'bank-accounts', workspace: 'sales', label: 'Bank accounts', keywords: 'bank account transfer ifsc swift iban upi country checkout wire' },
     { id: 'pricing', workspace: 'sales', label: 'Pricing & profitability', keywords: 'pricing price calculator profit margin floor seller website' },
   ],
@@ -260,7 +261,7 @@ export const SECTIONS = {
     { id: 'trial-grades', workspace: 'trials', label: 'Open trial seats', keywords: 'trial grade seats class full band' },
 
     { id: 'price-list', workspace: 'prices', label: 'Price list', keywords: 'price prices fee plan quote offer discount floor lowest month year' },
-    { id: 'payment-links', workspace: 'prices', label: 'Payment links', keywords: 'payment link razorpay upi rupee inr india whatsapp send pay' },
+    { id: 'payment-links', workspace: 'prices', label: 'Payment links', keywords: 'payment link razorpay upi rupee inr india whatsapp send pay autopay subscription recurring' },
 
     { id: 'payout', workspace: 'pay', label: 'Payout', keywords: 'payout incentive sales commission month settle earned' },
   ],

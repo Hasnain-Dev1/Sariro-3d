@@ -177,15 +177,16 @@ const FETCHERS: Record<AttentionKey, Fetcher> = {
   speaking_missions: async (once) => {
     const l = await learner(once);
     if (!canPractise(l.enrolments)) return 0;
-    const [{ allSpeakingLessons }, { questState }, { activeSpeakingBand }, attempts] = await Promise.all([
-      import('@/lib/speaking/modules'),
+    const [{ speakingLessons }, { questState }, { activeSpeakingBand }, attempts] = await Promise.all([
+      import('@/lib/speaking/courses'),
       import('@/lib/speaking/quest/engine'),
       import('@/lib/speaking/access'),
       fetchAttempts(l.id, { limit: 3000, sounds: true }),
     ]);
     // The band of their current Public Speaking course, not only their grade.
-    const state = questState(attempts, allSpeakingLessons(), {
-      now: Date.now(), offsetMinutes: new Date().getTimezoneOffset(), stage: activeSpeakingBand(l.enrolments, l.grade) ?? 'middle',
+    const band = activeSpeakingBand(l.enrolments, l.grade) ?? 'middle';
+    const state = questState(attempts, speakingLessons(band), {
+      now: Date.now(), offsetMinutes: new Date().getTimezoneOffset(), stage: band,
     });
     return speakingWaiting(state);
   },

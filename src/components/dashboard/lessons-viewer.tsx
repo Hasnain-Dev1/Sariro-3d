@@ -20,9 +20,8 @@ import { Lock, Check, PlayCircle, ChevronRight, Loader2, BookOpen } from 'lucide
 import { getStructuredCourse, getStructuredLesson } from '@/lib/curriculum';
 import { StructuredLessonView } from '@/components/dashboard/structured-lesson-view';
 import SpeakingLessonView from '@/components/speaking/speaking-lesson-view';
-import { getSpeakingLesson } from '@/lib/speaking/modules';
-import type { SpeakingLesson } from '@/lib/speaking/lesson';
-import { bandOfCourseId, isSpeakingCourseId } from '@/lib/speaking/bands';
+import { speakingLessonAt, type StagedLesson } from '@/lib/speaking/courses';
+import { speakingBandOfCourse, isSpeakingCourseId } from '@/lib/speaking/bands';
 import type { StructuredLesson } from '@/lib/curriculum/types';
 
 interface LessonRow {
@@ -57,7 +56,7 @@ export function LessonsViewer({ courseId }: { courseId: string }) {
   /* Public Speaking has a shape of its own — see components/speaking. A
      coding lesson ends in a quiz because coding has a right answer; a
      speaking lesson ends in the student having spoken. */
-  const [speaking, setSpeaking] = useState<SpeakingLesson | null>(null);
+  const [speaking, setSpeaking] = useState<StagedLesson | null>(null);
   const [contentLoading, setContentLoading] = useState(false);
   const [contentError, setContentError] = useState<string | null>(null);
   /**
@@ -100,7 +99,7 @@ export function LessonsViewer({ courseId }: { courseId: string }) {
 
     // Public Speaking renders its own way, from the codebase, no fetch.
     if (isSpeakingCourseId(courseId)) {
-      const written = getSpeakingLesson(l.module_num, l.lesson_index);
+      const written = speakingLessonAt(speakingBandOfCourse(courseId), l.module_num, l.lesson_index);
       if (written) { setSpeaking(written); return; }
       setMissingFor(l);
       return;
@@ -226,7 +225,7 @@ export function LessonsViewer({ courseId }: { courseId: string }) {
           /* A band course shows its own band's version of the lesson, whatever
              the grade on the profile says — the course bought is the course
              taught. The old single course still follows the learner's grade. */
-          <SpeakingLessonView lesson={speaking} stage={bandOfCourseId(courseId) ?? undefined} />
+          <SpeakingLessonView lesson={speaking} stage={speaking.stage} />
         ) : structured ? (
           <StructuredLessonView lesson={structured} />
         ) : content ? (

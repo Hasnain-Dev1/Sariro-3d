@@ -94,8 +94,12 @@ describe('Public Speaking, the course that could not be reached', () => {
   });
 
   test('with the titles somebody actually wrote, not "Lesson 1"', () => {
-    assert.equal(lessons[0].lesson_name, 'Speaking well is learnable, not a gift');
-    assert.equal(lessons[0].module_name, 'Finding Your Voice');
+    // The old single course reads as Grades 7–9; every band has its own syllabus.
+    assert.equal(lessons[0].lesson_name, 'The fear of being judged');
+    assert.equal(lessons[0].module_name, 'Confidence Under Pressure');
+    const young = flattenCourseLessons('public-speaking-foundation');
+    assert.equal(young[0].lesson_name, 'Hello! This is me');
+    assert.equal(young[0].module_name, 'Hello, Voice!');
   });
 
   test('assessments are kept — they are real classes a teacher turns up to', () => {

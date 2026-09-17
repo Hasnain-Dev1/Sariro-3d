@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Flame, Star, Target, Zap, Check, X } from 'lucide-react';
-import { allSpeakingLessons } from '@/lib/speaking/modules';
+import { showcasesFor, speakingLessons } from '@/lib/speaking/courses';
 import { homeworkFor, showcaseMissions, attemptPasses, type Mission } from '@/lib/speaking/quest/homework';
 import { questState, dailyQuest } from '@/lib/speaking/quest/engine';
-import { SHOWCASES } from '@/lib/speaking/quest/worlds';
+
 import { useAttempts } from './use-attempts';
 import { createClient } from '@/lib/supabase/client';
 import { stageFor, STAGES, type Stage } from '@/lib/speaking/stages';
@@ -21,7 +21,6 @@ import { KIND_META } from './homework-panel';
  * table's RLS (scripts/practice-log.sql).
  */
 export default function QuestRecord({ userId, name }: { userId: string; name: string }) {
-  const lessons = useMemo(() => allSpeakingLessons(), []);
   const { attempts } = useAttempts(userId);
   const [clock, setClock] = useState<{ now: number; offset: number } | null>(null);
   useEffect(() => { setClock({ now: Date.now(), offset: new Date().getTimezoneOffset() }); }, []);
@@ -46,13 +45,13 @@ export default function QuestRecord({ userId, name }: { userId: string; name: st
   const index = useMemo(() => {
     const m = new Map<string, { mission: Mission; where: string }>();
     if (!stage) return m;
-    for (const l of lessons) for (const mission of homeworkFor(l, stage)) m.set(mission.id, { mission, where: `Level ${l.number}` });
-    for (const s of SHOWCASES) for (const mission of showcaseMissions(s, stage)) m.set(mission.id, { mission, where: 'Showcase' });
+    for (const l of speakingLessons(stage)) for (const mission of homeworkFor(l)) m.set(mission.id, { mission, where: `Level ${l.number}` });
+    for (const s of showcasesFor(stage)) for (const mission of showcaseMissions(s, stage)) m.set(mission.id, { mission, where: 'Showcase' });
     return m;
-  }, [lessons, stage]);
+  }, [stage]);
 
   if (!attempts || !clock || !stage) return <div className="h-24 rounded-xl bg-slate-100 animate-pulse" />;
-  const state = questState(attempts, lessons, { now: clock.now, offsetMinutes: clock.offset, stage });
+  const state = questState(attempts, speakingLessons(stage), { now: clock.now, offsetMinutes: clock.offset, stage });
 
   const homework = attempts
     .filter((a) => a.drillId && (index.has(a.drillId) || a.drillId.startsWith('dq:')))

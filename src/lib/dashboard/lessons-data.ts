@@ -21,10 +21,11 @@
 
 import { COURSES } from '@/lib/sariro-data';
 import {
-  SCHOOL_SUBJECTS, SPECIALISATIONS, GRADE_GROUPS, buildGradeSyllabus,
+  SCHOOL_SUBJECTS, SPECIALISATIONS, GRADE_GROUPS, buildGradeSyllabus, type GradeSyllabus,
 } from '@/lib/school/curriculum';
 import { lessonName as extractLessonName } from '@/lib/capstones';
-import { BAND_ORDER, SPEAKING_TRACK_SLUG, bandCourseName, bandOfCourseId, bandOfLevel, isSpeakingTrack, speakingCourseId } from '@/lib/speaking/bands';
+import { BAND_ORDER, SPEAKING_TRACK_SLUG, bandCourseName, bandOfCourseId, bandOfLevel, isSpeakingCourseId, isSpeakingTrack, speakingBandOfCourse, speakingCourseId } from '@/lib/speaking/bands';
+import { speakingSyllabus } from '@/lib/speaking/courses';
 
 /* ───────────────────────────── Types ───────────────────────────── */
 
@@ -58,6 +59,8 @@ export function flattenCourseLessons(courseId: string): OrderedLesson[] {
   if (!course || !Array.isArray(course.syllabus)) {
     // Not a coding course. It may still be a school subject or a focus course —
     // see parseSchoolCourseId at the bottom of this file.
+    // Public Speaking: each band is a course with its own syllabus.
+    if (isSpeakingCourseId(courseId)) return flattenSyllabus(speakingSyllabus(speakingBandOfCourse(courseId)));
     const school = parseSchoolCourseId(courseId);
     return school ? flattenSchoolLessons(school.subjectSlug, school.grade) : [];
   }
@@ -183,13 +186,13 @@ export function canViewLesson(
 export function parseSchoolCourseId(
   courseId: string
 ): { subjectSlug: string; grade: number } | null {
-  /* A Public Speaking band course — `public-speaking-middle`. One syllabus for
-     all five; the band decides which version of each lesson is read. */
+  /* A Public Speaking band course — `public-speaking-middle`. Each band has its own
+     syllabus (speakingSyllabus in lib/speaking/courses). */
   if (bandOfCourseId(courseId)) return { subjectSlug: SPEAKING_TRACK_SLUG, grade: 0 };
   const focus = /^(.+)-focus$/.exec(courseId);
   if (focus && SPECIALISATIONS.some((s) => s.slug === focus[1])) {
     // Specialisations have no grade. buildGradeSyllabus keys them at 0, and
-    // AUTHORED_TITLES stores them as `public-speaking:0`.
+    // AUTHORED_TITLES stores them as `organic-chemistry:0`.
     return { subjectSlug: focus[1], grade: 0 };
   }
   const school = /^(.+)-grade-(\d{1,2})$/.exec(courseId);
@@ -244,7 +247,10 @@ export function lessonCourseIdFor(track: string, level: string): string | null {
 
 /** Flatten a school or focus course. Assessment slots are real classes and are kept. */
 function flattenSchoolLessons(subjectSlug: string, grade: number): OrderedLesson[] {
-  const syllabus = buildGradeSyllabus(subjectSlug, grade);
+  return flattenSyllabus(buildGradeSyllabus(subjectSlug, grade));
+}
+
+function flattenSyllabus(syllabus: GradeSyllabus): OrderedLesson[] {
   const out: OrderedLesson[] = [];
   let order = 0;
   for (const mod of syllabus.modules) {
