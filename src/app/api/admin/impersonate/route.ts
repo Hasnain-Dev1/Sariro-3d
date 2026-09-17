@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClientHelper } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/server';
+import { assertSameOrigin } from '@/lib/security/origin-check';
+import { IMPERSONATOR_COOKIE, openImpersonation, sealImpersonation } from '@/lib/auth/impersonation';
 
 /**
  * SARIRO — POST /api/admin/impersonate
@@ -20,11 +22,13 @@ import { createServiceClient } from '@/lib/supabase/server';
  *   6. Return { ok: true, targetUserId, targetName }.
  *
  * Security:
- *   - Only admin/super_admin can call this.
- *   - The impersonator cookie is httpOnly + sameSite=lax + secure in prod.
- *   - Impersonation is logged to admin_audit_logs.
- *   - The /exit-impersonation route clears the cookie + restores the
- *     admin's session via a stored refresh token.
+ *   - Only admin/super_admin can call this, from this site (origin check).
+ *   - Only a super admin may view as an admin or another super admin.
+ *   - The audit row is written BEFORE the session switches; no row, no switch.
+ *     /exit-impersonation will not restore a session without it.
+ *   - The impersonator cookie is SEALED with a server-held key (see
+ *     lib/auth/impersonation.ts) + httpOnly + sameSite=lax + secure in prod.
+ *     Unsigned, it let anybody sign in as any email (fixed 17 Sep 2026).
  *
  * Why magic link instead of direct session manipulation:
  *   Supabase doesn't expose a "sign in as user" admin API for the JS
@@ -37,6 +41,9 @@ import { createServiceClient } from '@/lib/supabase/server';
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
+  const csrfFail = assertSameOrigin(req);
+  if (csrfFail) return csrfFail;
+
   // ── Auth gate ───────────────────────────────────────────────────────
   let adminUser: { id: string; email?: string } | null = null;
   try {
@@ -108,18 +115,46 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'target_user_not_found' }, { status: 404 });
   }
 
-  // ── SECURITY: Admins cannot impersonate super_admins ─────────────────
-  // Only super_admins can impersonate other super_admins.
-  const targetRole = targetProfile.role
-    || (targetProfile.is_super_admin ? 'super_admin'
-      : targetProfile.is_admin ? 'admin'
-      : targetProfile.is_teacher ? 'teacher'
-      : 'student');
-  if (targetRole === 'super_admin' && adminRole !== 'super_admin') {
+  // ── SECURITY: only a super admin may view as an admin or super admin ──
+  // Read from the column AND the flags: a profile can be role 'student' with
+  // is_super_admin true (see lib/auth/actor.ts), and the flag is what counts.
+  const targetIsStaff =
+    targetProfile.role === 'super_admin' || targetProfile.role === 'admin' ||
+    targetProfile.is_super_admin === true || targetProfile.is_admin === true;
+  if (targetIsStaff && adminRole !== 'super_admin') {
     return NextResponse.json(
-      { ok: false, error: 'forbidden', message: 'Admins cannot impersonate super admins.' },
+      { ok: false, error: 'forbidden', message: 'Only a super admin can view as another admin.' },
       { status: 403 }
     );
+  }
+
+  // ── Audit first: no record, no session switch ─────────────────────────
+  const { error: auditErr } = await serviceClient.from('admin_audit_logs').insert({
+    admin_id: adminUser.id,
+    action: 'impersonate_user',
+    target_type: 'user',
+    target_id: targetUserId,
+    metadata: { target_email: targetProfile.email, target_name: targetProfile.full_name },
+  });
+  if (auditErr) {
+    console.error('[impersonate] audit log insert failed:', auditErr.message);
+    return NextResponse.json({ ok: false, error: 'audit_failed', message: 'Could not record this. Nothing changed.' }, { status: 500 });
+  }
+
+  // The seal needs the server's key; find out before the session switches.
+  const impersonatorPayload = {
+    adminUserId: adminUser.id,
+    adminEmail: adminUser.email ?? null,
+    startedAt: new Date().toISOString(),
+    targetUserId: targetProfile.id,
+    targetEmail: targetProfile.email,
+    targetName: targetProfile.full_name,
+  };
+  let sealed: string;
+  try {
+    sealed = sealImpersonation(impersonatorPayload);
+  } catch {
+    return NextResponse.json({ ok: false, error: 'service_unavailable' }, { status: 500 });
   }
 
   // ── Generate a magic link for the target user ───────────────────────
@@ -169,18 +204,8 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Set the impersonator cookie ─────────────────────────────────────
-  // This lets us restore the admin's session when they exit impersonation.
-  // We store the admin's user ID + a timestamp. The actual session
-  // restoration uses the admin's refresh token (stored in the Supabase
-  // auth cookie, which we'll overwrite — but we save the admin's
-  // refresh token in the impersonator cookie first).
-  const impersonatorPayload = {
-    adminUserId: adminUser.id,
-    adminEmail: adminUser.email,
-    startedAt: new Date().toISOString(),
-    targetUserId: targetProfile.id,
-    targetEmail: targetProfile.email,
-  };
+  // Sealed above. /exit-impersonation opens it, checks it against the
+  // database, and signs the admin back in by their id.
 
   const res = NextResponse.json({
     ok: true,
@@ -189,26 +214,13 @@ export async function POST(req: NextRequest) {
     redirectTo: '/dashboard',
   });
 
-  res.cookies.set('sariro_impersonator', JSON.stringify(impersonatorPayload), {
+  res.cookies.set(IMPERSONATOR_COOKIE, sealed, {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
     path: '/',
     maxAge: 60 * 60, // 1 hour — admin must exit impersonation within this window
   });
-
-  // ── Best-effort audit log ───────────────────────────────────────────
-  try {
-    await serviceClient.from('admin_audit_logs').insert({
-      admin_id: adminUser.id,
-      action: 'impersonate_user',
-      target_type: 'user',
-      target_id: targetUserId,
-      metadata: { target_email: targetProfile.email, target_name: targetProfile.full_name },
-    });
-  } catch (err) {
-    console.warn('[impersonate] audit log insert failed:', err);
-  }
 
   return res;
 }
@@ -218,22 +230,15 @@ export async function GET(req: NextRequest) {
   // impersonation. The cookie is httpOnly so the browser can't read it
   // directly — this endpoint exposes the non-sensitive parts (admin
   // email, target name) so the ImpersonationBanner can render.
-  const cookieValue = req.cookies.get('sariro_impersonator')?.value;
-  if (!cookieValue) {
-    return NextResponse.json({ impersonating: false });
-  }
-  try {
-    const payload = JSON.parse(cookieValue);
-    return NextResponse.json({
-      impersonating: true,
-      adminEmail: payload.adminEmail,
-      adminUserId: payload.adminUserId,
-      targetEmail: payload.targetEmail,
-      targetName: payload.targetName,
-      targetUserId: payload.targetUserId,
-      startedAt: payload.startedAt,
-    });
-  } catch {
-    return NextResponse.json({ impersonating: false });
-  }
+  const payload = openImpersonation(req.cookies.get(IMPERSONATOR_COOKIE)?.value);
+  if (!payload) return NextResponse.json({ impersonating: false });
+  return NextResponse.json({
+    impersonating: true,
+    adminEmail: payload.adminEmail,
+    adminUserId: payload.adminUserId,
+    targetEmail: payload.targetEmail,
+    targetName: payload.targetName,
+    targetUserId: payload.targetUserId,
+    startedAt: payload.startedAt,
+  });
 }

@@ -88,6 +88,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // No "X-Powered-By: Next.js" — telling a scanner the framework and nothing else (17 Sep 2026 security pass).
+  poweredByHeader: false,
   env: {
     NEXT_PUBLIC_BUILD_COMMIT: gitCommit(),
     NEXT_PUBLIC_BUILD_TIME: new Date().toISOString(),

@@ -7,6 +7,7 @@ import { ArrowRight, PlayCircle, LineChart, Users } from 'lucide-react';
 import SignInButtons from '@/components/auth/sign-in-buttons';
 import AuthShell from '@/components/auth/auth-shell';
 import { useAuth } from '@/components/auth/auth-provider';
+import { safeNextPath } from '@/lib/security/safe-redirect';
 
 /**
  * Where a person lands after signing in.
@@ -24,7 +25,7 @@ function SignInPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading } = useAuth();
-  const next = searchParams.get('next') || AFTER_SIGN_IN;
+  const next = safeNextPath(searchParams.get('next'), AFTER_SIGN_IN);
 
   useEffect(() => {
     if (!loading && user) {

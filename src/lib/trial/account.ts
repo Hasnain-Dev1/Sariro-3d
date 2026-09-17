@@ -92,6 +92,23 @@ export type TrialAccountResult =
     }
   | { ok: false; message: string };
 
+/** Anybody whose account carries more than a family's: every role but student. */
+async function isStaffAccount(admin: SupabaseClient, id: string): Promise<boolean> {
+  const { data, error } = await admin
+    .from('profiles')
+    .select('role, is_admin, is_super_admin, is_hr, is_seller, is_teacher')
+    .eq('id', id)
+    .maybeSingle();
+  // Unknown is treated as staff: the cost is one family signing in by hand.
+  if (error) return true;
+  if (!data) return false;
+  return (
+    ['super_admin', 'admin', 'hr', 'seller', 'teacher'].includes(String(data.role ?? '')) ||
+    data.is_admin === true || data.is_super_admin === true || data.is_hr === true ||
+    data.is_seller === true || data.is_teacher === true
+  );
+}
+
 export async function resolveTrialAccount(
   admin: SupabaseClient,
   input: TrialAccountInput
@@ -99,8 +116,15 @@ export async function resolveTrialAccount(
   const existing = async (
     id: string,
     accountEmail: string | null,
-    proved: boolean
+    provedIdentity: boolean
   ): Promise<TrialAccountResult> => {
+    /* A free-class form never opens a staff account (17 Sep 2026). Admins,
+       HR, sellers and teachers sign in the usual way. Until then, anybody who
+       could make an address look verified — the email-code functions were
+       callable from a browser with a code of the caller's choosing — was
+       signed straight in as whoever owned it, the super admin included. The
+       class still books; the session and the profile are left alone. */
+    const proved = provedIdentity && !(await isStaffAccount(admin, id));
     /* The zone they just confirmed replaces the one on file — but only for an
        identity this request proved. Changing a stranger's zone would shift
        every class time they are ever shown. */

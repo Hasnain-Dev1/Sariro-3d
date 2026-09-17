@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { isSupabaseConfigured, createServerClientHelper } from '@/lib/supabase/server';
 import { BLOCKED_PATH, isBlockedAuthError } from '@/lib/auth/blocked';
+import { safeNextPath } from '@/lib/security/safe-redirect';
 
 /* ===============================================================
    /auth/callback — OAuth redirect handler
@@ -13,7 +14,8 @@ export async function GET(request: Request) {
   const code = requestUrl.searchParams.get('code');
   // Same default as the sign-in pages: a person who has just authenticated is
   // going to their dashboard unless they were sent here from somewhere else.
-  let next = requestUrl.searchParams.get('next') || '/dashboard';
+  // Only ever a page on this site — it was an open redirect (lib/security/safe-redirect.ts).
+  let next = safeNextPath(requestUrl.searchParams.get('next'), '/dashboard');
   const errorParam = requestUrl.searchParams.get('error');
 
   /* A password-recovery link exchanges for a real session, so without this it
