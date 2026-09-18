@@ -163,9 +163,9 @@ export default function TierPage({ tier }: { tier: Tier }) {
         title={cfg.title}
         subtitle={cfg.subtitle}
       >
-        <Link href="/courses" className="btn-tactile btn-tactile-light px-5 py-3 text-sm">
+        <Link href="/courses/coding" className="btn-tactile btn-tactile-light px-5 py-3 text-sm">
           <ArrowLeft className="w-4 h-4" />
-          All courses
+          All coding courses
         </Link>
         <Link href="/pricing" className="btn-tactile btn-tactile-primary px-5 py-3 text-sm" style={{ background: cfg.accentColor }}>
           <Sparkles className="w-4 h-4" />

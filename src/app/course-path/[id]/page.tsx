@@ -74,7 +74,7 @@ export default function CoursePathPage() {
           <div className="relative max-w-2xl mx-auto px-4 text-center">
             <h1 className="text-3xl font-extrabold text-slate-900 mb-4" style={{ fontFamily: 'var(--font-jakarta)' }}>Course not found</h1>
             <p className="text-slate-600 mb-8">We couldn't find this course path.</p>
-            <Link href="/courses" className="btn-tactile btn-tactile-primary px-6 py-3 text-sm"><ArrowLeft className="w-4 h-4" />Browse courses</Link>
+            <Link href="/courses/coding" className="btn-tactile btn-tactile-primary px-6 py-3 text-sm"><ArrowLeft className="w-4 h-4" />Browse coding courses</Link>
           </div>
         </section>
       </BrandLayout>
@@ -93,8 +93,8 @@ export default function CoursePathPage() {
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
 
           {/* Back link */}
-          <Link href="/courses" className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-slate-900 mb-6 transition-colors" style={{ fontFamily: 'var(--font-grotesk)' }}>
-            <ArrowLeft className="w-3.5 h-3.5" />All courses
+          <Link href="/courses/coding" className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-slate-900 mb-6 transition-colors" style={{ fontFamily: 'var(--font-grotesk)' }}>
+            <ArrowLeft className="w-3.5 h-3.5" />All coding courses
           </Link>
 
           {/* Track header */}

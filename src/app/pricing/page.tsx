@@ -385,7 +385,7 @@ export default function PricingPage() {
                       >
                         <MagneticButton
                           as="a"
-                          href={`/courses?level=${tier.id === 'expert' ? 'Advanced' : (tier.id.charAt(0).toUpperCase() + tier.id.slice(1))}`}
+                          href={`/courses/coding?level=${tier.id === 'expert' ? 'Advanced' : (tier.id.charAt(0).toUpperCase() + tier.id.slice(1))}`}
                           strength={0.2}
                           className={`btn-tactile w-full px-5 py-3 text-sm justify-center ${
                             isPopular ? 'btn-tactile-primary' : 'btn-tactile-light'

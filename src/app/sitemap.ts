@@ -24,6 +24,7 @@ function getBaseUrl(): string {
 const STATIC_PAGES: { path: string; priority: number; changeFrequency: MetadataRoute.Sitemap[number]['changeFrequency'] }[] = [
   { path: '/', priority: 1.0, changeFrequency: 'weekly' },
   { path: '/courses', priority: 0.9, changeFrequency: 'weekly' },
+  { path: '/courses/coding', priority: 0.9, changeFrequency: 'weekly' },
   { path: '/courses/elementary', priority: 0.8, changeFrequency: 'weekly' },
   { path: '/courses/beginner', priority: 0.8, changeFrequency: 'weekly' },
   { path: '/courses/intermediate', priority: 0.8, changeFrequency: 'weekly' },

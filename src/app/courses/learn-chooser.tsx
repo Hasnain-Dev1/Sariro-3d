@@ -28,10 +28,9 @@ import {
  * landed on a coding catalogue and left.
  *
  * So coding stops being a separate destination and becomes one card among the
- * subjects. It is first because it is the flagship, and it is the only card that
- * does not navigate away — it drops to the coding catalogue further down this
- * same page, which is the view that already works and that people already link
- * to.
+ * subjects. It is first because it is the flagship. Like every other card it
+ * opens its own page, /courses/coding (founder, 18 Sep 2026 — it used to drop to
+ * a catalogue at the bottom of /courses, the one card that behaved differently).
  *
  * The capability map is not deleted, and not a peer of these cards either. It
  * answers a different question — "what could I become?" rather than "what do you
@@ -77,9 +76,9 @@ export default function LearnChooser() {
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Coding first, and staying on this page. */}
+            {/* Coding first — its own page, like every subject. */}
             <Link
-              href="#catalog"
+              href="/courses/coding"
               className="card card--feature group flex flex-col"
               style={{ ['--accent' as string]: CODING_ACCENT }}
             >

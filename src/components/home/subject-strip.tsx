@@ -132,7 +132,7 @@ export default function SubjectStrip() {
             transition={{ duration: 0.4 }}
           >
             <Link
-              href="/courses#catalog"
+              href="/courses/coding"
               className="card group flex flex-col h-full"
               style={{ ['--accent' as string]: CODING_ACCENT }}
             >
