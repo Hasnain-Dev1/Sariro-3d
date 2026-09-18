@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { isSupabaseConfigured, createServerClientHelper } from '@/lib/supabase/server';
 import { BLOCKED_PATH, isBlockedAuthError } from '@/lib/auth/blocked';
 import { safeNextPath } from '@/lib/security/safe-redirect';
+import { siteOrigin } from '@/lib/http/site-origin';
 
 /* ===============================================================
    /auth/callback — OAuth redirect handler
@@ -9,8 +10,13 @@ import { safeNextPath } from '@/lib/security/safe-redirect';
    We exchange the code for a session, then redirect to ?next=.
 =============================================================== */
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
+  /* Where the browser is sent next. Not the request URL's own origin: behind
+     Hostinger's proxy that is the app's https://0.0.0.0:3000, and every
+     sign-in and password-reset redirect landed there (found live, 17 Sep
+     2026). See lib/http/site-origin.ts. */
+  const origin = siteOrigin(request);
   const code = requestUrl.searchParams.get('code');
   // Same default as the sign-in pages: a person who has just authenticated is
   // going to their dashboard unless they were sent here from somewhere else.
@@ -43,27 +49,27 @@ export async function GET(request: Request) {
        whatever consumed the link — so the screen that accepts it is the one
        thing here that can still finish the job. */
     return NextResponse.redirect(
-      new URL(isRecovery ? '/auth/reset-password' : '/auth/forgot-password?expired=1', requestUrl.origin)
+      new URL(isRecovery ? '/auth/reset-password' : '/auth/forgot-password?expired=1', origin)
     );
   }
 
   /* A blocked account signing in with Google or GitHub is refused by Supabase
      before it ever reaches us; say why rather than show the raw refusal. */
   if (isBlockedAuthError(errorParam) || isBlockedAuthError(requestUrl.searchParams.get('error_description'))) {
-    return NextResponse.redirect(new URL(BLOCKED_PATH, requestUrl.origin));
+    return NextResponse.redirect(new URL(BLOCKED_PATH, origin));
   }
 
   // If there's an error in the query string, redirect to sign-in with the error
   if (errorParam) {
     return NextResponse.redirect(
-      new URL(`/auth/sign-in?error=${encodeURIComponent(errorParam)}`, requestUrl.origin)
+      new URL(`/auth/sign-in?error=${encodeURIComponent(errorParam)}`, origin)
     );
   }
 
   // If Supabase isn't configured yet, redirect to sign-in with a friendly message
   if (!isSupabaseConfigured) {
     return NextResponse.redirect(
-      new URL(`/auth/sign-in?error=${encodeURIComponent('Supabase not configured yet')}`, requestUrl.origin)
+      new URL(`/auth/sign-in?error=${encodeURIComponent('Supabase not configured yet')}`, origin)
     );
   }
 
@@ -73,7 +79,7 @@ export async function GET(request: Request) {
       const { error } = await supabase.auth.exchangeCodeForSession(code);
       if (error) {
         console.error('[auth/callback] exchange error:', error.message);
-        if (isBlockedAuthError(error)) return NextResponse.redirect(new URL(BLOCKED_PATH, requestUrl.origin));
+        if (isBlockedAuthError(error)) return NextResponse.redirect(new URL(BLOCKED_PATH, origin));
         /* A reset that fails to exchange is NOT a sign-in problem, and dumping
            a raw Supabase string on the sign-in page told a locked-out parent
            nothing they could act on. The commonest cause is asking on a laptop
@@ -84,18 +90,18 @@ export async function GET(request: Request) {
         return NextResponse.redirect(
           new URL(
             isRecovery ? '/auth/reset-password' : `/auth/sign-in?error=${encodeURIComponent(error.message)}`,
-            requestUrl.origin
+            origin
           )
         );
       }
     } catch (err) {
       console.error('[auth/callback] exception:', err);
       return NextResponse.redirect(
-        new URL(isRecovery ? '/auth/reset-password' : '/auth/sign-in?error=callback_failed', requestUrl.origin)
+        new URL(isRecovery ? '/auth/reset-password' : '/auth/sign-in?error=callback_failed', origin)
       );
     }
   }
 
   // Successful auth — redirect to the "next" page (or home)
-  return NextResponse.redirect(new URL(next, requestUrl.origin));
+  return NextResponse.redirect(new URL(next, origin));
 }

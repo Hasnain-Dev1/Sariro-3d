@@ -250,7 +250,7 @@ export async function POST(req: NextRequest) {
     trial: null,
     grade,
     phone: accepted.e164,
-    siteUrl: process.env.NEXT_PUBLIC_SITE_URL || new URL(req.url).origin,
+    siteUrl: siteOrigin(req),
   });
   if (!sent.success) console.warn('[slot-assistance] welcome email not sent:', sent.error);
 

@@ -28,6 +28,14 @@ test('an explicit site URL wins, trailing slash and all', () => {
   });
 });
 
+test('the standalone server\'s 0.0.0.0 is never taken for the site', () => {
+  withEnv(undefined, () => {
+    assert.equal(isLocal('0.0.0.0:3000'), true);
+    const r = req('https://0.0.0.0:3000/auth/callback', { host: 'sariro.com', 'x-forwarded-proto': 'https' });
+    assert.equal(siteOrigin(r), 'https://sariro.com');
+  });
+});
+
 test('behind a proxy, the forwarded host is used rather than localhost', () => {
   withEnv(undefined, () => {
     const r = req('http://localhost:3000/api/trial/self-book', {

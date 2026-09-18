@@ -34,7 +34,7 @@ export function siteOrigin(req: NextRequest): string {
   return new URL(req.url).origin;
 }
 
-/** localhost, 127.x, or [::1] — with or without a port. */
+/** localhost, 127.x, [::1] or 0.0.0.0 — with or without a port. */
 export function isLocal(host: string): boolean {
   const raw = host.trim().toLowerCase();
   /* An IPv6 host is bracketed, and the address inside is full of the same
@@ -44,5 +44,6 @@ export function isLocal(host: string): boolean {
   const name = raw.startsWith('[')
     ? raw.slice(1, raw.indexOf(']') === -1 ? raw.length : raw.indexOf(']'))
     : raw.split(':')[0];
-  return name === 'localhost' || name === '::1' || /^127\./.test(name);
+  // 0.0.0.0 is what Next's standalone server reports when it listens on every address.
+  return name === 'localhost' || name === '::1' || name === '0.0.0.0' || /^127\./.test(name);
 }
