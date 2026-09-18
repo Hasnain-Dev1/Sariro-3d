@@ -1,0 +1,92 @@
+# Practice rooms for every course — plan (18 Sep 2026)
+
+**Brief (Mimo, via Hasnain):** build a practice room for every course, the way Public Speaking has one: coding, physics, chemistry and the rest.
+
+**What exists today:** `/dashboard/student/practice` is the Public Speaking room.
+- Speaking, listening, writing and sound labs, plus Voice Quest (rank, streak, XP, homework).
+- **Runs on the device:** no API call and no cost per attempt, so a child can try nine times. This is a founding principle (see the header of `practice/page.tsx`).
+- **Gated by enrolment:** `lib/speaking/access.ts` covers active or completed enrolment, band-specific rooms and a locked state that explains why.
+- **Logged:** `practice_attempts` stores user, kind (`speaking|listening|writing`), drill id, score 0–100 and metrics. RLS is own rows only.
+- **Tied to the syllabus:** drills are keyed to lessons (`public-speaking:<band>:<module>:<lesson>`).
+
+---
+
+## 1. The idea in one line
+One practice hub. Each enrolled course brings its own room, whose labs fit the subject. They share one engine for questions, checking, hints, mastery, streaks and logging, and everything is checked on the device.
+
+## 2. The shared engine (built once, used by every subject)
+
+| Piece | What it does |
+|:--|:--|
+| **Item types** | multiple choice; numeric answer (tolerance, **units**, significant figures); algebraic expression (checked by evaluating at random points); fill in the blank; put steps in order; sort into groups; match pairs; label a diagram (SVG hotspots); code with hidden tests |
+| **Generators** | Parametric templates, e.g. "a car accelerates from {u} to {v} in {t} s…", with seeded random numbers. The same seed always gives the same question, so an attempt can be replayed and checked, and practice never runs out. |
+| **Checkers** | Pure functions with unit tests: numeric/units, expression equivalence, balanced chemical equation (atom counting), order and sort comparison, code test runner. |
+| **Session runner** | A set of 5–10 items with instant feedback. A hint costs points. After an attempt it shows the worked solution and offers "try one like it". |
+| **Mastery per topic** | Each topic key (e.g. `physics:g9:kinematics:suvat`) climbs through levels (spaced repetition); wrong answers come back later. |
+| **Syllabus link** | Every lesson in `lib/school` and the coding syllabi lists the topic keys it teaches. The room opens on **"This week's lesson"** (the batch's position) and unlocks topics as they are taught. |
+| **Quest layer** | The Voice Quest engine (rank, streak, XP, daily quest) is generalised so a student has one streak across all subjects. |
+| **Logging** | `practice_attempts` gains `subject` and `topic`, and new kinds (`problem`, `quiz`, `code`, `lab`). SQL script for Mimo to run. |
+| **Access** | `access.ts` is generalised: each enrolled course (active or completed) opens its room. Other subjects show as locked cards ("comes with Physics"). |
+
+## 3. The rooms
+
+| Subject | Labs (MVP **in bold**) | Checked by |
+|:--|:--|:--|
+| **Coding & AI** | **Code kata:** starter code plus hidden tests, run in a Web Worker (safe, instant). **Web playground:** HTML/CSS/JS in a sandboxed frame, with a live preview and checklist tests. **Fix the bug** and **predict the output**. Later: Python in the browser (Pyodide), AI prompt drills. | tests in the worker |
+| **Maths** (G1–12 + focus) | **Problem generator per topic:** arithmetic → fractions → equations → geometry → algebra → trigonometry → calculus. **Mental-maths sprint** (timed). Mistakes return later. | numeric / expression |
+| **Physics** (G7–12, Mechanics) | **Numerical problems with units** (m/s vs km/h). **Formula builder:** pick the right equation first. Simulations: projectile, pendulum, simple circuit. Graph reading. | units-aware numeric |
+| **Chemistry** (G7–12, Organic) | **Equation balancer.** **Periodic-table trainer.** **Moles and stoichiometry generator.** Naming compounds. Organic reaction cards. | atom counting, numeric |
+| **Biology** (G7–12) | **Label the diagram** (cell, heart, flower…). **Put the process in order** (mitosis, digestion). **Sort** (classification). Flash cards with spaced repetition. | order, sort, hotspots |
+| **Science** (G1–6) | **Predict → watch → explain** mini-experiments (shadows, floating and sinking, states of matter). **Sort it** (living/non-living, magnetic). Picture quizzes. | multiple choice, sort |
+| **English** (G1–12) | **Reading:** a passage, then questions. **Grammar drills** (generated). **Vocabulary** with spaced repetition. Reuses the Writing and Listening labs from Public Speaking. | multiple choice, fill in the blank |
+| **Public Speaking** | Stays as it is; it moves into the hub as one room. | on-device audio |
+
+## 4. How it fits the rest of the product
+- **Teacher:** each student's practice this week (minutes, topics mastered, where they are stuck) on the class and student view. Later, a teacher can **assign a set as homework**.
+- **Parent report card:** practice streak and topics mastered per subject. This drives renewals.
+- **Trial students:** a 24-hour taster of the room for their trial subject, to help conversion.
+- **Points and leaderboards:** practice XP feeds the existing points. Scores are worked out on the device, so a determined student could fake their own score. Only XP from items the server can re-check from the seed counts towards leaderboards (phase 4).
+
+## 5. Build order
+
+| Phase | Scope | Rough size |
+|:--|:--|:--|
+| **0: Foundation** | Engine (item types, checkers + tests, generators, session runner, mastery); hub page with a subject switcher; access generalised; `practice_attempts` migration; logging; Quest streak across subjects | 1–2 days |
+| **1: Maths + Coding** | Maths generators for core topics, all grades, keyed to the curriculum. Coding katas + web playground for each track and level. | 2–3 days |
+| **2: Physics + Chemistry** | Units-aware problems, formula builder, 2 simulations; equation balancer, periodic table, stoichiometry | 2–3 days |
+| **3: Biology, Science, English** | Diagrams, sequencing, sorting, flash cards; predict-watch-explain; reading and grammar | 2–3 days |
+| **4: People around the learner** | Teacher view + assign homework, parent report, trial taster, cross-subject leaderboard, Python via Pyodide | 2 days |
+
+Each phase ships on its own: tests, build, preview check, then push once you say so.
+
+## 6. Decisions for Mimo (defaults in bold)
+1. **Which rooms first?** **Maths + Coding** (easiest to auto-check, most students), then Physics and Chemistry.
+2. **Coding languages in the MVP:** **JavaScript / HTML / CSS in the browser** (free, instant). Python later via Pyodide, a ~10 MB download on first use. Should any track need Python on day one?
+3. **Question source:** **generated problems (endless, auto-checked) plus a small hand-written set per topic.** The alternative is only hand-written question banks: better quality, far slower to reach every grade.
+4. **AI hints (Claude):** **not in the MVP.** They cost money per use, and the speaking room is deliberately free to run. A rate-limited "Explain this step" could come later.
+5. **Access:** **included with each enrolled course, locked cards for others, a 24-hour taster for trial students.**
+
+---
+
+## 7. Queue added by Mimo (18 Sep 2026, after the plan)
+Mimo now asks for **AI in the rooms**. That replaces the "no AI in the MVP" default in §6.4. AI calls cost money, so each AI feature gets a per-student daily limit and a cache.
+
+1. **Maths curriculum + a 10-minute end-of-lesson quiz.** Every lesson ends with a timed quiz drawn from that lesson's topics, marked on the spot. The score goes on the lesson's progress, so the teacher and parent see whether the lesson landed.
+2. **Maths AI room.** Builds on the maths engine (40 topics, 1,000s of seeded problems):
+   - AI problem solver: explains any problem step by step
+   - Mistake guide: reads the child's working, finds the wrong step, fixes the logic
+   - Other ways to solve the same problem
+   - Problem sets by level; timed tests per module
+   - **10 test sheets per module**: auto-marked from final answers, scored, with an auto-generated report per child
+   - **AI rating of the child's approach** (method, not just answer)
+   - Aim: best-in-class
+3. **Coding AI room.** Katas plus AI: hints that point at the bug without giving the answer, code review, "explain this error", and different ways to solve the same kata.
+4. **Trial activity redesign.** Each grade gets its own story and its own trial activity, around real-world problem solving, with a hook in every lesson that pulls the child towards enrolling.
+5. **Attendance system.** Review and optimise attendance marking, late/no-show handling and reports.
+
+**Order:**
+1. Finish rooms phase 0–1 (engine, Maths, Coding): in progress.
+2. The quiz at the end of each lesson and the module test sheets. These need no AI and reuse the engine.
+3. Maths AI room, then Coding AI room: Claude API through a server route with per-student limits.
+4. Trial stories per grade.
+5. Attendance.

@@ -44,6 +44,7 @@ import TrialClassesSection from '@/components/dashboard/trial-classes-section';
 import PracticeProgress from '@/components/speaking/practice-progress';
 import ParentReportCard from '@/components/dashboard/parent-report-card';
 import { canPractise } from '@/lib/speaking/access';
+import { hasPracticeRoom } from '@/lib/practice/rooms';
 import { classLink } from '@/lib/classes/class-link';
 import TodayQueue from '@/components/ops/today-queue';
 import { WorkspaceProvider, OpsSection } from '@/components/ops/workspace';
@@ -1214,12 +1215,12 @@ function StudentDashboardInner({ workspace }: { workspace: WorkspaceKey }) {
     classes: (
       <>
         <WorkspaceAction icon={BookOpen} primary href="/dashboard/student/lessons">My lessons</WorkspaceAction>
-        {canPractise(enrollments) && <WorkspaceAction icon={Mic} href="/dashboard/student/practice">Practice room</WorkspaceAction>}
+        {(canPractise(enrollments) || hasPracticeRoom(enrollments)) && <WorkspaceAction icon={Mic} href="/dashboard/student/practice">Practice room</WorkspaceAction>}
       </>
     ),
     progress: (
       <>
-        {canPractise(enrollments) && <WorkspaceAction icon={Mic} primary href="/dashboard/student/practice">Practice room</WorkspaceAction>}
+        {(canPractise(enrollments) || hasPracticeRoom(enrollments)) && <WorkspaceAction icon={Mic} primary href="/dashboard/student/practice">Practice room</WorkspaceAction>}
         <WorkspaceAction icon={Award} href="/dashboard/student/leaderboard">Leaderboard</WorkspaceAction>
       </>
     ),

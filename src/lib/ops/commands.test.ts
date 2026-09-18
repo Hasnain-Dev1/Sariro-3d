@@ -50,7 +50,9 @@ describe('commandsFor', () => {
     assert.equal(searchCommands(commandsFor('teacher', [], []), 'register')[0].label, 'Mark a register');
     assert.equal(searchCommands(commandsFor('teacher', [], []), 'playbook')[0].label, 'Open a trial playbook');
     assert.equal(searchCommands(commandsFor('seller', [], []), 'book')[0].label, 'Book a trial class');
-    assert.equal(searchCommands(commandsFor('student', [], []), 'practice')[0].label, 'Practise speaking');
+    // Every course has a practice room now (18 Sep 2026); speaking is one of them.
+    assert.equal(searchCommands(commandsFor('student', [], []), 'practice')[0].label, 'Practice rooms');
+    assert.equal(searchCommands(commandsFor('student', [], []), 'speaking')[0].label, 'Practise speaking');
   });
 });
 

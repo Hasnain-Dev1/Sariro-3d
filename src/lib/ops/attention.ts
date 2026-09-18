@@ -374,7 +374,7 @@ export const ATTENTION: Record<AttentionKey, AttentionSpec> = {
     severity: 'today',
     icon: 'mic',
     accent: '#7C3AED',
-    href: { student: '/dashboard/student/practice' },
+    href: { student: '/dashboard/student/practice/speaking' },
     keywords: 'speaking practice quest homework mission streak',
   },
   plan_low: {

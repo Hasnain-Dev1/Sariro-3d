@@ -142,7 +142,8 @@ const ACTIONS: Record<QueueRole, Action[]> = {
   ],
   student: [
     { label: 'Join my next class', hint: 'When it is and the button to press', href: sectionHref(ST, 'next-class'), keywords: 'join class next time when meet' },
-    { label: 'Practise speaking', hint: 'Voice Quest, homework and the sound lab', href: '/dashboard/student/practice', keywords: 'practice speaking voice quest homework mission sound' },
+    { label: 'Practice rooms', hint: 'Maths, coding and every course you take', href: '/dashboard/student/practice', keywords: 'practice room maths math coding code kata questions problems quiz' },
+    { label: 'Practise speaking', hint: 'Voice Quest, homework and the sound lab', href: '/dashboard/student/practice/speaking', keywords: 'practice speaking voice quest homework mission sound' },
     { label: 'My lessons', hint: 'Read any lesson again', href: '/dashboard/student/lessons', keywords: 'lessons read notes course content' },
     { label: 'Hand in a project', hint: 'Pick the class it belongs to', href: sectionHref(ST, 'notes'), keywords: 'project submit homework upload' },
     { label: 'Classes left', hint: 'Your credits and anything paused', href: sectionHref(ST, 'balance'), keywords: 'credits balance top up paused renew' },
