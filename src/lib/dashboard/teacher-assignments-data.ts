@@ -135,6 +135,27 @@ export async function setTeacherTraining(teacherId: string, track: string, level
   }
 }
 
+/** Many courses in one request: add (optionally already trained — super-admin),
+ *  remove, or mark / reset training. See /api/admin/teacher-assignments. */
+export async function updateTeacherCourses(
+  action: 'assign' | 'remove' | 'complete_training' | 'revoke_training',
+  teacherId: string,
+  courses: { track: string; level: string }[],
+  opts: { trained?: boolean } = {},
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/admin/teacher-assignments', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, teacher_id: teacherId, courses, trained: !!opts.trained }),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.ok) return { success: false, error: json.message || json.error || 'Update failed' };
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Network error' };
+  }
+}
+
 export const ALL_LEVELS = ['Elementary', 'Beginner', 'Intermediate', 'Advanced'];
 
 export function getTrackName(trackId: string): string {
