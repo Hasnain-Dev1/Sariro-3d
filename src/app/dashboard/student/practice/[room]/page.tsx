@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, GraduationCap, Loader2, Lock } from 'lucide-react';
@@ -10,7 +11,10 @@ import { createClient } from '@/lib/supabase/client';
 import { roomById, roomsFor, type RoomAccess } from '@/lib/practice/rooms';
 import { buildGradeSyllabus } from '@/lib/school/curriculum';
 import MathsRoom from '@/components/practice/maths-room';
-import CodingRoom from '@/components/practice/coding-room';
+const CodeLab = dynamic(() => import('@/components/practice/lab/code-lab'), {
+  ssr: false,
+  loading: () => <section className="min-h-[60vh] flex items-center justify-center"><Loader2 className="w-6 h-6 text-slate-300 animate-spin" aria-label="Loading the Code Lab" /></section>,
+});
 
 /**
  * SARIRO — one practice room (/dashboard/student/practice/<room>)
@@ -89,6 +93,30 @@ export default function PracticeRoomPage() {
     );
   }
 
+  /* The Code Lab is a workspace, not a page of cards: it gets the full width and a compact header. */
+  if (def.id === 'coding' && access.allowed) {
+    return (
+      <DashboardLayout>
+        <section className="pt-4 sm:pt-6 pb-8 px-3 sm:px-4 lg:px-6">
+          <div className="max-w-[1680px] mx-auto">
+            <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+              <Link href="/dashboard/student/practice" className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-800" style={{ fontFamily: 'var(--font-grotesk)' }}>
+                <ArrowLeft className="w-3.5 h-3.5" /> Practice rooms
+              </Link>
+              <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-jakarta)' }}>Code Lab</h1>
+              {access.courseName && (
+                <p className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[12px] font-bold" style={{ borderColor: `${def.accent}40`, background: `${def.accent}10`, color: def.accent, fontFamily: 'var(--font-grotesk)' }}>
+                  <GraduationCap className="w-4 h-4" /> {access.courseName}
+                </p>
+              )}
+            </div>
+            <CodeLab accent={def.accent} track={access.track} level={access.grade} />
+          </div>
+        </section>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       <section className="pt-6 sm:pt-10 pb-16 px-4 sm:px-6 lg:px-10">
@@ -114,8 +142,6 @@ export default function PracticeRoomPage() {
               </div>
             ) : def.id === 'maths' ? (
               <MathsRoom grade={access.grade ?? 8} accent={def.accent} lastLesson={lastLesson} />
-            ) : def.id === 'coding' ? (
-              <CodingRoom level={access.grade ?? 2} accent={def.accent} />
             ) : (
               <div className="max-w-lg rounded-2xl border border-slate-200 bg-white p-6 text-center mx-auto">
                 <p className="text-[16px] font-bold text-slate-900">The {def.label} room is being built</p>

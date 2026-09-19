@@ -71,7 +71,13 @@ export const CSP_DIRECTIVES = [
   // entirely, which is the hazard of a policy that has never actually run.
   //
   // See the note above on 'unsafe-*'.
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://cdn.razorpay.com https://accounts.google.com",
+  //
+  // cdn.jsdelivr.net: the Code Lab runs Python in the browser with Pyodide,
+  // loaded by public/practice/py-runner.js (a Web Worker) from a pinned
+  // version on jsDelivr — its script (here) and its WebAssembly and standard
+  // library (connect-src, below). A worker takes its policy from its own
+  // response header, which is this string too.
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://cdn.razorpay.com https://accounts.google.com https://cdn.jsdelivr.net",
   // Styles: self + inline (Next.js and framer-motion both inject inline styles)
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
   // Images: self + data: (SVGs) + https (Razorpay logos, avatars) + blob:
@@ -92,7 +98,7 @@ export const CSP_DIRECTIVES = [
   // provider's subdomains one CSP violation at a time is a losing game. We
   // already execute their script; allowing their own hosts to be talked to is
   // not a meaningful widening.
-  `connect-src 'self' https://*.supabase.co https://*.razorpay.com wss://*.supabase.co https://accounts.google.com https://raw.githubusercontent.com${DEV_CONNECT}`,
+  `connect-src 'self' https://*.supabase.co https://*.razorpay.com wss://*.supabase.co https://accounts.google.com https://raw.githubusercontent.com https://cdn.jsdelivr.net${DEV_CONNECT}`,
   // Razorpay checkout opens in an iframe and moves between their own hosts.
   // Google One Tap renders its prompt in an iframe from accounts.google.com.
   "frame-src 'self' https://*.razorpay.com https://accounts.google.com",

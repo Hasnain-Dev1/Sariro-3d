@@ -11,17 +11,30 @@
  * Plain JavaScript on purpose: it is served as a static file, and the same
  * file is loaded by katas.test.ts, so what the tests check is what runs.
  *
- * Message in:  { code, fnName, tests: [{ args, expected }] }
+ * Message in:  { code, fnName, tests: [{ args, expected }] }            (a function)
+ *            | { code, mode: 'program', tests: [{ stdout }] }         (a program)
  * Message out: { ok: true, results: [{ i, pass, got, error }], logs }
- *            | { ok: false, error, logs }
+ *            | { ok: false, error, line, logs }
+ *
+ * `line` is the line of the learner's code an error came from, when the
+ * engine says (the wrapper below adds three lines in front of their code).
  */
 'use strict';
 
 (function () {
   var g = typeof self !== 'undefined' ? self : this;
-  ['fetch', 'XMLHttpRequest', 'WebSocket', 'EventSource', 'importScripts', 'indexedDB', 'caches', 'BroadcastChannel'].forEach(function (k) {
-    try { g[k] = undefined; } catch (e) { /* read-only in some browsers */ }
-  });
+  /* Taken away on the global AND up its prototype chain, where a browser may
+     define them — a shadowing own property alone leaves the prototype's copy
+     one Object.getPrototypeOf away. */
+  var NETWORK = ['fetch', 'XMLHttpRequest', 'WebSocket', 'EventSource', 'importScripts', 'indexedDB', 'caches', 'BroadcastChannel', 'WebTransport', 'Worker', 'SharedWorker'];
+  var lock = function (obj, k) {
+    try { Object.defineProperty(obj, k, { value: undefined, writable: false, configurable: false }); }
+    catch (e) { try { obj[k] = undefined; } catch (e2) { /* read-only in some browsers */ } }
+  };
+  for (var o = Object.getPrototypeOf(g); o && o !== Object.prototype; o = Object.getPrototypeOf(o)) {
+    NETWORK.forEach(function (k) { if (Object.prototype.hasOwnProperty.call(o, k)) lock(o, k); });
+  }
+  NETWORK.forEach(function (k) { lock(g, k); });
 
   /* A plain object from any realm: its prototype is an Object.prototype, whose
      own prototype is null. (Comparing to this realm's Object.prototype would
@@ -62,6 +75,23 @@
     return v === undefined ? v : JSON.parse(JSON.stringify(v));
   }
 
+  var WRAPPER_LINES = 3;
+  function lineOf(err) {
+    var m = /<anonymous>:(\d+):\d+/.exec(String(err && err.stack || ''));
+    if (!m) return undefined;
+    var n = Number(m[1]) - WRAPPER_LINES;
+    return n > 0 ? n : undefined;
+  }
+  function describe(err) {
+    return (err && err.name ? err.name + ': ' : '') + (err && err.message ? err.message : String(err));
+  }
+
+  /* What a program printed, compared line by line, trailing spaces ignored. */
+  function sameOutput(got, want) {
+    var norm = function (t) { return String(t).replace(/\r/g, '').split('\n').map(function (l) { return l.replace(/\s+$/, ''); }).join('\n').replace(/\n+$/, ''); };
+    return norm(got) === norm(want);
+  }
+
   g.onmessage = function (event) {
     var data = event.data || {};
     var logs = [];
@@ -70,6 +100,22 @@
       logs.push(Array.prototype.map.call(arguments, function (x) { return typeof x === 'string' ? x : show(x); }).join(' '));
     };
     var fakeConsole = { log: log, info: log, warn: log, error: log, table: log };
+
+    if (data.mode === 'program') {
+      try {
+        new Function('console', '"use strict";\n' + String(data.code || ''))(fakeConsole);
+      } catch (err) {
+        g.postMessage({ ok: false, error: describe(err), line: lineOf(err), logs: logs });
+        return;
+      }
+      var printed = logs.join('\n');
+      g.postMessage({
+        ok: true,
+        logs: logs,
+        results: (data.tests || []).map(function (t, i) { return { i: i, pass: sameOutput(printed, t.stdout), got: printed }; }),
+      });
+      return;
+    }
 
     if (!/^[A-Za-z_$][\w$]*$/.test(String(data.fnName || ''))) {
       g.postMessage({ ok: false, error: 'This kata is broken (bad function name).', logs: logs });
@@ -80,7 +126,7 @@
     try {
       fn = new Function('console', '"use strict";\n' + String(data.code || '') + '\n;return typeof ' + data.fnName + " === 'function' ? " + data.fnName + ' : undefined;')(fakeConsole);
     } catch (err) {
-      g.postMessage({ ok: false, error: (err && err.name ? err.name + ': ' : '') + (err && err.message ? err.message : String(err)), logs: logs });
+      g.postMessage({ ok: false, error: describe(err), line: lineOf(err), logs: logs });
       return;
     }
     if (typeof fn !== 'function') {
@@ -93,7 +139,8 @@
         var got = fn.apply(null, clone(t.args) || []);
         return { i: i, pass: deepEqual(got, t.expected), got: show(got) };
       } catch (err) {
-        return { i: i, pass: false, error: (err && err.name ? err.name + ': ' : '') + (err && err.message ? err.message : String(err)) };
+        var line = lineOf(err);
+        return { i: i, pass: false, error: describe(err) + (line ? ' (line ' + line + ')' : '') };
       }
     });
     g.postMessage({ ok: true, results: results, logs: logs });

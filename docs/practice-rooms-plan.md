@@ -106,3 +106,21 @@ Hasnain: "a game-like practice room where I get addicted and don't feel the time
 | ☄️ Meteor Storm | 1–12 | Type answers to blast falling questions |
 
 `useRound` in `components/practice/games/game-kit.tsx` is the shared loop: patience clock, coins, streak, hearts, levels, best score, logging.
+
+---
+
+## 9. The Code Lab (19 Sep 2026)
+Mimo sent a mock-up (a "NeonCode Tutor": challenge list, editor, run tests, three hints, an AI tutor). Hasnain: build it for every coding course, but professional, not that neon look. It replaces the old Coding room at `/dashboard/student/practice/coding`.
+
+- **Layout:** the challenge (or the list of all of them) | the editor (CodeMirror 6, Sariro's dark theme) with tests, console and live page under it | the tutor. On phones: Challenge / Code / Tutor tabs.
+- **Languages, all in the browser and free:**
+  - JavaScript in a Web Worker (`public/practice/code-runner.js`)
+  - Python through Pyodide 0.29.5 from jsDelivr in a Web Worker (`public/practice/py-runner.js` + `py-harness.py`)
+  - HTML & CSS in a sandboxed frame, checked by `public/practice/web-checker.js` against the computed page
+- **Packs** (`src/lib/practice/lab/packs`): 44 Python, 41 JavaScript (the 25 old katas, ids kept) and 17 HTML & CSS challenges. Tiers run Easy to Expert. Every solution passes and every starter fails, tested through the real runners: CPython runs the same harness, and jsdom runs the same checker.
+- **Which pack opens first:** Python for python, data, agent, automation, security, cloud and scratch. HTML for web-basics and design. JavaScript for the rest. Java courses open on JavaScript until a Java runner exists. The course level suggests the tier.
+- **Progress:** a solve is logged to practice_attempts (subject coding, topic = the challenge id, score 100 − 25 per hint, never below 40). XP, level and streak come from those rows, with no new table.
+- **Tutor:**
+  - The on-device guide (`diagnose.ts`) reads every run: returning vs printing, capitals, off-by-one, indentation, endless loops, a failing hidden test.
+  - The AI tutor is Claude through `POST /api/practice/tutor`. It is Socratic, never gives the solution, and the reference solution is never sent to it.
+  - Its default is `claude-opus-5` at low effort, with server-side fallbacks. It **fails closed** unless `ANTHROPIC_API_KEY` is set AND `scripts/ai-tutor.sql` has run. Each learner gets a daily limit (`TUTOR_DAILY_LIMIT`, default 20), counted atomically in the database.

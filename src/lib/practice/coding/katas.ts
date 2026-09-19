@@ -193,7 +193,7 @@ export const KATAS: Kata[] = [
     starter: 'function isAnagram(a, b) {\n  \n}\n',
     tests: [{ args: ['Listen', 'Silent'], expected: true, visible: true }, { args: ['cat', 'act'], expected: true, visible: true }, { args: ['cat', 'car'], expected: false }, { args: ['aab', 'abb'], expected: false }, { args: ['', ''], expected: true }],
     solution: "function isAnagram(a, b) {\n  const key = (s) => s.toLowerCase().split('').sort().join('');\n  return key(a) === key(b);\n}\n",
-    hints: ['If you sort the letters of both words, anagrams become identical.'],
+    hints: ['If you sort the letters of both words, anagrams become identical.', '`word.toLowerCase().replace(/ /g, "").split("").sort().join("")` gives a word\'s sorted letters.'],
     concepts: ['strings', 'sorting', 'arrays'],
   },
   {

@@ -37,7 +37,7 @@ export const ROOMS: RoomDef[] = [
   },
   {
     id: 'coding', label: 'Coding', course: 'any Coding & AI course', accent: '#EA580C',
-    blurb: 'Write real code against hidden tests, and see exactly which case your function gets wrong.',
+    blurb: 'The Code Lab: Python, JavaScript and HTML & CSS challenges with real tests, hints and a tutor that helps without giving the answer away.',
     tracks: CODING_TRACKS,
   },
   {
@@ -85,6 +85,8 @@ export interface RoomAccess {
   level: string | null;
   /** The course the room is for, e.g. "Physics · Grade 9". */
   courseName: string | null;
+  /** The enrolment's track (`python`, `web-basics`…) — the Code Lab opens on its language. */
+  track: string | null;
 }
 
 const OPEN = new Set(['active', 'completed']);
@@ -102,7 +104,7 @@ export function roomsFor(enrolments: readonly EnrolmentLike[] | null | undefined
       .filter((e) => room.tracks.includes(e.track))
       .sort((a, b) => Date.parse(b.created_at ?? '0') - Date.parse(a.created_at ?? '0'));
     const open = mine.find((e) => OPEN.has(e.status));
-    if (!open) return { room, allowed: false, lapsed: mine.length > 0, grade: null, level: null, courseName: null };
+    if (!open) return { room, allowed: false, lapsed: mine.length > 0, grade: null, level: null, courseName: null, track: null };
 
     const level = (open.level ?? '').toLowerCase();
     let grade: number | null = null;
@@ -120,7 +122,7 @@ export function roomsFor(enrolments: readonly EnrolmentLike[] | null | undefined
       grade = profileGrade && profileGrade <= 12 ? profileGrade : FOCUS_GRADE[open.track] ?? profileGrade ?? 8;
       courseName = `${room.label} · ${open.track.replace(/-/g, ' ')}`;
     }
-    return { room, allowed: true, lapsed: false, grade, level: open.level ?? null, courseName };
+    return { room, allowed: true, lapsed: false, grade, level: open.level ?? null, courseName, track: open.track };
   });
 }
 
