@@ -42,8 +42,8 @@ export type Solution = z.infer<typeof SolutionSchema>;
 
 export const ReviewSchema = z.object({
   isMaths: z.boolean(),
-  // A string, normalised by verdictOf: the SDK sends an enum as a hint, then
-  // validates here — one unexpected word would otherwise lose the whole review.
+  // A string, normalised by verdictOf: one unexpected word from the model
+  // would otherwise fail validation and lose the whole review.
   verdict: z.string().describe('exactly one of: correct, partly, incorrect, unreadable'),
   summary: z.string().describe('one or two encouraging sentences on the overall result'),
   mistake: z.object({

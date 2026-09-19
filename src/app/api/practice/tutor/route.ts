@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
 import { aiGate, aiSwitchedOn } from '@/lib/practice/ai-gate';
 import { streamText } from '@/lib/practice/ai-stream';
+import { geminiStream, turn } from '@/lib/practice/gemini';
 import { parseTutorInput, tutorContext, TUTOR_SYSTEM } from '@/lib/practice/lab/tutor-prompt';
 
 /**
  * SARIRO — POST /api/practice/tutor — the Code Lab's AI tutor
  * ============================================================================
- * Streams a short, Socratic answer from Claude about the learner's challenge,
+ * Streams a short, Socratic answer from Gemini about the learner's challenge,
  * code and last run (lib/practice/lab/tutor-prompt.ts says how it teaches).
  *
  * Every call costs money, so it goes through lib/practice/ai-gate.ts first:
@@ -16,9 +16,7 @@ import { parseTutorInput, tutorContext, TUTOR_SYSTEM } from '@/lib/practice/lab/
  * key, or no counter, and the answer is 503 "tutor_off"; the lab's built-in
  * guide answers instead. There is never an unmetered call.
  *
- * Model: TUTOR_MODEL, default claude-opus-5 at low effort (short replies), with
- * Anthropic's server-side fallback on, so a classifier decline is retried on the
- * recommended model instead of leaving a learner with no answer.
+ * Model: GEMINI_MODEL, default gemini-flash-latest (lib/practice/gemini.ts).
  */
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -39,26 +37,12 @@ export async function POST(req: NextRequest) {
   const gate = await aiGate(req, 'coding', 'practice-tutor');
   if (!gate.ok) return gate.response;
 
-  const client = new Anthropic({ apiKey: gate.apiKey });
-  const history = input.messages.slice(0, -1).map((m) => ({
-    role: m.role,
-    content: m.role === 'user' ? `<student_message>\n${m.content}\n</student_message>` : m.content,
-  }));
+  const history = input.messages.slice(0, -1).map((m) =>
+    turn(m.role, m.role === 'user' ? `<student_message>\n${m.content}\n</student_message>` : m.content));
   const last = input.messages[input.messages.length - 1];
-  const messages: Anthropic.Beta.BetaMessageParam[] = [
-    ...history,
-    { role: 'user', content: `${context}\n\n<student_message>\n${last.content}\n</student_message>` },
-  ];
+  const turns = [...history, turn('user', `${context}\n\n<student_message>\n${last.content}\n</student_message>`)];
 
-  const stream = client.beta.messages.stream({
-    model: process.env.TUTOR_MODEL || 'claude-opus-5',
-    max_tokens: 4000,
-    betas: ['server-side-fallback-2026-07-01'],
-    fallbacks: 'default',
-    output_config: { effort: 'low' },
-    system: TUTOR_SYSTEM,
-    messages,
-  });
-
-  return streamText(stream, gate.left);
+  const stop = new AbortController();
+  const pieces = geminiStream(gate.ai, { system: TUTOR_SYSTEM, turns, maxTokens: 8192 }, { signal: stop.signal });
+  return streamText(pieces, gate.left, () => stop.abort());
 }

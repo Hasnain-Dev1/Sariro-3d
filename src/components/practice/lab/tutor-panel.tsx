@@ -14,7 +14,7 @@ import { isCode, type Challenge } from '@/lib/practice/lab/types';
  *   · the GUIDE — on the device, free, always on: after every run it says what
  *     the result most likely means (lib/practice/lab/diagnose.ts), and it
  *     answers the quick buttons;
- *   · the AI TUTOR — Claude, through /api/practice/tutor, when the server has it
+ *   · the AI TUTOR — Gemini, through /api/practice/tutor, when the server has it
  *     switched on: a real conversation that asks and nudges and never hands
  *     over the answer. A daily allowance per learner; when it is used up, or
  *     the tutor is off, the guide carries on alone.

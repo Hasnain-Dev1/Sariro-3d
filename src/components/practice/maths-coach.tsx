@@ -18,7 +18,7 @@ import type { Review, Solution } from '@/lib/practice/maths/coach';
  *                           idea — and "Show another way" for a second method
  *   · "Check my working"  — typed or a photo of the page: the first wrong line
  *                           and how to fix it, and a rating of the approach
- * Claude, through /api/practice/maths-coach (it fails closed, and every call
+ * Gemini, through /api/practice/maths-coach (it fails closed, and every call
  * comes off the learner's daily allowance). The practice questions can send a
  * problem straight here with the learner's answer as their working.
  */

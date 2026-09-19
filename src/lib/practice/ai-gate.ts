@@ -4,6 +4,7 @@ import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import { roomsFor } from '@/lib/practice/rooms';
 import type { RoomId } from '@/lib/practice/types';
+import { geminiConfig, type GeminiConfig } from '@/lib/practice/gemini';
 
 /**
  * SARIRO — the door every practice-room AI call goes through
@@ -12,7 +13,7 @@ import type { RoomId } from '@/lib/practice/types';
  * both pass the same checks, in this order:
  *
  *   1. same-origin, not a blocked address, and a burst limit per address;
- *   2. the AI is switched on (ANTHROPIC_API_KEY) — otherwise 503 "tutor_off";
+ *   2. the AI is switched on (GEMINI_API_KEY) — otherwise 503 "tutor_off";
  *   3. signed in, and enrolled in the room's course (staff may always try);
  *   4. one call off the learner's daily allowance, counted atomically in the
  *      database (scripts/ai-tutor.sql: ai_tutor_take). TUTOR_DAILY_LIMIT,
@@ -22,13 +23,13 @@ import type { RoomId } from '@/lib/practice/types';
  */
 
 export type GateResult =
-  | { ok: true; apiKey: string; userId: string; left: number; limit: number }
+  | { ok: true; ai: GeminiConfig; userId: string; left: number; limit: number }
   | { ok: false; response: Response };
 
 const off = (reason: string): GateResult => ({ ok: false, response: NextResponse.json({ ok: false, error: 'tutor_off', reason }, { status: 503 }) });
 const refuse = (status: number, body: Record<string, unknown>): GateResult => ({ ok: false, response: NextResponse.json({ ok: false, ...body }, { status }) });
 
-export const aiSwitchedOn = () => !!process.env.ANTHROPIC_API_KEY;
+export const aiSwitchedOn = () => geminiConfig() !== null;
 
 export async function aiGate(req: NextRequest, room: RoomId, burstKey: string): Promise<GateResult> {
   const csrfFail = assertSameOrigin(req);
@@ -38,8 +39,8 @@ export async function aiGate(req: NextRequest, room: RoomId, burstKey: string): 
   const rl = rateLimit({ key: `${burstKey}:${ip}`, limit: 12, windowMs: 60_000, ip });
   if (!rl.ok) return { ok: false, response: rateLimitedResponse(rl.retryAfterMs, 'Slow down a little — ask again in a moment.') };
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return off('no_key');
+  const ai = geminiConfig();
+  if (!ai) return off('no_key');
 
   let supabase;
   try { supabase = await createServerClientHelper(); } catch { return off('no_database'); }
@@ -63,5 +64,5 @@ export async function aiGate(req: NextRequest, room: RoomId, burstKey: string): 
   if (used == null) {
     return refuse(429, { error: 'limit', limit, message: `That's all ${limit} AI questions for today. They come back tomorrow — and the built-in guide keeps helping meanwhile.` });
   }
-  return { ok: true, apiKey, userId: user.id, left: Math.max(0, limit - Number(used)), limit };
+  return { ok: true, ai, userId: user.id, left: Math.max(0, limit - Number(used)), limit };
 }

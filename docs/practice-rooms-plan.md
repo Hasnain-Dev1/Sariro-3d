@@ -63,7 +63,7 @@ Each phase ships on its own: tests, build, preview check, then push once you say
 1. **Which rooms first?** **Maths + Coding** (easiest to auto-check, most students), then Physics and Chemistry.
 2. **Coding languages in the MVP:** **JavaScript / HTML / CSS in the browser** (free, instant). Python later via Pyodide, a ~10 MB download on first use. Should any track need Python on day one?
 3. **Question source:** **generated problems (endless, auto-checked) plus a small hand-written set per topic.** The alternative is only hand-written question banks: better quality, far slower to reach every grade.
-4. **AI hints (Claude):** **not in the MVP.** They cost money per use, and the speaking room is deliberately free to run. A rate-limited "Explain this step" could come later.
+4. **AI hints:** **not in the MVP.** They cost money per use, and the speaking room is deliberately free to run. A rate-limited "Explain this step" could come later.
 5. **Access:** **included with each enrolled course, locked cards for others, a 24-hour taster for trial students.**
 
 ---
@@ -87,7 +87,7 @@ Mimo now asks for **AI in the rooms**. That replaces the "no AI in the MVP" defa
 **Order:**
 1. Finish rooms phase 0–1 (engine, Maths, Coding): in progress.
 2. The quiz at the end of each lesson and the module test sheets. These need no AI and reuse the engine.
-3. Maths AI room, then Coding AI room: Claude API through a server route with per-student limits.
+3. Maths AI room, then Coding AI room: an AI model (now Gemini) through a server route with per-student limits.
 4. Trial stories per grade.
 5. Attendance.
 
@@ -122,19 +122,19 @@ Mimo sent a mock-up (a "NeonCode Tutor": challenge list, editor, run tests, thre
 - **Progress:** a solve is logged to practice_attempts (subject coding, topic = the challenge id, score 100 − 25 per hint, never below 40). XP, level and streak come from those rows, with no new table.
 - **Tutor:**
   - The on-device guide (`diagnose.ts`) reads every run: returning vs printing, capitals, off-by-one, indentation, endless loops, a failing hidden test.
-  - The AI tutor is Claude through `POST /api/practice/tutor`. It is Socratic, never gives the solution, and the reference solution is never sent to it.
-  - Its default is `claude-opus-5` at low effort, with server-side fallbacks. It **fails closed** unless `ANTHROPIC_API_KEY` is set AND `scripts/ai-tutor.sql` has run. Each learner gets a daily limit (`TUTOR_DAILY_LIMIT`, default 20), counted atomically in the database.
+  - The AI tutor is Gemini through `POST /api/practice/tutor`. It is Socratic, never gives the solution, and the reference solution is never sent to it.
+  - The model is `GEMINI_MODEL`, default `gemini-flash-latest`, called over REST by `lib/practice/gemini.ts` (founder's choice, 19 Sep 2026; it was Claude until then). It **fails closed** unless `GEMINI_API_KEY` is set AND `scripts/ai-tutor.sql` has run. Each learner gets a daily limit (`TUTOR_DAILY_LIMIT`, default 20), counted atomically in the database.
 
 ---
 
 ## 10. The Maths AI coach (19 Sep 2026) — Mimo's queue item 2
 A fifth tab in the Maths room, **AI Coach**. There is also an "Ask the AI coach" button on every answered practice question, which opens the coach beside the set so the set is kept.
-- **Input:** type the problem, or photograph it. A photo is shrunk on the device to 1600px JPEG, and Claude reads the image.
+- **Input:** type the problem, or photograph it. A photo is shrunk on the device to 1600px JPEG, and Gemini reads the image.
 - **Guide me step by step:** a streamed conversation that never gives the final answer.
 - **Show the full solution:** numbered steps, the answer, how to check it and the key idea. "Show another way" gives a genuinely different method.
 - **Check my working:** typed, or a photo of the page. It returns the first wrong line with what went wrong, why and how to fix it, plus 1–5 ratings for understanding, method, accuracy and presentation, one strength, a next step and another way.
 - **Answer format:** structured JSON outputs validated with zod v4 (`src/lib/practice/maths/coach.ts`). Maths is plain Unicode, never LaTeX.
-- **Route and model:** `POST /api/practice/maths-coach`, on Claude Opus 5 at low effort for solutions and medium for checking, with server-side fallbacks.
+- **Route and model:** `POST /api/practice/maths-coach`, on the same Gemini model. The JSON answers use Gemini's `responseSchema`, generated from the zod schemas in `lib/practice/maths/coach.ts`, and are checked against those schemas again before they reach the page.
 - **Gate:** it shares `lib/practice/ai-gate.ts` with the Code Lab tutor, so it fails closed, is limited to maths students and staff, and uses the same daily allowance (`TUTOR_DAILY_LIMIT`).
 
 **Queue status (§7):**
