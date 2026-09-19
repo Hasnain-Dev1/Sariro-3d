@@ -2,8 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, BookOpen, ClipboardCheck, Dumbbell, Gamepad2, Shuffle, Sparkles, Target, Timer } from 'lucide-react';
+import AngleLaser from '@/components/practice/games/angle-laser';
+import BalanceScale from '@/components/practice/games/balance-scale';
+import BossBattles from '@/components/practice/games/boss-battles';
 import CakeShop from '@/components/practice/games/cake-shop';
 import MeteorStorm from '@/components/practice/games/meteor-storm';
+import TreasureMap from '@/components/practice/games/treasure-map';
 import QuestionSet, { type SetResult } from '@/components/practice/question-set';
 import TestPaperView from '@/components/practice/test-paper';
 import { lessonQuizFor, modulesFor, sheetFor, SHEETS_PER_MODULE, type TestPaper, type TestReport } from '@/lib/practice/maths/tests';
@@ -34,7 +38,17 @@ interface Props {
 }
 
 type Tab = 'play' | 'practice' | 'sheets' | 'quiz';
-type Game = 'cake-shop' | 'meteor-storm';
+type Game = 'boss' | 'cake-shop' | 'meteor-storm' | 'balance' | 'treasure' | 'laser';
+
+/** The arcade, by grade. Boss Battles leads: it is the whole year's maths as a trophy shelf. */
+const GAMES: { key: Game; emoji: string; title: string; blurb: (g: number) => string; bg: string; dark: boolean; accent: string; grades: [number, number] }[] = [
+  { key: 'boss', emoji: '⚔️', title: 'Boss Battles', blurb: (g) => `Every Grade ${g} module has a boss. Answer fast to hit hard — beat each one three times for three stars.`, bg: 'radial-gradient(circle at 15% 0%, #7C3AED, #0F172A 75%)', dark: true, accent: '#7C3AED', grades: [1, 12] },
+  { key: 'cake-shop', emoji: '🎂', title: 'Cake Shop', blurb: () => 'Cut cakes, serve slices, sell cupcakes — fractions and taking-away you do with your hands.', bg: 'linear-gradient(135deg, #FDF2F8, #FEF3C7)', dark: false, accent: '#DB2777', grades: [1, 6] },
+  { key: 'balance', emoji: '⚖️', title: 'Balance Scale', blurb: (g) => (g <= 5 ? 'Weigh the mystery box: add weights until the beam is level, then work it out.' : 'Solve equations on a real scale — do the same to both pans until x stands alone.'), bg: 'linear-gradient(135deg, #E0F2FE, #ECFDF5)', dark: false, accent: '#0284C7', grades: [2, 9] },
+  { key: 'treasure', emoji: '🏴‍☠️', title: 'Treasure Map', blurb: (g) => (g <= 4 ? 'Follow the parrot’s steps from the tent and dig in the right spot.' : 'Plot, move, mirror and cross lines to find where X marks the spot.'), bg: 'linear-gradient(135deg, #FEF3C7, #BAE6FD)', dark: false, accent: '#B45309', grades: [2, 12] },
+  { key: 'laser', emoji: '🔦', title: 'Angle Laser', blurb: (g) => (g >= 11 ? 'Turn the laser to radians and bearings — then fire.' : 'Turn the laser to the angle — read the protractor, or guess without one — and fire.'), bg: 'radial-gradient(circle at 30% 20%, #1E3A8A, #0F172A 75%)', dark: true, accent: '#E11D48', grades: [3, 12] },
+  { key: 'meteor-storm', emoji: '☄️', title: 'Meteor Storm', blurb: (g) => `Grade ${g} sums fall from the sky. Type the answer to blast them — faster and faster.`, bg: 'linear-gradient(135deg, #312E81, #0F172A)', dark: true, accent: '#4F46E5', grades: [1, 12] },
+];
 const TABS: { key: Tab; label: string; icon: typeof Dumbbell }[] = [
   { key: 'play', label: 'Play', icon: Gamepad2 },
   { key: 'practice', label: 'Practice', icon: Dumbbell },
@@ -141,36 +155,39 @@ export default function MathsRoom({ grade: homeGrade, accent, lastLesson }: Prop
 
   if (!session && tab === 'play') {
     if (game) {
+      const g = GAMES.find((x) => x.key === game)!;
       return (
         <div className="space-y-4">
           {tabBar}
           <button type="button" onClick={() => setGame(null)} className="inline-flex items-center gap-1.5 text-[13px] font-bold text-slate-500 hover:text-slate-800">
             <ArrowLeft className="w-4 h-4" /> All games
           </button>
-          {game === 'cake-shop' ? <CakeShop grade={grade} accent="#DB2777" /> : <MeteorStorm grade={grade} accent="#4F46E5" />}
+          {game === 'boss' && <BossBattles grade={grade} accent={g.accent} attempts={attempts} onLogged={() => void refresh()} currentModule={grade === homeGrade ? lastLesson?.moduleNum ?? null : null} />}
+          {game === 'cake-shop' && <CakeShop grade={grade} accent={g.accent} />}
+          {game === 'meteor-storm' && <MeteorStorm grade={grade} accent={g.accent} />}
+          {game === 'balance' && <BalanceScale grade={grade} accent={g.accent} />}
+          {game === 'treasure' && <TreasureMap grade={grade} accent={g.accent} />}
+          {game === 'laser' && <AngleLaser grade={grade} accent={g.accent} />}
         </div>
       );
     }
-    const games: { key: Game; emoji: string; title: string; blurb: string; bg: string; show: boolean }[] = [
-      { key: 'cake-shop', emoji: '🎂', title: 'Cake Shop', blurb: 'Cut cakes, serve slices, sell cupcakes — fractions and taking-away you do with your hands.', bg: 'linear-gradient(135deg, #FDF2F8, #FEF3C7)', show: grade <= 6 },
-      { key: 'meteor-storm', emoji: '☄️', title: 'Meteor Storm', blurb: `Grade ${grade} sums fall from the sky. Type the answer to blast them — faster and faster.`, bg: 'linear-gradient(135deg, #312E81, #0F172A)', show: true },
-    ];
+    const games = GAMES.filter((g) => grade >= g.grades[0] && grade <= g.grades[1]);
     return (
       <div className="space-y-5">
         {tabBar}
         <div className="grid sm:grid-cols-2 gap-3">
-          {games.filter((g) => g.show).map((g) => (
+          {games.map((g, i) => (
             <button
               key={g.key}
               type="button"
               onClick={() => setGame(g.key)}
-              className={`text-left rounded-3xl p-6 border shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all ${g.key === 'meteor-storm' ? 'text-white border-indigo-900' : 'border-pink-200'}`}
+              className={`text-left rounded-3xl p-6 border shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all ${i === 0 ? 'sm:col-span-2' : ''} ${g.dark ? 'text-white border-transparent' : 'text-slate-900 border-slate-200'}`}
               style={{ background: g.bg }}
             >
               <span className="text-5xl" aria-hidden>{g.emoji}</span>
               <span className="block mt-3 text-2xl font-extrabold" style={{ fontFamily: 'var(--font-jakarta)' }}>{g.title}</span>
-              <span className={`block mt-1 text-[14px] ${g.key === 'meteor-storm' ? 'text-indigo-100' : 'text-slate-700'}`}>{g.blurb}</span>
-              <span className={`mt-4 inline-flex h-10 items-center px-5 rounded-xl text-[14px] font-extrabold ${g.key === 'meteor-storm' ? 'bg-white text-indigo-900' : 'bg-pink-600 text-white'}`}>Play</span>
+              <span className={`block mt-1 text-[14px] ${g.dark ? 'text-white/80' : 'text-slate-700'}`}>{g.blurb(grade)}</span>
+              <span className={`mt-4 inline-flex h-10 items-center px-5 rounded-xl text-[14px] font-extrabold ${g.dark ? 'bg-white text-slate-900' : 'text-white'}`} style={g.dark ? undefined : { background: g.accent }}>Play</span>
             </button>
           ))}
         </div>

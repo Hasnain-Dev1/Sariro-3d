@@ -90,3 +90,19 @@ Mimo now asks for **AI in the rooms**. That replaces the "no AI in the MVP" defa
 3. Maths AI room, then Coding AI room: Claude API through a server route with per-student limits.
 4. Trial stories per grade.
 5. Attendance.
+
+---
+
+## 8. The arcade (Play tab, 18–19 Sep 2026)
+Hasnain: "a game-like practice room where I get addicted and don't feel the time pass". Every game's rules sit in `src/lib/practice/games/*.ts`, pure and tested; the screens only draw them. Every round is logged to `practice_attempts` as `maths:game:<slug>`.
+
+| Game | Grades | What the child does |
+|---|---|---|
+| ⚔️ Boss Battles | 1–12 | Each syllabus module has a boss. Answers are hits (fast ones and streaks hit harder); a wrong or slow answer lets the boss hit back. Three stars per boss (★ → ★★★ harder). Wins are logged as `maths:game:boss:g7:m3:t2`, so the trophy shelf needs no new table |
+| 🎂 Cake Shop | 1–6 | Cut, serve and eat cake slices; sell cupcakes (fractions, take-away) |
+| ⚖️ Balance Scale | 2–9 | Grades 2–5: weigh a mystery box with weights, then work it out. Grades 5–9: solve `ax + b = cx + d` by doing the same to both pans; par = fewest moves |
+| 🏴‍☠️ Treasure Map | 2–12 | Grades 2–4: walk squares from the tent. Then: plot and read coordinates, translations, reflections, midpoints, points on lines, where two lines cross. A wrong dig is labelled ("swapped!", "check the signs") |
+| 🔦 Angle Laser | 3–12 | Turn a laser on a protractor and fire: kinds of angle, turn to N°, measure (both scales drawn), estimate with no scale, missing angles, bearings, radians |
+| ☄️ Meteor Storm | 1–12 | Type answers to blast falling questions |
+
+`useRound` in `components/practice/games/game-kit.tsx` is the shared loop: patience clock, coins, streak, hearts, levels, best score, logging.

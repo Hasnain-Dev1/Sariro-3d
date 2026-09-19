@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Coins, Flame, Heart, Trophy, Volume2, VolumeX } from 'lucide-react';
+import { coinsFor, levelFor } from '@/lib/practice/games/round';
+import { freshSeed } from '@/lib/practice/rng';
+import { logPractice } from '@/lib/practice/log';
 
 /**
  * SARIRO — what every practice game shares
@@ -18,7 +21,7 @@ import { Coins, Flame, Heart, Trophy, Volume2, VolumeX } from 'lucide-react';
 
 /* ── Sound ─────────────────────────────────────────────────────────────── */
 
-type Sfx = 'tap' | 'cut' | 'coin' | 'wrong' | 'level' | 'boom' | 'win';
+type Sfx = 'tap' | 'cut' | 'coin' | 'wrong' | 'level' | 'boom' | 'win' | 'zap' | 'dig' | 'clunk';
 
 const NOTES: Record<Sfx, { f: number; t: number; type: OscillatorType; slide?: number; gain?: number }[]> = {
   tap: [{ f: 660, t: 0.05, type: 'triangle' }],
@@ -28,6 +31,9 @@ const NOTES: Record<Sfx, { f: number; t: number; type: OscillatorType; slide?: n
   level: [{ f: 523, t: 0.09, type: 'triangle' }, { f: 659, t: 0.09, type: 'triangle' }, { f: 784, t: 0.09, type: 'triangle' }, { f: 1047, t: 0.2, type: 'triangle' }],
   boom: [{ f: 140, t: 0.16, type: 'sawtooth', slide: 50, gain: 0.07 }],
   win: [{ f: 784, t: 0.1, type: 'triangle' }, { f: 988, t: 0.1, type: 'triangle' }, { f: 1175, t: 0.24, type: 'triangle' }],
+  zap: [{ f: 1400, t: 0.16, type: 'sawtooth', slide: 180, gain: 0.04 }],
+  dig: [{ f: 200, t: 0.07, type: 'triangle', slide: 90 }, { f: 170, t: 0.09, type: 'triangle', slide: 70 }],
+  clunk: [{ f: 110, t: 0.09, type: 'square', slide: 70, gain: 0.05 }],
 };
 
 const MUTE_KEY = 'sariro.games.muted';
@@ -192,4 +198,177 @@ export function GameOver({ title, score, best, newBest, lines, onAgain, accent, 
       <button type="button" onClick={onAgain} autoFocus className="mt-6 h-12 px-8 rounded-2xl text-white text-[16px] font-extrabold shadow-lg" style={{ background: accent }}>Play again</button>
     </motion.div>
   );
+}
+
+/* ── Intro card, level-up banner, feedback ─────────────────────────────── */
+
+export function GameIntro({ emoji, title, blurb, note, cta, onStart, background, dark }: {
+  emoji: string; title: string; blurb: string; note: string; cta: string; onStart: () => void; background: string; dark?: boolean;
+}) {
+  return (
+    <div className={`relative rounded-3xl p-6 sm:p-10 text-center overflow-hidden border ${dark ? 'text-white border-transparent' : 'text-slate-900 border-slate-200'}`} style={{ background }}>
+      <p className="text-6xl" aria-hidden>{emoji}</p>
+      <h2 className="mt-3 text-3xl font-extrabold" style={{ fontFamily: 'var(--font-jakarta)' }}>{title}</h2>
+      <p className={`mt-2 text-[15px] max-w-md mx-auto ${dark ? 'text-white/85' : 'text-slate-700'}`}>{blurb}</p>
+      <p className={`mt-3 text-[13px] ${dark ? 'text-white/70' : 'text-slate-500'}`}>{note}</p>
+      <button type="button" onClick={onStart} autoFocus className={`mt-6 h-14 px-10 rounded-2xl text-[18px] font-extrabold shadow-lg ${dark ? 'bg-white text-slate-900' : 'bg-slate-900 text-white'}`}>{cta}</button>
+    </div>
+  );
+}
+
+export function LevelBanner({ level }: { level: number | null }) {
+  return (
+    <AnimatePresence>
+      {level && (
+        <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-x-0 top-16 z-20 text-center pointer-events-none">
+          <span className="inline-block rounded-2xl bg-violet-600 text-white px-6 py-3 text-2xl font-extrabold shadow-xl">Level {level}! 🎉</span>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+export function Feedback({ feedback }: { feedback: { ok: boolean; message: string } | null }) {
+  return (
+    <AnimatePresence>
+      {feedback && (
+        <motion.p initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ opacity: 0 }} role="status" className={`mt-4 rounded-2xl px-5 py-3 text-[15px] font-extrabold text-center ${feedback.ok ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+          {feedback.ok ? '✓ ' : '✗ '}{feedback.message}
+        </motion.p>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/* ── A round of one-challenge-at-a-time play ───────────────────────────── */
+
+/**
+ * The loop Cake Shop hand-rolled, for every game built after it: a challenge
+ * with a patience clock, coins for a fast right answer, a streak, hearts, a
+ * level every few answers, a best score, and the round logged at the end.
+ *
+ * A game draws `challenge` and calls `resolve(ok, message, bonus)` once per
+ * challenge. The board for a challenge should be keyed by `challengeId`, so its
+ * own state starts fresh with every new one.
+ */
+export function useRound<C extends { patience: number }>({ slug, bestKey, make, levelEvery, hearts: maxHearts = 3 }: {
+  /** `balance` → logged as `maths:game:balance`. */
+  slug: string;
+  bestKey: string;
+  /** Must be stable (useCallback). */
+  make: (seed: number, level: number) => C;
+  levelEvery: number;
+  hearts?: number;
+}) {
+  const { play, muted, toggle } = useSound();
+  const [best, offerBest] = useBest(bestKey);
+  const [phase, setPhase] = useState<'intro' | 'playing' | 'over'>('intro');
+  const [challenge, setChallenge] = useState<C | null>(null);
+  const [challengeId, setChallengeId] = useState(0);
+  const [score, setScore] = useState(0);
+  const [combo, setCombo] = useState(0);
+  const [hearts, setHearts] = useState(maxHearts);
+  const [done, setDone] = useState(0);
+  const [tried, setTried] = useState(0);
+  const [feedback, setFeedback] = useState<{ ok: boolean; message: string } | null>(null);
+  const [left, setLeft] = useState(0);
+  const [burst, setBurst] = useState(0);
+  const [levelUp, setLevelUp] = useState<number | null>(null);
+  const [newBest, setNewBest] = useState(false);
+  const [saved, setSaved] = useState<'saved' | 'not-saved' | null>(null);
+  const base = useRef(1);
+  const index = useRef(0);
+  const leftRef = useRef(0);
+  const started = useRef(0);
+
+  const level = levelFor(done, levelEvery);
+
+  const next = useCallback((lvl: number) => {
+    const c = make(base.current + index.current * 7919, lvl);
+    setChallenge(c);
+    setChallengeId(base.current + index.current);
+    setFeedback(null);
+    leftRef.current = c.patience;
+    setLeft(c.patience);
+  }, [make]);
+
+  const finish = useCallback(async (finalScore: number, finalDone: number, finalTried: number) => {
+    setPhase('over');
+    const beaten = offerBest(finalScore);
+    setNewBest(beaten);
+    play(beaten ? 'win' : 'level');
+    const ok = await logPractice({
+      room: 'maths', topic: `maths:game:${slug}`, kind: 'problem', drillId: `${slug}#${base.current}`,
+      score: finalTried ? (finalDone / finalTried) * 100 : 0,
+      durationMs: Date.now() - started.current,
+      metrics: { coins: finalScore, solved: finalDone, tried: finalTried, level: levelFor(finalDone, levelEvery) },
+    });
+    setSaved(ok ? 'saved' : 'not-saved');
+  }, [offerBest, play, slug, levelEvery]);
+
+  const resolve = useCallback((ok: boolean, message: string, bonus = 0) => {
+    if (feedback || !challenge || phase !== 'playing') return;
+    setFeedback({ ok, message });
+    const nextTried = tried + 1;
+    setTried(nextTried);
+    if (ok) {
+      const gained = coinsFor(leftRef.current, challenge.patience, combo, bonus);
+      const nextDone = done + 1;
+      setScore(score + gained);
+      setCombo((c) => c + 1);
+      setDone(nextDone);
+      setBurst((b) => b + 1);
+      play('coin');
+      if (levelFor(nextDone, levelEvery) > levelFor(done, levelEvery)) {
+        setLevelUp(levelFor(nextDone, levelEvery));
+        setTimeout(() => play('level'), 250);
+        setTimeout(() => setLevelUp(null), 1600);
+      }
+      setTimeout(() => { index.current += 1; next(levelFor(nextDone, levelEvery)); }, 1500);
+    } else {
+      play('wrong');
+      setCombo(0);
+      const h = hearts - 1;
+      setHearts(h);
+      if (h <= 0) setTimeout(() => void finish(score, done, nextTried), 2200);
+      else setTimeout(() => { index.current += 1; next(levelFor(done, levelEvery)); }, 2600);
+    }
+  }, [feedback, challenge, phase, tried, combo, done, score, hearts, play, next, finish, levelEvery]);
+
+  /* The clock drains; at zero the challenge is lost. */
+  const resolveRef = useRef(resolve);
+  useEffect(() => { resolveRef.current = resolve; }, [resolve]);
+  useEffect(() => {
+    if (phase !== 'playing' || feedback || !challenge) return;
+    const t = setInterval(() => {
+      leftRef.current = Math.max(0, leftRef.current - 0.2);
+      setLeft(leftRef.current);
+      if (leftRef.current <= 0) {
+        clearInterval(t);
+        resolveRef.current(false, 'Out of time!');
+      }
+    }, 200);
+    return () => clearInterval(t);
+  }, [phase, feedback, challenge]);
+
+  const start = useCallback(() => {
+    base.current = freshSeed();
+    index.current = 0;
+    setScore(0);
+    setCombo(0);
+    setHearts(maxHearts);
+    setDone(0);
+    setTried(0);
+    setSaved(null);
+    setNewBest(false);
+    started.current = Date.now();
+    setPhase('playing');
+    next(1);
+    play('tap');
+  }, [maxHearts, next, play]);
+
+  return {
+    phase, challenge, challengeId, level, score, combo, hearts, maxHearts, done, tried, feedback, left, burst, levelUp, best, newBest, saved,
+    muted, toggle, play, start, resolve,
+  };
 }
