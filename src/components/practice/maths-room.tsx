@@ -10,6 +10,7 @@ import MeteorStorm from '@/components/practice/games/meteor-storm';
 import TreasureMap from '@/components/practice/games/treasure-map';
 import QuestionSet, { type SetResult } from '@/components/practice/question-set';
 import TestPaperView from '@/components/practice/test-paper';
+import MathsCoach from '@/components/practice/maths-coach';
 import { lessonQuizFor, modulesFor, sheetFor, SHEETS_PER_MODULE, type TestPaper, type TestReport } from '@/lib/practice/maths/tests';
 import { MATHS_TOPICS, mathsTopicsFor } from '@/lib/practice/maths/topics';
 import { difficultyFor, LEVEL_LABEL, masteryOf, suggestTopics, type TopicAttempt } from '@/lib/practice/mastery';
@@ -37,7 +38,7 @@ interface Props {
   lastLesson?: { title: string; module: string; moduleNum?: number | null } | null;
 }
 
-type Tab = 'play' | 'practice' | 'sheets' | 'quiz';
+type Tab = 'play' | 'practice' | 'sheets' | 'quiz' | 'coach';
 type Game = 'boss' | 'cake-shop' | 'meteor-storm' | 'balance' | 'treasure' | 'laser';
 
 /** The arcade, by grade. Boss Battles leads: it is the whole year's maths as a trophy shelf. */
@@ -54,6 +55,7 @@ const TABS: { key: Tab; label: string; icon: typeof Dumbbell }[] = [
   { key: 'practice', label: 'Practice', icon: Dumbbell },
   { key: 'sheets', label: 'Test sheets', icon: ClipboardCheck },
   { key: 'quiz', label: 'Lesson quiz', icon: Timer },
+  { key: 'coach', label: 'AI Coach', icon: Sparkles },
 ];
 
 export default function MathsRoom({ grade: homeGrade, accent, lastLesson }: Props) {
@@ -65,6 +67,8 @@ export default function MathsRoom({ grade: homeGrade, accent, lastLesson }: Prop
   const [game, setGame] = useState<Game | null>(null);
   const [paper, setPaper] = useState<TestPaper | null>(null);
   const [quizModule, setQuizModule] = useState<number>(lastLesson?.moduleNum ?? 1);
+  /* A practice question sent to the coach: it opens beside the set, so the set is not lost. */
+  const [coachAsk, setCoachAsk] = useState<{ problem: string; working?: string } | null>(null);
 
   const refresh = useCallback(async () => setAttempts(await fetchRoomAttempts('maths')), []);
   useEffect(() => { void refresh(); }, [refresh]);
@@ -136,7 +140,7 @@ export default function MathsRoom({ grade: homeGrade, accent, lastLesson }: Prop
   }
 
   const tabBar = (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2" role="tablist">
+    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2" role="tablist">
       {TABS.map((t) => (
         <button
           key={t.key}
@@ -144,7 +148,7 @@ export default function MathsRoom({ grade: homeGrade, accent, lastLesson }: Prop
           role="tab"
           aria-selected={tab === t.key}
           onClick={() => { setTab(t.key); setGame(null); }}
-          className={`h-11 rounded-xl text-sm font-bold border-2 flex items-center justify-center gap-2 ${tab === t.key ? '' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}
+          className={`h-11 rounded-xl text-sm font-bold border-2 flex items-center justify-center gap-2 ${t.key === 'coach' ? 'col-span-2 sm:col-span-1' : ''} ${tab === t.key ? '' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}
           style={tab === t.key ? { borderColor: accent, background: `${accent}10`, color: accent } : undefined}
         >
           <t.icon className="w-4 h-4" /> <span>{t.label}</span>
@@ -152,6 +156,15 @@ export default function MathsRoom({ grade: homeGrade, accent, lastLesson }: Prop
       ))}
     </div>
   );
+
+  if (!session && tab === 'coach') {
+    return (
+      <div className="space-y-5">
+        {tabBar}
+        <MathsCoach grade={grade} accent={accent} />
+      </div>
+    );
+  }
 
   if (!session && tab === 'play') {
     if (game) {
@@ -297,7 +310,18 @@ export default function MathsRoom({ grade: homeGrade, accent, lastLesson }: Prop
             const pool = [...new Set(session.items.map((i) => i.topic))].map((k) => MATHS_TOPICS.find((t) => t.key === k)!).filter(Boolean);
             build(pool, session.label);
           }}
+          onAskCoach={(problem, answer) => setCoachAsk({ problem, working: answer ? `My answer: ${answer}` : undefined })}
         />
+        {coachAsk && (
+          <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40" role="dialog" aria-modal="true" aria-label="AI Coach" onClick={() => setCoachAsk(null)}>
+            <div className="h-full w-full max-w-2xl overflow-y-auto bg-slate-50 p-4 sm:p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <button type="button" onClick={() => setCoachAsk(null)} className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-bold text-slate-500 hover:text-slate-800">
+                <ArrowLeft className="w-4 h-4" /> Back to the questions
+              </button>
+              <MathsCoach grade={grade} accent={accent} prefill={coachAsk} />
+            </div>
+          </div>
+        )}
       </div>
     );
   }

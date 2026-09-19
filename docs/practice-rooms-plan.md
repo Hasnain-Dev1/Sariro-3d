@@ -124,3 +124,22 @@ Mimo sent a mock-up (a "NeonCode Tutor": challenge list, editor, run tests, thre
   - The on-device guide (`diagnose.ts`) reads every run: returning vs printing, capitals, off-by-one, indentation, endless loops, a failing hidden test.
   - The AI tutor is Claude through `POST /api/practice/tutor`. It is Socratic, never gives the solution, and the reference solution is never sent to it.
   - Its default is `claude-opus-5` at low effort, with server-side fallbacks. It **fails closed** unless `ANTHROPIC_API_KEY` is set AND `scripts/ai-tutor.sql` has run. Each learner gets a daily limit (`TUTOR_DAILY_LIMIT`, default 20), counted atomically in the database.
+
+---
+
+## 10. The Maths AI coach (19 Sep 2026) — Mimo's queue item 2
+A fifth tab in the Maths room, **AI Coach**. There is also an "Ask the AI coach" button on every answered practice question, which opens the coach beside the set so the set is kept.
+- **Input:** type the problem, or photograph it. A photo is shrunk on the device to 1600px JPEG, and Claude reads the image.
+- **Guide me step by step:** a streamed conversation that never gives the final answer.
+- **Show the full solution:** numbered steps, the answer, how to check it and the key idea. "Show another way" gives a genuinely different method.
+- **Check my working:** typed, or a photo of the page. It returns the first wrong line with what went wrong, why and how to fix it, plus 1–5 ratings for understanding, method, accuracy and presentation, one strength, a next step and another way.
+- **Answer format:** structured JSON outputs validated with zod v4 (`src/lib/practice/maths/coach.ts`). Maths is plain Unicode, never LaTeX.
+- **Route and model:** `POST /api/practice/maths-coach`, on Claude Opus 5 at low effort for solutions and medium for checking, with server-side fallbacks.
+- **Gate:** it shares `lib/practice/ai-gate.ts` with the Code Lab tutor, so it fails closed, is limited to maths students and staff, and uses the same daily allowance (`TUTOR_DAILY_LIMIT`).
+
+**Queue status (§7):**
+1. The lesson quiz: done.
+2. The Maths AI room: done here.
+3. The Coding AI room: done in §9.
+4. Trial stories: done in `src/lib/trial/stories`.
+5. Attendance: done, see the attendance memory note.

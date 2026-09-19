@@ -5,6 +5,7 @@ import { Check, ChevronDown, Headphones, Mic, Brain, Hand, Loader2, Volume2, Spa
 import { playbookFor, rankPaths, warmUpsFor, type TrialIntake, type Level } from '@/lib/trial/playbooks';
 import { mergeIntake, stepsDone, micHeard, FEELING, type PrepStep } from '@/lib/trial/intake';
 import { subjectLabel } from '@/lib/trial/subjects';
+import { storyFor } from '@/lib/trial/stories';
 
 /**
  * SARIRO — get class-ready
@@ -48,6 +49,8 @@ export default function TrialPrep({
   teacherName: string | null;
 }) {
   const playbook = playbookFor(subject);
+  /* The grade's trial story (lib/trial/stories): its hook is the teaser for the class. */
+  const story = storyFor(subject, grade);
   const localKey = `sariro:trial-prep:${bookingId}`;
   const [intake, setIntake] = useState<TrialIntake>({});
   const [loaded, setLoaded] = useState(false);
@@ -131,7 +134,17 @@ export default function TrialPrep({
         </div>
       </div>
 
-      {allDone && top && (
+      {story && (
+        <div className="mx-4 mt-4 rounded-xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-violet-50 px-4 py-3">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-700 flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" /> Your mission in class</p>
+          <p className="mt-1 text-[16px] font-extrabold text-slate-900">{story.emoji} {story.title}</p>
+          <p className="text-[12.5px] font-bold text-indigo-700">You will be {story.role}.</p>
+          <p className="mt-1.5 text-[13.5px] leading-relaxed text-slate-700">{story.hook}</p>
+          <p className="mt-1.5 text-[11.5px] text-slate-400">{teacherName ?? 'Your teacher'} starts the story with you — and there are three chapters to solve.</p>
+        </div>
+      )}
+
+      {!story && allDone && top && (
         <div className="mx-4 mt-4 rounded-xl border border-violet-200 bg-violet-50 px-4 py-3">
           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-violet-700 flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" /> Your class could start with</p>
           <p className="mt-1 text-[15px] font-extrabold text-slate-900">{top.path.name}</p>

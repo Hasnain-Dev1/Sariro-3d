@@ -3,7 +3,8 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import { resolveActor } from '@/lib/dashboard/schedule-ops-server';
-import { pauseIfExhausted } from '@/lib/credits/apply';
+import { deductClassCredits } from '@/lib/credits/consume';
+import { advanceLessonsForClass } from '@/lib/classes/advance-lesson';
 
 /**
  * SARIRO — POST /api/teacher/complete-class
@@ -99,6 +100,12 @@ export async function POST(req: NextRequest) {
   if (uErr) return NextResponse.json({ ok: false, error: 'update_failed', message: uErr.message }, { status: 500 });
   if (!updated || updated.length === 0) return NextResponse.json({ ok: true, already: true });
 
+  /* The safety net for lesson progress: every student this class has as
+     present or late moves one lesson on — including children who joined
+     through Sariro and whose "Present" the teacher never needed to tap.
+     Idempotent, and never fatal (lib/classes/advance-lesson.ts). */
+  await advanceLessonsForClass(admin, booking.id, booking.cohort_id);
+
   // ── Consume 1 credit per active student (1 credit = 1 class). This used to
   //    rely on a DB trigger that was never actually present, so completed
   //    classes never deducted. We now do it here, idempotently: a
@@ -115,50 +122,4 @@ export async function POST(req: NextRequest) {
   await deductClassCredits(admin, booking.id, booking.cohort_id);
 
   return NextResponse.json({ ok: true, completed: true, outcome });
-}
-
-/**
- * Deduct one class credit from each active student in the cohort, exactly once
- * per (booking, student). Guarded by a matching 'class_consumed' transaction so
- * it's safe to call again on a retry or re-completion.
- */
-async function deductClassCredits(
-  admin: ReturnType<typeof createServiceClient>,
-  bookingId: string,
-  cohortId: string
-) {
-  const { data: enrs } = await admin.from('enrollments')
-    .select('user_id').eq('cohort_id', cohortId).eq('status', 'active');
-  const studentIds = [...new Set((enrs ?? []).map((e: { user_id: string }) => e.user_id))];
-  if (studentIds.length === 0) return;
-
-  // Which students were already charged for THIS booking?
-  const { data: charged } = await admin.from('credit_transactions')
-    .select('user_id').eq('related_booking_id', bookingId).eq('type', 'class_consumed');
-  const already = new Set((charged ?? []).map((c: { user_id: string }) => c.user_id));
-
-  for (const sid of studentIds) {
-    if (already.has(sid)) continue;
-    const { data: cr } = await admin.from('credits').select('balance').eq('user_id', sid).maybeSingle();
-    const balance = cr?.balance ?? 0;
-    const newBalance = Math.max(0, balance - 1);
-    // Record the consumption first (the idempotency guard), then apply it.
-    const { error: txErr } = await admin.from('credit_transactions').insert({
-      user_id: sid, amount: -1, type: 'class_consumed',
-      description: 'Class attended', related_booking_id: bookingId,
-    });
-    if (txErr) continue; // a concurrent completion already charged this student
-    await admin.from('credits').upsert({ user_id: sid, balance: newBalance }, { onConflict: 'user_id' });
-
-    /* ── The class that used their last credit ─────────────────────────────
-       Spending the last one pauses them, here, with no admin action and no
-       button — the moment it happens rather than the next time somebody
-       notices. Nothing about their teacher, group, schedule or place in the
-       course is touched: holding all of that is what makes starting again
-       automatic when they pay.
-
-       Never fatal. A class was just taught and the teacher is owed for it;
-       failing to pause must not undo marking it complete. */
-    if (newBalance <= 0) await pauseIfExhausted(admin, String(sid));
-  }
 }

@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClientHelper, createServiceClient } from '@/lib/supabase/server';
-import { getCourseSyllabus } from '@/lib/dashboard/student-data';
 import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/rate-limit';
 import { assertSameOrigin } from '@/lib/security/origin-check';
-import { COURSES } from '@/lib/sariro-data';
-import { resolveUnitKey } from '@/lib/curriculum/identity';
-import { evidenceForUnit } from '@/lib/learner-model/evidence';
-import { recordEvidence } from '@/lib/learner-model/record';
+import { advanceLesson } from '@/lib/classes/advance-lesson';
 
 /**
  * SARIRO — POST /api/teacher/attendance
@@ -63,34 +59,6 @@ interface BookingRow {
   teacher_id: string;
   slot_start: string;
   slot_end: string;
-}
-
-interface CohortRow {
-  id: string;
-  track: string;
-  level: string;
-}
-
-interface EnrollmentRow {
-  id: string;
-  user_id: string;
-  cohort_id: string;
-}
-
-/** Flatten the syllabus into an ordered list of (moduleNum, lessonName). */
-function flattenSyllabus(
-  track: string,
-  level: string
-): { moduleNum: string; lessonName: string }[] {
-  const syllabus = getCourseSyllabus(track, level);
-  const out: { moduleNum: string; lessonName: string }[] = [];
-  for (const mod of syllabus.modules) {
-    for (const lesson of mod.lessons) {
-      const name = typeof lesson === 'string' ? lesson : lesson.name;
-      out.push({ moduleNum: mod.num, lessonName: name });
-    }
-  }
-  return out;
 }
 
 export async function POST(req: NextRequest) {
@@ -241,187 +209,18 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Get the cohort (track, level) from the booking
-  const { data: cohort, error: cohortErr } = await supaServer
-    .from('cohorts')
-    .select('id, track, level')
-    .eq('id', (booking as BookingRow).cohort_id)
-    .maybeSingle();
-  if (cohortErr || !cohort) {
-    console.warn('[attendance] cohort lookup failed:', cohortErr?.message ?? 'no cohort');
-    return NextResponse.json({
-      ok: true,
-      lessonMarked: false,
-      reason: 'cohort_not_found',
-    });
-  }
-  const cohortRow = cohort as CohortRow;
-
-  // Get the student's enrollment for this cohort
-  const { data: enrollment, error: enrollErr } = await supaServer
-    .from('enrollments')
-    .select('id, user_id, cohort_id')
-    .eq('user_id', studentId)
-    .eq('cohort_id', cohortRow.id)
-    .neq('status', 'dropped')
-    .limit(1)
-    .maybeSingle();
-  if (enrollErr || !enrollment) {
-    console.warn('[attendance] enrollment lookup failed:', enrollErr?.message ?? 'no enrollment');
-    return NextResponse.json({
-      ok: true,
-      lessonMarked: false,
-      reason: 'enrollment_not_found',
-    });
-  }
-  const enrollmentRow = enrollment as EnrollmentRow;
-
-  // Flatten syllabus → ordered list of lessons
-  const lessons = flattenSyllabus(cohortRow.track, cohortRow.level);
-  if (lessons.length === 0) {
-    return NextResponse.json({
-      ok: true,
-      lessonMarked: false,
-      reason: 'no_syllabus',
-    });
-  }
-
-  // Find this booking's index among the cohort's bookings ordered by slot_start
-  // Only real classes count toward lesson order — a no_show/cancelled slot
-  // must NOT consume a lesson index (cascade-shift: missed lesson slides forward).
-  const { data: cohortBookings, error: cbErr } = await supaServer
-    .from('bookings')
-    .select('id, slot_start')
-    .eq('cohort_id', cohortRow.id)
-    .in('status', ['scheduled', 'completed'])
-    .order('slot_start', { ascending: true });
-  if (cbErr || !cohortBookings) {
-    console.warn('[attendance] cohort bookings lookup failed:', cbErr?.message);
-    return NextResponse.json({
-      ok: true,
-      lessonMarked: false,
-      reason: 'cohort_bookings_lookup_failed',
-    });
-  }
-
-  const lessonIndex = cohortBookings.findIndex((b) => b.id === bookingId);
-  if (lessonIndex < 0 || lessonIndex >= lessons.length) {
-    return NextResponse.json({
-      ok: true,
-      lessonMarked: false,
-      reason: lessonIndex < 0 ? 'booking_not_in_cohort' : 'lesson_index_out_of_syllabus',
-      lessonIndex,
-      syllabusLength: lessons.length,
-    });
-  }
-
-  const { moduleNum, lessonName } = lessons[lessonIndex];
-  /** 1-based, and the number a teacher and a student both refer to. */
-  const lessonNumber = lessonIndex + 1;
-
-  // ── Service-role insert into lesson_progress (bypasses RLS) ─────────
-  // The teacher can't directly write to a student-owned lesson_progress
-  // row via RLS — we use the service-role admin client.
+  // lesson_progress belongs to the student, so the service-role client writes
+  // it (lib/classes/advance-lesson.ts — the same rule the register confirm and
+  // class completion use).
   let admin;
   try {
     admin = createServiceClient();
   } catch {
     console.warn('[attendance] service-role client unavailable — lesson automation skipped');
-    return NextResponse.json({
-      ok: true,
-      lessonMarked: false,
-      reason: 'service_role_unavailable',
-    });
+    return NextResponse.json({ ok: true, lessonMarked: false, reason: 'service_role_unavailable' });
   }
-
-  /* Stamp the lesson onto the booking itself.
-     Until now this identity was worked out here, used once and discarded, which
-     is why every booking in the database had module_num and lesson_name NULL —
-     the teacher could not see which lesson a class was, and the student's
-     Class Notes list had no name to show and said "Review Lesson" for all of
-     them. Best-effort: a failure here must not stop attendance being recorded. */
-  await admin
-    .from('bookings')
-    .update({ module_num: moduleNum, lesson_name: lessonName })
-    .eq('id', bookingId)
-    .is('module_num', null);
-
-  const { error: lpErr } = await admin.from('lesson_progress').insert({
-    enrollment_id: enrollmentRow.id,
-    module_num: moduleNum,
-    lesson_name: lessonName,
-    // completed_at defaults to now() in DB
-  });
-
-  if (lpErr) {
-    // 23505 = unique_violation — already marked, treat as success
-    if (lpErr.code === '23505') {
-      return NextResponse.json({
-        ok: true,
-        lessonMarked: true,
-        idempotent: true,
-        moduleNum,
-        lessonName,
-        lessonNumber,
-        lessonIndex,
-      });
-    }
-    console.warn('[attendance] lesson_progress insert error:', lpErr.message);
-    return NextResponse.json({
-      ok: true,
-      lessonMarked: false,
-      reason: 'lesson_progress_insert_failed',
-      error: lpErr.message,
-    });
-  }
-
-  // A completed lesson is weak evidence — exposure, not demonstrated capability.
-  // Recorded anyway because it is the only signal most learners generate early,
-  // and the scoring weights it far below a reviewed project. Cannot fail the
-  // request: attendance moves credits and teacher pay.
-  await recordLessonEvidence(cohortRow, studentId, moduleNum, lessonName);
-
-  return NextResponse.json({
-    ok: true,
-    lessonMarked: true,
-    moduleNum,
-    lessonName,
-    lessonNumber,
-    lessonIndex,
-    syllabusLength: lessons.length,
-  });
-}
-
-/**
- * Record a completed lesson as (weak) learning evidence. Never throws.
- */
-async function recordLessonEvidence(
-  cohort: CohortRow,
-  studentId: string,
-  moduleNum: string,
-  lessonName: string
-): Promise<void> {
-  try {
-    const course = COURSES.find(
-      (c) => c.trackId === cohort.track && c.level.toLowerCase() === String(cohort.level).toLowerCase()
-    );
-    if (!course) return;
-
-    const unitKey = resolveUnitKey(course.id, moduleNum, lessonName);
-    if (!unitKey) return;
-
-    const rows = evidenceForUnit(unitKey, {
-      learnerId: studentId,
-      source: 'lesson_complete',
-      // Keyed to the lesson so re-marking the same lesson cannot inflate mastery.
-      sourceRef: `${course.id}:${moduleNum}:${lessonName}`,
-      signal: 0.4,
-    });
-
-    await recordEvidence(rows, 'attendance');
-  } catch (err) {
-    console.warn('[attendance] evidence skipped:', err instanceof Error ? err.message : String(err));
-  }
+  const advanced = await advanceLesson(admin, bookingId, (booking as BookingRow).cohort_id, studentId);
+  return NextResponse.json({ ok: true, ...advanced });
 }
 
 /* ─────────────────────── GET /api/teacher/attendance ────────────────

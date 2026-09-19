@@ -4,6 +4,7 @@ import { rateLimit, getClientIp, rateLimitedResponse, isIpBlocked } from '@/lib/
 import { assertSameOrigin } from '@/lib/security/origin-check';
 import { joinWindow, JOIN_OPENS_MINUTES_BEFORE } from '@/lib/dashboard/join-window';
 import { classLink } from '@/lib/classes/class-link';
+import { joinStatus } from '@/lib/classes/register';
 
 /**
  * SARIRO — POST /api/student/join-class
@@ -23,9 +24,12 @@ import { classLink } from '@/lib/classes/class-link';
  *   2. Verifies the booking is still 'scheduled' (not cancelled/completed).
  *   3. Verifies the student has a positive credit balance (mirrors the
  *      dashboard's disabled-button guard, enforced again server-side).
- *   4. Records the student as 'present' in session_attendance — but only if
- *      no attendance row exists yet, so it never overwrites a status the
- *      teacher already set (e.g. 'absent' from a no-show sweep).
+ *   4. Records the student in session_attendance — 'present', or 'late' if
+ *      they join more than 10 minutes after the start (lib/classes/register.ts)
+ *      — but only if no attendance row exists yet, so it never overwrites a
+ *      status the teacher already set (e.g. 'absent' from a no-show sweep).
+ *      No marked_by: that blank is how the register tells a join from a
+ *      teacher's mark, and pre-fills itself from it.
  *   5. Returns the meet URL to open.
  *
  * Credit deduction itself is NOT done here — it happens automatically via
@@ -137,11 +141,12 @@ export async function POST(req: NextRequest) {
     .eq('student_id', userId)
     .maybeSingle();
   if (!existing) {
+    const joinedAt = new Date().toISOString();
     await admin.from('session_attendance').insert({
       booking_id: booking.id,
       student_id: userId,
-      status: 'present',
-      marked_at: new Date().toISOString(),
+      status: joinStatus(booking.slot_start as string, joinedAt),
+      marked_at: joinedAt,
     });
   }
 

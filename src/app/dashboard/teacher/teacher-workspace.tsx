@@ -22,6 +22,7 @@ import {
   type TeacherStats, type TeacherBookingRow, type TeacherStudentRow,
   type SessionStudentRow, type TeacherCohortRow,
 } from '@/lib/dashboard/teacher-data';
+import { joinLine, registerSummary, suggestRegister, type RegisterRow } from '@/lib/classes/register';
 import {
   fetchSubmissionsForBooking,
   fetchPendingSubmissionsForTeacher,
@@ -215,6 +216,7 @@ function SessionDetailsModal({
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   const [savingNote, setSavingNote] = useState<Record<string, boolean>>({});
   const [attBusy, setAttBusy] = useState<Record<string, boolean>>({});
+  const [confirming, setConfirming] = useState(false);
   /**
    * The class recording, and whether this class has been closed.
    *
@@ -260,7 +262,7 @@ function SessionDetailsModal({
     const res = await markAttendance(booking.id, studentId, status);
     setAttBusy(prev => ({ ...prev, [studentId]: false }));
     if (res.success) {
-      setRoster(prev => prev.map(r => r.user_id === studentId ? { ...r, attendance_status: status } : r));
+      setRoster(prev => prev.map(r => r.user_id === studentId ? { ...r, attendance_status: status, attendance_source: 'teacher' } : r));
       /* Say what actually happened. The lesson advancing is the part that moves
          the student's progress bar, and it used to fail silently behind a
          cheerful "Marked present" — so a teacher had no way to know the child's
@@ -278,6 +280,39 @@ function SessionDetailsModal({
       }
     } else {
       onToast(res.error || 'Failed to update attendance', 'error');
+    }
+  };
+
+  /* One tap for the whole register: joins become present or late, nobody
+     else absent, anything the teacher already marked stays — and every child
+     who came moves one lesson on (lib/classes/register.ts, /api/teacher/register). */
+  const registerRows: RegisterRow[] = roster.map((r) => ({ studentId: r.user_id, status: r.attendance_status, source: r.attendance_source, joinedAt: r.joined_at }));
+  const suggestions = suggestRegister(registerRows, booking.slot_start);
+  const toConfirm = suggestions.filter((sg) => !sg.confirmed);
+  const handleConfirmRegister = async () => {
+    if (!toConfirm.length || confirming) return;
+    setConfirming(true);
+    try {
+      const res = await fetch('/api/teacher/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: booking.id, marks: toConfirm.map((sg) => ({ studentId: sg.studentId, status: sg.status })) }),
+      });
+      const j = await res.json().catch(() => ({ ok: false }));
+      if (!j.ok) { onToast(j.message || 'The register could not be saved', 'error'); return; }
+      const saved = new Map(toConfirm.map((sg) => [sg.studentId, sg.status]));
+      setRoster((prev) => prev.map((r) => (saved.has(r.user_id) ? { ...r, attendance_status: saved.get(r.user_id)!, attendance_source: 'teacher' } : r)));
+      if (j.lessonsNotAdvanced > 0) {
+        setLessonNote({ text: `Register saved — but ${j.lessonsNotAdvanced} lesson${j.lessonsNotAdvanced === 1 ? '' : 's'} did not advance. Tell the admin team so progress can be fixed.`, kind: 'warn' });
+        onToast('Register saved — check the lesson note', 'error');
+      } else {
+        setLessonNote(j.lessonsAdvanced ? { text: `Register saved · ${j.lessonsAdvanced} student${j.lessonsAdvanced === 1 ? '' : 's'} moved one lesson on.`, kind: 'ok' } : null);
+        onToast('Register saved', 'success');
+      }
+    } catch {
+      onToast('Network error — the register was not saved', 'error');
+    } finally {
+      setConfirming(false);
     }
   };
 
@@ -540,6 +575,30 @@ function SessionDetailsModal({
                 </div>
               )}
 
+              {roster.length > 0 && (
+                <div className={`rounded-xl border px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 ${toConfirm.length ? 'border-emerald-200 bg-emerald-50/60' : 'border-slate-200 bg-slate-50'}`}>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13.5px] font-extrabold text-slate-900">{registerSummary(registerRows)}</p>
+                    <p className="text-[12px] text-slate-600">
+                      {toConfirm.length
+                        ? `Confirming saves: ${toConfirm.map((sg) => `${roster.find((r) => r.user_id === sg.studentId)?.student_name?.split(' ')[0] ?? 'Student'} ${sg.status}`).join(' · ')}. Change anyone first with the buttons below.`
+                        : 'Register confirmed. Change anyone with the buttons below.'}
+                    </p>
+                  </div>
+                  {toConfirm.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleConfirmRegister}
+                      disabled={confirming}
+                      className="shrink-0 inline-flex items-center justify-center gap-1.5 h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] font-bold disabled:opacity-60"
+                      style={{ fontFamily: 'var(--font-grotesk)' }}
+                    >
+                      {confirming ? 'Saving…' : `Confirm register (${toConfirm.length})`}
+                    </button>
+                  )}
+                </div>
+              )}
+
               {roster.map(student => {
                 const displayName = student.student_name || student.student_email || 'Unknown student';
                 const total = student.total_lessons || 0;
@@ -563,6 +622,9 @@ function SessionDetailsModal({
                         {student.student_email && student.student_name && (
                           <div className="text-xs text-slate-500 truncate">{student.student_email}</div>
                         )}
+                        <div className={`mt-0.5 text-[11.5px] font-semibold ${student.attendance_source === 'join' ? 'text-emerald-700' : student.attendance_source === 'teacher' ? 'text-slate-500' : 'text-amber-700'}`}>
+                          {joinLine({ studentId: student.user_id, status: student.attendance_status, source: student.attendance_source, joinedAt: student.joined_at }, booking.slot_start)}
+                        </div>
                       </div>
                       {/* Lesson progress */}
                       <div className="shrink-0 text-right">

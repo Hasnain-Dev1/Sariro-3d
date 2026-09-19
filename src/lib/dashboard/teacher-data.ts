@@ -469,6 +469,10 @@ export interface SessionStudentRow {
   student_name: string | null;
   student_email: string | null;
   attendance_status: string | null;
+  /** 'teacher' when a teacher or admin marked it; 'join' when it came from the student pressing Join. */
+  attendance_source: 'teacher' | 'join' | null;
+  /** When the student joined, for a 'join' row. */
+  joined_at: string | null;
   note: string | null;
   lessons_completed: number;
   total_lessons: number;
@@ -535,12 +539,23 @@ export async function fetchSessionStudents(bookingId: string): Promise<SessionSt
     // Schema-correct columns: student_id (not user_id), marked_at (not recorded_at).
     const { data: attendance, error: attErr } = await supabase
       .from('session_attendance')
-      .select('student_id, status, note')
+      .select('student_id, status, note, marked_by, marked_at')
       .eq('booking_id', bookingId)
       .in('student_id', userIds);
     if (attErr) throw attErr;
     const attendanceMap = new Map<string, string>(
       (attendance ?? []).map((a) => [a.student_id as string, a.status as string])
+    );
+    /* A present or late row with no marked_by was written by the student
+       joining (/api/student/join-class) — its marked_at is when they joined.
+       An unsigned ABSENT row is not a join: completing a class as "student
+       did not show" writes those, and it is the teacher's own decision. */
+    const sourceMap = new Map<string, { source: 'teacher' | 'join'; at: string | null }>(
+      (attendance ?? []).map((a) => {
+        const row = a as { marked_by?: string | null; marked_at?: string | null; status?: string | null };
+        const joined = !row.marked_by && (row.status === 'present' || row.status === 'late');
+        return [a.student_id as string, { source: joined ? 'join' : 'teacher', at: row.marked_at ?? null }];
+      })
     );
 
     /**
@@ -585,6 +600,8 @@ export async function fetchSessionStudents(bookingId: string): Promise<SessionSt
         student_name: p?.full_name ?? null,
         student_email: p?.email ?? null,
         attendance_status: attendanceMap.get(e.user_id) ?? null,
+        attendance_source: sourceMap.get(e.user_id)?.source ?? null,
+        joined_at: sourceMap.get(e.user_id)?.source === 'join' ? sourceMap.get(e.user_id)?.at ?? null : null,
         note: noteRaw !== undefined ? noteRaw : null,
         lessons_completed: progressMap.get(e.id) ?? 0,
         total_lessons: 0, // filled by caller via getCourseSyllabus if needed

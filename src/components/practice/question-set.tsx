@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowRight, ArrowUp, Check, Lightbulb, Loader2, RotateCcw, X } from 'lucide-react';
+import { ArrowDown, ArrowRight, ArrowUp, Check, Lightbulb, Loader2, RotateCcw, Sparkles, X } from 'lucide-react';
 import { checkAnswer, type Response } from '@/lib/practice/check';
 import type { CheckResult, Item } from '@/lib/practice/types';
 
@@ -34,11 +34,13 @@ interface Props {
   onAgain: () => void;
   /** Shown on the summary: "Saved to your progress" or why not. */
   saved?: 'saving' | 'saved' | 'not-saved' | null;
+  /** When given, an answered question offers "Ask the AI coach" with the learner's own answer. */
+  onAskCoach?: (problem: string, answer: string | null) => void;
 }
 
 type Phase = 'answering' | 'answered';
 
-export default function QuestionSet({ items, accent, onFinish, onAgain, saved }: Props) {
+export default function QuestionSet({ items, accent, onFinish, onAgain, saved, onAskCoach }: Props) {
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>('answering');
   const [text, setText] = useState('');
@@ -261,6 +263,18 @@ export default function QuestionSet({ items, accent, onFinish, onAgain, saved }:
           <p className="text-[12px] font-bold uppercase tracking-wider text-slate-400 mb-1" style={{ fontFamily: 'var(--font-grotesk)' }}>How it is done</p>
           <p className="text-[14.5px] text-slate-800 whitespace-pre-line">{item.solution}</p>
           {!verdict?.correct && <p className="mt-2 text-[14px] font-bold text-slate-900">Answer: {item.answerText}</p>}
+          {onAskCoach && (
+            <button
+              type="button"
+              onClick={() => onAskCoach(
+                answer.kind === 'choice' ? `${item.prompt}\nOptions: ${answer.options.join('  |  ')}` : item.prompt,
+                answer.kind === 'choice' ? (choice !== null ? answer.options[choice] : null) : text.trim() || null,
+              )}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-[13px] font-bold text-indigo-700 hover:bg-indigo-100"
+            >
+              <Sparkles className="h-4 w-4" /> {verdict?.correct ? 'Ask the AI coach for another way' : 'Ask the AI coach where I went wrong'}
+            </button>
+          )}
         </div>
       )}
 

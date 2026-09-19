@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
+import { advanceLessonsForClass } from '@/lib/classes/advance-lesson';
+import { deductClassCredits } from '@/lib/credits/consume';
 
 /**
  * SARIRO — GET/POST /api/cron/close-stale-classes
@@ -71,7 +73,7 @@ async function run(req: NextRequest) {
 
   const { data, error } = await admin
     .from('bookings')
-    .select('id, slot_start, slot_end, teacher_started_at, is_trial, teacher_id')
+    .select('id, slot_start, slot_end, teacher_started_at, is_trial, teacher_id, cohort_id, is_complimentary')
     .eq('status', 'scheduled')
     .lt('slot_end', cutoff)
     .order('slot_start', { ascending: true })
@@ -103,12 +105,23 @@ async function run(req: NextRequest) {
      classes closed and unpaid, which is the worst of both. */
   let completed = 0;
   for (const b of started) {
-    const { error: upErr } = await admin
+    const { data: won, error: upErr } = await admin
       .from('bookings')
       .update({ status: 'completed' })
       .eq('id', b.id)
-      .eq('status', 'scheduled'); // still the lock: another run may have won
-    if (!upErr) completed++;
+      .eq('status', 'scheduled') // still the lock: another run may have won
+      .select('id');
+    if (upErr || !won?.length) continue;
+    completed++;
+    /* Exactly what the teacher's own "Complete" does (/api/teacher/complete-class):
+       everyone present moves a lesson on, and each student uses a credit —
+       unless it was a complimentary class. Both are idempotent. Until 19 Sep
+       2026 this closer did neither: an auto-closed class was free and never
+       counted toward anybody's progress. */
+    if (b.cohort_id) {
+      await advanceLessonsForClass(admin, b.id as string, b.cohort_id as string);
+      if (!b.is_complimentary) await deductClassCredits(admin, b.id as string, b.cohort_id as string);
+    }
   }
 
   return NextResponse.json({

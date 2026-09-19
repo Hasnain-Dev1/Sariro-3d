@@ -14,6 +14,7 @@ import {
 import SoundLab from '@/components/speaking/sound-lab';
 import HeroPicker from '@/components/trial/hero-picker';
 import { FEELING } from '@/lib/trial/intake';
+import { storyAsPath, storyFor } from '@/lib/trial/stories';
 
 /**
  * SARIRO — the trial playbook, open in class
@@ -126,8 +127,20 @@ export default function PlaybookView() {
   const level: Level = startingLevel(intake);
   const nudged = !!intake.warmUp && level !== (intake.experience ?? 'some');
 
-  const ranked = rankPaths(playbook, { grade, intake });
-  const chosen: Path = playbook.paths.find((p) => p.id === saved.pathId) ?? ranked[0].path;
+  /* The grade's own story (lib/trial/stories) leads the list: a hook, three
+     chapters the child solves, and a cliffhanger into the course. */
+  const story = storyFor(subject, grade);
+  const storyPath = story ? storyAsPath(story) : null;
+  const ranked = [
+    ...(story && storyPath ? [{
+      path: storyPath,
+      score: Infinity,
+      reasons: [story.grade >= 13 ? 'Written for grown-ups' : `Written for Grade ${story.grade}`, 'Ends on a cliffhanger into the course'],
+      offBand: false,
+    }] : []),
+    ...rankPaths(playbook, { grade, intake }),
+  ];
+  const chosen: Path = [...(storyPath ? [storyPath] : []), ...playbook.paths].find((p) => p.id === saved.pathId) ?? ranked[0].path;
   const warmUps = warmUpsFor(playbook, grade);
 
   const [talkLevel, setTalkLevel] = useState<Level | null>(null);
